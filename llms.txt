@@ -1,0 +1,34 @@
+# Latris
+
+> Latris is an evidence-native modelling workbench — a Python CLI plus a
+> FastAPI/WebSocket server backend — where every project is a git repo,
+> evidence and provenance are first-class data, and AI assistance produces
+> human-approved structured proposals. This file maps the documentation
+> for AI agents; humans start at README.md.
+
+## Project
+
+- [README.md](README.md): what Latris is, install, quickstart, and an "For AI agents" quickstart section.
+- [docs/README.md](docs/README.md): documentation index.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to set up a dev environment and submit changes.
+- [LICENSE](LICENSE): Apache-2.0.
+
+## Engineering docs (source of truth for how the system works)
+
+- [docs/engineering/ARCHITECTURE.md](docs/engineering/ARCHITECTURE.md): three-layer architecture (substrate → conceptual → formal views), module layout, the five chokepoint files, CLI↔server boundary contract.
+- [docs/engineering/SCHEMA_NOTES.md](docs/engineering/SCHEMA_NOTES.md): pydantic models ↔ YAML mapping, provenance axes, the on-disk project format.
+- [docs/engineering/GIT_INTEGRATION.md](docs/engineering/GIT_INTEGRATION.md): auto-commit model, identity enforcement, semantic diffs, collaboration model.
+- [docs/engineering/AI_LAYER.md](docs/engineering/AI_LAYER.md): LLM wiring (litellm + instructor + keyring), the closed prompt library, call flow, mock mode (LATRIS_AI_MOCK).
+- [docs/engineering/CLI_REFERENCE.md](docs/engineering/CLI_REFERENCE.md): the full `latris` command catalogue.
+- [docs/engineering/TESTING.md](docs/engineering/TESTING.md): test layers, hermetic test contract, coverage policy.
+
+## The worked example (acceptance test, always current)
+
+- [worked_example/worked_example_output.md](worked_example/worked_example_output.md): generated transcript of every CLI command, end to end — the fastest way to learn the tool's actual behaviour.
+- [worked_example/worked_example.py](worked_example/worked_example.py): the generator; any new user-facing feature must extend it.
+
+## Working rules for agents in this repo
+
+- Read [CLAUDE.md](CLAUDE.md) and [src/latris/CLAUDE.md](src/latris/CLAUDE.md) before editing code.
+- The per-project state directory is `.graph-tooling` — a frozen data-format constant; never rename it.
+- Run tests with `python -m pytest` (parallel by default); regenerate the worked-example transcript with `pytest tests/test_worked_example.py --slow` after changing CLI behaviour.

@@ -1,0 +1,173 @@
+# Latris
+
+**Structure for defensible reasoning.**
+
+Latris is an evidence-native modelling workbench for building defensible
+causal and systems models — structured provenance, challenge workflows,
+git-native versioning, AI-assisted drafting under human approval, and
+report generation.
+
+This repository is the open-source core: the Python package (`latris`),
+its CLI, and the FastAPI + WebSocket server backend. The Latris desktop
+app (React + Electron) is built on top of this package from a separate
+private repository.
+
+- Every modelling project is a **git repo** — every change is an
+  inspectable, reversible commit.
+- Evidence and provenance are **first-class data**, not annotations:
+  citations, assumptions, decisions, challenges, sign-offs.
+- AI assistance returns **structured proposals**, never free-form
+  mutations; a human approves before anything commits.
+- One substrate, many formalisms: qualitative CLD/DAG views today, a
+  built-in discrete **Bayesian Network engine** (state spaces, CPTs with
+  per-cell provenance, exact inference, parameter learning), and more
+  views on the architecture's path.
+
+Status: **alpha** (0.3.1). Apache-2.0 licensed.
+
+## Prerequisites
+
+- **Python 3.11+** on PATH
+- **git 2.40+** on PATH, with `user.name` and `user.email` configured
+  globally (Latris commits as you, and enforces that identity)
+
+## Install
+
+From PyPI (once published):
+
+```bash
+pip install "latris[server,data]"
+latris --version
+latris doctor          # verify git + identity
+```
+
+From source:
+
+```bash
+git clone https://github.com/Shannon-Bengtson/latris.git
+cd latris
+python -m venv .venv
+# Windows: .venv\Scripts\activate   —   mac/linux: source .venv/bin/activate
+pip install -e ".[server,data,dev]"
+latris doctor
+```
+
+Optional extras:
+
+| Extra | Brings in | For |
+|-------|-----------|-----|
+| `server` | FastAPI, uvicorn, pandas, scipy, pgmpy | The API server (`python -m latris.server`) |
+| `data` | pandas, scipy | Dataset wrangling and statistics |
+| `quant` | pgmpy | Quantitative inference (also in `server`) |
+| `dev` | pytest, xdist, ruff, build | Running the test suite |
+
+## Quickstart
+
+```bash
+# 1. Create a project (a git repo with the full model structure)
+latris init air-quality --question "What drives urban air quality?"
+
+cd air-quality
+
+# 2. Build a model: nodes, then edges
+latris node add "Traffic volume" --kind variable
+latris node add "NO2 concentration" --kind variable
+latris edge add <traffic-id> <no2-id> --kind causal
+
+# 3. Inspect — every step above was a git commit
+latris status
+latris log
+
+# 4. Export
+latris export md --output reports/report.md
+latris export dot --view cld --output reports/model.dot
+```
+
+The full command catalogue is in
+[`docs/engineering/CLI_REFERENCE.md`](docs/engineering/CLI_REFERENCE.md).
+
+## Run the API server
+
+```bash
+python -m latris.server --project-root ./air-quality
+```
+
+Serves the full CRUD/AI/export API on **http://127.0.0.1:8741** (the
+same backend the Latris desktop app embeds). `--help` lists flags.
+
+## AI layer (optional, bring your own key)
+
+AI calls go through a vendor-agnostic adapter (litellm + instructor);
+secrets live in your OS keyring, never on disk:
+
+```bash
+latris ai key set anthropic      # or openai / gemini / groq / ...
+latris ai config show            # default model lives in .graph-tooling/ai_config.yaml
+```
+
+Set `LATRIS_AI_MOCK=1` to stub all AI calls (used by the test suite and
+CI; the pre-rename `GRAPH_TOOLING_AI_MOCK` is still honoured for one
+release).
+
+## Tests
+
+```bash
+python -m pytest              # full suite, parallel via pytest-xdist
+python -m pytest -n0          # serial, for clean tracebacks
+python -m pytest tests/test_worked_example.py --slow   # acceptance test (regenerates the transcript)
+```
+
+## Documentation
+
+- [`docs/README.md`](docs/README.md) — documentation index
+- [`docs/engineering/ARCHITECTURE.md`](docs/engineering/ARCHITECTURE.md) — how it's built
+- [`docs/engineering/CLI_REFERENCE.md`](docs/engineering/CLI_REFERENCE.md) — command catalogue
+- [`worked_example/worked_example_output.md`](worked_example/worked_example_output.md) — a full end-to-end session transcript
+- [`llms.txt`](llms.txt) — machine-readable doc map for AI agents
+
+## License
+
+[Apache-2.0](LICENSE) — Copyright (c) 2026 Shannon Bengtson.
+
+---
+
+## For AI agents
+
+You are working with **Latris**, an evidence-native causal-modelling
+CLI + API server. Treat the engineering docs as the source of truth:
+start from [`llms.txt`](llms.txt) and
+[`docs/README.md`](docs/README.md).
+
+Setup (one shot):
+
+```bash
+pip install "latris[server,data]"
+```
+
+Minimal working session (init → node → edge → export → history):
+
+```bash
+latris init demo --question "Does X cause Y in context Z?"
+cd demo
+latris node add "X" --kind variable
+latris node add "Y" --kind variable
+latris edge add <x-id> <y-id> --kind causal   # IDs from the node add output
+latris export md --output reports/report.md
+latris log                                     # every mutation is a git commit
+```
+
+The complete, always-current demonstration of every command is the
+worked example:
+[`worked_example/worked_example_output.md`](worked_example/worked_example_output.md)
+(generated by `worked_example/worked_example.py`; the generator is the
+repo's acceptance test). Read it before asking the user how the tool
+behaves — and after changing CLI behaviour, regenerate it
+(`pytest tests/test_worked_example.py --slow`) and commit the updated
+transcript.
+
+Hard rules when modifying this repo: no business logic in `cli/` (one
+parse + one call into `operations/` + one print); respect the five
+chokepoints (`repo/git.py`, `repo/yaml_io.py`, `repo/layout.py`,
+`operations/commit.py`, `schema/ids.py`); no AI-authored commits; no
+secrets on disk. See [`CLAUDE.md`](CLAUDE.md) and
+[`src/latris/CLAUDE.md`](src/latris/CLAUDE.md).
