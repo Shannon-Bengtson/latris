@@ -107,6 +107,9 @@ include = [
     "/LICENSE",
     "/pyproject.toml",
 ]
+# Demo data lives under gitignore patterns (projects/, sample_data.csv) but
+# belongs in the sdist; force-include bypasses ignore rules for these paths.
+force-include = { "projects" = "projects" }
 
 [tool.ruff]
 line-length = 120
