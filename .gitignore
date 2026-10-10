@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual envs
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Sample data
+sample_data.csv
+
+# Project
+*.log
+logs/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytest-run/
+.pytest-tmp/
+.pytest-tmp-*/
+pytest-cache-files-*/
+
+# Claude Code local settings
+.claude/
+
+# Demo / scratch modelling projects (each has its own git repo)
+projects/
+demo-project/
+
+# Build artefacts
+dist/
+
+# Inside an initialised modelling project (latris init):
+#   generated exports and layout files are not source of truth.
+reports/exports/
+layout/*.layout.yaml
+# Per-reference full-text artefacts (Phase 4b retrieval). Derived
+# content; the SourceSnapshot metadata in references.yaml is the
+# git-tracked record of when/where it was fetched.
+ai/reference-extracts/

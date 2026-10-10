@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ doc.title }}</title>
+<style>
+{{ theme_css | safe }}
+{% if brand and brand.accent %}:root{ --story-accent: {{ brand.accent }}; }{% endif %}
+{% if brand and brand.font %}body{ font-family: {{ brand.font }}, sans-serif; }{% endif %}
+</style>
+</head>
+<body>
+<noscript>
+  <div class="story-noscript">This is an interactive story — turn on JavaScript for the guided, scrolling version. The full content is shown below regardless.</div>
+</noscript>
+
+<header class="story-hero">
+  {% if logo_data %}<img class="story-logo" src="{{ logo_data }}" alt="logo">{% endif %}
+  <h1>{{ doc.title }}</h1>
+  {% if doc.standfirst %}<p class="story-standfirst">{{ doc.standfirst }}</p>{% endif %}
+  {% if title_image_data %}
+    <img class="story-hero-image" src="{{ title_image_data }}" alt="{{ doc.title_image.alt }}">
+    {% if doc.title_image.caption %}<p class="story-caption">{{ doc.title_image.caption }}</p>{% endif %}
+  {% endif %}
+</header>
+
+<main class="story-scrolly">
+  <div class="story-graphic">
+    <div id="story-diagram">
+      {% if svg %}{{ svg | safe }}{% else %}
+        <div class="story-diagram-fallback">
+          <p><strong>How the model connects</strong></p>
+          <ul>
+          {% for src, dst, kind in fallback_edges %}<li>{{ src }} &rarr; {{ dst }} <em>({{ kind }})</em></li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="story-steps">
+    {% for beat in beats %}
+    <section class="beat" data-step="{{ loop.index0 }}" data-nodes="{{ beat.node_csv }}" data-edges="{{ beat.edge_csv }}">
+      {% if beat.title %}<h2>{{ beat.title }}</h2>{% endif %}
+      {% for para in beat.paragraphs %}<p>{{ para }}</p>{% endfor %}
+      {% if not beat.paragraphs %}<p class="story-muted"><em>(no narrative yet)</em></p>{% endif %}
+      {% if beat.show_confidence %}
+        <div class="story-confidence">
+          {% if coverage_pct is not none %}Evidence coverage for this model: {{ coverage_pct }}%.{% else %}This section reflects how confident the model is — and where it isn't.{% endif %}
+        </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+</main>
+
+<footer class="story-footer">
+  <p>Generated from the <strong>{{ doc.model_type }}</strong> model{% if source_commit %}, version <code>{{ source_commit }}</code>{% endif %} on {{ export_date }}.</p>
+  <p>Every claim in this story traces to evidence in the source model.</p>
+</footer>
+
+<script type="application/json" id="story-manifest">{{ manifest | safe }}</script>
+<script>{{ scrollama_js | safe }}</script>
+<script>
+(function(){
+  if (typeof scrollama === "undefined") return;
+  var svg = document.getElementById("story-diagram");
+  function setEmphasis(nodes, edges){
+    if(!svg) return;
+    var ids = {};
+    nodes.concat(edges).forEach(function(i){ if(i){ ids[i] = 1; } });
+    var any = Object.keys(ids).length > 0;
+    var groups = svg.querySelectorAll("g.node, g.edge");
+    Array.prototype.forEach.call(groups, function(g){
+      g.classList.remove("story-emph", "story-dim");
+      if(!any){ return; }
+      if(ids[g.id]){ g.classList.add("story-emph"); } else { g.classList.add("story-dim"); }
+    });
+  }
+  var scroller = scrollama();
+  scroller.setup({ step: ".beat", offset: 0.6 }).onStepEnter(function(resp){
+    var el = resp.element;
+    var nodes = (el.getAttribute("data-nodes") || "").split(",").filter(Boolean);
+    var edges = (el.getAttribute("data-edges") || "").split(",").filter(Boolean);
+    setEmphasis(nodes, edges);
+  });
+  window.addEventListener("resize", scroller.resize);
+})();
+</script>
+</body>
+</html>
