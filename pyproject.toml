@@ -91,6 +91,8 @@ path = "src/latris/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/latris"]
+# Agent-facing instructions belong in the repo/sdist, not the installed package.
+exclude = ["**/CLAUDE.md"]
 
 [tool.hatch.build.targets.sdist]
 include = [
