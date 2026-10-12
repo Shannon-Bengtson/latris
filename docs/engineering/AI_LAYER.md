@@ -128,6 +128,7 @@ src/latris/ai/
 ├── chain_runner.py     # step-at-a-time chain session execution
 ├── interactions.py     # JSONL log append/read/approval
 ├── call.py             # end-to-end orchestrator (RESPONSE_MODELS dict, 46 entries)
+├── delegated.py        # bring-your-own-agent: task packages + external-answer ingestion
 └── adapters/
     ├── base.py         # ChatAdapter Protocol + ChatResult dataclass
     ├── mock_adapter.py # canned-response backend for tests and LATRIS_AI_MOCK=1
@@ -209,6 +210,47 @@ require_project()
 
 The orchestrator never commits directly. Every mutation path goes through an
 existing `operations/*` function that already owns the auto-commit contract.
+
+## Delegated calls (bring your own agent)
+
+An external terminal agent (Claude Code, Kimi, …) can answer any of the 46
+closed prompts **without an API key**. Two CLI commands wrap the same
+pipeline:
+
+```
+latris ai task emit ExplainThisElement --inputs '{"target_id": "…"}' \
+    --output task.json          # self-contained task package, or stdout
+# …the agent answers task.json with JSON matching response_schema…
+latris ai task apply --task task.json --from response.json [--actor NAME] [--yes]
+```
+
+- **emit** (`delegated.build_task_package`) assembles
+  `{task_version, prompt_name, title, intent, scope, inputs, system, user,
+  response_schema, instructions}` — prompt metadata, the assembled context,
+  and the prompt's pydantic response schema. It reads the project but writes
+  nothing: no adapter call, no interaction log, no credentials, and
+  `LATRIS_AI_MOCK` is irrelevant.
+- **apply** (`delegated.finalize_delegated`) reads `prompt_name`/`inputs`
+  back from the task file (single source of truth), validates the agent's
+  answer with the same pydantic guarantee instructor provides
+  (`response_model.model_validate_json`), then runs `call._finalize_call` —
+  the exact render → human-approve → apply → interaction-log pipeline that
+  adapter responses use. Read-only prompts keep their no-confirm branch;
+  mutating prompts keep the `[y/N]` gate.
+- **Attribution:** the interaction's `model_id` is `external-agent` (or
+  `external-agent:<name>` with `--actor`); `approved_by` remains the human
+  who ran the apply. `token_usage` is `{}` and `cost_usd` is `None` — both
+  already tolerated by the `AIInteraction` schema, so no schema change was
+  needed.
+- **Failures:** a schema-invalid answer is recorded as an
+  `adoption="failed"` interaction (`error_class` set, raw excerpt run through
+  `redact_secrets`) and the command exits 1. No auto-repair — the agent
+  fixes its answer and resubmits.
+
+Refactor seam: the post-parse half of `call.run_call` (render → branches →
+log/approval) is extracted into `call._finalize_call` so both the adapter
+path and the delegated path share one implementation. The adapter phase
+(credentials, model resolution, `adapter.chat`) stays in `run_call` only.
 
 ## Proposal layer
 

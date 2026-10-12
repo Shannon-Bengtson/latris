@@ -114,6 +114,13 @@ Set `LATRIS_AI_MOCK=1` to stub all AI calls (used by the test suite and
 CI; the pre-rename `GRAPH_TOOLING_AI_MOCK` is still honoured for one
 release).
 
+Working from an agent (Claude Code, Kimi, …) with no API key?
+`latris ai task emit <prompt> --inputs '<json>'` produces a self-contained
+task package your agent can answer; `latris ai task apply --task task.json
+--from response.json` ingests the answer through the same human-approval
+pipeline (recorded as `external-agent`). See
+[docs/engineering/AI_LAYER.md](docs/engineering/AI_LAYER.md).
+
 ## Tests
 
 ```bash

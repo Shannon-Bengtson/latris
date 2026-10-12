@@ -289,10 +289,15 @@ latris ai call research-gaps
 latris ai call steelman
 latris ai call project-view
 
+latris ai task emit <prompt-name> --inputs '<json>' [--output task.json]  # self-contained task package for an external agent (no API key)
+latris ai task apply --task task.json --from response.json [--actor NAME] [--yes]  # ingest the agent's answer through the standard approval pipeline
+
 latris ai interactions list
 latris ai interactions show <interaction-id>
 ```
 
 All canonical AI operations are wired through structured response models and
 the proposal/approval layer. Mutation prompts commit only after human
-approval.
+approval. `ai task emit`/`ai task apply` let an external terminal agent
+answer any prompt without an API key — the answer flows through the same
+approval pipeline and is attributed to `external-agent[:name]`.

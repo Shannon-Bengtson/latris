@@ -19,7 +19,7 @@
 - [docs/engineering/ARCHITECTURE.md](docs/engineering/ARCHITECTURE.md): three-layer architecture (substrate → conceptual → formal views), module layout, the five chokepoint files, CLI↔server boundary contract.
 - [docs/engineering/SCHEMA_NOTES.md](docs/engineering/SCHEMA_NOTES.md): pydantic models ↔ YAML mapping, provenance axes, the on-disk project format.
 - [docs/engineering/GIT_INTEGRATION.md](docs/engineering/GIT_INTEGRATION.md): auto-commit model, identity enforcement, semantic diffs, collaboration model.
-- [docs/engineering/AI_LAYER.md](docs/engineering/AI_LAYER.md): LLM wiring (litellm + instructor + keyring), the closed prompt library, call flow, mock mode (LATRIS_AI_MOCK).
+- [docs/engineering/AI_LAYER.md](docs/engineering/AI_LAYER.md): LLM wiring (litellm + instructor + keyring), the closed prompt library, call flow, mock mode (LATRIS_AI_MOCK), delegated invocation for external agents (`ai task emit`/`ai task apply` — no API key).
 - [docs/engineering/CLI_REFERENCE.md](docs/engineering/CLI_REFERENCE.md): the full `latris` command catalogue.
 - [docs/engineering/TESTING.md](docs/engineering/TESTING.md): test layers, hermetic test contract, coverage policy.
 
