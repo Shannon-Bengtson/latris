@@ -9,6 +9,7 @@
 ## Project
 
 - [README.md](README.md): what Latris is, install, quickstart, and an "For AI agents" quickstart section.
+- [latris.app](https://latris.app): the product website — the desktop GUI (invite-only early access); this repo is the open backend that powers it.
 - [docs/README.md](docs/README.md): documentation index.
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to set up a dev environment and submit changes.
 - [LICENSE](LICENSE): Apache-2.0.

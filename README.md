@@ -12,6 +12,11 @@ its CLI, and the FastAPI + WebSocket server backend. The Latris desktop
 app (React + Electron) is built on top of this package from a separate
 private repository.
 
+**New here?** The Latris product — a desktop app for modellers and for
+the people who must weigh in on their models — lives at
+[latris.app](https://latris.app) (invite-only early access). This
+repository is the open backend that powers it.
+
 - Every modelling project is a **git repo** — every change is an
   inspectable, reversible commit.
 - Evidence and provenance are **first-class data**, not annotations:
@@ -33,7 +38,7 @@ Status: **alpha** (0.3.1). Apache-2.0 licensed.
 
 ## Install
 
-From PyPI (once published):
+From PyPI:
 
 ```bash
 pip install "latris[server,data]"
