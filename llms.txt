@@ -28,6 +28,10 @@
 - [worked_example/worked_example_output.md](worked_example/worked_example_output.md): generated transcript of every CLI command, end to end — the fastest way to learn the tool's actual behaviour.
 - [worked_example/worked_example.py](worked_example/worked_example.py): the generator; any new user-facing feature must extend it.
 
+## Delegated AI invocation (no API key in this environment?)
+
+- Any of the 46 closed prompts can be answered by you, the agent, instead of a vendor API: `latris ai task emit <PromptName> --inputs '<json>'` writes a self-contained task package (system + user context + response JSON schema). Answer with JSON matching `response_schema`, then have the human run `latris ai task apply --task task.json --from response.json`. Validation, approval gates, and provenance are identical to API calls; the interaction logs `model_id` as `external-agent[:name]`. See [docs/engineering/AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls (bring your own agent)".
+
 ## Working rules for agents in this repo
 
 - Read [CLAUDE.md](CLAUDE.md) and [src/latris/CLAUDE.md](src/latris/CLAUDE.md) before editing code.

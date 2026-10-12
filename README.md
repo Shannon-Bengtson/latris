@@ -100,7 +100,7 @@ python -m latris.server --project-root ./air-quality
 Serves the full CRUD/AI/export API on **http://127.0.0.1:8741** (the
 same backend the Latris desktop app embeds). `--help` lists flags.
 
-## AI layer (optional, bring your own key)
+## AI layer (bring your own key — or your own agent)
 
 AI calls go through a vendor-agnostic adapter (litellm + instructor);
 secrets live in your OS keyring, never on disk:
@@ -149,6 +149,15 @@ You are working with **Latris**, an evidence-native causal-modelling
 CLI + API server. Treat the engineering docs as the source of truth:
 start from [`llms.txt`](llms.txt) and
 [`docs/README.md`](docs/README.md).
+
+**You can be the model.** If no API key is configured, don't stop — any
+of the 46 AI prompts can be delegated to you:
+`latris ai task emit <PromptName> --inputs '<json>'` writes a task
+package (prompt + project context + response schema); answer it as
+JSON, then the human runs
+`latris ai task apply --task task.json --from response.json`. Same
+approval gates; the interaction is recorded as `external-agent`. See
+[AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls".
 
 Setup (one shot):
 
