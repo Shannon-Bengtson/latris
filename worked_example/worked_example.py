@@ -1098,6 +1098,48 @@ def build_example(ex: WorkedExample) -> None:
         "via an http_get injection seam."
     )
 
+    # ── 8.6 Delegated calls (bring your own agent) ────────────────────
+    ex.section(
+        "Delegated AI Calls (bring your own agent)",
+        "An external terminal agent (Claude Code, Kimi, …) can answer any "
+        "prompt WITHOUT an API key: `ai task emit` writes a self-contained "
+        "task package (prompt metadata, assembled context, output JSON "
+        "schema); the agent answers with schema-matching JSON; `ai task "
+        "apply` ingests the answer through the same validate → approve → "
+        "apply → interaction-log pipeline as `ai call` — same human approval "
+        "gates, interaction attributed to `external-agent`.",
+    )
+    ex.note(
+        "Emit the task package. Nothing is written to the project and no "
+        "credentials are needed, so this step works in a clean checkout."
+    )
+    ex.run(["ai", "task", "emit", "ExplainThisElement",
+            "--inputs", '{"target_id": "' + nids["Vehicle Emissions"] + '"}',
+            "--output", "delegated-task.json"])
+
+    ex.note(
+        "The external agent answers with JSON matching the task package's "
+        "response_schema. SIMULATED here — the worked example runs with "
+        "mock AI, so this hand-written file stands in for the agent's "
+        "reply. The apply path below is the real production pipeline."
+    )
+    _agent_response = ex.root / "agent-response.json"
+    _agent_response.write_text(
+        '{"explanation": "'
+        "(simulated external-agent answer) Vehicle Emissions is the "
+        "primary driver node: it is the upstream source of the two "
+        "pollution-mediated pathways and is itself directly levered by "
+        "Transport Policy."
+        '", "referenced_ids": ["' + nids["Vehicle Emissions"] + '"]}',
+        encoding="utf-8",
+    )
+    ex.run(["ai", "task", "apply", "--task", "delegated-task.json",
+            "--from", "agent-response.json", "--actor", "demo-agent"])
+
+    ex.note("Remove the task/response scratch files.")
+    _agent_response.unlink()
+    (ex.root / "delegated-task.json").unlink()
+
     ex.run(["ai", "interactions", "list"])
 
     # ── 9. Views & mappings ───────────────────────────────────────────

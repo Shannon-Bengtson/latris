@@ -34,6 +34,7 @@ from latris.ai import prompts as prompt_lib
 from latris.ai.adapters import get_adapter
 from latris.ai.adapters.base import ChatResult, LLMCallError
 from latris.ai.context import ContextPack, build_context
+from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 
 
@@ -275,6 +276,47 @@ def run_call(
         raise
 
     parsed = result.parsed
+    return _finalize_call(
+        prompt_name=prompt_name,
+        inputs=inputs,
+        context=context,
+        parsed=parsed,
+        raw=result.raw,
+        model_id=result.model_id,
+        token_usage=result.token_usage,
+        cost_usd=result.cost_usd,
+        approver=approver,
+        confirm=confirm,
+        render=render,
+        preview_only=preview_only,
+        paths=paths,
+    )
+
+
+def _finalize_call(
+    *,
+    prompt_name: str,
+    inputs: dict[str, Any],
+    context: ContextPack,
+    parsed: BaseModel,
+    raw: str | None,
+    model_id: str,
+    token_usage: dict[str, Any],
+    cost_usd: float | None,
+    approver: Any,  # HumanActor — avoid schema import cycles
+    confirm: callable,  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
+    render: callable,  # def render(parsed: BaseModel) -> str
+    preview_only: bool,
+    paths: ProjectPaths,
+) -> CallOutcome:
+    """Shared post-parse pipeline: render → preview/read-only/mutating branch
+    → record_interaction → set_adoption.
+
+    Called by ``run_call`` for adapter responses and by
+    ``delegated.finalize_delegated`` for external-agent responses. It never
+    touches the adapter, credentials, or model config — the caller owns that
+    phase and passes the parse outcome plus attribution fields.
+    """
     rendered = render(parsed)
 
     # Preview mode: for mutation prompts, log as pending and return proposal
@@ -288,24 +330,24 @@ def run_call(
         record, _ = inter_ops.record_interaction(
             prompt_name=prompt_name,
             prompt_inputs=inputs,
-            model_id=result.model_id,
+            model_id=model_id,
             response_summary=_summarise(parsed, rendered),
             response_full=parsed.model_dump_json(),
             target_ids=context.target_ids,
             related_attributes=context.related_attributes,
-            token_usage=result.token_usage,
-            cost_usd=result.cost_usd,
+            token_usage=token_usage,
+            cost_usd=cost_usd,
             root=paths.root,
         )
         # Leave adoption as "pending" — no set_adoption call.
         return CallOutcome(
             prompt_name=prompt_name,
-            model=result.model_id,
+            model=model_id,
             interaction_id=record.id,
             adoption="pending",
             applied_ids=[],
-            cost_usd=result.cost_usd,
-            token_usage=result.token_usage,
+            cost_usd=cost_usd,
+            token_usage=token_usage,
             rendered=rendered,
             proposal_json=proposal_json,
         )
@@ -316,13 +358,13 @@ def run_call(
         record, _ = inter_ops.record_interaction(
             prompt_name=prompt_name,
             prompt_inputs=inputs,
-            model_id=result.model_id,
+            model_id=model_id,
             response_summary=_summarise(parsed, rendered),
-            response_full=result.raw or rendered,
+            response_full=raw or rendered,
             target_ids=context.target_ids,
             related_attributes=context.related_attributes,
-            token_usage=result.token_usage,
-            cost_usd=result.cost_usd,
+            token_usage=token_usage,
+            cost_usd=cost_usd,
             root=paths.root,
         )
         # Read-only results land as "approved" (the content of the log entry
@@ -335,12 +377,12 @@ def run_call(
         )
         return CallOutcome(
             prompt_name=prompt_name,
-            model=result.model_id,
+            model=model_id,
             interaction_id=record.id,
             adoption="approved",
             applied_ids=[],
-            cost_usd=result.cost_usd,
-            token_usage=result.token_usage,
+            cost_usd=cost_usd,
+            token_usage=token_usage,
             rendered=rendered,
             proposal_json=parsed.model_dump(mode="json"),
         )
@@ -356,9 +398,9 @@ def run_call(
             record, _ = inter_ops.record_interaction(
                 prompt_name=prompt_name,
                 prompt_inputs=inputs,
-                model_id=result.model_id,
+                model_id=model_id,
                 response_summary=f"refused by safety rail: {exc}",
-                response_full=result.raw or rendered,
+                response_full=raw or rendered,
                 target_ids=context.target_ids,
                 related_attributes=context.related_attributes,
                 root=paths.root,
@@ -373,14 +415,14 @@ def run_call(
         record, _ = inter_ops.record_interaction(
             prompt_name=prompt_name,
             prompt_inputs=inputs,
-            model_id=result.model_id,
+            model_id=model_id,
             response_summary=_summarise(parsed, rendered),
-            response_full=result.raw or rendered,
+            response_full=raw or rendered,
             target_ids=context.target_ids,
             related_attributes=context.related_attributes,
             proposal_ids=applied_ids,
-            token_usage=result.token_usage,
-            cost_usd=result.cost_usd,
+            token_usage=token_usage,
+            cost_usd=cost_usd,
             root=paths.root,
         )
         inter_ops.set_adoption(
@@ -391,12 +433,12 @@ def run_call(
         )
         return CallOutcome(
             prompt_name=prompt_name,
-            model=result.model_id,
+            model=model_id,
             interaction_id=record.id,
             adoption="approved",
             applied_ids=applied_ids,
-            cost_usd=result.cost_usd,
-            token_usage=result.token_usage,
+            cost_usd=cost_usd,
+            token_usage=token_usage,
             rendered=rendered,
         )
 
@@ -404,9 +446,9 @@ def run_call(
     record, _ = inter_ops.record_interaction(
         prompt_name=prompt_name,
         prompt_inputs=inputs,
-        model_id=result.model_id,
+        model_id=model_id,
         response_summary=_summarise(parsed, rendered),
-        response_full=result.raw or rendered,
+        response_full=raw or rendered,
         target_ids=context.target_ids,
         related_attributes=context.related_attributes,
         root=paths.root,
@@ -419,12 +461,12 @@ def run_call(
     )
     return CallOutcome(
         prompt_name=prompt_name,
-        model=result.model_id,
+        model=model_id,
         interaction_id=record.id,
         adoption="rejected",
         applied_ids=[],
-        cost_usd=result.cost_usd,
-        token_usage=result.token_usage,
+        cost_usd=cost_usd,
+        token_usage=token_usage,
         rendered=rendered,
     )
 

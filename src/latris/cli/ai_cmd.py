@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -9,6 +10,7 @@ from rich.table import Table
 from latris.ai import call as call_module
 from latris.ai import config as ai_config
 from latris.ai import credentials as creds
+from latris.ai import delegated as delegated_module
 from latris.ai import interactions as inter_ops
 from latris.ai import prompts as prompt_lib
 from latris.ai.render import render as ai_render
@@ -32,11 +34,16 @@ interactions_app = typer.Typer(
 key_app = typer.Typer(help="Manage API keys (stored in OS keyring).", no_args_is_help=True)
 config_app = typer.Typer(help="Project-level AI defaults.", no_args_is_help=True)
 call_app = typer.Typer(help="Run an AI prompt against the current project.", no_args_is_help=True)
+task_app = typer.Typer(
+    help="Delegated AI tasks — answer Latris prompts with an external agent (no API key needed).",
+    no_args_is_help=True,
+)
 app.add_typer(prompts_app, name="prompts")
 app.add_typer(interactions_app, name="interactions")
 app.add_typer(key_app, name="key")
 app.add_typer(config_app, name="config")
 app.add_typer(call_app, name="call")
+app.add_typer(task_app, name="task")
 
 
 # ---------- prompts ----------
@@ -325,34 +332,9 @@ def _confirm_fn(assume_yes: bool):
     return ask
 
 
-def _run(
-    *,
-    prompt_name: str,
-    inputs: dict,
-    model: str | None,
-    assume_yes: bool,
-    dry_run: bool,
-) -> None:
-    approver = _resolve_approver()
-
-    def render_parsed(parsed):
-        return ai_render(prompt_name, parsed)
-
-    outcome = call_module.run_call(
-        prompt_name=prompt_name,
-        inputs=inputs,
-        model_override=model,
-        approver=approver,
-        confirm=_confirm_fn(assume_yes),
-        render=render_parsed,
-        dry_run=dry_run,
-    )
-
-    if dry_run:
-        console.print("[yellow]dry-run[/yellow] — no adapter call, no log write.")
-        console.print(outcome.applied_ids[0] if outcome.applied_ids else "(empty)")
-        return
-
+def _print_call_outcome(*, prompt_name: str, outcome: call_module.CallOutcome) -> None:
+    """Print the shared post-call summary: prose for read-only/hybrid prompts,
+    then the adoption line with interaction id, model, and cost."""
     # For read-only and hybrid prompts, the rendered prose IS part of the
     # deliverable (read-only: prose only; hybrid: prose + bounded mutation).
     # Print it before the outcome summary so the user sees the critique,
@@ -383,6 +365,37 @@ def _run(
             f"[yellow]rejected[/yellow] · interaction [cyan]{outcome.interaction_id[:20]}…[/cyan]"
             f" · model [magenta]{outcome.model}[/magenta] · cost {cost}"
         )
+
+
+def _run(
+    *,
+    prompt_name: str,
+    inputs: dict,
+    model: str | None,
+    assume_yes: bool,
+    dry_run: bool,
+) -> None:
+    approver = _resolve_approver()
+
+    def render_parsed(parsed):
+        return ai_render(prompt_name, parsed)
+
+    outcome = call_module.run_call(
+        prompt_name=prompt_name,
+        inputs=inputs,
+        model_override=model,
+        approver=approver,
+        confirm=_confirm_fn(assume_yes),
+        render=render_parsed,
+        dry_run=dry_run,
+    )
+
+    if dry_run:
+        console.print("[yellow]dry-run[/yellow] — no adapter call, no log write.")
+        console.print(outcome.applied_ids[0] if outcome.applied_ids else "(empty)")
+        return
+
+    _print_call_outcome(prompt_name=prompt_name, outcome=outcome)
 
 
 @call_app.command("explain")
@@ -731,3 +744,89 @@ def call_run(
     if not isinstance(inputs, dict):
         raise typer.BadParameter(f"--inputs must be a JSON object (got {type(inputs).__name__})")
     _run(prompt_name=prompt, inputs=inputs, model=model, assume_yes=yes, dry_run=dry_run)
+
+
+# ---------- task (delegated calls — bring your own agent) ----------
+
+
+def _task_prompt_name(task_path: str) -> str:
+    """Read the prompt name from a task package file (parse-level peek so the
+    render closure and the outcome summary know which prompt they serve; the
+    authoritative validation happens in delegated.load_task)."""
+    data = json.loads(Path(task_path).read_text(encoding="utf-8"))
+    prompt_name = data.get("prompt_name") if isinstance(data, dict) else None
+    if not isinstance(prompt_name, str) or not prompt_name:
+        raise typer.BadParameter(f"task file {task_path} is missing a 'prompt_name' string")
+    return prompt_name
+
+
+@task_app.command("emit")
+@handle_cli_errors
+def task_emit(
+    prompt: str = typer.Argument(..., help="Prompt name from PROMPT_LIBRARY (e.g. ExplainThisElement)."),
+    inputs_json: str = typer.Option("{}", "--inputs", "-i", help="JSON object of prompt inputs."),
+    output: str = typer.Option(None, "--output", "-o", help="Write the task package here (default: stdout)."),
+) -> None:
+    """Emit a self-contained task package for an external agent to answer.
+
+    Writes nothing to the project — no adapter call, no log entry, no API key
+    needed. Hand the JSON to your agent; ingest its answer with
+    `latris ai task apply`.
+    """
+    if prompt not in prompt_lib.PROMPT_LIBRARY:
+        known = ", ".join(sorted(prompt_lib.PROMPT_LIBRARY.keys())[:6]) + ", …"
+        raise typer.BadParameter(
+            f"unknown prompt: {prompt!r}. Try `latris ai prompts list`. Known: {known}"
+        )
+    try:
+        inputs = json.loads(inputs_json) if inputs_json else {}
+    except json.JSONDecodeError as e:
+        raise typer.BadParameter(f"--inputs must be valid JSON: {e}")  # noqa: B904
+    if not isinstance(inputs, dict):
+        raise typer.BadParameter(f"--inputs must be a JSON object (got {type(inputs).__name__})")
+    package = delegated_module.build_task_package(prompt, inputs)
+    text = json.dumps(package, indent=2, ensure_ascii=False)
+    if output:
+        out_path = Path(output)
+        out_path.write_text(text + "\n", encoding="utf-8")
+        console.print(f"[green]task written[/green] → {out_path}")
+    else:
+        # typer.echo, not console.print: rich would word-wrap long JSON lines
+        # (sometimes inside string literals) and interpret [...] sequences.
+        typer.echo(text)
+
+
+@task_app.command("apply")
+@handle_cli_errors
+def task_apply(
+    task: str = typer.Option(..., "--task", "-t", help="Task package file from `latris ai task emit`."),
+    response: str = typer.Option(..., "--from", help="The agent's response JSON file."),
+    actor: str = typer.Option(
+        None,
+        "--actor",
+        help="Agent name for attribution (model_id becomes external-agent:<name>).",
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Approve mutating proposals without prompting."),
+) -> None:
+    """Apply an external agent's answer through the standard approval pipeline.
+
+    The prompt name and inputs are read back from the task file. The answer is
+    validated against the prompt's response schema, then flows through the same
+    render → human-approve → apply → interaction-log pipeline as
+    `latris ai call run`: read-only prompts need no confirmation; mutating
+    prompts prompt [y/N] unless --yes.
+    """
+    prompt_name = _task_prompt_name(task)
+
+    def render_parsed(parsed):
+        return ai_render(prompt_name, parsed)
+
+    outcome = delegated_module.finalize_delegated(
+        task_path=task,
+        response_path=response,
+        actor=actor,
+        approver=_resolve_approver(),
+        confirm=_confirm_fn(yes),
+        render=render_parsed,
+    )
+    _print_call_outcome(prompt_name=prompt_name, outcome=outcome)
