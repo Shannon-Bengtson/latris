@@ -107,6 +107,19 @@ class TestRender:
         html = review_html.render(paths)
         assert 'id="status-bar"' in html
 
+    def test_includes_footer_badge(self, project):
+        """Discreet 'Made with Latris' footer link; plain anchor markup that
+        must not disturb the annotation JS or the embedded manifest script."""
+        paths = ProjectPaths(project)
+        html = review_html.render(paths)
+        assert 'class="badge-footer"' in html
+        assert "Made with Latris" in html
+        assert 'href="https://latris.app/?utm_source=latris-export&utm_medium=badge"' in html
+        # Badge sits before the status bar / scripts, after the review form.
+        badge_idx = html.index('class="badge-footer"')
+        assert badge_idx < html.index('id="status-bar"')
+        assert badge_idx > html.index('id="save-review-btn"')
+
     def test_includes_project_level_feedback(self, project):
         paths = ProjectPaths(project)
         html = review_html.render(paths)

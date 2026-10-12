@@ -73,9 +73,23 @@ def test_renders_self_contained_html(story_with_prose) -> None:
     assert f'data-nodes="{a.id},{b.id}"' in html
     assert f'data-edges="{e1.id},{e2.id}"' in html
 
-    # Self-contained: no externally-loaded resources
+    # Self-contained: no externally-loaded resources. The only external href
+    # is the "Made with Latris" footer badge, which loads nothing until clicked.
     assert 'src="http' not in html
-    assert 'href="http' not in html
+    assert html.count('href="http') == 1
+    assert 'href="https://latris.app/?utm_source=latris-export&utm_medium=badge"' in html
+
+
+def test_footer_badge_outside_scroll_sections(story_with_prose) -> None:
+    """The badge lives in the footer, after </main>, so Scrollama's step
+    layout is untouched and the badge still renders in the noscript/degraded
+    view (plain HTML, no JS required)."""
+    paths, *_ = story_with_prose
+    html = story_html.render(paths, "cld")
+    assert 'class="story-badge"' in html
+    assert "Made with Latris" in html
+    assert 'href="https://latris.app/?utm_source=latris-export&utm_medium=badge"' in html
+    assert html.index('class="story-badge"') > html.index("</main>")
 
 
 def test_unknown_model_type_raises(story_with_prose) -> None:

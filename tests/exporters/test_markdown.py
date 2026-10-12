@@ -228,3 +228,12 @@ def test_markdown_write_to_file(rich_project: Path) -> None:
     md.write(paths, target)
     assert target.is_file()
     assert "Does X cause Y?" in target.read_text(encoding="utf-8")
+
+
+def test_markdown_footer_badge(rich_project: Path) -> None:
+    """Report ends with a horizontal rule + italic 'Made with Latris' line."""
+    paths = ProjectPaths(rich_project)
+    out = md.render(paths)
+    badge_line = "*Made with Latris — https://latris.app/?utm_source=latris-export&utm_medium=badge*"
+    assert out.rstrip().endswith(badge_line)
+    assert "\n---\n\n" + badge_line in out

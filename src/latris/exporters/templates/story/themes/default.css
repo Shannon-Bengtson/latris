@@ -44,6 +44,13 @@ body{
   border-top:1px solid #e6e2da; color:var(--story-muted); font-size:.95rem; text-align:center;
 }
 .story-footer code{ background:#eef0ee; padding:.1rem .4rem; border-radius:4px; }
+.story-badge{ margin-top:1.4rem; }
+.story-badge a{
+  display:inline-block; padding:.3rem .95rem; border:1px solid #d8d4ca;
+  border-radius:999px; color:var(--story-muted); font-size:.85rem;
+  text-decoration:none; transition:color .2s ease, border-color .2s ease;
+}
+.story-badge a:hover{ color:var(--story-accent); border-color:var(--story-accent); }
 
 /* Scroll-driven emphasis on the shared model SVG */
 g.node, g.edge{ transition:opacity .35s ease; }

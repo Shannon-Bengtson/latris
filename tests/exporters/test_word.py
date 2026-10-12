@@ -104,3 +104,13 @@ def test_word_renders_interpretation_section(project):
 
     assert "Interpretation" in headings
     assert "The system shows a reinforcing loop." in body
+
+
+def test_word_footer_badge(project):
+    """Document ends with an italic 'Made with Latris' line (parity with the
+    Markdown exporter's rule + italic footer)."""
+    paths = ProjectPaths(project)
+    doc = word_exporter.render(paths)
+    last_para = doc.paragraphs[-1]
+    assert last_para.text == "Made with Latris — https://latris.app/?utm_source=latris-export&utm_medium=badge"
+    assert last_para.runs[0].italic is True

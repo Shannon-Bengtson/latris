@@ -57,6 +57,7 @@
 <footer class="story-footer">
   <p>Generated from the <strong>{{ doc.model_type }}</strong> model{% if source_commit %}, version <code>{{ source_commit }}</code>{% endif %} on {{ export_date }}.</p>
   <p>Every claim in this story traces to evidence in the source model.</p>
+  <p class="story-badge"><a href="{{ badge_url | safe }}">{{ badge_text }}</a></p>
 </footer>
 
 <script type="application/json" id="story-manifest">{{ manifest | safe }}</script>

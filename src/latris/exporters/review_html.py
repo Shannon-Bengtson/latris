@@ -14,6 +14,8 @@ from __future__ import annotations
 import html
 from datetime import UTC, datetime
 
+from latris.exporters._format import BADGE_TEXT as _BADGE_TEXT
+from latris.exporters._format import BADGE_URL as _BADGE_URL
 from latris.exporters._format import actor_name as _actor_name
 from latris.exporters.diagram import render_svg
 from latris.exporters.packs import get_pack
@@ -137,6 +139,11 @@ ul.prov li { padding: 5px 0; border-bottom: 1px solid #eee; font-size: 0.9em; }
   display: inline-block; background: #c9845e; color: #fff;
   border-radius: 10px; padding: 1px 8px; font-size: 0.8em; margin-left: 4px;
 }
+.badge-footer {
+  text-align: center; margin-top: 32px; font-size: 0.85em; color: #999;
+}
+.badge-footer a { color: #2a6b5e; text-decoration: none; }
+.badge-footer a:hover { text-decoration: underline; }
 @media print {
   .fb-btn, .fb-form, .reviewer-section, .save-btn, .status-bar,
   .noscript-banner { display: none !important; }
@@ -684,6 +691,10 @@ Clicking Save will download an annotated copy of this file.
 Send it back to the model owner.
 </p>
 </div>
+
+<footer class="badge-footer">
+<a href="{_BADGE_URL}" target="_blank" rel="noopener">{_BADGE_TEXT}</a>
+</footer>
 
 <div id="status-bar" class="status-bar">Feedback: 0 challenge(s), 0 question(s), 0 sign-off(s)</div>
 

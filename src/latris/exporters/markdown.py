@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from latris.exporters._format import BADGE_TEXT as _BADGE_TEXT
+from latris.exporters._format import BADGE_URL as _BADGE_URL
 from latris.exporters._format import actor_name as _actor_name
 from latris.exporters._scope import view_member_ids
 from latris.repo import git as git_repo
@@ -604,6 +606,12 @@ def render(
                     f"{date_str}{notes}"
                 )
         out.append("")
+
+    # ---------- Footer badge ----------
+    out.append("---")
+    out.append("")
+    out.append(f"*{_BADGE_TEXT} — {_BADGE_URL}*")
+    out.append("")
 
     return "\n".join(out)
 

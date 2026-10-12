@@ -33,6 +33,8 @@ def test_dot_system_map_has_digraph_and_nodes(project_with_graph) -> None:
     assert f'"{b.id}"' in out
     assert '"Price\\n[variable]"' in out  # escaped newline-in-label
     assert f'"{a.id}" -> "{b.id}" [label="causal", id="{edge.id}"];' in out
+    # Machine/intermediate format — never carries the "Made with Latris" badge.
+    assert "Made with Latris" not in out
 
 
 def test_dot_cld_labels_edges_with_polarity(project_with_graph) -> None:

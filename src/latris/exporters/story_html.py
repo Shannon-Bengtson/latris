@@ -22,6 +22,8 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from latris.exporters._format import BADGE_TEXT as _BADGE_TEXT
+from latris.exporters._format import BADGE_URL as _BADGE_URL
 from latris.exporters.diagram import render_svg
 from latris.exporters.story_diagram import render_story_svg
 from latris.repo.layout import ProjectPaths
@@ -122,6 +124,8 @@ def render(paths: ProjectPaths, model_type: str, *, theme: str | None = None) ->
         brand=doc.brand,
         theme_css=_load_theme(theme or doc.theme or "default"),
         scrollama_js=_load_vendor("scrollama.min.js"),
+        badge_text=_BADGE_TEXT,
+        badge_url=_BADGE_URL,
         manifest=json.dumps(doc.model_dump(mode="json")),
         source_commit=doc.source_commit[:10],
         export_date=datetime.now(UTC).strftime("%Y-%m-%d"),

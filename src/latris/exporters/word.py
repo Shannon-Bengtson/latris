@@ -10,6 +10,8 @@ from pathlib import Path
 
 from docx import Document
 
+from latris.exporters._format import BADGE_TEXT as _BADGE_TEXT
+from latris.exporters._format import BADGE_URL as _BADGE_URL
 from latris.exporters._format import actor_name as _actor_name
 from latris.exporters._scope import view_member_ids
 from latris.exporters.packs import get_pack
@@ -434,6 +436,10 @@ def render(
                 )
         else:
             doc.add_paragraph("None.")
+
+    # Footer badge
+    badge_run = doc.add_paragraph().add_run(f"{_BADGE_TEXT} — {_BADGE_URL}")
+    badge_run.italic = True
 
     return doc
 
