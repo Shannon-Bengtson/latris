@@ -625,6 +625,14 @@ def build_example(ex: WorkedExample) -> None:
 
     root_str = str(ex.root)
 
+    # ── 0. Capability check (works outside any project) ────────────────
+    ex.section(
+        "Capability Check",
+        "Before creating a project, an agent can check what Latris can "
+        "actually do today — registry-only, no project needed.",
+    )
+    ex.run(["capabilities"])
+
     # ── 1. Project setup ──────────────────────────────────────────────
     ex.section("Project Setup", "Initialise a new project with a modelling question.")
     ex.run(["init", root_str, "--question",

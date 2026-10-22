@@ -17,6 +17,7 @@ latris <group> --help
 latris --version
 latris --help
 latris doctor
+latris capabilities [--json]
 ```
 
 ## Project

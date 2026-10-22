@@ -18,6 +18,7 @@ from latris.cli import (  # noqa: E402
     analyse_cmd,
     attr_cmd,
     bn_cmd,
+    capabilities_cmd,
     challenge_cmd,
     check_cmd,
     completeness_cmd,
@@ -107,6 +108,9 @@ def main(
     ),
 ) -> None:
     """Root command."""
+
+
+app.command("capabilities")(capabilities_cmd.capabilities)
 
 
 @app.command()
