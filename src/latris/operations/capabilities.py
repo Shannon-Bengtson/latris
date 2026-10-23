@@ -68,17 +68,27 @@ def _model_type_capability(spec: ModelTypeSpec) -> dict[str, Any]:
         "description": spec.description,
         "availability": spec.availability,
         "can_use_today": spec.availability == "stable",
+        "roadmap": spec.roadmap,
     }
 
 
+# built → committed next → parked → not planned
+_ROADMAP_ORDER = {"built": 0, "roadmap": 1, "parked": 2, "not_planned": 3}
+
+
 def build_capability_manifest() -> dict[str, Any]:
-    """Registry-only snapshot of what Latris can do today.
+    """Registry-only snapshot of what Latris can do today, and what's coming.
+
+    ``can_use_today`` says what works now. ``roadmap`` says what's coming:
+    only ``roadmap`` types are being worked towards; ``parked`` and
+    ``not_planned`` types are registered but shouldn't be described as
+    "coming".
 
     No project root needed — this is the registry, not a project's
     readiness (compare ``operations/readiness.py``, which needs a root).
     """
     specs = list_model_types(include_planned=True)
-    ordered = sorted(specs, key=lambda s: (s.availability != "stable", s.id))
+    ordered = sorted(specs, key=lambda s: (_ROADMAP_ORDER[s.roadmap], s.id))
     return {
         "model_types": [_model_type_capability(s) for s in ordered],
         "excluded_by_design": [asdict(e) for e in EXCLUDED_BY_DESIGN],

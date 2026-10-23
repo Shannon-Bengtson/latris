@@ -119,3 +119,27 @@ def test_spec_is_frozen():
     spec = get_model_type("cld")
     with pytest.raises(AttributeError):
         spec.id = "modified"  # type: ignore[misc]
+
+
+def test_roadmap_built_iff_stable():
+    for spec in MODEL_TYPE_REGISTRY.values():
+        assert (spec.roadmap == "built") == (spec.availability == "stable"), spec.id
+
+
+def test_register_rejects_inconsistent_roadmap():
+    import pytest
+
+    from latris.schema.model_types import ModelTypeSpec, register_model_type
+
+    with pytest.raises(ValueError, match="roadmap"):
+        register_model_type(ModelTypeSpec(
+            id="__bogus", display_name="x", short_name="x", description="x", availability="planned", roadmap="built",
+        ))
+    assert "__bogus" not in MODEL_TYPE_REGISTRY
+
+
+def test_planned_descriptions_carry_no_version_promises():
+    import re
+
+    for spec in MODEL_TYPE_REGISTRY.values():
+        assert not re.search(r"\(v\d\+?\)", spec.description), spec.id

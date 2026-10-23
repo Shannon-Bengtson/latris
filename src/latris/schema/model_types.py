@@ -13,6 +13,13 @@ from typing import Literal
 
 ModelTypeAvailability = Literal["stable", "planned"]
 
+# Where a type sits on the product roadmap. Separate from ``availability``:
+# every registered type passes the inspectability test, but only some are
+# being worked towards. ``built`` ⇔ stable; ``roadmap`` = committed next;
+# ``parked`` = coherent but deferred; ``not_planned`` = registered, not on
+# the roadmap (not rejected — revisited if a user needs it).
+RoadmapStatus = Literal["built", "roadmap", "parked", "not_planned"]
+
 
 @dataclass(frozen=True)
 class ModelTypeSpec:
@@ -48,6 +55,8 @@ class ModelTypeSpec:
     required_edge_kinds: tuple[str, ...] = ()
     allowed_edge_kinds: tuple[str, ...] = ()
 
+    roadmap: RoadmapStatus = "not_planned"
+
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -60,6 +69,8 @@ def register_model_type(spec: ModelTypeSpec) -> None:
     """Add *spec* to the global registry. Raises on duplicate ID."""
     if spec.id in MODEL_TYPE_REGISTRY:
         raise ValueError(f"Duplicate model type ID: {spec.id!r}")
+    if (spec.availability == "stable") != (spec.roadmap == "built"):
+        raise ValueError(f"Model type {spec.id!r}: roadmap 'built' must go with availability 'stable'")
     MODEL_TYPE_REGISTRY[spec.id] = spec
 
 
@@ -92,6 +103,7 @@ register_model_type(
         display_name="Causal Loop Diagram",
         short_name="CLD",
         description="Directed graph with polarity (+/\u2212) on edges; cycles allowed.",
+        roadmap="built",
         availability="stable",
         model_attributes=("polarity",),
         structural_validators=("loops_present",),
@@ -104,6 +116,7 @@ register_model_type(
         display_name="Directed Acyclic Graph",
         short_name="DAG",
         description="Directed graph that must be acyclic; directionality mandatory.",
+        roadmap="built",
         availability="stable",
         structural_validators=("acyclicity",),
     )
@@ -115,12 +128,13 @@ register_model_type(
         display_name="Bayesian Network",
         short_name="BN",
         description="DAG with state spaces and conditional probability tables.",
+        roadmap="built",
         availability="stable",
         structural_validators=("acyclicity", "state_space_defined", "cpt_complete"),
     )
 )
 
-# -- v2+ planned (visible in readiness panel but not switchable) -----------
+# -- planned (registered, not switchable). See each entry's ``roadmap``. ---
 
 register_model_type(
     ModelTypeSpec(
@@ -131,6 +145,7 @@ register_model_type(
             "Stocks, flows, and feedback loops with unit-checked equations, simulated over time "
             "(deterministic ODE integration)."
         ),
+        roadmap="built",
         availability="stable",
         structural_validators=(
             "sd_classification_complete",
@@ -154,7 +169,11 @@ register_model_type(
         id="causal_dag",
         display_name="Causal DAG",
         short_name="CDAG",
-        description="DAG with observed/unobserved classification and adjustment sets (v2).",
+        description=(
+            "DAG with observed/unobserved classification and adjustment sets. Being folded into the "
+            "DAG view as identification analyses rather than a separate model type."
+        ),
+        roadmap="not_planned",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -167,8 +186,9 @@ register_model_type(
         short_name="REG",
         description=(
             "DAG with fitted/elicited edge coefficients — linear/logistic/GLM. "
-            "Doubles as the quantification of causal/DAG edges (v2)."
+            "Doubles as the quantification of causal/DAG edges."
         ),
+        roadmap="not_planned",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -179,7 +199,8 @@ register_model_type(
         id="gsn",
         display_name="Goal Structuring Notation",
         short_name="GSN",
-        description="Safety-case argumentation: goals, strategies, solutions, context (v3+).",
+        description="Safety-case argumentation: goals, strategies, solutions, context.",
+        roadmap="roadmap",
         availability="planned",
     )
 )
@@ -189,7 +210,8 @@ register_model_type(
         id="bow_tie",
         display_name="Bow-Tie Diagram",
         short_name="BT",
-        description="Threat\u2013barrier\u2013consequence topology for risk analysis (v3+).",
+        description="Threat\u2013barrier\u2013consequence topology for risk analysis.",
+        roadmap="roadmap",
         availability="planned",
     )
 )
@@ -199,7 +221,8 @@ register_model_type(
         id="fault_tree",
         display_name="Fault Tree",
         short_name="FT",
-        description="Top-down failure decomposition with AND/OR logic gates (v3+).",
+        description="Top-down failure decomposition with AND/OR logic gates.",
+        roadmap="roadmap",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -210,7 +233,8 @@ register_model_type(
         id="petri_net",
         display_name="Petri Net",
         short_name="PN",
-        description="Bipartite graph of places and transitions for concurrent systems (v3+).",
+        description="Bipartite graph of places and transitions for concurrent systems.",
+        roadmap="not_planned",
         availability="planned",
         structural_validators=("bipartite",),
     )
@@ -223,7 +247,8 @@ register_model_type(
         id="markov",
         display_name="Markov Chain / MDP",
         short_name="MC",
-        description="State-transition graph with transition probabilities and optional rewards (v2+).",
+        description="State-transition graph with transition probabilities and optional rewards.",
+        roadmap="parked",
         availability="planned",
     )
 )
@@ -233,7 +258,8 @@ register_model_type(
         id="influence_diagram",
         display_name="Influence Diagram",
         short_name="ID",
-        description="Extension of Bayesian network with decision and utility nodes for decision analysis (v3+).",
+        description="Extension of Bayesian network with decision and utility nodes for decision analysis.",
+        roadmap="parked",
         availability="planned",
         structural_validators=("acyclicity",),
         required_roles=("chance", "utility"),
@@ -246,7 +272,8 @@ register_model_type(
         id="decision_tree",
         display_name="Decision Tree",
         short_name="DT",
-        description="Sequential decision model with chance and decision nodes branching to outcomes (v3+).",
+        description="Sequential decision model with chance and decision nodes branching to outcomes.",
+        roadmap="parked",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -257,7 +284,8 @@ register_model_type(
         id="event_tree",
         display_name="Event Tree",
         short_name="ET",
-        description="Forward-logic tree from initiating event through barriers to outcomes for safety analysis (v3+).",
+        description="Forward-logic tree from initiating event through barriers to outcomes for safety analysis.",
+        roadmap="roadmap",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -268,7 +296,8 @@ register_model_type(
         id="fishbone",
         display_name="Ishikawa / Fishbone Diagram",
         short_name="FB",
-        description="Root cause analysis diagram with categorised cause branches converging on an effect (v3+).",
+        description="Root cause analysis diagram with categorised cause branches converging on an effect.",
+        roadmap="not_planned",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -279,7 +308,8 @@ register_model_type(
         id="theory_of_change",
         display_name="Theory of Change",
         short_name="ToC",
-        description="Logic model linking activities through outputs and outcomes to long-term goals (v3+).",
+        description="Logic model linking activities through outputs and outcomes to long-term goals.",
+        roadmap="roadmap",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -292,7 +322,8 @@ register_model_type(
         id="argument_map",
         display_name="Argument Map",
         short_name="AM",
-        description="Toulmin/IBIS-style argumentation: claims, warrants, evidence, rebuttals (v3+).",
+        description="Toulmin/IBIS-style argumentation: claims, warrants, evidence, rebuttals.",
+        roadmap="not_planned",
         availability="planned",
     )
 )
@@ -303,6 +334,7 @@ register_model_type(
         display_name="Fuzzy Cognitive Map",
         short_name="FCM",
         description="Weighted directed graph with edge strengths in [\u22121, +1]; cycles allowed.",
+        roadmap="built",
         availability="stable",
         model_attributes=("weight",),
     )
@@ -313,7 +345,8 @@ register_model_type(
         id="flowchart",
         display_name="Process Map / Flowchart",
         short_name="FC",
-        description="Activity-decision-outcome flow for process modelling (v3+).",
+        description="Activity-decision-outcome flow for process modelling.",
+        roadmap="not_planned",
         availability="planned",
     )
 )
@@ -323,7 +356,8 @@ register_model_type(
         id="state_machine",
         display_name="State Machine / Statechart",
         short_name="FSM",
-        description="States and transitions with guards and actions for reactive system modelling (v3+).",
+        description="States and transitions with guards and actions for reactive system modelling.",
+        roadmap="not_planned",
         availability="planned",
     )
 )

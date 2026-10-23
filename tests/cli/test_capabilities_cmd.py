@@ -33,3 +33,17 @@ def test_capabilities_json_shape(tmp_path: Path, monkeypatch):
     toc = next(m for m in data["model_types"] if m["id"] == "theory_of_change")
     assert toc["can_use_today"] is False
     assert toc["availability"] == "planned"
+
+
+def test_capabilities_table_shows_roadmap_status(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    out = runner.invoke(app, ["capabilities"]).stdout.lower()
+    assert "on the roadmap" in out and "parked" in out and "not planned" in out
+
+
+def test_capabilities_json_includes_roadmap(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    data = json.loads(runner.invoke(app, ["capabilities", "--json"]).stdout)
+    by_id = {m["id"]: m["roadmap"] for m in data["model_types"]}
+    assert by_id["fault_tree"] == "roadmap"
+    assert by_id["petri_net"] == "not_planned"
