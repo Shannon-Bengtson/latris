@@ -106,7 +106,7 @@ def test_dag_readiness_with_cycle(project):
 
 def test_planned_type_always_zero(project):
     root, _, _, _ = project
-    r = assess_readiness("sd", root=root)
+    r = assess_readiness("markov", root=root)
     assert r.score == 0
     assert r.can_switch is False
     assert r.availability == "planned"
@@ -128,7 +128,7 @@ def test_assess_all_excludes_planned(project):
     assert "cld" in ids
     assert "dag" in ids
     assert "bn" in ids  # BN is now a stable, switchable formalism
-    assert "sd" not in ids  # still-planned types remain excluded
+    assert "markov" not in ids  # still-planned types remain excluded
 
 
 def test_empty_graph_cld_not_ready(tmp_path: Path, git_identity, monkeypatch):

@@ -744,17 +744,18 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
         id="model-types-overview",
         title="Choosing a Model Type",
         category="model-types",
-        summary="How to choose between CLD, DAG, FCM, BN, and planned formal views.",
+        summary="How to choose between CLD, DAG, FCM, BN, SD, and planned formal views.",
         body="""## Current stable model types
 
 - **CLD:** best for feedback systems and reinforcing or balancing loops.
 - **DAG:** best for causal direction, dependencies, and acyclic reasoning.
 - **FCM:** best for semi-quantitative influence modelling with weights.
 - **BN:** best for quantitative probabilistic reasoning over an acyclic causal subgraph (discrete state spaces + CPTs with per-cell provenance). See the dedicated Bayesian Networks topic.
+- **SD:** best for how a system with accumulation, delay, and feedback behaves over time — stocks, flows, unit-checked equations, and deterministic simulation. See the dedicated System Dynamics topic.
 
 ## Planned model types
 
-The project design also describes regression (fitting coefficients onto DAG edges), system dynamics, causal DAGs, Goal Structuring Notation, bow-ties, fault trees, Petri nets, Markov chains and MDPs, influence diagrams, decision trees, event trees, fishbone diagrams, theories of change, argument maps, flowcharts, and state machines. Each is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
+The project design also describes regression (fitting coefficients onto DAG edges), causal DAGs, Goal Structuring Notation, bow-ties, fault trees, Petri nets, Markov chains and MDPs, influence diagrams, decision trees, event trees, fishbone diagrams, theories of change, argument maps, flowcharts, and state machines. Each is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
 ## How selection affects the app
 
@@ -762,7 +763,7 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 
 ## Rule of thumb
 
-Use CLD when feedback is central. Use DAG when cycles would undermine the reasoning. Use FCM when the question needs directional influence strength but not a full quantitative simulation engine.
+Use CLD when feedback is central. Use DAG when cycles would undermine the reasoning. Use FCM when the question needs directional influence strength but not a full quantitative simulation engine. Use SD when the question is about trajectories over time — how stocks build up or drain, and why. A CLD is the usual qualitative precursor to an SD model.
 """,
     ),
     HelpTopic(
@@ -791,6 +792,42 @@ Every CPT row carries its own provenance — `origin` (human-direct, human-elici
 ## Not yet
 
 Interactive belief-bar GUI, continuous/hybrid nodes, structure learning, dynamic BNs, and incumbent-format import/export (which would strip provenance) are out of scope. See `docs/design/BN_QUANTITATIVE.md`.
+""",
+    ),
+    HelpTopic(
+        id="model-type-sd",
+        title="System Dynamics (stock-and-flow)",
+        category="model-types",
+        summary="Stocks, flows, unit-checked equations, table functions, and deterministic simulation — with per-parameter provenance.",
+        body="""## What an SD model adds
+
+System Dynamics models how quantities accumulate and drain over time. **Stocks** (population, inventory, pollutant load) change only through **flows** (births, orders, emissions); flows and **auxiliaries** are computed from equations; **constants** are fixed parameters; a **source_sink** is a cloud outside the model boundary. Simulating integrates the model forward in time, so you can see growth, overshoot, oscillation, or collapse emerge from the feedback structure.
+
+## How it sits on the substrate
+
+SD uses the same entities and edges as every other view. Each SD variable is an ordinary entity with an SD **role**. Material movement uses **flow** edges, always `stock → flow → stock` (either end may be a source_sink cloud). "X appears in Y's equation" uses a **causal** edge X → Y — an information link. The SD model is whatever has an SD role plus anything a flow edge touches; causal edges pointing into it are its information links. The rest of the substrate (say, a wider CLD) is outside the SD boundary and doesn't need classifying.
+
+## Equations and units
+
+Equations reference variables by slugified label (`Birth Rate` → `birth_rate`) plus `TIME`, using arithmetic, comparisons, and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE(cond, a, b)`, `STEP(height, start)`, `TABLE(x)`, `EXP`, `LN`, `SQRT`. Every stock, constant and equation declares its **units** (pint syntax: `liter`, `person/year`, `1/year`, `dimensionless`; `person`, `dollar` and `item` are built in). Values are evaluated as unit-bearing quantities, so adding litres to people, or a flow whose units aren't its stock's units per time unit, is caught as an error rather than producing a wrong number. Equations have no unit literals — give a unit-bearing number its own named, sourced constant. An equation that is just a bare number (`3`) takes its declared units.
+
+## Working with SD (the `sd` commands)
+
+- **`sd set-role <node> <role>`** — stock, flow, auxiliary, constant, or source_sink.
+- **`sd set-initial-value <stock> <value> --units …`** — a stock's starting value (`--non-negative` warns if a run drives it below zero).
+- **`sd set-constant <node> <value> --units …`** and **`sd set-equation <flow|aux> "<expr>" --units …`** — each with `--origin`/`--source` provenance.
+- **`sd set-table <node> -p x:y -p x:y … --x-units … --y-units …`** — a piecewise-linear lookup the node's equation calls as `TABLE(x)`; typically elicited from experts as a curve.
+- **`sd check`** — readiness: classification, stock-flow plumbing, no algebraic loops among flows/auxiliaries, equations match the diagram's links (no hidden or unused dependencies), values and tables present, and full dimensional consistency.
+- **`sd simulate`** — one deterministic run (`--final-time`, `--dt`, `--saveper`, `--method euler|rk2|rk4|adaptive`, `--time-units`). The full series is saved and logged as an AnalysisRun; `--json` prints it for scripts and agents.
+- **`sd roles` / `sd equations` / `sd stocks` / `sd constants` / `sd tables`** — listings.
+
+## Integration methods
+
+`euler` is fixed-step forward Euler at `dt`. `rk4` and `rk2` use scipy's adaptive Runge–Kutta (RK45 / RK23) bounded to never step past `dt` — close to, but not bit-identical with, the classical fixed-step RK4 of Vensim/Stella. `adaptive` lets scipy choose its own steps. Halving `dt`, or comparing `euler` with `rk4`, is a quick check that results aren't integration artefacts.
+
+## Not yet
+
+Monte Carlo / uncertainty bands, scenario comparison, calibration to data, sensitivity analysis, loop-dominance analysis, delay functions, AI-drafted equations, the GUI stock-and-flow canvas, and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
 """,
     ),
     HelpTopic(

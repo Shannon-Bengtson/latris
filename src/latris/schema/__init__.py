@@ -127,6 +127,17 @@ from latris.schema.review import (
     ReviewSessionLog,
 )
 from latris.schema.roles import RoleEntry, RoleSet
+from latris.schema.sd import (
+    SDConstantEntry,
+    SDConstantSet,
+    SDEquationEntry,
+    SDEquationSet,
+    SDStockEntry,
+    SDStockSet,
+    SDTableEntry,
+    SDTableSet,
+    TablePoint,
+)
 from latris.schema.story import (
     StoryBeat,
     StoryBeatKind,
@@ -202,6 +213,15 @@ __all__ = [
     "SensitivityResult",
     "StateSpaceEntry",
     "StateSpaceSet",
+    "SDConstantEntry",
+    "SDConstantSet",
+    "SDEquationEntry",
+    "SDEquationSet",
+    "SDStockEntry",
+    "SDStockSet",
+    "SDTableEntry",
+    "SDTableSet",
+    "TablePoint",
     "DataLink",
     "DataLinkSet",
     "Decision",

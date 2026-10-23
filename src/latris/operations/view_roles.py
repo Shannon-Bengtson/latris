@@ -42,7 +42,7 @@ def set_role(
     # Ensure the roles directory exists on first write.
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    store = load_model(RoleSet, file_path)
+    store = load_model(RoleSet, file_path) if file_path.exists() else RoleSet()
     upsert_entry(
         store,
         target_id,
@@ -69,6 +69,6 @@ def get_roles(
     """Load all role assignments for a model type."""
     paths = require_project(root)
     file_path = paths.role_path(model_type)
-    return load_model(RoleSet, file_path)
+    return load_model(RoleSet, file_path) if file_path.exists() else RoleSet()
 
 

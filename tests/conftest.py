@@ -175,3 +175,70 @@ def two_node_project_root(_template_two_node_project_root: Path, tmp_path: Path,
 def triangle_project_root(_template_triangle_project_root: Path, tmp_path: Path, git_identity) -> Path:
     """Function-scoped clone with three nodes + three edges forming a triangle."""
     return clone_project(_template_triangle_project_root, tmp_path / "proj")
+
+
+# ── System Dynamics bathtub ──────────────────────────────────────────
+
+SD_BATHTUB_ROLES = [
+    ("Water", "stock"), ("Inflow", "flow"), ("Outflow", "flow"), ("Inflow Rate", "constant"),
+    ("Drain Rate", "constant"), ("Tap", "source_sink"), ("Drain", "source_sink"),
+]
+
+
+def build_sd_bathtub(root: Path, *, parameterised: bool = True) -> Path:
+    """Tap → Inflow → Water → Outflow → Drain, with Inflow Rate / Drain Rate constants.
+
+    ``parameterised=False`` stops after the diagram (nodes + flow/causal edges),
+    before any SD roles or parameters. Equilibrium = inflow_rate / drain_rate = 50 L.
+    """
+    from latris.operations import sd as sd_ops
+    from latris.operations.edges import add_edge
+    from latris.operations.init import init_project
+    from latris.operations.nodes import add_node
+
+    init_project(root, statement="How full does the bathtub get?")
+    ids = {}
+    for label, _ in SD_BATHTUB_ROLES:
+        node, _ = add_node(label, kind="variable", root=root)
+        ids[label] = node.id
+    for a, b, kind in [
+        ("Tap", "Inflow", "flow"), ("Inflow", "Water", "flow"), ("Water", "Outflow", "flow"),
+        ("Outflow", "Drain", "flow"), ("Inflow Rate", "Inflow", "causal"), ("Drain Rate", "Outflow", "causal"),
+    ]:
+        add_edge(ids[a], ids[b], kind=kind, root=root)
+    if not parameterised:
+        return root
+    for label, role in SD_BATHTUB_ROLES:
+        sd_ops.set_role(label, role, root=root)
+    sd_ops.set_initial_value("Water", 100, "liter", root=root)
+    sd_ops.set_constant("Inflow Rate", 5, "liter/year", root=root)
+    sd_ops.set_constant("Drain Rate", 0.1, "1/year", root=root)
+    sd_ops.set_equation("Inflow", "inflow_rate", "liter/year", root=root)
+    sd_ops.set_equation("Outflow", "water * drain_rate", "liter/year", root=root)
+    return root
+
+
+@pytest.fixture(scope="session")
+def _template_sd_diagram_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return build_with_template_identity(
+        lambda: build_sd_bathtub(tmp_path_factory.mktemp("tpl_sd_diagram") / "proj", parameterised=False)
+    )
+
+
+@pytest.fixture(scope="session")
+def _template_sd_bathtub_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return build_with_template_identity(
+        lambda: build_sd_bathtub(tmp_path_factory.mktemp("tpl_sd_bathtub") / "proj")
+    )
+
+
+@pytest.fixture
+def sd_diagram_root(_template_sd_diagram_root: Path, tmp_path: Path, git_identity) -> Path:
+    """Bathtub stock-and-flow diagram with no SD roles or parameters yet."""
+    return clone_project(_template_sd_diagram_root, tmp_path / "proj")
+
+
+@pytest.fixture
+def sd_bathtub_root(_template_sd_bathtub_root: Path, tmp_path: Path, git_identity) -> Path:
+    """Fully classified + parameterised bathtub, ready to simulate."""
+    return clone_project(_template_sd_bathtub_root, tmp_path / "proj")

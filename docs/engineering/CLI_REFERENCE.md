@@ -193,6 +193,26 @@ latris bn query <node> [--given node=state]    # posterior query under evidence
 latris bn sensitivity <target>                 # provenance-aware sensitivity analysis
 ```
 
+## SD (System Dynamics)
+
+Stock-and-flow models on the shared substrate: SD meaning is a view role,
+material moves along `flow` edges (`stock → flow → stock`), and `causal`
+edges are information links. Every stock, constant and equation carries
+units and per-parameter provenance; `sd check` enforces structure, the
+diagram/equation correspondence, and full dimensional consistency.
+Simulations are logged as `AnalysisRun` records (`purpose: simulation`).
+
+```bash
+latris sd set-role <node> <stock|flow|auxiliary|constant|source_sink>
+latris sd set-initial-value <stock> <value> --units <u> [--non-negative]
+latris sd set-constant <node> <value> --units <u>
+latris sd set-equation <flow|aux> "<expression>" --units <u>   # names = slugified labels; TIME; MIN MAX ABS IF_THEN_ELSE STEP TABLE EXP LN SQRT
+latris sd set-table <flow|aux> -p x:y -p x:y ... --x-units <u> --y-units <u> [--extrapolate clamp|linear]
+latris sd roles | equations | stocks | constants | tables   # listings
+latris sd check                                # readiness incl. dimensional consistency
+latris sd simulate [--final-time T] [--dt DT] [--saveper S] [--method euler|rk2|rk4|adaptive] [--json] [--no-record]
+```
+
 ## Check (coherence)
 
 ```bash

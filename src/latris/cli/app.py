@@ -38,6 +38,7 @@ from latris.cli import (  # noqa: E402
     provenance_cmd,
     ref_cmd,
     review_cmd,
+    sd_cmd,
     story_cmd,
     sync_cmd,
     view_cmd,
@@ -85,6 +86,7 @@ app.add_typer(interpret_cmd.app, name="interpret")
 app.add_typer(completeness_cmd.app, name="completeness")
 app.add_typer(fcm_cmd.app, name="fcm")
 app.add_typer(bn_cmd.app, name="bn")
+app.add_typer(sd_cmd.app, name="sd")
 app.add_typer(lineage_cmd.app, name="version")
 
 console = Console()

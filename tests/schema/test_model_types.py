@@ -14,7 +14,7 @@ def test_registry_populated_at_import():
 def test_stable_types():
     stable = list_model_types(include_planned=False)
     ids = {s.id for s in stable}
-    assert ids == {"cld", "dag", "fcm", "bn"}
+    assert ids == {"cld", "dag", "fcm", "bn", "sd"}
 
 
 def test_all_types_include_planned():
@@ -71,6 +71,14 @@ def test_dag_spec():
     dag = get_model_type("dag")
     assert dag.model_attributes == ()
     assert dag.structural_validators == ("acyclicity",)
+
+
+def test_sd_is_stable():
+    sd = get_model_type("sd")
+    assert sd.availability == "stable"
+    assert "sd_no_algebraic_loops" in sd.structural_validators
+    assert "sd_dimensional_consistency" in sd.structural_validators
+    assert set(sd.allowed_roles) == {"stock", "flow", "auxiliary", "constant", "source_sink"}
 
 
 def test_bn_is_stable():

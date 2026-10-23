@@ -970,6 +970,87 @@ def build_example(ex: WorkedExample) -> None:
             "-c", "Grid Failure=yes:0.8", "-c", "Cyber Attack=yes:0.6", "--leak", "0.01"])
     ex.run(["bn", "cpts"])
 
+    # ── 7.9 System Dynamics ───────────────────────────────────────────
+    ex.section(
+        "System Dynamics",
+        "A stock-and-flow model of the urban PM2.5 load: emissions fill it, "
+        "dispersal drains it in proportion to its size. SD lives on the same "
+        "substrate as the CLD above — stocks, flows and constants are ordinary "
+        "variables with an SD role; `flow` edges carry material, `causal` edges "
+        "are information links. The rest of the CLD is outside the SD model's "
+        "boundary and doesn't need classifying.",
+    )
+    ex.run(["sd", "check"], expect_fail=True)
+    for _n in ("PM2.5 Load", "Emission", "Dispersal", "Emission Rate", "Dispersal Rate",
+               "Urban Sources", "Regional Air"):
+        ex.run(["node", "add", _n, "--kind", "variable"])
+    ex.run(["edge", "add", "Urban Sources", "Emission", "--kind", "flow"])
+    ex.run(["edge", "add", "Emission", "PM2.5 Load", "--kind", "flow"])
+    ex.run(["edge", "add", "PM2.5 Load", "Dispersal", "--kind", "flow"])
+    ex.run(["edge", "add", "Dispersal", "Regional Air", "--kind", "flow"])
+    ex.run(["edge", "add", "Emission Rate", "Emission", "--kind", "causal"])
+    ex.run(["edge", "add", "Dispersal Rate", "Dispersal", "--kind", "causal"])
+    ex.note("The diagram exists, but nothing is classified yet — the check names every gap.")
+    ex.run(["sd", "check"], expect_fail=True)
+    for _n, _role in (("PM2.5 Load", "stock"), ("Emission", "flow"), ("Dispersal", "flow"),
+                      ("Emission Rate", "constant"), ("Dispersal Rate", "constant"),
+                      ("Urban Sources", "source_sink"), ("Regional Air", "source_sink")):
+        ex.run(["sd", "set-role", _n, _role])
+    ex.run(["sd", "set-initial-value", "PM2.5 Load", "20", "--units", "tonne", "--non-negative",
+            "--origin", "data-derived"])
+    ex.run(["sd", "set-constant", "Emission Rate", "120", "--units", "tonne/year", "--origin", "data-derived"])
+    ex.run(["sd", "set-constant", "Dispersal Rate", "2", "--units", "1/year", "--origin", "human-elicited"])
+    ex.run(["sd", "set-equation", "Emission", "emission_rate", "--units", "tonne/year"])
+    ex.note(
+        "Equations name variables by slugified label (PM2.5 Load → pm2_5_load). "
+        "A deliberate slip: adding a load to a rate. It parses, but every value is "
+        "a unit-bearing quantity, so the check catches the dimensional error."
+    )
+    ex.run(["sd", "set-equation", "Dispersal", "pm2_5_load + dispersal_rate", "--units", "tonne/year"])
+    ex.run(["sd", "check"], expect_fail=True)
+    ex.run(["sd", "set-equation", "Dispersal", "pm2_5_load * dispersal_rate", "--units", "tonne/year"])
+    ex.run(["sd", "check"])
+    ex.run(["sd", "roles"])
+    ex.run(["sd", "equations"])
+    ex.note(
+        "The load approaches equilibrium = emission rate / dispersal rate = 60 "
+        "tonnes. The run's full series is saved and logged as an AnalysisRun."
+    )
+    ex.run(["sd", "simulate", "--final-time", "3", "--dt", "0.05", "--saveper", "0.5"])
+
+    # ── 7.10 SD table functions ───────────────────────────────────────
+    ex.section(
+        "System Dynamics — Table Functions",
+        "Heavy pollution tends to coincide with stagnant air, which slows "
+        "dispersal. That nonlinearity is elicited from experts as a curve (a "
+        "table function) rather than an equation: the Stagnation Effect "
+        "auxiliary looks it up with TABLE() from the load relative to a "
+        "reference load.",
+    )
+    ex.run(["node", "add", "Stagnation Effect", "--kind", "variable"])
+    ex.run(["node", "add", "Reference Load", "--kind", "variable"])
+    ex.run(["edge", "add", "PM2.5 Load", "Stagnation Effect", "--kind", "causal"])
+    ex.run(["edge", "add", "Reference Load", "Stagnation Effect", "--kind", "causal"])
+    ex.run(["edge", "add", "Stagnation Effect", "Dispersal", "--kind", "causal"])
+    ex.run(["sd", "set-role", "Stagnation Effect", "auxiliary"])
+    ex.run(["sd", "set-role", "Reference Load", "constant"])
+    ex.run(["sd", "set-constant", "Reference Load", "50", "--units", "tonne"])
+    ex.run(["sd", "set-equation", "Stagnation Effect", "TABLE(pm2_5_load / reference_load)",
+            "--units", "dimensionless"])
+    ex.run(["sd", "set-table", "Stagnation Effect", "-p", "0:1", "-p", "1:0.8", "-p", "2:0.5",
+            "--x-units", "dimensionless", "--y-units", "dimensionless", "--origin", "human-elicited"])
+    ex.run(["sd", "set-equation", "Dispersal", "pm2_5_load * dispersal_rate * stagnation_effect",
+            "--units", "tonne/year"])
+    ex.run(["sd", "tables"])
+    ex.run(["sd", "check"])
+    ex.note(
+        "A tipping point: on the stagnant part of the curve dispersal can never "
+        "exceed about 101 t/yr, below the 120 t/yr emitted, so the load no longer "
+        "settles at 60 t — it climbs until the curve flattens out, settling near "
+        "120 t."
+    )
+    ex.run(["sd", "simulate", "--final-time", "10", "--dt", "0.05", "--saveper", "1", "--no-record"])
+
     # ── 8. AI prompts (mock mode) ─────────────────────────────────────
     ex.section("AI-Assisted Modelling (mock mode)",
                "Demonstrate all AI prompts. In production these call a real LLM; "

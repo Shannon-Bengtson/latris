@@ -9,8 +9,8 @@ def test_manifest_counts_match_registry():
     manifest = build_capability_manifest()
     stable = [m for m in manifest["model_types"] if m["can_use_today"]]
     planned = [m for m in manifest["model_types"] if not m["can_use_today"]]
-    assert {m["id"] for m in stable} == {"cld", "dag", "bn", "fcm"}
-    assert len(planned) == 16
+    assert {m["id"] for m in stable} == {"cld", "dag", "bn", "fcm", "sd"}
+    assert len(planned) == 15
     assert manifest["excluded_by_design"]  # non-empty, hand-coded list present
 
 

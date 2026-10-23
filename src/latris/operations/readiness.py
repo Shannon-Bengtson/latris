@@ -269,12 +269,121 @@ def _check_cpt_complete(ctx: ValidationContext) -> list[ReadinessGap]:
     return gaps
 
 
+# ── System Dynamics ──────────────────────────────────────────────────
+#
+# One analysis (operations/sd_inference.analyse) produces every SD problem,
+# tagged by category; each validator below reports one category. That keeps a
+# single definition of "well-formed SD model" shared by readiness, `sd check`,
+# and the simulator, which refuses to compile while any problem remains.
+
+
+def _sd_problems(ctx: ValidationContext, categories: frozenset[str]) -> list[ReadinessGap]:
+    from latris.operations import sd_inference
+    from latris.schema.sd import SDConstantSet, SDEquationSet, SDStockSet, SDTableSet
+
+    def _load(cls, attribute: str):
+        path = ctx.paths.view_attribute_path(ctx.spec.id, attribute)
+        return load_model(cls, path) if path.exists() else cls()
+
+    _, problems = sd_inference.analyse(
+        ctx.substrate,
+        ctx.roles,
+        _load(SDEquationSet, "equations"),
+        _load(SDStockSet, "initial_value"),
+        _load(SDConstantSet, "constant"),
+        _load(SDTableSet, "table"),
+        entity_ids=ctx.view_entity_ids,
+        edge_ids=ctx.view_edge_ids,
+    )
+    labels = {e.id: e.label for e in ctx.substrate.entities}
+    labels.update(
+        {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
+    )
+    return [
+        ReadinessGap(
+            element_id=p.target_id,
+            element_label=labels.get(p.target_id, p.target_id or "(model)"),
+            gap_type=p.gap_type,
+            message=p.message,
+        )
+        for p in problems
+        if p.gap_type in categories
+    ]
+
+
+def _check_sd_classification_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """The model has a stock, and every entity on a flow edge or feeding the model has an SD role."""
+    from latris.operations.sd_inference import CLASSIFICATION_GAPS
+
+    return _sd_problems(ctx, CLASSIFICATION_GAPS)
+
+
+def _check_sd_flow_connects_stock(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Flows fill or drain a stock; flow edges run stock/cloud ↔ flow; stocks take no causal input."""
+    from latris.operations.sd_inference import FLOW_GAPS
+
+    return _sd_problems(ctx, FLOW_GAPS)
+
+
+def _check_sd_no_algebraic_loops(ctx: ValidationContext) -> list[ReadinessGap]:
+    """No dependency cycle among flows/auxiliaries — only stocks may close a loop."""
+    from latris.operations.sd_inference import LOOP_GAPS
+
+    return _sd_problems(ctx, LOOP_GAPS)
+
+
+def _check_sd_equations_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Every flow/auxiliary has a parseable equation whose references match the diagram's links."""
+    from latris.operations.sd_inference import EQUATION_GAPS
+
+    return _sd_problems(ctx, EQUATION_GAPS)
+
+
+def _check_sd_values_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Every stock has an initial value and every constant a value."""
+    from latris.operations.sd_inference import VALUE_GAPS
+
+    return _sd_problems(ctx, VALUE_GAPS)
+
+
+def _check_sd_tables_well_formed(ctx: ValidationContext) -> list[ReadinessGap]:
+    """TABLE() calls and table definitions match one-to-one."""
+    from latris.operations.sd_inference import TABLE_GAPS
+
+    return _sd_problems(ctx, TABLE_GAPS)
+
+
+def _check_sd_dimensional_consistency(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Units parse, flows match their stocks per time unit, and every equation evaluates in its declared units."""
+    from latris.operations.sd_inference import UNIT_GAPS
+
+    return _sd_problems(ctx, UNIT_GAPS)
+
+
+SD_VALIDATORS: tuple[str, ...] = (
+    "sd_classification_complete",
+    "sd_flow_connects_stock",
+    "sd_no_algebraic_loops",
+    "sd_equations_complete",
+    "sd_values_complete",
+    "sd_tables_well_formed",
+    "sd_dimensional_consistency",
+)
+
+
 _STRUCTURAL_VALIDATORS: dict[str, object] = {
     "acyclicity": _check_acyclicity,
     "loops_present": _check_loops_present,
     "state_space_defined": _check_state_space_defined,
     "cpt_complete": _check_cpt_complete,
-    # Future: "bipartite", "algebraic_loop_free", etc.
+    "sd_classification_complete": _check_sd_classification_complete,
+    "sd_flow_connects_stock": _check_sd_flow_connects_stock,
+    "sd_no_algebraic_loops": _check_sd_no_algebraic_loops,
+    "sd_equations_complete": _check_sd_equations_complete,
+    "sd_values_complete": _check_sd_values_complete,
+    "sd_tables_well_formed": _check_sd_tables_well_formed,
+    "sd_dimensional_consistency": _check_sd_dimensional_consistency,
+    # Future: "bipartite", etc.
 }
 
 

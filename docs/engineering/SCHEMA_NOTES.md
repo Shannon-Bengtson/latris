@@ -123,7 +123,11 @@ the schema change.
 | Analysis runs | `AnalysisRun` (one per line) | `analysis/runs.jsonl` | schema only |
 | Analysis outputs | *(arbitrary)* | `analysis/outputs/<run_id>/...` |
 | BN CPTs | `BNCPTFile` | `views/parameters/bn-cpt.yaml` |
-| SD equations | `SDEquationsFile` | `views/parameters/sd-equations.yaml` |
+| SD equations (flows + auxiliaries) | `SDEquationSet` | `views/parameters/sd-equations.yaml` |
+| SD stock initial values | `SDStockSet` | `views/parameters/sd-initial_value.yaml` |
+| SD constants | `SDConstantSet` | `views/parameters/sd-constant.yaml` |
+| SD table functions | `SDTableSet` | `views/parameters/sd-table.yaml` |
+| SD classification (stock/flow/auxiliary/constant/source_sink) | `RoleSet` | `views/roles/sd-roles.yaml` |
 | Markov / MDP transitions | `MarkovTransitionsFile` | `views/parameters/markov-transitions.yaml` |
 | SCM coefficients | `DAGCoefficientsFile` | `views/parameters/dag-coefficients.yaml` |
 | Fault-tree event probs | `FTEventProbsFile` | `views/parameters/ft-event-probs.yaml` |
@@ -327,7 +331,8 @@ visible for readiness guidance but are not switchable until promoted.
 | Class | Registry status | Notes on fit |
 |---|---|---|
 | **BN** | Stable | Discrete Bayesian Network engine built: state spaces + CPTs with per-cell provenance, exact inference (pgmpy), Noisy-OR, parameter learning, sensitivity analysis. |
-| **SD / Causal DAG** | Registered (v2) | Quantitative extensions of CLD/DAG; parameter schemas designed. |
+| **SD** | Stable | Stock-and-flow engine built: stock/flow/auxiliary/constant/source_sink as view roles (no EntityKind change); `flow` edges carry material, `causal` edges are information links; per-parameter provenance; equations evaluated on pint quantities so dimensional consistency is enforced by arithmetic; table functions; deterministic simulation via scipy `solve_ivp` (hand-rolled Euler). |
+| **Causal DAG** | Registered (v2) | Quantitative extension of DAG; parameter schemas designed. |
 | **GSN / safety cases** | Registered (v3+) | Strong fit. Adds `goal`/`strategy`/`solution`/`context`/`justification` as view roles; `solved_by`/`in_context_of` to EdgeKind. Provenance layer lands as core, not nice-to-have. Surfaces the assumption-as-node design question (see below). Largest commercial upside. |
 | **Bow-Tie / Fault Tree** | Registered (v3+) | Risk/safety analysis. Fault tree uses `gate` view role + `logical` EdgeKind; bow-tie uses `barrier`/`hazard` view roles. |
 | **Petri nets** | Registered (v3+) | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |

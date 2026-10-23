@@ -127,8 +127,25 @@ register_model_type(
         id="sd",
         display_name="System Dynamics",
         short_name="SD",
-        description="Stocks, flows, and feedback loops with ODE equations (v2).",
-        availability="planned",
+        description=(
+            "Stocks, flows, and feedback loops with unit-checked equations, simulated over time "
+            "(deterministic ODE integration)."
+        ),
+        availability="stable",
+        structural_validators=(
+            "sd_classification_complete",
+            "sd_flow_connects_stock",
+            "sd_no_algebraic_loops",
+            "sd_equations_complete",
+            "sd_values_complete",
+            "sd_tables_well_formed",
+            "sd_dimensional_consistency",
+        ),
+        allowed_roles=("stock", "flow", "auxiliary", "constant", "source_sink"),
+        # Declarative only, as for influence_diagram: enforcement lives in the
+        # sd_* structural validators above, not in a generic roles check.
+        required_roles=("stock", "flow"),
+        required_edge_kinds=("flow",),
     )
 )
 

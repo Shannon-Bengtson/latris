@@ -61,7 +61,7 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | CLD | Polarity (+/-); cycles allowed; loop detection + classification, polarity propagation, centrality | v1 qualitative |
 | DAG (incl. BN structure, causal-DAG structure) | Acyclicity; directionality mandatory; d-separation, Markov blanket, path enumeration, adjustment sets | v1 qualitative |
 | BN quantitative | State spaces, CPTs, inference | stable (built) |
-| SD quantitative | Stocks, flows, equations, ODE simulation | v2 planned |
+| SD quantitative | Stocks, flows, auxiliaries, constants (view roles); unit-checked equations (pint); table functions; deterministic ODE simulation (scipy) | stable (built) |
 | Causal DAG with identification | Observed/unobserved, adjustment sets | v2 planned |
 | Regression (linear/logistic/GLM) | DAG with fitted/elicited edge coefficients; quantifies DAG edges | v2 planned |
 | Markov Chain / MDP | State-transition graph, transition probabilities, rewards | v2+ planned |

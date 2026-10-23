@@ -29,6 +29,7 @@ RunPurpose = Literal[
     "sensitivity-analysis",
     "inference",
     "calibration",
+    "simulation",
     "other",
 ]
 

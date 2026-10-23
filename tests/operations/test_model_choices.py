@@ -103,7 +103,7 @@ def test_co_selected_formalisms_each_have_rationale(project):
 def test_add_planned_type_rejected(project):
     root = project
     with pytest.raises(ValueError, match="stable"):
-        add_model_choice("sd", "system dynamics simulation", root=root)
+        add_model_choice("markov", "state transitions", root=root)
     # Nothing should have been selected or logged.
     assert _selected(root) == []
     assert load_model_choices(root=root).entries == []

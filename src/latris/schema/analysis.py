@@ -30,6 +30,7 @@ class AnalysisRun(_Base):
         "sensitivity-analysis",
         "inference",
         "calibration",
+        "simulation",
         "other",
     ]
     algorithm: str
