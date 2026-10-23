@@ -169,6 +169,14 @@ yet switchable — `latris view project <kind>` raises a `ValueError` if
 design, not "not yet." Run this before telling a user Latris can build
 them a specific kind of model.
 
+**Moving a project online so a human can see it in a browser.** If it'd
+help the person you're working with to view or share the model at
+`https://app.latris.app` instead of just reading your terminal output,
+walk them through `latris sync login --email <their email>` (sends a
+one-time code — ask them what it was, then run it again with `--code`),
+then `latris sync share "<project name>"`. That prints the exact link to
+open. No desktop install needed on their end.
+
 Setup (one shot):
 
 ```bash

@@ -252,12 +252,20 @@ invisible Gitea (see [`GIT_INTEGRATION.md`](GIT_INTEGRATION.md) →
 "Remote collaboration").
 
 ```bash
+latris sync login --email you@x.com            # request a one-time code
+latris sync login --email you@x.com --code ... # finish signing in
+latris sync share "Project name"                # create + push a remote project
 latris sync remote      # configure / show the project's sync remote
 latris sync push        # push local commits to the shared project
 latris sync pull        # pull + integrate remote commits
 latris sync fetch       # fetch remote state without integrating
 latris sync status      # show local vs remote sync state
 ```
+
+`login`/`share` are the bridge from a local project to the hosted app
+(`https://app.latris.app`) — the only account/collaboration entry point
+that previously existed was the desktop GUI's sync panel. `share` prints
+the link to open the project in the hosted app once it's pushed.
 
 ## Semantic History
 

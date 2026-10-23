@@ -1349,6 +1349,18 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("After pushing, the branch is up to date with the remote.")
     ex.run(["sync", "status"])
 
+    ex.note(
+        "Two more `sync` commands exist — `login` and `share` — that bridge "
+        "a local project to the hosted Latris control plane: `sync login "
+        "--email you@x.com` emails a one-time code (run again with --code "
+        "to finish), then `sync share \"name\"` creates a remote project and "
+        "pushes it, printing a link to open the project in the hosted app. "
+        "Not exercised live here: unlike the bare-repo stand-in above, these "
+        "need a real control-plane server and a real emailed code — neither "
+        "is something this hermetic transcript can fake deterministically. "
+        "See tests/cli/test_sync_cmd.py for coverage with a mocked SyncClient."
+    )
+
     # ── Per-version sync (publish-per-version) ────────────────────────
     ex.note("Sync state is also tracked per version. Once the project is "
             "shared, you publish a single version so collaborators can see it — "
