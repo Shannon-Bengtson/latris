@@ -755,7 +755,9 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 
 ## Planned model types
 
-The project design also describes regression (fitting coefficients onto DAG edges), causal DAGs, Goal Structuring Notation, bow-ties, fault trees, Petri nets, Markov chains and MDPs, influence diagrams, decision trees, event trees, fishbone diagrams, theories of change, argument maps, flowcharts, and state machines. Each is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
+On the roadmap: fault trees, event trees, bow-tie diagrams and Goal Structuring Notation (for risk and safety cases), and theories of change (for programme and policy logic). Causal identification is being folded into the DAG view rather than offered as a separate model type.
+
+Other registered types — decision trees, influence diagrams, Markov chains and MDPs, regression, argument maps, fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
 ## How selection affects the app
 

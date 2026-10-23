@@ -323,29 +323,34 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 4 stable types (CLD, DAG, FCM, BN) and 16
+**Registered formalisms** — 5 stable types (CLD, DAG, FCM, BN, SD) and 15
 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
+Being registered is not the same as being on the roadmap: of the planned
+types, only fault tree, event tree, bow-tie, GSN and theory of change are
+currently on it. Decision tree, influence diagram and Markov/MDP are
+parked; causal DAG is being folded into DAG; the rest are not currently
+planned (their fit notes are kept below for reference).
 
 | Class | Registry status | Notes on fit |
 |---|---|---|
 | **BN** | Stable | Discrete Bayesian Network engine built: state spaces + CPTs with per-cell provenance, exact inference (pgmpy), Noisy-OR, parameter learning, sensitivity analysis. |
 | **SD** | Stable | Stock-and-flow engine built: stock/flow/auxiliary/constant/source_sink as view roles (no EntityKind change); `flow` edges carry material, `causal` edges are information links; per-parameter provenance; equations evaluated on pint quantities so dimensional consistency is enforced by arithmetic; table functions; deterministic simulation via scipy `solve_ivp` (hand-rolled Euler). |
-| **Causal DAG** | Registered (v2) | Quantitative extension of DAG; parameter schemas designed. |
-| **GSN / safety cases** | Registered (v3+) | Strong fit. Adds `goal`/`strategy`/`solution`/`context`/`justification` as view roles; `solved_by`/`in_context_of` to EdgeKind. Provenance layer lands as core, not nice-to-have. Surfaces the assumption-as-node design question (see below). Largest commercial upside. |
-| **Bow-Tie / Fault Tree** | Registered (v3+) | Risk/safety analysis. Fault tree uses `gate` view role + `logical` EdgeKind; bow-tie uses `barrier`/`hazard` view roles. |
-| **Petri nets** | Registered (v3+) | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |
-| **Markov chains / MDPs** | Registered (v2+) | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
-| **Influence Diagram** | Registered (v3+) | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
-| **Decision Tree** | Registered (v3+) | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
-| **Event Tree** | Registered (v3+) | Forward-logic complement to fault trees. Barrier success/failure branching. |
-| **Fishbone / Ishikawa** | Registered (v3+) | Root cause analysis with categorised cause branches. Acyclic tree. |
-| **Theory of Change** | Registered (v3+) | Logic model: activities → outputs → outcomes → goals. Policy/evaluation standard. |
-| **Argument Map** | Registered (v3+) | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
+| **Causal DAG** | Registered — merging into DAG | Quantitative extension of DAG; parameter schemas designed. |
+| **GSN / safety cases** | Registered — on the roadmap | Strong fit. Adds `goal`/`strategy`/`solution`/`context`/`justification` as view roles; `solved_by`/`in_context_of` to EdgeKind. Provenance layer lands as core, not nice-to-have. Surfaces the assumption-as-node design question (see below). Largest commercial upside. |
+| **Bow-Tie / Fault Tree** | Registered — on the roadmap | Risk/safety analysis. Fault tree uses `gate` view role + `logical` EdgeKind; bow-tie uses `barrier`/`hazard` view roles. |
+| **Petri nets** | Registered — not currently planned | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |
+| **Markov chains / MDPs** | Registered — parked | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
+| **Influence Diagram** | Registered — parked | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
+| **Decision Tree** | Registered — parked | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
+| **Event Tree** | Registered — on the roadmap | Forward-logic complement to fault trees. Barrier success/failure branching. |
+| **Fishbone / Ishikawa** | Registered — not currently planned | Root cause analysis with categorised cause branches. Acyclic tree. |
+| **Theory of Change** | Registered — on the roadmap | Logic model: activities → outputs → outcomes → goals. Policy/evaluation standard. |
+| **Argument Map** | Registered — not currently planned | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
 | **Fuzzy Cognitive Map** | Stable | CLD with continuous edge weights in [−1, +1]. Cycles allowed; weight storage and steady-state inference are built. |
-| **Flowchart** | Registered (v3+) | Activity-decision-outcome process flow. Universal visual modelling tool. |
-| **State Machine** | Registered (v3+) | States and guarded transitions. Qualitative sibling of Markov. |
+| **Flowchart** | Registered — not currently planned | Activity-decision-outcome process flow. Universal visual modelling tool. |
+| **State Machine** | Registered — not currently planned | States and guarded transitions. Qualitative sibling of Markov. |
 
 **Open question if we ever wire GSN.** GSN treats Assumptions and
 Justifications as **substrate nodes** (connectable by edges to Goals).

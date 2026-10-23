@@ -62,21 +62,21 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | DAG (incl. BN structure, causal-DAG structure) | Acyclicity; directionality mandatory; d-separation, Markov blanket, path enumeration, adjustment sets | v1 qualitative |
 | BN quantitative | State spaces, CPTs, inference | stable (built) |
 | SD quantitative | Stocks, flows, auxiliaries, constants (view roles); unit-checked equations (pint); table functions; deterministic ODE simulation (scipy) | stable (built) |
-| Causal DAG with identification | Observed/unobserved, adjustment sets | v2 planned |
-| Regression (linear/logistic/GLM) | DAG with fitted/elicited edge coefficients; quantifies DAG edges | v2 planned |
-| Markov Chain / MDP | State-transition graph, transition probabilities, rewards | v2+ planned |
-| Influence Diagram | Decision + chance + utility nodes, informational arcs | v3+ planned |
-| Decision Tree | Sequential decision/chance branching to outcomes | v3+ planned |
-| Event Tree | Initiating event → barrier branching → consequences | v3+ planned |
-| Fishbone / Ishikawa | Categorised cause branches converging on effect | v3+ planned |
-| Theory of Change | Activities → outputs → outcomes → goals | v3+ planned |
-| Argument Map | Toulmin/IBIS claims, warrants, rebuttals | v3+ planned |
+| Causal DAG with identification | Observed/unobserved, adjustment sets | merging into DAG |
+| Regression (linear/logistic/GLM) | DAG with fitted/elicited edge coefficients; quantifies DAG edges | not currently planned |
+| Markov Chain / MDP | State-transition graph, transition probabilities, rewards | parked |
+| Influence Diagram | Decision + chance + utility nodes, informational arcs | parked |
+| Decision Tree | Sequential decision/chance branching to outcomes | parked |
+| Event Tree | Initiating event → barrier branching → consequences | on the roadmap |
+| Fishbone / Ishikawa | Categorised cause branches converging on effect | not currently planned |
+| Theory of Change | Activities → outputs → outcomes → goals | on the roadmap |
+| Argument Map | Toulmin/IBIS claims, warrants, rebuttals | not currently planned |
 | Fuzzy Cognitive Map | CLD with edge weights in [−1, +1]; steady-state inference | v1 semi-quantitative |
-| Flowchart | Activity-decision-outcome process flow | v3+ planned |
-| State Machine | States and guarded transitions | v3+ planned |
-| Bow-Tie | Threat–barrier–consequence topology | v3+ planned |
-| Fault Tree | Top-down failure decomposition with AND/OR gates | v3+ planned |
-| Petri Net | Bipartite places + transitions, token semantics | v3+ planned |
+| Flowchart | Activity-decision-outcome process flow | not currently planned |
+| State Machine | States and guarded transitions | not currently planned |
+| Bow-Tie | Threat–barrier–consequence topology | on the roadmap |
+| Fault Tree | Top-down failure decomposition with AND/OR gates | on the roadmap |
+| Petri Net | Bipartite places + transitions, token semantics | not currently planned |
 
 ### Mapping registry
 
@@ -316,9 +316,10 @@ classifications** (stock, chance, goal, gate, barrier, etc.) live in a
 separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
-own semantic roles to substrate entities. 16 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 4 stable ones
-(CLD, DAG, FCM, BN). Each formalism lands as an **additive** extension — no
+own semantic roles to substrate entities. 15 planned model types are
+registered in the `ModelTypeSpec` registry alongside the 5 stable ones
+(CLD, DAG, FCM, BN, SD); the Layer-3 table above gives each one's
+roadmap status. Each formalism lands as an **additive** extension — no
 schema migration. See `SCHEMA_NOTES.md` → "Extensibility hypothesis"
 for per-formalism fit notes and the open design question
 (assumption-as-node vs assumption-as-log) that GSN would force.
