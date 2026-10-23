@@ -5,7 +5,11 @@ name: Publish
 #
 #   git tag v0.3.1 && git push --tags
 #
-# Requires the PYPI_API_TOKEN repository secret (created by the repo owner).
+# Publishes via PyPI Trusted Publishing (OIDC) — no stored API token.
+# One-time setup on PyPI.org (project owner only):
+#   https://pypi.org/manage/project/latris/settings/publishing/
+#   Add a GitHub publisher: owner Shannon-Bengtson, repo latris,
+#   workflow publish.yml, no environment.
 
 on:
   push:
@@ -37,4 +41,4 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: true
