@@ -706,6 +706,24 @@ def _member_op(action, *, root: Path | None):
     return result, pid
 
 
+def set_report_link(enabled: bool, *, pack: str | None = None, root: Path | None = None) -> dict:
+    """Turn the shared project's public report link on or off (owner only).
+
+    Records the link locally (``latris.reporturl`` git config) so Markdown
+    exports link to the hosted report. Turning it off and on again issues a
+    new link.
+    """
+    pid = project_id(root=root)
+    if not pid:
+        raise SyncError("this project is not shared yet — run `latris sync share` first")
+    try:
+        result = _client().set_report_sharing(pid, enabled, pack)
+    except SyncClientError as exc:
+        raise SyncError(str(exc)) from exc
+    set_report_url(result.get("report_url"), root=root)
+    return result
+
+
 def add_member(email: str, role: str = "collaborator", *, root: Path | None = None) -> dict:
     result, _ = _member_op(lambda c, pid: c.add_member(pid, email, role), root=root)
     return result

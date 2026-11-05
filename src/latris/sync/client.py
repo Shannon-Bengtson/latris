@@ -154,3 +154,14 @@ class SyncClient:
 
     def remove_member(self, project_id: str, account_id: str) -> dict:
         return self._request("DELETE", f"/api/projects/{project_id}/members/{account_id}")
+
+    def set_report_sharing(self, project_id: str, enabled: bool, pack: str | None = None) -> dict:
+        """Turn the project's public report link on/off; returns ``report_url`` and ``report_pack``."""
+        body: dict[str, Any] = {"enabled": enabled}
+        if pack:
+            body["pack"] = pack
+        return self._request("PATCH", f"/api/projects/{project_id}/report", json=body)
+
+    def save_project(self, save_token: str) -> dict:
+        """Move an unsaved (chat-made) project into the signed-in account."""
+        return self._request("POST", "/api/projects/save", json={"save_token": save_token})

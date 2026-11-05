@@ -72,3 +72,18 @@ def test_create_project_and_members_paths() -> None:
     assert ("POST", "/api/projects/proj_1/members") in calls
     assert ("PATCH", "/api/projects/proj_1/members/acct_2") in calls
     assert ("DELETE", "/api/projects/proj_1/members/acct_2") in calls
+
+
+def test_report_sharing_and_save_paths() -> None:
+    calls: list[tuple[str, str, bytes]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path, request.content))
+        return httpx.Response(200, json={"report_url": "https://app.test/r/x", "report_pack": "client"})
+
+    c = _client(handler, token="sess")
+    assert c.set_report_sharing("proj_1", True, "review")["report_url"] == "https://app.test/r/x"
+    c.save_project("tok")
+    assert calls[0][:2] == ("PATCH", "/api/projects/proj_1/report")
+    assert b'"pack":"review"' in calls[0][2].replace(b" ", b"")
+    assert calls[1][:2] == ("POST", "/api/projects/save")

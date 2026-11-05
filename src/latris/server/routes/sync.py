@@ -213,6 +213,16 @@ def remove_member(account_id: str, root: Root) -> dict[str, Any]:
     return _guard(lambda: ops.remove_member(account_id, root=root))
 
 
+class ReportLinkBody(BaseModel):
+    enabled: bool
+    pack: str | None = None
+
+
+@router.post("/report-link")
+def report_link(body: ReportLinkBody, root: Root) -> dict[str, Any]:
+    return _guard(lambda: ops.set_report_link(body.enabled, pack=body.pack, root=root))
+
+
 @router.post("/clone")
 def clone(body: CloneBody) -> dict[str, str]:
     path = _guard(lambda: ops.clone_project(body.project_id, Path(body.dest)))

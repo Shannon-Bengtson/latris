@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit
 from latris.operations import sync as ops
 
 app = typer.Typer(help="Sync the project with a remote (push, pull, fetch).", no_args_is_help=True)
@@ -118,6 +119,30 @@ def share(
     console.print(f"[dim]open in the app:[/dim] {app_url}/{email_hint}")
     if proj.get("report_url"):
         console.print(f"[dim]report link:[/dim] {proj['report_url']}")
+
+
+@app.command("link")
+@handle_cli_errors
+def link(
+    state: str = typer.Argument(..., help="on | off"),
+    pack: str = typer.Option(None, "--pack", "-p", help="Report pack the link shows (default: client)."),
+) -> None:
+    """Turn the project's public report link on or off (owner only).
+
+    Anyone with the link can read the report (no sign-in); it isn't indexed by
+    search engines. Turning it off and on again issues a new link.
+    """
+    if state not in {"on", "off"}:
+        raise ValueError("state must be 'on' or 'off'")
+    result = ops.set_report_link(state == "on", pack=pack)
+    url = result.get("report_url")
+    emit(
+        result,
+        human=lambda: console.print(
+            f"[green]report link on[/green] ({result.get('report_pack')}): {url}" if url
+            else "[green]report link off[/green]"
+        ),
+    )
 
 
 @app.command("status")

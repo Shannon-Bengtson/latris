@@ -291,6 +291,7 @@ invisible Gitea (see [`GIT_INTEGRATION.md`](GIT_INTEGRATION.md) →
 latris sync login --email you@x.com            # request a one-time code
 latris sync login --email you@x.com --code ... # finish signing in
 latris sync share "Project name"                # create + push a remote project
+latris sync link on|off [--pack client]         # public report link (owner only)
 latris sync remote      # configure / show the project's sync remote
 latris sync push        # push local commits to the shared project
 latris sync pull        # pull + integrate remote commits
@@ -303,7 +304,9 @@ latris sync status      # show local vs remote sync state
 that previously existed was the desktop GUI's sync panel. `share` prints
 the hosted app's address (sign in there and pick the project from the
 list) and, when the control plane provides one, the project's report
-link.
+link. `link on` gives the shared project a public, unindexed report page
+at `app.latris.app/r/...` (off by default); Markdown exports then link to
+it. Turning it off and on again issues a new link.
 
 ## Semantic History
 
