@@ -46,3 +46,21 @@ def test_set_report_link_records_url(tmp_path: Path, git_identity, monkeypatch) 
     assert sync_ops.report_url(root=root) == "https://app.test/r/abc"
     sync_ops.set_report_link(False, root=root)
     assert sync_ops.report_url(root=root) is None
+
+
+def test_get_report_link_refreshes_local_copy(tmp_path: Path, git_identity, monkeypatch) -> None:
+    root = tmp_path / "demo"
+    init_project(root, statement="Q?")
+    assert sync_ops.get_report_link(root=root) == {"report_url": None, "report_pack": None}
+
+    class _Client:
+        def get_project(self, pid):
+            return {"id": pid, "report_url": "https://app.test/r/new", "report_pack": "review"}
+
+    monkeypatch.setattr(sync_ops, "_client", lambda **kw: _Client())
+    from latris.repo import git
+
+    git.set_config(root, sync_ops.SYNC_PROJECT_ID_KEY, "proj_1")
+    sync_ops.set_report_url("https://app.test/r/stale", root=root)
+    assert sync_ops.get_report_link(root=root) == {"report_url": "https://app.test/r/new", "report_pack": "review"}
+    assert sync_ops.report_url(root=root) == "https://app.test/r/new"

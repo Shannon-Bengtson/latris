@@ -706,6 +706,23 @@ def _member_op(action, *, root: Path | None):
     return result, pid
 
 
+def get_report_link(*, root: Path | None = None) -> dict:
+    """The shared project's report link state, from the control plane.
+
+    Also refreshes the locally recorded link, which can go stale (a clone made
+    elsewhere, or the link changed in the app).
+    """
+    pid = project_id(root=root)
+    if not pid:
+        return {"report_url": None, "report_pack": None}
+    try:
+        proj = _client().get_project(pid)
+    except SyncClientError as exc:
+        raise SyncError(str(exc)) from exc
+    set_report_url(proj.get("report_url"), root=root)
+    return {"report_url": proj.get("report_url"), "report_pack": proj.get("report_pack")}
+
+
 def set_report_link(enabled: bool, *, pack: str | None = None, root: Path | None = None) -> dict:
     """Turn the shared project's public report link on or off (owner only).
 

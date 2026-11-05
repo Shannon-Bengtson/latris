@@ -218,8 +218,13 @@ class ReportLinkBody(BaseModel):
     pack: str | None = None
 
 
+@router.get("/report-link")
+def get_report_link(root: Root) -> dict[str, Any]:
+    return _guard(lambda: ops.get_report_link(root=root))
+
+
 @router.post("/report-link")
-def report_link(body: ReportLinkBody, root: Root) -> dict[str, Any]:
+def set_report_link(body: ReportLinkBody, root: Root) -> dict[str, Any]:
     return _guard(lambda: ops.set_report_link(body.enabled, pack=body.pack, root=root))
 
 
