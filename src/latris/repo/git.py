@@ -171,6 +171,11 @@ def set_config(cwd: Path, key: str, value: str) -> None:
     run_git(["config", key, value], cwd=cwd)
 
 
+def unset_config(cwd: Path, key: str) -> None:
+    """Remove a git config value; a no-op if it isn't set."""
+    run_git(["config", "--unset", key], cwd=cwd, check=False)
+
+
 def init(cwd: Path) -> None:
     """Initialise a git repository at ``cwd`` with ``main`` as the default branch."""
     run_git(["init", f"--initial-branch={DEFAULT_BRANCH}"], cwd=cwd)

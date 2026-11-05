@@ -66,12 +66,13 @@ class _NarrativeResponse(BaseModel):
     )
 
 
-def build_narrative(paths: ProjectPaths, *, model_type: str | None = None) -> Narrative:
+def build_narrative(paths: ProjectPaths, *, model_type: str | None = None, ai: bool = True) -> Narrative:
     """Build a client-facing narrative preamble from the project data.
 
     When ``model_type`` is given, the structure description is scoped to that
     formalism's view (so a per-formalism report's prose describes only that
-    formalism's entities and relationships)."""
+    formalism's entities and relationships). ``ai=False`` skips the AI attempt
+    and uses the mechanical prose directly — no network, no credentials."""
     from latris.exporters._scope import view_member_ids
 
     foundation = load_model(ProjectFoundation, paths.project_yaml)
@@ -95,8 +96,10 @@ def build_narrative(paths: ProjectPaths, *, model_type: str | None = None) -> Na
 
     # Try AI-generated prose; fall back to mechanical descriptions
     history_entries = _build_history_entries(paths.root)
-    ai_result = _try_ai_narrative(
-        paths, foundation, substrate, assumptions, challenges, evidence, references, history_entries
+    ai_result = (
+        _try_ai_narrative(paths, foundation, substrate, assumptions, challenges, evidence, references, history_entries)
+        if ai
+        else None
     )
 
     if ai_result is not None:

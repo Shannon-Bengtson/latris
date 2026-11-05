@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 from latris.operations import edges as ops
 from latris.operations import nodes as node_ops
 
@@ -26,7 +27,13 @@ def add(
 ) -> None:
     """Add an edge between two existing nodes."""
     edge, sha = ops.add_edge(from_node, to_node, kind=kind)  # type: ignore[arg-type]
-    console.print(f"[green]added[/green] edge [cyan]{edge.id}[/cyan] ({edge.kind}) · commit [cyan]{sha[:10]}[/cyan]")
+    emit(
+        edge,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]added[/green] edge [cyan]{edge.id}[/cyan] ({edge.kind}) · commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
 
 
 @app.command("list")
@@ -34,6 +41,9 @@ def add(
 def list_() -> None:
     """List all edges."""
     edges = ops.list_edges()
+    if json_mode():
+        emit(edges, human=lambda: None)
+        return
     if not edges:
         console.print("[dim](no edges yet)[/dim]")
         return
@@ -62,4 +72,8 @@ def remove(
 ) -> None:
     """Remove an edge."""
     edge, sha = ops.remove_edge(query)
-    console.print(f"[green]removed[/green] edge {edge.id} · commit [cyan]{sha[:10]}[/cyan]")
+    emit(
+        edge,
+        commit_sha=sha,
+        human=lambda: console.print(f"[green]removed[/green] edge {edge.id} · commit [cyan]{sha[:10]}[/cyan]"),
+    )

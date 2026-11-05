@@ -565,7 +565,7 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 
 ## Export formats
 
-Use Markdown for transparent text output and Word for stakeholder-ready documents.
+Use Markdown for transparent text output and Word for stakeholder-ready documents. The Markdown report opens with a Mermaid sketch of the model, which GitHub and most chat tools draw as a diagram.
 
 ## Practical advice
 

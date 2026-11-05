@@ -18,7 +18,16 @@ latris --version
 latris --help
 latris doctor
 latris capabilities [--json]
+latris --json <group> <command> ...
 ```
+
+`--json` (before the command group) makes supported commands print one
+JSON object instead of rich text: `{"result": ..., "commit_sha": ...}` for
+mutations (the server routes' shape) and `{"result": [...]}` for listings.
+Errors print `{"error": ..., "type": ...}` with the usual exit codes (1 for
+not-found / git / sync errors, 2 for invalid input). Supported today:
+`node add|list|show|rename|remove`, `edge add|list|remove`, `attr set`,
+`view set`, `ref add|list`, `evidence add`, `check coherence`.
 
 ## Project
 
@@ -100,6 +109,8 @@ latris mapping approve <mapping-id>
 
 latris view project cld|dag|conceptual
 latris view auto-project cld|dag|conceptual
+latris view set <model-type> <target> <attribute> <value> [--rationale "..."]
+latris view set fcm <edge> weight -- -0.7   # `--` before a negative number
 
 latris version milestone "..."
 latris version alternative "..."
@@ -127,14 +138,19 @@ SHELF, Delphi, IDEA, Cooke, AHP, and related methods remain future work.
 ## Export
 
 ```bash
-latris export md [--pack client|audit|review|workshop|publication]
+latris export md [--pack client|audit|review|workshop|publication] [--report-url URL] [--no-ai]
 latris export word [--pack client|audit|review|workshop|publication]
-latris export dot --view cld|dag|conceptual
+latris export dot --view system_map|cld|dag
 latris export review [--pack client|audit|review|workshop|publication]
 ```
 
 Markdown, Word, DOT, and self-contained HTML review-pack exports are
-built. PDF export is not yet built.
+built. PDF export is not yet built. The Markdown report includes a
+Mermaid sketch of the model (section `diagram`, in every pack) that
+renders on GitHub and in most chat UIs. `--report-url` adds a link to the
+hosted copy of the report in the footer; it defaults to the link recorded
+when the project was shared, if any. `--no-ai` writes the narrative
+preamble without attempting an AI call.
 
 ## Review Import
 
@@ -285,7 +301,9 @@ latris sync status      # show local vs remote sync state
 `login`/`share` are the bridge from a local project to the hosted app
 (`https://app.latris.app`) — the only account/collaboration entry point
 that previously existed was the desktop GUI's sync panel. `share` prints
-the link to open the project in the hosted app once it's pushed.
+the hosted app's address (sign in there and pick the project from the
+list) and, when the control plane provides one, the project's report
+link.
 
 ## Semantic History
 

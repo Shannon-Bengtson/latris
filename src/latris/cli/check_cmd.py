@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Cross-store coherence checks.", no_args_is_help=True)
 console = Console()
@@ -24,6 +25,12 @@ def coherence() -> None:
     from latris.operations.analysis import run_coherence_check
 
     findings = run_coherence_check()
+
+    if json_mode():
+        emit(findings, human=lambda: None)
+        if any(f.severity == "likely" for f in findings):
+            raise typer.Exit(code=1)
+        return
 
     if not findings:
         console.print("[green]No polarity ↔ description contradictions found.[/green]")

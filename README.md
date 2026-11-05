@@ -178,8 +178,9 @@ viewing or sharing the model at `https://app.latris.app` would help,
 rather than reading terminal output, the path is: `latris sync login
 --email <their email>` (sends a one-time code that the human relays
 back, then re-run with `--code`), then
-`latris sync share "<project name>"`, which prints the exact link to
-open. No desktop install needed.
+`latris sync share "<project name>"`, which pushes the project and
+prints where to open it (the human signs in at that address and picks
+the project from their list). No desktop install needed.
 
 Setup (one shot):
 

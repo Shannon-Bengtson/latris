@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 from latris.operations import nodes as ops
 from latris.schema.ids import id_timestamp
 
@@ -25,9 +26,13 @@ def add(
 ) -> None:
     """Add a node to the substrate."""
     entity, sha = ops.add_node(label, kind=kind)  # type: ignore[arg-type]
-    console.print(
-        f"[green]added[/green] {entity.kind} [bold]{entity.label}[/bold] "
-        f"([cyan]{entity.id}[/cyan]) · commit [cyan]{sha[:10]}[/cyan]"
+    emit(
+        entity,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]added[/green] {entity.kind} [bold]{entity.label}[/bold] "
+            f"([cyan]{entity.id}[/cyan]) · commit [cyan]{sha[:10]}[/cyan]"
+        ),
     )
 
 
@@ -36,6 +41,9 @@ def add(
 def list_() -> None:
     """List all nodes."""
     entities = ops.list_nodes()
+    if json_mode():
+        emit(entities, human=lambda: None)
+        return
     if not entities:
         console.print("[dim](no nodes yet — add one with `latris node add ...`)[/dim]")
         return
@@ -55,6 +63,9 @@ def show(
 ) -> None:
     """Show a single node."""
     e = ops.get_node(query)
+    if json_mode():
+        emit(e, human=lambda: None)
+        return
     console.print(f"[bold]id:[/bold] {e.id}")
     console.print(f"[bold]kind:[/bold] {e.kind}")
     console.print(f"[bold]label:[/bold] {e.label}")
@@ -69,7 +80,13 @@ def rename(
 ) -> None:
     """Rename a node's human-readable label (ID stays stable)."""
     entity, sha = ops.rename_node(query, new_label)
-    console.print(f"[green]renamed[/green] {entity.id} → [bold]{entity.label}[/bold] · commit [cyan]{sha[:10]}[/cyan]")
+    emit(
+        entity,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]renamed[/green] {entity.id} → [bold]{entity.label}[/bold] · commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
 
 
 @app.command("remove")
@@ -79,7 +96,11 @@ def remove(
 ) -> None:
     """Remove a node and cascade-delete edges that touch it."""
     entity, edges, sha = ops.remove_node(query)
-    console.print(
-        f"[green]removed[/green] [bold]{entity.label}[/bold] "
-        f"({entity.id}) + {len(edges)} edge(s) · commit [cyan]{sha[:10]}[/cyan]"
+    emit(
+        {"node": entity, "removed_edges": edges},
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]removed[/green] [bold]{entity.label}[/bold] "
+            f"({entity.id}) + {len(edges)} edge(s) · commit [cyan]{sha[:10]}[/cyan]"
+        ),
     )

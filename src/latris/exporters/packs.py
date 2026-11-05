@@ -16,6 +16,7 @@ class PackConfig:
 # Section names match the heading keys used in markdown.py and word.py
 ALL_SECTIONS = [
     "foundation",
+    "diagram",
     "modelling_approach",
     "nodes",
     "edges",
@@ -41,7 +42,7 @@ ALL_SECTIONS = [
 PACKS: dict[str, PackConfig] = {
     "client": PackConfig(
         name="client",
-        sections=["foundation", "modelling_approach", "nodes", "edges", "evidence", "assumptions", "decisions", "exclusions", "findings", "interpretation"],  # noqa: E501
+        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "assumptions", "decisions", "exclusions", "findings", "interpretation"],  # noqa: E501
     ),
     "audit": PackConfig(
         name="audit",
@@ -49,15 +50,15 @@ PACKS: dict[str, PackConfig] = {
     ),
     "review": PackConfig(
         name="review",
-        sections=["foundation", "modelling_approach", "nodes", "edges", "evidence", "challenges", "questions", "findings", "interpretation"],  # noqa: E501
+        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "challenges", "questions", "findings", "interpretation"],  # noqa: E501
     ),
     "workshop": PackConfig(
         name="workshop",
-        sections=["foundation", "nodes", "edges", "assumptions", "questions", "sessions"],
+        sections=["foundation", "diagram", "nodes", "edges", "assumptions", "questions", "sessions"],
     ),
     "publication": PackConfig(
         name="publication",
-        sections=["foundation", "modelling_approach", "nodes", "edges", "evidence", "references", "findings", "interpretation"],  # noqa: E501
+        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "references", "findings", "interpretation"],  # noqa: E501
     ),
 }
 

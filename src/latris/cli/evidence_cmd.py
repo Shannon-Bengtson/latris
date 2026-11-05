@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit
 from latris.operations import evidence as ops
 
 app = typer.Typer(help="Attach citations to attributes.", no_args_is_help=True)
@@ -25,8 +26,7 @@ def add(
 ) -> None:
     """Attach a citation to a (target, attribute) pair."""
     if verified_by not in {"human", "ai"}:
-        console.print("[red]error:[/red] --verified-by must be 'human' or 'ai'.")
-        raise typer.Exit(code=2)
+        raise ValueError("--verified-by must be 'human' or 'ai'.")
     link, sha = ops.add_evidence(
         target,
         attribute,
@@ -34,6 +34,10 @@ def add(
         verified_by=verified_by,  # type: ignore[arg-type]
         notes=notes,
     )
-    console.print(
-        f"[green]attached[/green] {bibkey} → {link.target_id[:15]}…/{attribute} · commit [cyan]{sha[:10]}[/cyan]"
+    emit(
+        link,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]attached[/green] {bibkey} → {link.target_id[:15]}…/{attribute} · commit [cyan]{sha[:10]}[/cyan]"
+        ),
     )

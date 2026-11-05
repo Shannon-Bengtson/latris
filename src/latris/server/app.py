@@ -441,6 +441,23 @@ def _register_server_mock_responses() -> None:
     )
 
 
+PLUGIN_ENTRY_POINT_GROUP = "latris.server_plugins"
+
+
+def _register_plugins(app: FastAPI) -> None:
+    """Let installed packages add routes to the server.
+
+    Each entry point in the ``latris.server_plugins`` group must resolve to a
+    callable taking the ``FastAPI`` app. Plugins run after the built-in
+    routers. A plugin that fails to load raises: a half-registered server is
+    worse than one that refuses to start.
+    """
+    from importlib.metadata import entry_points
+
+    for ep in entry_points(group=PLUGIN_ENTRY_POINT_GROUP):
+        ep.load()(app)
+
+
 def create_app(*, project_root: Path | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -576,6 +593,7 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
     app.include_router(compose.router)
     app.include_router(configure.router)
     app.include_router(help_routes.router)
+    _register_plugins(app)
 
     # ── Read-only endpoints ───────────────────────────────────────────
     @app.get("/api/health")

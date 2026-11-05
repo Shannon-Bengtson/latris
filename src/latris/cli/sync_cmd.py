@@ -115,7 +115,9 @@ def share(
     proj = ops.share(name)
     console.print(f'[green]shared[/green] "{name}" ({proj["id"]})')
     email_hint = f" (sign in with {account['email']})" if account else ""
-    console.print(f"[dim]view online:[/dim] {app_url}/{email_hint}")
+    console.print(f"[dim]open in the app:[/dim] {app_url}/{email_hint}")
+    if proj.get("report_url"):
+        console.print(f"[dim]report link:[/dim] {proj['report_url']}")
 
 
 @app.command("status")

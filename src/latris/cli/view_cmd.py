@@ -4,9 +4,11 @@ import typer
 from rich.console import Console
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit
+from latris.operations import view_attributes as view_attr_ops
 from latris.operations import views as view_ops
 
-app = typer.Typer(help="View projection operations.", no_args_is_help=True)
+app = typer.Typer(help="View projection and model-specific attributes.", no_args_is_help=True)
 console = Console()
 
 
@@ -28,3 +30,28 @@ def view_auto_project(
     """Map all substrate elements to a view and project it."""
     created = view_ops.auto_project(kind)
     console.print(f"Auto-projected {kind} view: {len(created)} new mappings created")
+
+
+@app.command("set")
+@handle_cli_errors
+def view_set(
+    model_type: str = typer.Argument(..., help="Model type the attribute belongs to (e.g. cld, fcm)."),
+    target: str = typer.Argument(..., help="Node ID/label or edge ID."),
+    attribute: str = typer.Argument(..., help="Model-specific attribute (e.g. polarity for cld)."),
+    value: str = typer.Argument(..., help="Attribute value (e.g. + or - for CLD polarity)."),
+    rationale: str = typer.Option(None, "--rationale", help="Why this value, e.g. the causal story of a polarity."),
+) -> None:
+    """Set a model-specific attribute, such as a CLD edge's polarity.
+
+    Put ``--`` before a negative number so it isn't read as an option:
+    ``latris view set fcm <edge> weight -- -0.7``.
+    """
+    target_id, sha = view_attr_ops.set_view_attribute(target, model_type, attribute, value, rationale=rationale)
+    emit(
+        {"target_id": target_id, "model_type": model_type, "attribute": attribute, "value": value},
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]set[/green] {model_type} {attribute} = {value} on [cyan]{target_id}[/cyan] "
+            f"· commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )

@@ -94,13 +94,17 @@ def render(
     pack: str | None = None,
     sections: list[str] | None = None,
     model_type: str | None = None,
+    report_url: str | None = None,
+    ai: bool = True,
 ) -> str:
     """Render the project as Markdown, optionally filtered by pack or sections.
 
     When ``model_type`` is given the report is scoped to that formalism: the
     substrate is filtered to the view's members and findings/interpretation are
     filtered to that model type. ``model_type=None`` renders the whole project
-    (legacy aggregate behaviour).
+    (legacy aggregate behaviour). ``report_url`` adds a link to the hosted
+    copy of this report in the footer. ``ai=False`` writes the narrative
+    preamble without attempting an AI call.
     """
     from latris.exporters.packs import get_pack
 
@@ -152,7 +156,7 @@ def render(
     if _include("foundation"):
         from latris.exporters.narrative import build_narrative
 
-        narrative = build_narrative(paths, model_type=model_type)
+        narrative = build_narrative(paths, model_type=model_type, ai=ai)
         out.append(f"# {narrative.title}")
         out.append("")
         out.append(narrative.purpose)
@@ -193,6 +197,19 @@ def render(
         if narrative.history_summary:
             out.append("## Model History\n")
             out.append(narrative.history_summary)
+            out.append("")
+
+    # ---------- Diagram (Mermaid sketch) ----------
+    if _include("diagram"):
+        from latris.exporters import mermaid
+
+        diagram = mermaid.render(paths, model_type=model_type)
+        if diagram:
+            out.append("## Diagram")
+            out.append("")
+            out.append("```mermaid")
+            out.append(diagram.rstrip("\n"))
+            out.append("```")
             out.append("")
 
     if _include("modelling_approach"):
@@ -610,6 +627,9 @@ def render(
     # ---------- Footer badge ----------
     out.append("---")
     out.append("")
+    if report_url:
+        out.append(f"View this report online: {report_url}")
+        out.append("")
     out.append(f"*{_BADGE_TEXT} — {_BADGE_URL}*")
     out.append("")
 
@@ -730,7 +750,11 @@ def write(
     *,
     pack: str | None = None,
     model_type: str | None = None,
+    report_url: str | None = None,
+    ai: bool = True,
 ) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render(paths, pack=pack, model_type=model_type), encoding="utf-8", newline="")
+    target.write_text(
+        render(paths, pack=pack, model_type=model_type, report_url=report_url, ai=ai), encoding="utf-8", newline=""
+    )
     return target

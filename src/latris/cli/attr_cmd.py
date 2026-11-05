@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit
 from latris.operations import attributes as ops
 
 app = typer.Typer(help="Set attribute values on a target.", no_args_is_help=True)
@@ -23,4 +24,10 @@ def set_(
     ``latris mature`` and docs/design/MATURITY_LADDER.md.
     """
     target_id, sha = ops.set_attribute(target, attribute, value)  # type: ignore[arg-type]
-    console.print(f"[green]set[/green] {attribute} on [cyan]{target_id}[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
+    emit(
+        {"target_id": target_id, "attribute": attribute, "value": value},
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]set[/green] {attribute} on [cyan]{target_id}[/cyan] · commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )

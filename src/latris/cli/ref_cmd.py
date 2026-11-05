@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 from latris.operations import references as ops
 
 app = typer.Typer(help="Manage the research-base reference library.", no_args_is_help=True)
@@ -39,7 +40,13 @@ def add(
         url=url,
         notes=notes,
     )
-    console.print(f"[green]added[/green] reference [bold]{ref.bibkey}[/bold] · commit [cyan]{sha[:10]}[/cyan]")
+    emit(
+        ref,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]added[/green] reference [bold]{ref.bibkey}[/bold] · commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
 
 
 @app.command("list")
@@ -47,6 +54,9 @@ def add(
 def list_() -> None:
     """List references in the project library."""
     refs = ops.list_references()
+    if json_mode():
+        emit(refs, human=lambda: None)
+        return
     if not refs:
         console.print("[dim](no references yet)[/dim]")
         return

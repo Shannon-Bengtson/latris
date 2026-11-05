@@ -713,12 +713,16 @@ def build_example(ex: WorkedExample) -> None:
     )
     policy_to_em = next(e.id for e in edges if e.from_id == nids["Transport Policy"])
 
-    # Polarity is now a CLD-specific view attribute (set via operations API,
-    # CLI command pending).
-    from latris.operations import view_attributes as view_attr_ops
-    for eid, pol in [(em_to_aqi, "-"), (aqi_to_health, "-"), (green_to_aqi, "+"), (policy_to_em, "-")]:
-        view_attr_ops.set_view_attribute(eid, "cld", "polarity", pol, root=ex.root)
-    ex.note("Set CLD polarity on 4 edges via view_attr_ops.set_view_attribute().")
+    # Polarity is a CLD-specific view attribute.
+    ex.run(["view", "set", "cld", em_to_aqi, "polarity", "-",
+            "--rationale", "More vehicle emissions raise pollutant load, worsening the AQI."])
+    for eid, pol in [(aqi_to_health, "-"), (green_to_aqi, "+"), (policy_to_em, "-")]:
+        ex.run(["view", "set", "cld", eid, "polarity", pol])
+    ex.note(
+        "Any command that supports it can print JSON instead of text with the global "
+        "--json flag — the form agents and the hosted MCP server use."
+    )
+    ex.run(["--json", "node", "show", "Air Quality Index"])
 
     ex.run(["attr", "set", em_to_aqi, "confidence", "high"])
     ex.run(["mature", "review", em_to_aqi])
@@ -1259,8 +1263,8 @@ def build_example(ex: WorkedExample) -> None:
     # Set weights on edges (same edges that have CLD polarity)
     for eid, weight in [(em_to_aqi, "-0.7"), (aqi_to_health, "-0.6"),
                         (green_to_aqi, "0.5"), (policy_to_em, "-0.8")]:
-        view_attr_ops.set_view_attribute(eid, "fcm", "weight", weight, root=ex.root)
-    ex.note("Set FCM weights on 4 edges via view_attr_ops.set_view_attribute().")
+        # `--` stops option parsing so a negative weight isn't read as a flag.
+        ex.run(["view", "set", "fcm", eid, "weight", "--", weight])
 
     ex.run(["fcm", "weights"])
     ex.run(["fcm", "infer"])
@@ -1342,7 +1346,9 @@ def build_example(ex: WorkedExample) -> None:
         "Export",
         "Export the project as Markdown, Word, and Graphviz DOT. Reports can be "
         "scoped to a single formalism with --model-type (substrate, findings, and "
-        "interpretation are filtered to that formalism's view).",
+        "interpretation are filtered to that formalism's view). The Markdown report "
+        "opens with a Mermaid sketch of the model, which renders on GitHub and in "
+        "most chat UIs.",
     )
 
     ex.run(["export", "md", "--output", "reports/report.md"])

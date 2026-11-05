@@ -43,6 +43,7 @@ from latris.cli import (  # noqa: E402
     sync_cmd,
     view_cmd,
 )
+from latris.cli._output import set_json_mode  # noqa: E402
 from latris.cli.init_cmd import init as init_command  # noqa: E402
 
 app = typer.Typer(
@@ -108,8 +109,14 @@ def main(
         is_eager=True,
         callback=_version_callback,
     ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Print one JSON object instead of rich text (commands that support it).",
+    ),
 ) -> None:
     """Root command."""
+    set_json_mode(json_output)
 
 
 app.command("capabilities")(capabilities_cmd.capabilities)

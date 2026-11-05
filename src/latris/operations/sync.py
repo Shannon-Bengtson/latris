@@ -140,6 +140,7 @@ def status(*, remote: str = "origin", root: Path | None = None) -> dict[str, Any
 
 SYNC_PROJECT_ID_KEY = "latris.projectid"
 SYNC_SERVER_KEY = "latris.server"
+SYNC_REPORT_URL_KEY = "latris.reporturl"
 
 
 def _client(*, require_auth: bool = True, timeout: float = 30.0) -> SyncClient:
@@ -323,11 +324,33 @@ def project_id(*, root: Path | None = None) -> str | None:
     return git.get_config(paths.root, SYNC_PROJECT_ID_KEY)
 
 
+def report_url(*, root: Path | None = None) -> str | None:
+    """The hosted report link for this project, if sharing is on.
+
+    Kept in local git config (like the project id), never in a committed
+    file: it's a per-clone pointer, not part of the model.
+    """
+    paths = require_project(root)
+    return git.get_config(paths.root, SYNC_REPORT_URL_KEY)
+
+
+def set_report_url(url: str | None, *, root: Path | None = None) -> None:
+    paths = require_project(root)
+    if url:
+        git.set_config(paths.root, SYNC_REPORT_URL_KEY, url)
+    else:
+        git.unset_config(paths.root, SYNC_REPORT_URL_KEY)
+
+
 def _record_project_link(paths: ProjectPaths, proj: dict) -> None:
     git.set_config(paths.root, SYNC_PROJECT_ID_KEY, proj["id"])
     server = credentials.get_server_url()
     if server:
         git.set_config(paths.root, SYNC_SERVER_KEY, server)
+    # Control planes that host reports return the project's report link when
+    # sharing is on; older ones don't, and that's fine.
+    if proj.get("report_url"):
+        git.set_config(paths.root, SYNC_REPORT_URL_KEY, proj["report_url"])
 
 
 def read_members(*, root: Path | None = None) -> list[MemberRecord]:

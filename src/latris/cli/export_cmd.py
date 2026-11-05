@@ -11,6 +11,7 @@ from latris.exporters import dot as dot_exporter
 from latris.exporters import markdown as md_exporter
 from latris.exporters import review_html as review_exporter
 from latris.exporters import word as word_exporter
+from latris.operations import sync as sync_ops
 from latris.repo.project import require_project
 
 app = typer.Typer(help="Export the project to Markdown, Word, Graphviz DOT, or Review Pack.", no_args_is_help=True)
@@ -49,16 +50,28 @@ def export_md(
         "-p",
         help="Report pack (review, audit, client, workshop, publication). Omit for the full report.",
     ),
+    report_url: str = typer.Option(
+        None,
+        "--report-url",
+        help="Link to the hosted copy of this report, shown in the footer. Defaults to the shared link, if any.",
+    ),
+    no_ai: bool = typer.Option(
+        False,
+        "--no-ai",
+        help="Write the narrative preamble without an AI call (fast, deterministic, no credentials).",
+    ),
 ) -> None:
     """Render the project as a Markdown report (stdout by default)."""
     paths = require_project()
+    if report_url is None:
+        report_url = sync_ops.report_url(root=paths.root)
     if output is None:
-        _emit(md_exporter.render(paths, pack=pack, model_type=model_type))
+        _emit(md_exporter.render(paths, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai))
         return
     target = Path(output)
     if not target.is_absolute():
         target = paths.root / target
-    md_exporter.write(paths, target, pack=pack, model_type=model_type)
+    md_exporter.write(paths, target, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai)
     console.print(f"[green]wrote[/green] {target.as_posix()}")
 
 
