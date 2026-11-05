@@ -1250,6 +1250,14 @@ The project owner manages who can access a shared project:
 
 Invite someone by **email** from **People** in the Versions view. They get an account the first time they sign in, then the project appears as **Available** for them to open. (Until you publish a version, a collaborator who opens the project sees nothing yet.)
 
+## Report link
+
+Under **People**, the owner can turn on a **report link**: a read-only web page of the project's report (with its diagram) that anyone with the link can open — no account needed, and it isn't indexed by search engines. Pick which report pack it shows. It's off by default. Turning it off and on again issues a new link, so an old one stops working.
+
+## Models made in a chat
+
+If you build a model with an AI chat (using the Latris connector), it starts **unsaved** and expires 30 days after its last edit. Ask the AI to save it: it gives you a one-time link that adds the model to your account (sign in with just your email). Saved models appear in your project list, and the chat can keep editing them.
+
 ## Reconciling a diverged version
 
 If you and a collaborator both change the **same version** before sharing, it **diverges** — the version shows a "Diverged" badge. Click **Reconcile** to see what changed on the shared copy side by side, then **keep one line**. The line you don't keep is preserved as an **archived** version (turn on "Show archived versions" to see it) — nothing is ever deleted. Coordinate with the other person so divergence stays rare.
