@@ -67,3 +67,7 @@ def capabilities(
     app = reports["app_formats"]
     console.print(f"  In the Latris app ({app['where']}): {', '.join(app['formats'])}.",
                   markup=False, highlight=False)
+
+    console.print("\nBuilding", markup=False, highlight=False)
+    for key, text in manifest["building"].items():
+        console.print(f"  - {key.replace('_', ' ')}: {text}", markup=False, highlight=False)

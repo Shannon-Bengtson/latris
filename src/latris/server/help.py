@@ -660,6 +660,10 @@ Each evidence link carries four orthogonal axes so a reviewer can answer four se
 
 A single ai-verified or human-verified badge conflated these — an AI-suggested link with no source access could read as if it had been verified against the paper. The split makes the difference visible.
 
+## Evidence against a link
+
+A source that argues against a claim goes on the same link, marked as contradicting: `latris evidence add <link> polarity <bibkey> --contradicts` (or `contradicts: [<bibkey>]` on a link in `latris build --spec`). It doesn't count toward evidence coverage. Reports list it as **against**, a "Contested links" section shows each disputed link's sources for and against (with any open challenge on it), and the confidence and open-questions claims name the disagreement. A challenge is different: it's a person disputing something, and it can stand alongside contradicting sources.
+
 ## Why this matters
 
 A defensible model needs to show which exact claim is supported and who accepted it. Broad evidence lists are weaker than targeted evidence links.

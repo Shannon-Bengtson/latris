@@ -64,8 +64,8 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
                 problems.append(f"link {i}: no factor named {end!r}")
         if link.from_.casefold() == link.to.casefold():
             problems.append(f"link {i}: a factor can't link to itself")
-    for where, items in [(f"factor {f.label!r}", f.sources) for f in spec.factors] + [
-        (f"link {i}", link.sources) for i, link in enumerate(spec.links, 1)
+    for where, items in [(f"factor {f.label!r}", f.sources + f.contradicts) for f in spec.factors] + [
+        (f"link {i}", link.sources + link.contradicts) for i, link in enumerate(spec.links, 1)
     ]:
         for c in _citations(items):
             if c.key not in keys:
@@ -112,9 +112,12 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             )
             result.sources += 1
 
-        def _cite(target: str, attribute: str, items: list[str | SpecCitation]) -> None:
+        def _cite(target: str, attribute: str, items: list[str | SpecCitation], *, against: bool = False) -> None:
             for c in _citations(items):
-                add_evidence(target, attribute, c.key, verified_by=verified_by, notes=c.notes, root=paths.root)  # type: ignore[arg-type]
+                add_evidence(
+                    target, attribute, c.key, verified_by=verified_by, notes=c.notes,  # type: ignore[arg-type]
+                    contradicts=against, root=paths.root,
+                )
                 result.citations += 1
 
         for f in spec.factors:
@@ -122,6 +125,7 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             if f.description:
                 set_attribute(node.id, "description", f.description, root=paths.root)
             _cite(node.id, "description", f.sources)
+            _cite(node.id, "description", f.contradicts, against=True)
             result.factors += 1
 
         for link in spec.links:
@@ -134,7 +138,9 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
                 set_attribute(edge.id, "description", link.description, root=paths.root)
             if link.confidence:
                 set_attribute(edge.id, "confidence", link.confidence, root=paths.root)
-            _cite(edge.id, "polarity" if link.polarity else "description", link.sources)
+            claim = "polarity" if link.polarity else "description"
+            _cite(edge.id, claim, link.sources)
+            _cite(edge.id, claim, link.contradicts, against=True)
             result.links.append({"id": edge.id, "from": link.from_, "to": link.to})
 
         if spec.outcome:

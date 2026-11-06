@@ -16,11 +16,15 @@ server's ``apply_changes`` operations so one vocabulary serves both.
         reason: More hours per person, more exhaustion.
         confidence: high
         sources: [smith2024]
+        contradicts: [tuohy2015]   # sources that argue against this link
     sources:
       - key: smith2024
         title: Burnout among community volunteers
         authors: ["Smith, Jane"]
         year: 2024
+      - key: tuohy2015
+        title: Workload and volunteer retention revisited
+        year: 2015
     assumptions:
       - Volunteers' hours are roughly comparable across programs.
     questions:
@@ -52,6 +56,7 @@ class SpecFactor(_Spec):
     kind: EntityKind = "variable"
     description: str | None = None
     sources: list[str | SpecCitation] = Field(default_factory=list)
+    contradicts: list[str | SpecCitation] = Field(default_factory=list)
 
 
 class SpecLink(_Spec):
@@ -64,6 +69,7 @@ class SpecLink(_Spec):
     description: str | None = None
     confidence: str | None = None
     sources: list[str | SpecCitation] = Field(default_factory=list)
+    contradicts: list[str | SpecCitation] = Field(default_factory=list)  # sources against the link
 
 
 class SpecSource(_Spec):

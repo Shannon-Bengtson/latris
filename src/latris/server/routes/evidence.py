@@ -21,6 +21,7 @@ class AddEvidenceRequest(BaseModel):
     bibkey: str
     verified_by: Literal["human", "ai"] = "human"
     notes: str | None = None
+    contradicts: bool = False
 
 
 @router.post("", status_code=201)
@@ -31,6 +32,7 @@ def attach_evidence(body: AddEvidenceRequest, root: Root) -> dict[str, Any]:
         body.bibkey,
         verified_by=body.verified_by,
         notes=body.notes,
+        contradicts=body.contradicts,
         root=root,
     )
     return {"result": link.model_dump(mode="json"), "commit_sha": sha}

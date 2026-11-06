@@ -349,6 +349,10 @@ def render(
                 out.append("")
 
     # ---------- Evidence ----------
+    _begin("contested")
+    if _include("contested"):
+        out.extend(_render_contested(evidence, challenges, labels, references))
+
     _begin("evidence")
     if _include("evidence"):
         out.append("## Evidence")
@@ -361,15 +365,24 @@ def render(
                 by_key.setdefault(link.bibkey, []).append(link)
             ref_by_key = {r.bibkey: r for r in references}
 
-            def _audit(link) -> str:
-                return f"by={link.verified_by} · source={link.source_access} · verdict={link.support_verdict}"
+            def _tags(link) -> list[tuple[str, str]]:
+                # A source against a claim is marked "against" instead of
+                # carrying verdict=contradicts.
+                tags = [("by", link.verified_by), ("source", link.source_access)]
+                if link.support_verdict != "contradicts":
+                    tags.append(("verdict", link.support_verdict))
+                return tags
 
-            # The same audit tags on every line is noise; when they're all
-            # alike, say so once.
-            audits = {_audit(link) for link in evidence.entries}
-            shared_audit = audits.pop() if len(audits) == 1 else None
-            if shared_audit:
-                out.append(f"_Every citation below: {shared_audit}._")
+            # The same audit tag on every line is noise: a tag every citation
+            # shares is stated once, and lines keep only the ones that differ.
+            values: dict[str, set[str]] = {}
+            for link in evidence.entries:
+                for k, v in _tags(link):
+                    values.setdefault(k, set()).add(v)
+            shared = {k: next(iter(v)) for k, v in values.items() if len(v) == 1}
+            if shared:
+                common = " · ".join(f"{k}={v}" for k, v in shared.items())
+                out.append(f"_Every citation below: {common}._")
                 out.append("")
             for bibkey, links in sorted(by_key.items()):
                 ref = ref_by_key.get(bibkey)
@@ -382,7 +395,10 @@ def render(
                     # "human-verified / ai-verified" badge that conflated
                     # who proposed the link with whether the source
                     # supports the claim.
-                    audit = "" if shared_audit else f" ({_audit(link)})"
+                    own = " · ".join(f"{k}={v}" for k, v in _tags(link) if k not in shared)
+                    audit = f" ({own})" if own else ""
+                    if link.support_verdict == "contradicts":
+                        audit = f" — **against**{audit}"
                     note = f" — _{link.notes}_" if link.notes else ""
                     # "existence" is a sentinel attribute meaning the
                     # reference supports the existence/presence of the
@@ -729,6 +745,47 @@ def render(
     out.append("")
 
     return "\n".join(out)
+
+
+def _render_contested(evidence, challenges, labels: dict[str, str], references) -> list[str]:
+    """Links and factors where sources disagree or a challenge is open.
+
+    Nothing (not even a heading) when the model has no disagreement, so
+    reader packs don't carry an empty section.
+    """
+    against: dict[str, list[str]] = {}
+    for e in evidence.entries:
+        if e.target_id and e.support_verdict == "contradicts":
+            against.setdefault(e.target_id, []).append(e.bibkey)
+    open_challenges: dict[str, list[str]] = {}
+    for c in challenges:
+        if c.state == "open" and c.target_id:
+            open_challenges.setdefault(c.target_id, []).append(c.argument)
+    targets = sorted(set(against) | set(open_challenges), key=lambda t: labels.get(t, t))
+    if not targets:
+        return []
+    ref_by_key = {r.bibkey: r for r in references}
+
+    def _cite(key: str) -> str:
+        ref = ref_by_key.get(key)
+        return _short_citation(ref) if ref else f"`{key}`"
+
+    out = ["## Contested links", ""]
+    out.append("_Where sources disagree, or someone has challenged the link and it isn't resolved._")
+    out.append("")
+    for t in targets:
+        out.append(f"- **{_md_escape(labels.get(t, t))}**")
+        for_keys = sorted(
+            {e.bibkey for e in evidence.entries if e.target_id == t and e.support_verdict != "contradicts"}
+        )
+        if for_keys:
+            out.append(f"  - For: {'; '.join(_cite(k) for k in for_keys)}")
+        if t in against:
+            out.append(f"  - Against: {'; '.join(_cite(k) for k in sorted(set(against[t])))}")
+        for arg in open_challenges.get(t, []):
+            out.append(f"  - Open challenge: {_md_escape(arg)}")
+    out.append("")
+    return out
 
 
 def _in_pack_order(

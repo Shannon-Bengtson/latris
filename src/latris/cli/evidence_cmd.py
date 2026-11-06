@@ -23,8 +23,15 @@ def add(
         help="human | ai — who verified the citation applies.",
     ),
     notes: str = typer.Option(None, "--notes", help="Free-text notes on the link."),
+    contradicts: bool = typer.Option(
+        False, "--contradicts", help="The source argues against this claim (evidence against, not for)."
+    ),
 ) -> None:
-    """Attach a citation to a (target, attribute) pair."""
+    """Attach a citation to a (target, attribute) pair.
+
+    Sources against a link go on the same link with ``--contradicts``;
+    reports then show the evidence for and against it.
+    """
     if verified_by not in {"human", "ai"}:
         raise ValueError("--verified-by must be 'human' or 'ai'.")
     link, sha = ops.add_evidence(
@@ -33,6 +40,7 @@ def add(
         bibkey,
         verified_by=verified_by,  # type: ignore[arg-type]
         notes=notes,
+        contradicts=contradicts,
     )
     emit(
         link,

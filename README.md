@@ -210,9 +210,10 @@ latris build --spec model.yaml
 #     - {label: Volunteer departures}
 #   links:
 #     - {from: Workload, to: Burnout, polarity: "+", reason: "More hours, more exhaustion.",
-#        confidence: high, sources: [smith2021]}
+#        confidence: high, sources: [smith2021], contradicts: [tuohy2015]}
 #   sources:
 #     - {key: smith2021, title: Volunteer burnout, authors: ["Smith, J"], year: 2021}
+#     - {key: tuohy2015, title: Workload and retention revisited, year: 2015}
 #   assumptions: ["Service demand stays steady as numbers fall."]
 #   questions: ["Does recognition matter independently of workload?"]
 
@@ -227,6 +228,7 @@ latris view set cld <edge-id> polarity + --rationale "More hours, more exhaustio
 
 latris ref add smith2021 --title "Volunteer burnout" --author "Smith, J" --year 2021
 latris evidence add <edge-id> polarity smith2021 --verified-by ai
+latris evidence add <edge-id> polarity tuohy2015 --verified-by ai --contradicts   # a source against the link
 latris assumption add "Service demand stays steady as numbers fall."  # for unsourced links
 latris view role cld "Volunteer departures" outcome   # the outcome isn't suggested as an intervention point
 
@@ -269,6 +271,10 @@ Tips for agents:
   `export md --no-ai` (and any export without a key) skips the AI prose.
 - **Evidence you attach is marked AI-proposed and unverified** until a person
   reviews it — say so when you hand the model over.
+- **Sources that disagree with a link go on that link** with `--contradicts`
+  (or `contradicts:` in a build spec) — not as a challenge and not left
+  uncited. The report then shows the link's sources for and against under
+  "Contested links", and the confidence and open-questions claims name it.
 - **Findings you add are proposed.** The client report lists only approved
   ones (it says how many are waiting); a person approves each with
   `latris mature approve <finding-id>`.

@@ -93,6 +93,27 @@ def build_capability_manifest() -> dict[str, Any]:
         "model_types": [_model_type_capability(s) for s in ordered],
         "excluded_by_design": [asdict(e) for e in EXCLUDED_BY_DESIGN],
         "reports": _report_capabilities(),
+        "building": _building_capabilities(),
+    }
+
+
+def _building_capabilities() -> dict[str, str]:
+    """How an agent builds a model quickly and records evidence on both sides."""
+    return {
+        "whole_model_in_one_step": (
+            "latris build --spec model.yaml (YAML or JSON; '-' reads stdin): factors, links with polarity and "
+            "reasons, sources, citations, evidence against, assumptions, questions and the outcome, as one "
+            "commit. The spec is checked in full first; a mistake changes nothing."
+        ),
+        "evidence_for": "latris evidence add <link> polarity <bibkey> [--verified-by ai]",
+        "evidence_against": (
+            "latris evidence add <link> polarity <bibkey> --contradicts — a source that argues against the "
+            "link; reports show the link's sources for and against under 'Contested links'."
+        ),
+        "outcome": (
+            "latris view role cld <factor> outcome — marks what the model explains so it isn't suggested as "
+            "an intervention point."
+        ),
     }
 
 

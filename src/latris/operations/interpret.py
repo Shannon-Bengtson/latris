@@ -302,6 +302,27 @@ def _element_names(substrate, ids: list[str]) -> list[str]:
     return out
 
 
+def _for_ids(evidence) -> set[str]:
+    """Targets with at least one source *for* them (contradicting sources don't cover a claim)."""
+    return {e.target_id for e in evidence.entries if e.target_id is not None and e.support_verdict != "contradicts"}
+
+
+def _contested(substrate, evidence) -> list[str]:
+    """``"A → B: 2 sources for, 1 against (tuohy2015)"`` for each claim with sources against it."""
+    against: dict[str, list[str]] = {}
+    for e in evidence.entries:
+        if e.target_id and e.support_verdict == "contradicts":
+            against.setdefault(e.target_id, []).append(e.bibkey)
+    out = []
+    for target_id, keys in against.items():
+        n_for = sum(1 for e in evidence.entries if e.target_id == target_id and e.support_verdict != "contradicts")
+        name = _element_names(substrate, [target_id])[0]
+        out.append(
+            f"{name}: {n_for} source{'s' if n_for != 1 else ''} for, {len(keys)} against ({', '.join(sorted(keys))})"
+        )
+    return sorted(out)
+
+
 def _outcome_ids(paths, model_type: str) -> set[str]:
     """Factors given the ``outcome`` role in this view (``latris view role``)."""
     path = paths.role_path(model_type)
@@ -357,7 +378,7 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
     if total == 0:
         return 0, 0, 1.0
 
-    cited_targets = {e.target_id for e in evidence.entries if e.target_id is not None}
+    cited_targets = _for_ids(evidence)
     cited = len(all_ids & cited_targets)
     return cited, total, cited / total
 
@@ -630,7 +651,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
     evidence_path = paths.evidence_links_yaml
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
 
-    linked_ids = {e.target_id for e in evidence.entries}
+    linked_ids = _for_ids(evidence)
     supported_ids = {e.target_id for e in evidence.entries if e.support_verdict == "supports"}
     all_ids, noun = _coverage_ids(substrate)
 
@@ -667,7 +688,7 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     # link with support_verdict != "supports" is a proposed citation, not
     # verified backing; report the two figures separately so the partner
     # reviewer knows what proportion of the model is actually grounded.
-    evidence_target_ids = {e.target_id for e in evidence.entries}
+    evidence_target_ids = _for_ids(evidence)
     supported_target_ids = {e.target_id for e in evidence.entries if e.support_verdict == "supports"}
     uncited_ids = all_ids - evidence_target_ids
     cited_count = len(all_ids) - len(uncited_ids)
@@ -684,6 +705,10 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
             f"Uncited {noun}: {', '.join(names[:5])}"
             + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
         )
+
+    contested = _contested(substrate, evidence)
+    if contested:
+        claims.append(f"Contested ({len(contested)}): " + "; ".join(contested[:5]))
 
     # References not linked to any element. EvidenceLink joins to References
     # via `bibkey`, not by Reference.id — comparing the two means joining on
@@ -816,7 +841,7 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
     # Supported coverage requires support_verdict == "supports" — i.e. the
     # source was actually read and the claim was backed. Reporting only the
     # linked-percentage rewards title-only citation stuffing.
-    linked_elements = len(all_ids & {e.target_id for e in evidence.entries})
+    linked_elements = len(all_ids & _for_ids(evidence))
     supported_elements = len(all_ids & {e.target_id for e in evidence.entries if e.support_verdict == "supports"})
     linked_pct = int(100 * linked_elements / max(total_elements, 1))
     supported_pct = int(100 * supported_elements / max(total_elements, 1))
@@ -840,6 +865,10 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
         )
     if maturity_pct < 50 and total_findings > 0:
         claims.append("Most findings are still in draft — peer review recommended before reporting.")
+    contested = _contested(substrate, evidence)
+    if contested:
+        claims.append(f"Contested — sources disagree on {len(contested)} {noun if len(contested) != 1 else noun[:-1]}:")
+        claims.extend(f"  - {c}" for c in contested[:5])
 
     return claims
 
@@ -857,13 +886,25 @@ def _extract_open_questions(model_type: str, paths) -> list[str]:
         if open_qs:
             claims.extend([f"Open question: {q.question}" for q in open_qs[:6]])
 
+    from latris.schema import ChallengeLog, EvidenceLinkSet, Substrate
+
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    if paths.challenges_yaml.exists():
+        open_challenges = [c for c in load_model(ChallengeLog, paths.challenges_yaml).entries if c.state == "open"]
+        for c in open_challenges[:4]:
+            on = f" ({_element_names(substrate, [c.target_id])[0]})" if c.target_id else ""
+            claims.append(f"Open challenge{on}: {c.argument}")
+    if paths.evidence_links_yaml.exists():
+        for c in _contested(substrate, load_model(EvidenceLinkSet, paths.evidence_links_yaml))[:4]:
+            claims.append(f"Sources disagree — {c}")
+
     findings = _load_findings(paths, model_type)
     diagnostics = [f for f in findings if f.category == "diagnostics"]
     if diagnostics:
         claims.extend([f"Diagnostic: {f.statement}" for f in diagnostics[:4]])
 
     if not claims:
-        claims = ["No open questions or diagnostic issues recorded."]
+        claims = ["No open questions, challenges or diagnostic issues recorded."]
     return claims
 
 

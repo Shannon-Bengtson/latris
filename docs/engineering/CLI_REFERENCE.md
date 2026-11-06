@@ -40,8 +40,8 @@ latris build --spec model.yaml [--verified-by human|ai]   # '-' reads stdin
 ```
 
 `build` adds a whole model from one YAML or JSON spec — `factors` (label,
-kind, description, sources), `links` (from, to, kind, polarity, reason,
-weight, description, confidence, sources), `sources` (key, title, authors,
+kind, description, sources, contradicts), `links` (from, to, kind, polarity,
+reason, weight, description, confidence, sources, contradicts), `sources` (key, title, authors,
 year, container, doi, url), `assumptions`, `questions`, `outcome` and an
 optional `model_type` — as **one commit**. Links and citations refer to
 factors by label and to sources by key, from the spec or already in the
@@ -72,8 +72,14 @@ latris ref add <bibkey> --title "..." --author "..." --year ...
 latris ref list
 latris ref import <bibfile>
 
-latris evidence add <target-id> <attribute> <bibkey>
+latris evidence add <target-id> <attribute> <bibkey> [--verified-by human|ai] [--notes "..."] [--contradicts]
 ```
+
+`--contradicts` records a source that argues **against** the claim. It sits
+on the same link as the sources for it; reports mark it "against", list
+the link under "Contested links" (sources for and against, plus open
+challenges), and leave it out of evidence coverage. In a build spec, use
+`contradicts: [<bibkey>]` beside `sources:`.
 
 ## Maturity
 

@@ -41,11 +41,14 @@ links:
     to: Workload per volunteer
     polarity: "+"
     reason: Fewer people share the same work.
+    contradicts: [tuohy2015]
 sources:
   - key: smith2024
     title: Burnout among community volunteers
     authors: ["Smith, Jane"]
     year: 2024
+  - key: tuohy2015
+    title: Workload and retention revisited
 assumptions:
   - Hours are comparable across programs.
 questions:
@@ -69,7 +72,7 @@ def test_builds_everything_in_one_commit(project: Path) -> None:
     before = _commits(project)
     result = build_ops.build_from_spec(build_ops.load_spec(SPEC), root=project)
     assert _commits(project) == before + 1
-    assert (result.factors, len(result.links), result.sources, result.citations) == (3, 3, 1, 1)
+    assert (result.factors, len(result.links), result.sources, result.citations) == (3, 3, 2, 2)
 
     paths = ProjectPaths(project)
     substrate = load_model(Substrate, paths.conceptual_yaml)
@@ -77,6 +80,8 @@ def test_builds_everything_in_one_commit(project: Path) -> None:
     evidence = load_model(EvidenceLinkSet, paths.evidence_links_yaml)
     assert evidence.entries[0].target_id == result.links[0]["id"]
     assert evidence.entries[0].attribute == "polarity"
+    against = [e for e in evidence.entries if e.support_verdict == "contradicts"]
+    assert [(e.bibkey, e.target_id) for e in against] == [("tuohy2015", result.links[2]["id"])]
     roles = load_model(RoleSet, paths.role_path("cld"))
     departures = next(e.id for e in substrate.entities if e.label == "Volunteer departures")
     assert [(r.target_id, r.value) for r in roles.entries] == [(departures, "outcome")]
@@ -118,4 +123,4 @@ def test_route(project: Path) -> None:
     client = TestClient(create_app(project_root=project))
     resp = client.post("/api/build", json={"spec": pyyaml.safe_load(SPEC), "verified_by": "ai"})
     assert resp.status_code == 200, resp.text
-    assert resp.json()["result"]["citations"] == 1
+    assert resp.json()["result"]["citations"] == 2

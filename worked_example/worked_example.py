@@ -759,6 +759,12 @@ def build_example(ex: WorkedExample) -> None:
             "--notes", "WHO identifies transport as primary urban PM2.5 source."])
     ex.run(["evidence", "add", em_to_aqi, "polarity", "who2021",
             "--notes", "Dose-response relationship established in WHO guidelines."])
+    ex.note("A source that argues against a link goes on the same link with `--contradicts`; "
+            "reports list it as evidence against and show the link under 'Contested links'.")
+    ex.run(["ref", "add", "dispersal2024", "--title",
+            "Wind dispersal and local air quality (illustrative source)", "--year", "2024"])
+    ex.run(["evidence", "add", em_to_aqi, "polarity", "dispersal2024", "--contradicts",
+            "--notes", "Strong winds can decouple local emissions from local AQI."])
 
     # ── 5. Provenance ─────────────────────────────────────────────────
     ex.section("Provenance", "Record assumptions, decisions, exclusions, questions, predictions, and sessions.")

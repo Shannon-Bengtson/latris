@@ -41,8 +41,15 @@ def add_evidence(
     verified_by: Literal["human", "ai"] = "human",
     informants: Informants | None = None,
     notes: str | None = None,
+    contradicts: bool = False,
     root: Path | None = None,
 ) -> tuple[EvidenceLink, str]:
+    """Cite ``bibkey`` on a (target, attribute) claim.
+
+    ``contradicts=True`` records a source that argues *against* the claim
+    (``support_verdict="contradicts"``): it stays on the same link as the
+    supporting sources, so reports can show both sides.
+    """
     paths = require_project(root)
 
     if target:
@@ -85,7 +92,7 @@ def add_evidence(
         notes=notes,
         verified_by=verified_by,
         source_access=source_access,
-        support_verdict="unverified",
+        support_verdict="contradicts" if contradicts else "unverified",
         origin=default_origin(),
     )
     store.entries.append(link)
@@ -94,7 +101,7 @@ def add_evidence(
     target_label = f"{target_id[:15]}…" if target_id else "model"
     sha = auto_commit(
         paths.root,
-        subject=f'Attached evidence "{bibkey}" to {target_label}/{attribute}',
+        subject=f'Attached {"contradicting " if contradicts else ""}evidence "{bibkey}" to {target_label}/{attribute}',
         body=f"target: {target_id or 'model'}\nattribute: {attribute}\nverified_by: {verified_by}",
         paths=[paths.evidence_links_yaml],
     )

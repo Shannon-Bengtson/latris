@@ -191,3 +191,35 @@ def test_agent_written_prose_is_not_logged_as_generated(project: Path, monkeypat
     assert result.exit_code == 0, result.output
     subject = git.run_git(["log", "-1", "--format=%s"], cwd=project).stdout.strip()
     assert subject == "Write (AI agent) interpretation: answer_to_question"
+
+
+def test_sources_against_a_link_show_both_sides(project: Path, monkeypatch) -> None:
+    from latris.operations.interpret import coverage_ratio, extract_claims
+    from latris.operations.project import update_selected_models
+
+    update_selected_models(["cld"], root=project)
+    edge = edge_ops.list_edges(root=project)[0]
+    ref_ops.add_reference("tuohy2015", "Workload and retention revisited", authors=["Tuohy, R"], year=2015,
+                          root=project)
+    monkeypatch.chdir(project)
+    result = CliRunner().invoke(app, ["evidence", "add", edge.id, "polarity", "tuohy2015", "--contradicts"])
+    assert result.exit_code == 0, result.output
+
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    contested = out.split("## Contested links", 1)[1].split("\n## ", 1)[0]
+    assert "**Workload → Burnout**" in contested
+    assert "For: Smith & Lee (2021)" in contested and "Against: Tuohy (2015)" in contested
+    evidence = out.split("## Evidence", 1)[1].split("\n## ", 1)[0]
+    assert "Workload → Burnout / **polarity** — **against**" in evidence
+    # A source against doesn't bring the shared audit tags back onto every line.
+    assert evidence.count("verdict=") == 1
+
+    # Coverage counts sources for a claim only; the disagreement reaches the claims.
+    assert coverage_ratio("cld", ProjectPaths(project))[:2] == (1, 1)
+    open_qs = extract_claims("open_questions", "cld", root=project)
+    assert any("Sources disagree — Workload → Burnout: 1 source for, 1 against (tuohy2015)" in c for c in open_qs)
+
+
+def test_no_contested_section_without_disagreement(project: Path) -> None:
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert "## Contested links" not in out
