@@ -219,9 +219,8 @@ def find_all_loops(edges: list[_HasDirection]) -> list[Loop]:
                     )
                 )
                 found = True
-            elif w not in blocked_set:
-                if _circuit(w, s):
-                    found = True
+            elif w not in blocked_set and _circuit(w, s):
+                found = True
 
         if found:
             _unblock(v)
