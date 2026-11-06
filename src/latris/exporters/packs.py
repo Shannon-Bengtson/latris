@@ -11,6 +11,8 @@ class PackConfig:
 
     name: str
     sections: list[str] = field(default_factory=list)
+    audience: str = ""
+    purpose: str = ""
 
 
 # Section names match the heading keys used in markdown.py and word.py
@@ -42,22 +44,35 @@ ALL_SECTIONS = [
 PACKS: dict[str, PackConfig] = {
     "client": PackConfig(
         name="client",
-        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "assumptions", "decisions", "exclusions", "findings", "interpretation"],  # noqa: E501
+        audience="people outside the modelling work — a client, board or funder",
+        purpose=(
+            "the model, the reasoning and evidence behind each link, findings, the interpretation and sources, "
+            "without internal IDs"
+        ),
+        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "assumptions", "decisions", "exclusions", "findings", "interpretation", "references"],  # noqa: E501
     ),
     "audit": PackConfig(
         name="audit",
+        audience="an auditor or the modelling team",
+        purpose="the complete record — every section, including decisions, sign-offs, sessions and data",
         sections=ALL_SECTIONS,  # everything
     ),
     "review": PackConfig(
         name="review",
+        audience="a reviewer checking the model",
+        purpose="the model with its evidence, open challenges and questions, and findings",
         sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "challenges", "questions", "findings", "interpretation"],  # noqa: E501
     ),
     "workshop": PackConfig(
         name="workshop",
+        audience="a working session with stakeholders",
+        purpose="structure, assumptions, open questions and session notes",
         sections=["foundation", "diagram", "nodes", "edges", "assumptions", "questions", "sessions"],
     ),
     "publication": PackConfig(
         name="publication",
+        audience="a paper or public write-up",
+        purpose="the model, evidence, findings, interpretation and full references, without internal IDs",
         sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "references", "findings", "interpretation"],  # noqa: E501
     ),
 }

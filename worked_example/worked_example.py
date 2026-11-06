@@ -1254,6 +1254,10 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["analyse", "d-sep", "Vehicle Emissions", "Respiratory Health",
             "--given", "Air Quality Index"])
     ex.run(["analyse", "paths", "Vehicle Emissions", "Respiratory Health"])
+    ex.note("Record what an analysis showed as a finding, so it reaches the report.")
+    ex.run(["finding", "add", "Transport policy reaches respiratory health only through emissions and air quality.",
+            "--category", "structure", "--target", "Transport Policy",
+            "--detail", "From `latris analyse paths`: every path runs via Vehicle Emissions."])
 
     # ── 11. Fuzzy Cognitive Map ─────────────────────────────────────────
     ex.section("Fuzzy Cognitive Map",
@@ -1312,6 +1316,20 @@ def build_example(ex: WorkedExample) -> None:
     interp_store = load_interpretation(root=ex.root)
     if interp_store.sections:
         ex.run(["interpret", "generate-prose", interp_store.sections[0].id, "--yes"])
+    ex.note(
+        "No AI key? An agent (or a person) can write a section from its claims: "
+        "`interpret show` lists what the model supports, `interpret set-prose` saves the text."
+    )
+    if interp_store.sections:
+        sec = next(
+            (s for s in interp_store.sections if s.section_type == "answer_to_question"),
+            interp_store.sections[-1],
+        )
+        ex.run(["interpret", "show", sec.section_type, "--model-type", sec.model_type])
+        ex.run(["interpret", "set-prose", sec.section_type,
+                "Vehicle emissions are the main lever: policy reaches air quality, and through it "
+                "respiratory health, mainly by changing emissions.",
+                "--model-type", sec.model_type, "--by", "ai"])
 
     # ── 13. Elicitation ───────────────────────────────────────────────
     ex.section("Expert Elicitation", "Run a structured expert elicitation session.")

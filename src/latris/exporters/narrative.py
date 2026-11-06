@@ -11,6 +11,7 @@ Client tone: professional, third-person, no jargon about the tool itself.
 from __future__ import annotations
 
 import logging
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -95,7 +96,7 @@ def build_narrative(paths: ProjectPaths, *, model_type: str | None = None, ai: b
         boundary = f"Model boundary: {foundation.boundary}"
 
     # Try AI-generated prose; fall back to mechanical descriptions
-    history_entries = _build_history_entries(paths.root)
+    history_entries = _name_ids(_build_history_entries(paths.root), load_model(Substrate, paths.conceptual_yaml))
     ai_result = (
         _try_ai_narrative(paths, foundation, substrate, assumptions, challenges, evidence, references, history_entries)
         if ai
@@ -138,11 +139,15 @@ def _try_ai_narrative(
     try:
         from latris.ai import config as ai_config
         from latris.ai import credentials as creds
-        from latris.ai.adapters import get_adapter
+        from latris.ai.adapters import get_adapter, mock_enabled
 
         cfg = ai_config.load(paths)
         model = ai_config.resolve_model(paths)
         provider = model.split("/", 1)[0].lower() if "/" in model else "gemini"
+        # No key and no mock: skip quietly rather than attempt a call that can
+        # only fail (and that some providers' clients report noisily).
+        if not mock_enabled() and creds.get_key(provider) is None:
+            return None
         adapter = get_adapter()
 
         # Build context for the AI
@@ -271,12 +276,44 @@ def _mechanical_scope(substrate, assumptions, challenges, evidence, references) 
     return " ".join(parts)
 
 
+_HISTORY_SHOWN = 8
+
+
 def _mechanical_history(entries: list[tuple[str, str]]) -> str:
-    """Fallback: bullet-style history when AI is unavailable."""
+    """Fallback when AI is unavailable: a count plus the latest few changes.
+
+    The full log belongs to `latris log`; a report that lists every commit
+    buries the model under its own bookkeeping.
+    """
     if not entries:
         return ""
-    lines = [f"- **{date}** — {summary}" for date, summary in entries]
+    first, last = entries[0][0], entries[-1][0]
+    span = first if first == last else f"{first} to {last}"
+    lines = [f"{len(entries)} recorded changes ({span}). Most recent:", ""]
+    lines += [f"- **{date}** — {summary}" for date, summary in entries[-_HISTORY_SHOWN:]]
     return "\n".join(lines)
+
+
+_ID_REF = re.compile(r"\b(?:node|edge)_[0-9A-Z]{4,}…?")
+
+
+def _name_ids(entries: list[tuple[str, str]], substrate: Substrate) -> list[tuple[str, str]]:
+    """Replace (possibly truncated) node/edge ids in commit subjects with names.
+
+    Commit subjects carry ids ("Set cld/polarity on edge_01M6Q4W0M1…"); a
+    report reader wants "Workload → Burnout". Uses the full substrate, since
+    history can mention anything; unknown ids are left as they are.
+    """
+    names = {e.id: e.label for e in substrate.entities}
+    for e in substrate.edges:
+        names[e.id] = f"{names.get(e.from_id, e.from_id)} → {names.get(e.to_id, e.to_id)}"
+
+    def _sub(match: re.Match[str]) -> str:
+        prefix = match.group(0).rstrip("…")
+        hits = [name for full_id, name in names.items() if full_id.startswith(prefix)]
+        return hits[0] if len(hits) == 1 else match.group(0)
+
+    return [(date, _ID_REF.sub(_sub, summary)) for date, summary in entries]
 
 
 def _build_history_entries(root: Path) -> list[tuple[str, str]]:

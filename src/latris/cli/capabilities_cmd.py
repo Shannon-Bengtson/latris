@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import json_mode
 from latris.operations.capabilities import build_capability_manifest
 
 console = Console()
@@ -31,7 +32,7 @@ def capabilities(
     """
     manifest = build_capability_manifest()
 
-    if json_output:
+    if json_output or json_mode():
         # typer.echo, not console.print: rich would word-wrap long JSON
         # lines (sometimes inside string literals) and interpret [...]
         # sequences — same reasoning as ai_cmd.py's task_emit.
@@ -56,3 +57,13 @@ def capabilities(
     console.print("\n[bold]Excluded by design[/bold] (not planned — won't be added):")
     for ex in manifest["excluded_by_design"]:
         console.print(f"  - {ex['category']} ({', '.join(ex['examples'])}): {ex['reason']}")
+
+    reports = manifest["reports"]
+    console.print("\n[bold]Reports[/bold] — `" + reports["how"] + "`", markup=False, highlight=False)
+    for pack in reports["packs"]:
+        console.print(f"  - {pack['name']}: for {pack['audience']} — {pack['purpose']}.",
+                      markup=False, highlight=False)
+    console.print("  Board-ready prose: " + reports["board_ready_prose"], markup=False, highlight=False)
+    app = reports["app_formats"]
+    console.print(f"  In the Latris app ({app['where']}): {', '.join(app['formats'])}.",
+                  markup=False, highlight=False)

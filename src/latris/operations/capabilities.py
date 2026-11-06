@@ -92,4 +92,32 @@ def build_capability_manifest() -> dict[str, Any]:
     return {
         "model_types": [_model_type_capability(s) for s in ordered],
         "excluded_by_design": [asdict(e) for e in EXCLUDED_BY_DESIGN],
+        "reports": _report_capabilities(),
+    }
+
+
+def _report_capabilities() -> dict[str, Any]:
+    """What a person can be handed, and how to make it."""
+    from latris.exporters.packs import PACKS
+
+    return {
+        "packs": [
+            {"name": p.name, "audience": p.audience, "purpose": p.purpose, "sections": list(p.sections)}
+            for p in PACKS.values()
+        ],
+        "how": "latris export md --pack <name> [--model-type <type>] -o report.md",
+        "board_ready_prose": (
+            "The client and publication packs include an interpretation: the answer to the modelling "
+            "question, implications, confidence and open questions, each written from claims Latris "
+            "extracts from the model. `latris interpret initialise`, then for each section either "
+            "`latris interpret generate-prose <section>` (needs an AI key) or read its claims with "
+            "`latris interpret show <section>` and write the prose yourself with "
+            "`latris interpret set-prose <section> \"...\" --by ai`."
+        ),
+        "library_formats": ["markdown (with a Mermaid diagram)", "graphviz dot"],
+        "app_formats": {
+            "where": "https://app.latris.app (the Latris app)",
+            "formats": ["Word report", "HTML review pack (and importing completed reviews)",
+                        "scrollytelling story", "hosted report link (no sign-in to view)"],
+        },
     }

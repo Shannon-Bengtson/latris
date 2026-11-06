@@ -75,8 +75,24 @@ def _is_meta_question(question: str) -> bool:
 # at schema/substrate.py:27-34 — causal/temporal/decomposition/conditional
 # carry mechanism; decision_rule/governance/definitional are policy or
 # identity links and are excluded from loop / centrality analysis.
+_READER_PACKS = frozenset({"client", "publication"})
+
 _CAUSAL_EDGE_KINDS = frozenset({"causal", "temporal", "decomposition", "conditional"})
 _POLICY_EDGE_KINDS = frozenset({"decision_rule", "governance", "definitional"})
+
+
+def _short_citation(ref) -> str:
+    """'Smith & Lee (2021), *Title*' — for headings that would otherwise be a bare key."""
+    surnames = [a.split(",")[0].strip() for a in (ref.authors or []) if a.strip()]
+    who = (
+        surnames[0] if len(surnames) == 1
+        else f"{surnames[0]} & {surnames[1]}" if len(surnames) == 2
+        else f"{surnames[0]} et al." if surnames
+        else ""
+    )
+    year = f" ({ref.year})" if ref.year else ""
+    lead = f"{who}{year}, " if who else (f"{ref.year}, " if ref.year else "")
+    return f"{lead}*{_md_escape(ref.title)}*"
 
 
 def _load_attr_lookup(paths: ProjectPaths):
@@ -148,6 +164,9 @@ def render(
     ).entries
 
     out: list[str] = []
+    # Packs written for people outside the modelling work hide internal IDs;
+    # the rest keep them so a reader can act on a row with the CLI.
+    show_ids = pack not in _READER_PACKS
 
     def _include(section: str) -> bool:
         return included is None or section in included
@@ -216,6 +235,9 @@ def render(
         out.extend(_render_modelling_approach(paths))
 
     labels = {n.id: n.label for n in substrate.entities}
+    # Edges read as "A → B" wherever they're named (evidence, challenges).
+    for e in substrate.edges:
+        labels.setdefault(e.id, f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}")
 
     # ---------- Nodes ----------
     if _include("nodes"):
@@ -224,12 +246,14 @@ def render(
         if not substrate.entities:
             out.append("_No nodes yet._")
         else:
-            out.append("| ID | Kind | Label | Description |")
-            out.append("|----|------|-------|-------------|")
+            id_head, id_rule = ("| ID ", "|----") if show_ids else ("", "")
+            out.append(f"{id_head}| Kind | Label | Description |")
+            out.append(f"{id_rule}|------|-------|-------------|")
             for n in substrate.entities:
                 desc = descriptions.get((n.id, "description"))
                 desc_txt = _md_escape(desc.value) if desc else ""
-                out.append(f"| `{n.id}` | {n.kind} | {_md_escape(n.label)} | {desc_txt} |")
+                id_cell = f"| `{n.id}` " if show_ids else ""
+                out.append(f"{id_cell}| {n.kind} | {_md_escape(n.label)} | {desc_txt} |")
         out.append("")
 
     # ---------- Edges ----------
@@ -252,18 +276,22 @@ def render(
             ]
 
             def _emit_edge_table(edges_list) -> None:
-                out.append("| ID | Kind | From → To | Polarity | Confidence | Description |")
-                out.append("|----|------|-----------|----------|------------|-------------|")
+                id_head, id_rule = ("| ID ", "|----") if show_ids else ("", "")
+                out.append(f"{id_head}| Kind | From → To | Polarity | Why | Confidence | Description |")
+                out.append(f"{id_rule}|------|-----------|----------|-----|------------|-------------|")
                 for e in edges_list:
                     src = labels.get(e.from_id, e.from_id)
                     dst = labels.get(e.to_id, e.to_id)
                     pol = polarity.get((e.id, "polarity"))
+                    why = getattr(pol, "rationale", None) if pol else None
                     conf = confidence.get((e.id, "confidence"))
                     desc = descriptions.get((e.id, "description"))
+                    id_cell = f"| `{e.id}` " if show_ids else ""
                     out.append(
-                        f"| `{e.id}` | {e.kind} | "
+                        f"{id_cell}| {e.kind} | "
                         f"{_md_escape(src)} → {_md_escape(dst)} | "
                         f"{pol.value if pol else ''} | "
+                        f"{_md_escape(why) if why else ''} | "
                         f"{conf.value if conf else ''} | "
                         f"{_md_escape(desc.value) if desc else ''} |"
                     )
@@ -302,8 +330,11 @@ def render(
             by_key: dict[str, list] = {}
             for link in evidence.entries:
                 by_key.setdefault(link.bibkey, []).append(link)
+            ref_by_key = {r.bibkey: r for r in references}
             for bibkey, links in sorted(by_key.items()):
-                out.append(f"### `{bibkey}`")
+                ref = ref_by_key.get(bibkey)
+                cite = _short_citation(ref) if ref else ""
+                out.append(f"### `{bibkey}` — {cite}" if cite else f"### `{bibkey}`")
                 out.append("")
                 for link in links:
                     target_label = labels.get(link.target_id, link.target_id)

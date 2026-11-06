@@ -22,6 +22,29 @@ ProvenanceOrigin = Literal[
     "mixed",
 ]
 
+DEFAULT_ORIGIN_ENV = "LATRIS_DEFAULT_ORIGIN"
+
+
+def default_origin() -> ProvenanceOrigin:
+    """Origin to stamp on things created without an explicit one.
+
+    ``human-direct`` unless ``LATRIS_DEFAULT_ORIGIN`` says otherwise — an AI
+    agent driving the CLI sets it to ``ai-proposed`` so what it creates isn't
+    recorded as a person's work. Applied by the operations that *create*
+    nodes, links, attribute values, evidence and findings — never at load
+    time, so existing files keep the origin they were saved with.
+    """
+    import os
+    from typing import get_args
+
+    value = os.environ.get(DEFAULT_ORIGIN_ENV, "").strip()
+    if not value:
+        return "human-direct"
+    if value not in get_args(ProvenanceOrigin):
+        raise ValueError(f"{DEFAULT_ORIGIN_ENV}={value!r} isn't a provenance origin: {get_args(ProvenanceOrigin)}")
+    return value  # type: ignore[return-value]
+
+
 ProvenanceVerification = Literal[
     "unverified",
     "ai-verified",

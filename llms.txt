@@ -9,7 +9,7 @@
 ## Project
 
 - [README.md](README.md): what Latris is, install, quickstart, and an "For AI agents" quickstart section.
-- [latris.app](https://latris.app): the product website — the desktop GUI (invite-only early access); this repo is the open backend that powers it.
+- [latris.app](https://latris.app): the product website. The Latris app (app.latris.app — the GUI, hosted report links, Word / review-pack / story exports) is built on this open library.
 - [docs/README.md](docs/README.md): documentation index.
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to set up a dev environment and submit changes.
 - [LICENSE](LICENSE): Apache-2.0.
@@ -27,6 +27,13 @@
 
 - [worked_example/worked_example_output.md](worked_example/worked_example_output.md): generated transcript of every CLI command, end to end — the fastest way to learn the tool's actual behaviour.
 - [worked_example/worked_example.py](worked_example/worked_example.py): the generator; any new user-facing feature must extend it.
+
+## Building a model with the CLI (start here)
+
+- The README's "For AI agents" section has a complete causal-loop-diagram session: git identity, nodes, links by label, polarity with a rationale (`latris view set cld <edge> polarity + --rationale "..."`), sources and evidence, coherence and loop checks, findings (`latris finding add`), and the client report with a Mermaid diagram (`latris export md --pack client --no-ai`).
+- `latris --json <command>` gives machine-readable output for the core commands.
+- As an AI agent, `export LATRIS_DEFAULT_ORIGIN=ai-proposed` first, so the nodes, links, evidence and findings you create are recorded as AI-proposed rather than as the person's own work.
+- Reports: five packs for different readers (client, publication, review, workshop, audit) — `latris capabilities` describes them. The board-ready version is the `client` pack with its interpretation sections written: `latris interpret initialise`, then `interpret show <section>` and `interpret set-prose <section> "..." --by ai` (no API key needed).
 
 ## Delegated AI invocation (no API key in this environment?)
 

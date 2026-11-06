@@ -9,6 +9,7 @@ from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import Entity, EntityKind, Substrate, new_id
+from latris.schema.common import default_origin
 
 
 def _load(root: Path | None) -> tuple:
@@ -34,7 +35,7 @@ def add_node(
     root: Path | None = None,
 ) -> tuple[Entity, str]:
     paths, substrate = _load(root)
-    entity = Entity(id=new_id("node"), kind=kind, label=label)
+    entity = Entity(id=new_id("node"), kind=kind, label=label, origin=default_origin())
     substrate.entities.append(entity)
     dump_model(substrate, paths.conceptual_yaml)
     sha = auto_commit(

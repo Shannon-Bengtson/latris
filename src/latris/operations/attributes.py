@@ -26,6 +26,7 @@ from latris.schema import (
     DescriptionSet,
     Substrate,
 )
+from latris.schema.common import default_origin
 
 if TYPE_CHECKING:
     from latris.repo.layout import ProjectPaths
@@ -62,9 +63,9 @@ def _coerce_value(attribute: AttributeName, raw: str):
 def _entry_for(attribute: AttributeName, target_id: str, value):
     match attribute:
         case "description":
-            return DescriptionEntry(target_id=target_id, value=value)
+            return DescriptionEntry(target_id=target_id, value=value, origin=default_origin())
         case "confidence":
-            return ConfidenceEntry(target_id=target_id, value=value)
+            return ConfidenceEntry(target_id=target_id, value=value, origin=default_origin())
 
 
 def set_attribute(

@@ -24,6 +24,7 @@ from latris.schema import (
     Substrate,
     SupportVerdict,
 )
+from latris.schema.common import default_origin
 
 
 def _load_library(paths) -> ReferenceLibrary:
@@ -85,6 +86,7 @@ def add_evidence(
         verified_by=verified_by,
         source_access=source_access,
         support_verdict="unverified",
+        origin=default_origin(),
     )
     store.entries.append(link)
     dump_model(store, paths.evidence_links_yaml)

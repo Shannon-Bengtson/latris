@@ -13,6 +13,7 @@ import typer
 from rich.console import Console
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit
 
 app = typer.Typer(
     help="Interpret phase: sections, claims, AI prose.",
@@ -58,6 +59,69 @@ def list_sections() -> None:
             f"[cyan]{s.id[:20]}[/cyan]  {s.section_type} ({s.model_type})  "
             f"state=[bold]{s.generation_state}[/bold]  claims={claim_count}  prose={prose_len}c"
         )
+
+
+@app.command("show")
+@handle_cli_errors
+def show(
+    section: str = typer.Argument(..., help="Section ID, or section type (e.g. answer_to_question)."),
+    model_type: str = typer.Option(None, "--model-type", "-m", help="Pick between model types' sections."),
+) -> None:
+    """Show a section's claims (what the model supports) and its current prose.
+
+    The claims are what the prose should say — write from them with
+    `latris interpret set-prose`.
+    """
+    from latris.operations.interpret import resolve_section
+
+    s = resolve_section(section, model_type=model_type)
+
+    def _human() -> None:
+        console.print(f"[bold]{s.section_type}[/bold] ({s.model_type}) · {s.id} · state={s.generation_state}")
+        console.print("\n[bold]Claims[/bold]")
+        for i, claim in enumerate(s.claims, 1):
+            console.print(f"  {i}. {claim}", markup=False, highlight=False)
+        if not s.claims:
+            console.print("  (none — run `latris interpret refresh-claims` after changing the model)")
+        console.print("\n[bold]Prose[/bold]")
+        console.print(s.prose or "(empty)", markup=False, highlight=False)
+
+    emit(
+        {"id": s.id, "section_type": s.section_type, "model_type": s.model_type, "claims": s.claims,
+         "prose": s.prose, "generation_state": s.generation_state},
+        human=_human,
+    )
+
+
+@app.command("set-prose")
+@handle_cli_errors
+def set_prose(
+    section: str = typer.Argument(..., help="Section ID, or section type (e.g. answer_to_question)."),
+    text: str = typer.Argument(..., help="The prose for this section."),
+    model_type: str = typer.Option(None, "--model-type", "-m", help="Pick between model types' sections."),
+    by: str = typer.Option(
+        "human", "--by", help="human | ai — who wrote it. Agents writing prose themselves pass --by ai."
+    ),
+) -> None:
+    """Write a section's prose yourself (no AI key needed).
+
+    Stick to the section's claims (`latris interpret show`). `--by ai`
+    records it as AI-written, so the report marks it stale when the
+    claims change.
+    """
+    from latris.operations.interpret import resolve_section, update_prose
+
+    if by not in {"human", "ai"}:
+        raise ValueError("--by must be 'human' or 'ai'")
+    target = resolve_section(section, model_type=model_type)
+    updated, sha = update_prose(target.id, text, source="ai" if by == "ai" else "human-edit")
+    emit(
+        {"id": updated.id, "section_type": updated.section_type, "generation_state": updated.generation_state},
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]wrote[/green] {updated.section_type} ({updated.model_type}) · commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
 
 
 @app.command("refresh-claims")

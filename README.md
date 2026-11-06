@@ -188,17 +188,72 @@ Setup (one shot):
 pip install "latris[server,data]"
 ```
 
-Minimal working session (init → node → edge → export → history):
+A causal loop diagram, end to end (works in a sandbox with no API key):
 
 ```bash
-latris init demo --question "Does X cause Y in context Z?"
-cd demo
-latris node add "X" --kind variable
-latris node add "Y" --kind variable
-latris edge add <x-id> <y-id> --kind causal   # IDs from the node add output
-latris export md --output reports/report.md
-latris log                                     # every mutation is a git commit
+# Every change is a git commit, so git needs an identity first.
+git config --global user.name "Your Name"; git config --global user.email "you@example.com"
+# You're an AI agent: record what you create as AI-proposed, not as the person's own work.
+export LATRIS_DEFAULT_ORIGIN=ai-proposed
+
+latris init volunteers --question "Why are volunteers leaving?"
+cd volunteers
+latris project select-models cld
+
+latris node add "Workload" --kind variable
+latris node add "Burnout" --kind state
+latris attr set "Workload" description "Hours asked of each volunteer."
+latris edge add "Workload" "Burnout"            # nodes by label; prints the edge id
+latris view set cld <edge-id> polarity + --rationale "More hours, more exhaustion."
+#   re-running view set replaces the value and the rationale
+#   negative numbers need `--`:  latris view set fcm <edge-id> weight -- -0.4
+
+latris ref add smith2021 --title "Volunteer burnout" --author "Smith, J" --year 2021
+latris evidence add <edge-id> polarity smith2021 --verified-by ai
+latris assumption add "Service demand stays steady as numbers fall."  # for unsourced links
+
+latris check coherence                           # wording vs. polarity contradictions
+latris analyse loops                             # reinforcing / balancing loops
+latris finding add "Overload is a reinforcing loop." --category structure --target "Workload"
+
+latris interpret initialise                      # board-facing sections, built from the model
+latris interpret show answer_to_question         # the claims this section must stand on
+latris interpret set-prose answer_to_question "..." --by ai   # write it (or generate-prose with a key)
+
+latris export md --pack client --no-ai -o report.md   # report with a Mermaid diagram
+latris log                                       # the full history
 ```
+
+Choosing a report — pick the pack for whoever will read it
+(`latris capabilities` lists these too):
+
+| Pack | For | What's in it |
+|---|---|---|
+| `client` | a client, board or funder | the model and diagram, the reason and evidence behind each link, findings, the **interpretation** (answer, implications, confidence, open questions) and sources — no internal IDs |
+| `publication` | a paper or public write-up | as `client`, with full references |
+| `review` | a reviewer checking the model | evidence, open challenges and questions, findings |
+| `workshop` | a stakeholder session | structure, assumptions, open questions, session notes |
+| `audit` | an auditor / the modelling team | everything, including decisions, sign-offs and data |
+
+The board-ready part is the interpretation: fill its sections (above)
+before exporting a `client` report, or the report is just the evidence
+base. Word, review-pack and scrollytelling-story versions, and a hosted
+report link to share, are made in the Latris app (app.latris.app).
+
+Tips for agents:
+
+- **`latris --json <command>`** prints one JSON object (`{"result", "commit_sha"}`)
+  for node, edge, attr, view set, ref, evidence, finding and check commands — no
+  output parsing needed.
+- **No API key?** Checks and drafting that use AI (e.g. the completeness check)
+  can be answered by you: `latris ai task emit <PromptName> --inputs '<json>'`,
+  then `latris ai task apply` (see "An agent can act as the model" above).
+  `export md --no-ai` (and any export without a key) skips the AI prose.
+- **Evidence you attach is marked AI-proposed and unverified** until a person
+  reviews it — say so when you hand the model over.
+- **For a person, give them the client report** (`--pack client`) with the
+  interpretation sections written — that's the board-ready version. It has the
+  diagram, each link's reason, the evidence and the sources, without internal IDs.
 
 The complete, always-current demonstration of every command is the
 worked example:

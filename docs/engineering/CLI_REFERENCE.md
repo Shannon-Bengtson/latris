@@ -240,6 +240,7 @@ latris completeness mark-added <item>    # mark a flagged gap as addressed
 ## Findings
 
 ```bash
+latris finding add "<statement>" [--category structure] [--model-type cld] [--target <node|edge>] [--detail "..."]
 latris finding list
 latris finding show <finding-id>
 latris finding check-stale    # flag findings whose underlying state changed
@@ -255,6 +256,8 @@ latris interpret list                  # list interpretation sections
 latris interpret refresh-claims        # refresh template-derived claims
 latris interpret generate-prose <section>  # AI prose for one section
 latris interpret generate-all          # AI prose for all sections
+latris interpret show <section|type>   # a section's claims and prose (e.g. answer_to_question)
+latris interpret set-prose <section|type> "..." [--by human|ai]   # write the prose yourself
 ```
 
 ## Story (Communicate)

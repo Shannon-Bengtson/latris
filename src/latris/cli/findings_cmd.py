@@ -1,4 +1,4 @@
-"""Findings CLI — list, show, advance maturity, check-stale."""
+"""Findings CLI — add, list, show, advance maturity, check-stale."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit
 from latris.schema.ids import id_timestamp
 
 app = typer.Typer(help="Model findings — analysis results and interpretations.", no_args_is_help=True)
@@ -17,6 +18,52 @@ _MATURITY_STYLE = {
     "reviewed": "blue",
     "approved": "green",
 }
+
+
+@app.command("add")
+@handle_cli_errors
+def add_cmd(
+    statement: str = typer.Argument(..., help="The finding, in one sentence."),
+    category: str = typer.Option(
+        "structure",
+        "--category",
+        "-c",
+        help="structure | dynamics | sensitivity | inference | diagnostics | recommendations",
+    ),
+    model_type: str = typer.Option("cld", "--model-type", "-m", help="Model type the finding is about."),
+    detail: str = typer.Option("", "--detail", help="Supporting detail or reasoning."),
+    target: list[str] = typer.Option(
+        None, "--target", "-t", help="Node or edge the finding concerns (ID, or a node label). Repeatable."
+    ),
+) -> None:
+    """Record a finding by hand — e.g. what a loop analysis showed.
+
+    Findings appear in the report's findings section.
+    """
+    from latris.operations._resolve import resolve_target
+    from latris.operations.findings import record_new_finding
+    from latris.repo.project import require_project
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+    from latris.schema.findings import FINDING_CATEGORIES
+
+    if category not in FINDING_CATEGORIES:
+        raise ValueError(f"category must be one of: {', '.join(FINDING_CATEGORIES)}")
+    target_ids = None
+    if target:
+        substrate = load_model(Substrate, require_project().conceptual_yaml)
+        target_ids = [resolve_target(t, substrate) for t in target]
+    finding, sha = record_new_finding(
+        statement, category, model_type, detail=detail, target_ids=target_ids  # type: ignore[arg-type]
+    )
+    emit(
+        finding,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]recorded[/green] {finding.category} finding [cyan]{finding.id}[/cyan] "
+            f"· commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
 
 
 @app.command("list")

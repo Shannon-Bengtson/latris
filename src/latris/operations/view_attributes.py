@@ -29,6 +29,7 @@ from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import (
     Substrate,
 )
+from latris.schema.common import default_origin
 from latris.schema.model_types import get_model_type
 
 # ---------------------------------------------------------------------------
@@ -83,6 +84,8 @@ def set_view_attribute(
 
     def _make_entry(tid: str, v: object):  # noqa: ANN202 — entry type varies by attribute
         entry = entry_fn(tid, v)
+        if "origin" in type(entry).model_fields:
+            entry = entry.model_copy(update={"origin": default_origin()})
         if rationale is not None and "rationale" in type(entry).model_fields:
             entry = entry.model_copy(update={"rationale": rationale})
         return entry
@@ -91,6 +94,12 @@ def set_view_attribute(
     outcome = upsert_entry(
         store, target_id, attribute, coerced, _make_entry, preserve_existing=preserve_existing
     )
+    if outcome == "written" and rationale is not None:
+        # upsert_entry overwrites only the value of an existing entry; a new
+        # rationale supplied with it must replace the old one too.
+        for entry in store.entries:
+            if entry.target_id == target_id and entry.attribute == attribute and hasattr(entry, "rationale"):
+                entry.rationale = rationale
     if outcome != "written":
         return target_id, ""  # existing value preserved; nothing to commit
     dump_model(store, file_path)

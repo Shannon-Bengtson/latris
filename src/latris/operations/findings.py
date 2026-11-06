@@ -24,7 +24,7 @@ from latris.repo.yaml_io import atomic_replace, dump_jsonl_append, iter_jsonl, l
 from latris.schema import (
     Substrate,
 )
-from latris.schema.common import HumanActor, ProvenanceOrigin, now_utc
+from latris.schema.common import HumanActor, ProvenanceOrigin, default_origin, now_utc
 from latris.schema.findings import (
     Finding,
     FindingCategory,
@@ -63,7 +63,7 @@ def record_new_finding(
     *,
     detail: str = "",
     payload: dict | None = None,
-    origin: ProvenanceOrigin = "human-direct",
+    origin: ProvenanceOrigin | None = None,
     source_id: str | None = None,
     source_type: FindingSourceType = "human-direct",
     target_ids: list[str] | None = None,
@@ -82,7 +82,7 @@ def record_new_finding(
         statement=statement,
         detail=detail,
         payload=dict(payload or {}),
-        origin=origin,
+        origin=origin or default_origin(),
         source_id=source_id,
         source_type=source_type,
         target_ids=list(target_ids or []),

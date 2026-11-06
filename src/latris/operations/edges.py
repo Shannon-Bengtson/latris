@@ -9,6 +9,7 @@ from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import Edge, EdgeKind, Substrate, new_id
+from latris.schema.common import default_origin
 
 
 def _load(root: Path | None) -> tuple:
@@ -35,7 +36,7 @@ def add_edge(
     if src.id == dst.id:
         raise ValueError(f"self-loop: from and to resolve to the same node {src.id}")
 
-    edge = Edge(id=new_id("edge"), from_id=src.id, to_id=dst.id, kind=kind)
+    edge = Edge(id=new_id("edge"), from_id=src.id, to_id=dst.id, kind=kind, origin=default_origin())
     substrate.edges.append(edge)
     dump_model(substrate, paths.conceptual_yaml)
     sha = auto_commit(

@@ -813,3 +813,30 @@ def _find_section(store: InterpretationStore, section_id: str) -> InterpretSecti
         if section.id == section_id:
             return section
     raise ValueError(f"Interpretation section not found: {section_id!r}")
+
+
+def resolve_section(
+    query: str, *, model_type: str | None = None, root: Path | None = None
+) -> InterpretSection:
+    """Find a section by ID, ID prefix, or section type (e.g. ``answer_to_question``).
+
+    A section type is ambiguous when several model types have one; pass
+    ``model_type`` to pick.
+    """
+    store = load_interpretation(root=root)
+    if not store.sections:
+        raise ValueError("no interpretation sections — run `latris interpret initialise` first")
+    candidates = [s for s in store.sections if model_type is None or s.model_type == model_type]
+    for s in candidates:
+        if s.id == query:
+            return s
+    by_type = [s for s in candidates if s.section_type == query]
+    by_prefix = [s for s in candidates if len(query) >= 8 and s.id.startswith(query)]
+    matches = by_type or by_prefix
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        kinds = ", ".join(sorted({s.model_type for s in matches}))
+        raise ValueError(f"{query!r} matches sections for several model types ({kinds}) — pass --model-type")
+    known = ", ".join(sorted({s.section_type for s in candidates}))
+    raise ValueError(f"no interpretation section {query!r}. Sections: {known}")

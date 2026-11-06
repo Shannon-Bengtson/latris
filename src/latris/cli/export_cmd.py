@@ -46,7 +46,11 @@ def export_md(
         None,
         "--pack",
         "-p",
-        help="Report pack (review, audit, client, workshop, publication). Omit for the full report.",
+        help=(
+            "Report pack: client (board/funder, no IDs), publication (paper, no IDs), review (a reviewer), "
+            "workshop (a stakeholder session), audit (everything). Omit for the full report. "
+            "`latris capabilities` describes each."
+        ),
     ),
     report_url: str = typer.Option(
         None,
