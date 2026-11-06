@@ -200,6 +200,23 @@ latris init volunteers --question "Why are volunteers leaving?"
 cd volunteers
 latris project select-models cld
 
+# Fastest: the whole model in one file, one command, one commit (YAML or JSON;
+# '-' reads stdin). Checked in full first — a typo changes nothing.
+latris build --spec model.yaml
+#   outcome: Volunteer departures        # what the model explains
+#   factors:
+#     - {label: Workload, description: Hours asked of each volunteer.}
+#     - {label: Burnout}
+#     - {label: Volunteer departures}
+#   links:
+#     - {from: Workload, to: Burnout, polarity: "+", reason: "More hours, more exhaustion.",
+#        confidence: high, sources: [smith2021]}
+#   sources:
+#     - {key: smith2021, title: Volunteer burnout, authors: ["Smith, J"], year: 2021}
+#   assumptions: ["Service demand stays steady as numbers fall."]
+#   questions: ["Does recognition matter independently of workload?"]
+
+# Or one change at a time:
 latris node add "Workload" --kind variable
 latris node add "Burnout" --kind state
 latris attr set "Workload" description "Hours asked of each volunteer."
@@ -211,6 +228,7 @@ latris view set cld <edge-id> polarity + --rationale "More hours, more exhaustio
 latris ref add smith2021 --title "Volunteer burnout" --author "Smith, J" --year 2021
 latris evidence add <edge-id> polarity smith2021 --verified-by ai
 latris assumption add "Service demand stays steady as numbers fall."  # for unsourced links
+latris view role cld "Volunteer departures" outcome   # the outcome isn't suggested as an intervention point
 
 latris check coherence                           # wording vs. polarity contradictions
 latris analyse loops                             # reinforcing / balancing loops
@@ -229,7 +247,7 @@ Choosing a report — pick the pack for whoever will read it
 
 | Pack | For | What's in it |
 |---|---|---|
-| `client` | a client, board or funder | the model and diagram, the reason and evidence behind each link, findings, the **interpretation** (answer, implications, confidence, open questions) and sources — no internal IDs |
+| `client` | a client, board or funder | **answer first**: the interpretation (answer, implications, confidence, then the rest), the diagram with its loops, approved findings, then each link with its reason and evidence, and sources — no internal IDs, no change log |
 | `publication` | a paper or public write-up | as `client`, with full references |
 | `review` | a reviewer checking the model | evidence, open challenges and questions, findings |
 | `workshop` | a stakeholder session | structure, assumptions, open questions, session notes |
@@ -251,6 +269,12 @@ Tips for agents:
   `export md --no-ai` (and any export without a key) skips the AI prose.
 - **Evidence you attach is marked AI-proposed and unverified** until a person
   reviews it — say so when you hand the model over.
+- **Findings you add are proposed.** The client report lists only approved
+  ones (it says how many are waiting); a person approves each with
+  `latris mature approve <finding-id>`.
+- **`latris ai task apply` stops for a person's y/N** before it changes the
+  model — by design. Leave the task and response files for them; results
+  (e.g. completeness) reach the report only after they apply it.
 - **For a person, give them the client report** (`--pack client`) with the
   interpretation sections written — that's the board-ready version. It has the
   diagram, each link's reason, the evidence and the sources, without internal IDs.

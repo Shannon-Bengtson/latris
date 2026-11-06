@@ -114,7 +114,9 @@ def set_prose(
     if by not in {"human", "ai"}:
         raise ValueError("--by must be 'human' or 'ai'")
     target = resolve_section(section, model_type=model_type)
-    updated, sha = update_prose(target.id, text, source="ai" if by == "ai" else "human-edit")
+    updated, sha = update_prose(
+        target.id, text, source="ai" if by == "ai" else "human-edit", written_by_agent=by == "ai"
+    )
     emit(
         {"id": updated.id, "section_type": updated.section_type, "generation_state": updated.generation_state},
         commit_sha=sha,

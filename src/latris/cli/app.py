@@ -18,6 +18,7 @@ from latris.cli import (  # noqa: E402
     analyse_cmd,
     attr_cmd,
     bn_cmd,
+    build_cmd,
     capabilities_cmd,
     challenge_cmd,
     check_cmd,
@@ -53,6 +54,7 @@ app = typer.Typer(
 )
 
 app.command("init")(init_command)
+app.command("build")(build_cmd.build)
 app.add_typer(project_cmd.app, name="project")
 app.add_typer(node_cmd.app, name="node")
 app.add_typer(edge_cmd.app, name="edge")

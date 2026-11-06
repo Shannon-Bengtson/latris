@@ -58,7 +58,7 @@ def test_full_report_keeps_ids_for_agents(project: Path) -> None:
 def test_history_is_summarised_not_dumped(project: Path) -> None:
     for i in range(12):
         node_ops.add_node(f"Factor {i}", root=project)
-    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    out = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
     history = out.split("## Model History", 1)[1].split("\n## ", 1)[0]
     assert "recorded changes" in history
     assert history.count("\n- **") == narrative._HISTORY_SHOWN
@@ -95,15 +95,99 @@ def test_finding_add(project: Path, monkeypatch) -> None:
     assert result.exit_code == 0, result.output
     finding = json.loads(result.stdout.strip().splitlines()[-1])["result"]
     assert finding["category"] == "structure"
-    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
-    assert "Workload drives burnout in a reinforcing loop." in out
+    # Proposed findings show in the review pack; the client pack says they wait.
+    assert "Workload drives burnout in a reinforcing loop." in md_exporter.render(
+        ProjectPaths(project), pack="review", ai=False
+    )
+    client = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert "1 finding awaiting approval" in client
 
     bad = CliRunner().invoke(app, ["finding", "add", "x", "--category", "vibes"])
     assert bad.exit_code == 2
 
 
 def test_history_names_things_instead_of_ids(project: Path) -> None:
-    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    out = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
     history = out.split("## Model History", 1)[1].split("\n## ", 1)[0]
     assert "edge_" not in history and "node_" not in history
     assert "Workload → Burnout" in history
+
+
+def test_client_pack_leads_with_the_answer_and_drops_the_change_log(project: Path) -> None:
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert "## Model History" not in out
+    headings = [line for line in out.splitlines() if line.startswith("## ")]
+    assert headings.index("## Diagram") < headings.index("## Edges") < headings.index("## Evidence")
+    # The audit pack keeps everything, change log included.
+    assert "## Model History" in md_exporter.render(ProjectPaths(project), pack="audit", ai=False)
+
+
+def test_reader_packs_open_the_interpretation_with_the_answer(project: Path) -> None:
+    from latris.operations.interpret import save_interpretation
+    from latris.schema.interpretation import InterpretationStore, InterpretSection
+
+    store = InterpretationStore(
+        sections=[
+            InterpretSection(id=f"s{i}", section_type=t, model_type="cld", prose=f"Prose for {t}.")
+            for i, t in enumerate(["structural_summary", "key_findings", "answer_to_question", "implications"])
+        ]
+    )
+    save_interpretation(store, root=project)
+    paths = ProjectPaths(project)
+    client = md_exporter.render(paths, pack="client", ai=False)
+    assert client.index("Prose for answer_to_question.") < client.index("Prose for structural_summary.")
+    review = md_exporter.render(paths, pack="review", ai=False)
+    assert review.index("Prose for structural_summary.") < review.index("Prose for answer_to_question.")
+
+
+def test_reference_names_ending_in_an_initial_get_one_full_stop(project: Path) -> None:
+    ref_ops.add_reference("mueller2020", "Retention", authors=["Mueller, Stephanie L."], year=2020, root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert "Mueller, Stephanie L. (2020). *Retention*." in out
+    assert "L.." not in out
+    # Names with commas are separated by semicolons.
+    assert "Smith, J; Lee, K" in out
+
+
+def test_description_matching_the_reason_is_not_repeated(project: Path) -> None:
+    from latris.operations.attributes import set_attribute
+
+    edge = edge_ops.list_edges(root=project)[0]
+    set_attribute(edge.id, "description", "More hours, more exhaustion.", root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert out.count("More hours, more exhaustion.") == 1
+
+
+def test_identical_audit_tags_are_stated_once(project: Path) -> None:
+    edge = edge_ops.list_edges(root=project)[0]
+    ref_ops.add_reference("lee2022", "Workload", year=2022, root=project)
+    evidence_ops.add_evidence(edge.id, "polarity", "lee2022", root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    evidence = out.split("## Evidence", 1)[1].split("\n## ", 1)[0]
+    assert evidence.count("verdict=unverified") == 1
+    assert "_Every citation below: by=human · source=title_only · verdict=unverified._" in evidence
+
+
+def test_diagram_colours_polarity_and_lists_loops(project: Path) -> None:
+    edge_ops.add_edge("Burnout", "Workload", root=project)
+    back = edge_ops.list_edges(root=project)[-1]
+    view_attr_ops.set_view_attribute(back.id, "cld", "polarity", "-", root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert "linkStyle 0 stroke:#2e8b57" in out and "linkStyle 1 stroke:#c0392b" in out
+    assert "**B1** (balancing): Workload → Burnout → Workload" in out
+
+
+def test_agent_written_prose_is_not_logged_as_generated(project: Path, monkeypatch) -> None:
+    from latris.operations.interpret import save_interpretation
+    from latris.repo import git
+    from latris.schema.interpretation import InterpretationStore, InterpretSection
+
+    save_interpretation(
+        InterpretationStore(sections=[InterpretSection(id="s1", section_type="answer_to_question", model_type="cld")]),
+        root=project,
+    )
+    monkeypatch.chdir(project)
+    result = CliRunner().invoke(app, ["interpret", "set-prose", "answer_to_question", "Because.", "--by", "ai"])
+    assert result.exit_code == 0, result.output
+    subject = git.run_git(["log", "-1", "--format=%s"], cwd=project).stdout.strip()
+    assert subject == "Write (AI agent) interpretation: answer_to_question"

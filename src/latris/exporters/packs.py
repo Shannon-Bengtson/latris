@@ -18,6 +18,8 @@ class PackConfig:
 # Section names match the heading keys used in markdown.py and word.py
 ALL_SECTIONS = [
     "foundation",
+    "structure",
+    "history",
     "diagram",
     "modelling_approach",
     "nodes",
@@ -46,10 +48,11 @@ PACKS: dict[str, PackConfig] = {
         name="client",
         audience="people outside the modelling work — a client, board or funder",
         purpose=(
-            "the model, the reasoning and evidence behind each link, findings, the interpretation and sources, "
-            "without internal IDs"
+            "answer first: the interpretation, the diagram, findings, then each link with its reasoning and "
+            "evidence, and sources — without internal IDs or the change log"
         ),
-        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "assumptions", "decisions", "exclusions", "findings", "interpretation", "references"],  # noqa: E501
+        # Order is the reading order: a board reads the answer before the tables.
+        sections=["foundation", "interpretation", "diagram", "structure", "findings", "edges", "nodes", "evidence", "assumptions", "exclusions", "decisions", "modelling_approach", "references"],  # noqa: E501
     ),
     "audit": PackConfig(
         name="audit",
@@ -61,19 +64,19 @@ PACKS: dict[str, PackConfig] = {
         name="review",
         audience="a reviewer checking the model",
         purpose="the model with its evidence, open challenges and questions, and findings",
-        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "challenges", "questions", "findings", "interpretation"],  # noqa: E501
+        sections=["foundation", "structure", "history", "diagram", "modelling_approach", "nodes", "edges", "evidence", "challenges", "questions", "findings", "interpretation"],  # noqa: E501
     ),
     "workshop": PackConfig(
         name="workshop",
         audience="a working session with stakeholders",
         purpose="structure, assumptions, open questions and session notes",
-        sections=["foundation", "diagram", "nodes", "edges", "assumptions", "questions", "sessions"],
+        sections=["foundation", "structure", "history", "diagram", "nodes", "edges", "assumptions", "questions", "sessions"],  # noqa: E501
     ),
     "publication": PackConfig(
         name="publication",
         audience="a paper or public write-up",
         purpose="the model, evidence, findings, interpretation and full references, without internal IDs",
-        sections=["foundation", "diagram", "modelling_approach", "nodes", "edges", "evidence", "references", "findings", "interpretation"],  # noqa: E501
+        sections=["foundation", "interpretation", "diagram", "structure", "findings", "modelling_approach", "edges", "nodes", "evidence", "references"],  # noqa: E501
     ),
 }
 

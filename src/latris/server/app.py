@@ -39,6 +39,7 @@ from latris.server.routes import (
     annotations,
     attributes,
     bn,
+    build,
     challenges,
     checks,
     completeness,
@@ -598,6 +599,7 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
     app.include_router(lineage.router)
     app.include_router(datasets.router)
     app.include_router(findings.router)
+    app.include_router(build.router)
     app.include_router(interpret.router)
     app.include_router(completeness.router)
     app.include_router(compose.router)

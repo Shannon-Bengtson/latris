@@ -213,14 +213,26 @@ def refresh_all_claims(
 # ── Prose management ────────────────────────────────────────────────────
 
 
+def _prose_verb(source: str, written_by_agent: bool) -> str:
+    if source != "ai":
+        return "Edit"
+    return "Write (AI agent)" if written_by_agent else "Generate"
+
+
 def update_prose(
     section_id: str,
     prose: str,
     *,
     source: str = "human-edit",
+    written_by_agent: bool = False,
     root: Path | None = None,
 ) -> tuple[InterpretSection, str]:
-    """Update prose for a section. Appends to version history."""
+    """Update prose for a section. Appends to version history.
+
+    ``written_by_agent`` marks AI prose an agent wrote and set directly
+    (``interpret set-prose --by ai``) rather than prose Latris generated, so
+    the commit says "Write", not "Generate".
+    """
     paths = require_project(root)
     store = load_interpretation(root=paths.root)
 
@@ -246,7 +258,7 @@ def update_prose(
 
     sha = save_interpretation(
         store,
-        subject=f"{'Generate' if source == 'ai' else 'Edit'} interpretation: {section.section_type}",
+        subject=f"{_prose_verb(source, written_by_agent)} interpretation: {section.section_type}",
         root=paths.root,
     )
     return section, sha
@@ -260,6 +272,58 @@ def _load_findings(paths, model_type: str | None = None) -> list[Finding]:
     from latris.operations.findings import list_findings
 
     return list_findings(model_type=model_type, root=paths.root)
+
+
+def _coverage_ids(substrate) -> tuple[set[str], str]:
+    """The elements evidence coverage is measured over, and their name.
+
+    Links are the model's claims, so coverage is "how many links have a
+    source". Factors are named things, not claims; counting them too made a
+    well-sourced model look thin (11 of 16 links became 11 of 28). Before
+    any link exists, factors are all there is to cover.
+    """
+    edge_ids = {e.id for e in substrate.edges}
+    if edge_ids:
+        return edge_ids, "links"
+    return {e.id for e in substrate.entities}, "factors"
+
+
+def _element_names(substrate, ids: list[str]) -> list[str]:
+    """Readable names for factors and links (``A → B``)."""
+    labels = {e.id: e.label for e in substrate.entities}
+    edges = {e.id: e for e in substrate.edges}
+    out = []
+    for eid in ids:
+        if eid in edges:
+            e = edges[eid]
+            out.append(f"{labels.get(e.from_id, e.from_id[:12])} → {labels.get(e.to_id, e.to_id[:12])}")
+        else:
+            out.append(labels.get(eid, eid[:12]))
+    return out
+
+
+def _outcome_ids(paths, model_type: str) -> set[str]:
+    """Factors given the ``outcome`` role in this view (``latris view role``)."""
+    path = paths.role_path(model_type)
+    if not path.exists():
+        return set()
+    from latris.schema.roles import RoleSet
+
+    return {e.target_id for e in load_model(RoleSet, path).entries if e.value == "outcome"}
+
+
+def _leverage_candidates(centrality, causal, outcome_ids: set[str]) -> list:
+    """Rank factors many causal paths run through, leaving out outcomes.
+
+    The outcome is what the model explains, not a place to intervene, and a
+    factor with no outgoing link can't change anything downstream — both
+    are dropped even when betweenness ranks them high.
+    """
+    has_effect = {e.from_id for e in causal}
+    ranked = sorted(centrality, key=lambda c: c.betweenness, reverse=True)
+    return [
+        c for c in ranked if c.betweenness > 0 and c.entity_id not in outcome_ids and c.entity_id in has_effect
+    ]
 
 
 # ── AI interrogation Phase 2b: hedge-mode infrastructure ────────────────
@@ -288,7 +352,7 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
         load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
     )
 
-    all_ids = {e.id for e in substrate.entities} | {e.id for e in substrate.edges}
+    all_ids, _ = _coverage_ids(substrate)
     total = len(all_ids)
     if total == 0:
         return 0, 0, 1.0
@@ -321,6 +385,8 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
         causal_edges,
         classify_loop,
         find_all_loops,
+        group_loop_mechanisms,
+        loop_mechanism_summary,
     )
     from latris.schema import Substrate
 
@@ -349,13 +415,13 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
         loops = find_all_loops(causal)
         if loops:
             classified = [classify_loop(loop, polarity_map) for loop in loops]
-            r_count = sum(1 for loop in classified if loop.classification == "R")
-            b_count = sum(1 for loop in classified if loop.classification == "B")
-            u_count = sum(1 for loop in classified if loop.classification == "unknown")
-            claims.append(
-                f"{len(loops)} feedback loop(s) detected: "
-                f"{r_count} reinforcing, {b_count} balancing" + (f", {u_count} unclassified" if u_count else "") + "."
+            n_mech = len(group_loop_mechanisms(classified))
+            counted = f"{n_mech} feedback mechanism(s)" + (
+                f" ({len(loops)} distinct cycles; cycles differing by one alternative step count once)"
+                if n_mech != len(loops)
+                else ""
             )
+            claims.append(f"{counted}: {loop_mechanism_summary(classified)}.")
             # Name the longest loop. Always show the full cycle and close
             # back to the start node — truncating with "→ …" creates an
             # apparent node-count mismatch (claim says N nodes, display
@@ -493,11 +559,13 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
         # the "highest leverage" framing as overclaim on DAGs.
         has_loops = bool(find_all_loops(causal))
 
-        by_betweenness = sorted(centrality, key=lambda c: c.betweenness, reverse=True)
-        if by_betweenness and by_betweenness[0].betweenness > 0:
-            top = by_betweenness[:3]
+        top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
+        if top:
             if has_loops:
-                claims.append("Highest leverage nodes (by betweenness centrality):")
+                claims.append(
+                    "Factors the most causal paths run through (betweenness centrality; "
+                    "structural, not a measured effect size; outcomes excluded):"
+                )
             else:
                 claims.append(
                     "Top structural mediators (by betweenness centrality; "
@@ -564,9 +632,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
 
     linked_ids = {e.target_id for e in evidence.entries}
     supported_ids = {e.target_id for e in evidence.entries if e.support_verdict == "supports"}
-    all_entity_ids = {e.id for e in substrate.entities}
-    all_edge_ids = {e.id for e in substrate.edges}
-    all_ids = all_entity_ids | all_edge_ids
+    all_ids, noun = _coverage_ids(substrate)
 
     total = len(all_ids)
     linked = len(all_ids & linked_ids)
@@ -574,18 +640,15 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
     uncited = all_ids - linked_ids
 
     claims = [
-        f"Evidence coverage: {linked}/{total} elements have at least one evidence link "
+        f"Evidence coverage: {linked}/{total} {noun} have at least one source "
         f"({supported}/{total} verified as supporting)."
     ]
     if uncited:
-        entity_labels = {e.id: e.label for e in substrate.entities}
-        uncited_entities = [eid for eid in uncited if eid in all_entity_ids]
-        if uncited_entities:
-            names = [entity_labels.get(eid, eid[:12]) for eid in uncited_entities[:5]]
-            claims.append(
-                f"Entities without evidence: {', '.join(names)}"
-                + (f" (+{len(uncited_entities) - 5} more)" if len(uncited_entities) > 5 else "")
-            )
+        names = _element_names(substrate, sorted(uncited))
+        claims.append(
+            f"{noun.capitalize()} without a source: {', '.join(names[:5])}"
+            + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
+        )
     return claims
 
 
@@ -598,10 +661,7 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
     refs = load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
 
-    entity_labels = {e.id: e.label for e in substrate.entities}
-    all_entity_ids = {e.id for e in substrate.entities}
-    all_edge_ids = {e.id for e in substrate.edges}
-    all_ids = all_entity_ids | all_edge_ids
+    all_ids, noun = _coverage_ids(substrate)
 
     # Elements without evidence — split linked vs supported (verified). A
     # link with support_verdict != "supports" is a proposed citation, not
@@ -614,18 +674,16 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     supported_count = len(all_ids & supported_target_ids)
 
     claims = [
-        f"Element coverage: {cited_count}/{len(all_ids)} model elements have evidence links "
+        f"Coverage: {cited_count}/{len(all_ids)} {noun} have a source "
         f"({supported_count} verified as supporting; {cited_count - supported_count} unverified)."
     ]
 
     if uncited_ids:
-        uncited_entities = [eid for eid in uncited_ids if eid in all_entity_ids]
-        if uncited_entities:
-            names = [entity_labels.get(eid, eid[:12]) for eid in uncited_entities[:5]]
-            claims.append(
-                f"Uncited entities: {', '.join(names)}"
-                + (f" (+{len(uncited_entities) - 5} more)" if len(uncited_entities) > 5 else "")
-            )
+        names = _element_names(substrate, sorted(uncited_ids))
+        claims.append(
+            f"Uncited {noun}: {', '.join(names[:5])}"
+            + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
+        )
 
     # References not linked to any element. EvidenceLink joins to References
     # via `bibkey`, not by Reference.id — comparing the two means joining on
@@ -656,6 +714,7 @@ def _extract_answer(model_type: str, paths) -> list[str]:
         classify_loop,
         compute_centrality,
         find_all_loops,
+        group_loop_mechanisms,
     )
     from latris.schema import Substrate
 
@@ -682,18 +741,19 @@ def _extract_answer(model_type: str, paths) -> list[str]:
         loops = find_all_loops(causal)
         if loops:
             classified = [classify_loop(loop, polarity_map) for loop in loops]
-            r_loops = [loop for loop in classified if loop.classification == "R"]
-            b_loops = [loop for loop in classified if loop.classification == "B"]
-            if r_loops:
-                claims.append(f"{len(r_loops)} reinforcing loop(s) may drive escalation or growth.")
-            if b_loops:
-                claims.append(f"{len(b_loops)} balancing loop(s) provide natural stabilisation.")
+            groups = group_loop_mechanisms(classified)
+            r_groups = sum(1 for g in groups if g[0].classification == "R")
+            b_groups = sum(1 for g in groups if g[0].classification == "B")
+            if r_groups:
+                claims.append(f"{r_groups} reinforcing feedback mechanism(s) may drive escalation or growth.")
+            if b_groups:
+                claims.append(f"{b_groups} balancing feedback mechanism(s) provide natural stabilisation.")
 
     # Most central nodes as key factors
     if substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)
-        top_3 = sorted(centrality, key=lambda c: c.betweenness, reverse=True)[:3]
-        if top_3 and top_3[0].betweenness > 0:
+        top_3 = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
+        if top_3:
             names = [entity_labels.get(c.entity_id, "") for c in top_3]
             claims.append(f"Key factors in the system: {', '.join(names)}.")
 
@@ -722,10 +782,12 @@ def _extract_implications(model_type: str, paths) -> list[str]:
     if substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)
         entity_labels = {e.id: e.label for e in substrate.entities}
-        by_betweenness = sorted(centrality, key=lambda c: c.betweenness, reverse=True)
-        if by_betweenness and by_betweenness[0].betweenness > 0:
-            top = by_betweenness[:3]
-            claims.append("Potential intervention leverage points (high betweenness):")
+        top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
+        if top:
+            claims.append(
+                "Candidate intervention points — factors many causal paths run through "
+                "(betweenness; outcomes excluded):"
+            )
             for c in top:
                 claims.append(f"  - {entity_labels.get(c.entity_id, c.entity_id[:8])}")
 
@@ -748,13 +810,14 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
     evidence_path = paths.evidence_links_yaml
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
 
-    total_elements = len(substrate.entities) + len(substrate.edges)
+    all_ids, noun = _coverage_ids(substrate)
+    total_elements = len(all_ids)
     # Links cover an element if at least one EvidenceLink targets it.
     # Supported coverage requires support_verdict == "supports" — i.e. the
     # source was actually read and the claim was backed. Reporting only the
     # linked-percentage rewards title-only citation stuffing.
-    linked_elements = len({e.target_id for e in evidence.entries})
-    supported_elements = len({e.target_id for e in evidence.entries if e.support_verdict == "supports"})
+    linked_elements = len(all_ids & {e.target_id for e in evidence.entries})
+    supported_elements = len(all_ids & {e.target_id for e in evidence.entries if e.support_verdict == "supports"})
     linked_pct = int(100 * linked_elements / max(total_elements, 1))
     supported_pct = int(100 * supported_elements / max(total_elements, 1))
 
@@ -764,7 +827,7 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
     maturity_pct = int(100 * accepted / max(total_findings, 1)) if total_findings else 0
 
     claims = [
-        f"Evidence coverage: {linked_pct}% of model elements have evidence links "
+        f"Evidence coverage: {linked_pct}% of {noun} have a source "
         f"({supported_pct}% verified as supporting; "
         f"{linked_pct - supported_pct}% unverified or proposed).",
         f"Finding maturity: {accepted}/{total_findings} findings approved ({maturity_pct}%).",

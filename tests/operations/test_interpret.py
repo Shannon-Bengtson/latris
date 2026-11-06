@@ -190,12 +190,12 @@ class TestClaimExtraction:
 
         def _r_count(claims: list[str]) -> int:
             for claim in claims:
-                # answer_to_question phrasing: "<N> reinforcing loop(s) may drive…"
+                # answer_to_question phrasing: "<N> reinforcing feedback mechanism(s) may drive…"
                 if claim.endswith("may drive escalation or growth."):
                     return int(claim.split()[0])
-                # structural_summary phrasing: "<total> feedback loop(s) detected: <R> reinforcing, <B> balancing…"
-                if "feedback loop(s) detected" in claim:
-                    after = claim.split("detected:", 1)[1]
+                # structural_summary phrasing: "<total> feedback mechanism(s)…: <R> reinforcing, <B> balancing…"
+                if "feedback mechanism(s)" in claim:
+                    after = claim.split(":", 1)[1]
                     return int(after.split("reinforcing")[0].strip().rstrip(","))
             return 0
 
@@ -367,17 +367,22 @@ class TestCoverageRatio:
         assert ratio == 1.0
 
     def test_partial_coverage(self, project: Path):
+        from latris.operations.edges import list_edges
         from latris.operations.evidence import add_evidence
         from latris.operations.interpret import coverage_ratio
         from latris.operations.references import add_reference
 
-        # Project fixture has 2 entities + 2 edges = 4 elements.
+        # Coverage counts links (the model's claims), not factors: the
+        # fixture's 2 entities + 2 edges give a total of 2, and citing a
+        # factor doesn't move it.
         add_reference("smith2024", title="T", root=project)
         add_evidence("Nutrient load", "description", "smith2024", root=project)
+        assert coverage_ratio("cld", ProjectPaths(project))[:2] == (0, 2)
+        edge_id = list_edges(root=project)[0].id
+        add_evidence(edge_id, "description", "smith2024", root=project)
         cited, total, ratio = coverage_ratio("cld", ProjectPaths(project))
-        assert total == 4
-        assert cited == 1
-        assert abs(ratio - 0.25) < 1e-9
+        assert (cited, total) == (1, 2)
+        assert abs(ratio - 0.5) < 1e-9
 
 
 class TestHedgeMode:
@@ -456,3 +461,25 @@ class TestHedgeInstructionInContext:
             ProjectPaths(root),
         )
         assert "HEDGE MODE" not in pack.user
+
+
+def test_outcome_is_not_an_intervention_point(tmp_path: Path, git_identity):
+    """The outcome the model explains is excluded from leverage claims."""
+    from latris.operations.project import update_selected_models
+    from latris.operations.view_roles import set_role
+
+    root = tmp_path / "outcome"
+    init_project(root, statement="Why do volunteers leave?")
+    update_selected_models(["cld"], root=root)
+    for label in ("Burnout", "Departures", "Workload"):
+        add_node(label, root=root)
+    add_edge("Burnout", "Departures", root=root)
+    add_edge("Departures", "Workload", root=root)
+    add_edge("Workload", "Burnout", root=root)
+
+    def names(claims: list[str]) -> list[str]:
+        return [c.strip(" -") for c in claims if c.startswith("  - ")]
+
+    assert "Departures" in names(extract_claims("implications", "cld", root=root))
+    set_role("Departures", "cld", "outcome", root=root)
+    assert "Departures" not in names(extract_claims("implications", "cld", root=root))

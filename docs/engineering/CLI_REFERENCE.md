@@ -27,7 +27,7 @@ mutations (the server routes' shape) and `{"result": [...]}` for listings.
 Errors print `{"error": ..., "type": ...}` with the usual exit codes (1 for
 not-found / git / sync errors, 2 for invalid input). Supported today:
 `node add|list|show|rename|remove`, `edge add|list|remove`, `attr set`,
-`view set`, `ref add|list`, `evidence add`, `check coherence`.
+`view set|role`, `ref add|list`, `evidence add`, `check coherence`, `build`.
 
 ## Project
 
@@ -36,7 +36,18 @@ latris init <name> [--question "..."]
 latris project show
 latris project set-question "..."
 latris project select-models <model-types>
+latris build --spec model.yaml [--verified-by human|ai]   # '-' reads stdin
 ```
+
+`build` adds a whole model from one YAML or JSON spec — `factors` (label,
+kind, description, sources), `links` (from, to, kind, polarity, reason,
+weight, description, confidence, sources), `sources` (key, title, authors,
+year, container, doi, url), `assumptions`, `questions`, `outcome` and an
+optional `model_type` — as **one commit**. Links and citations refer to
+factors by label and to sources by key, from the spec or already in the
+project. The whole spec is checked first and nothing changes if anything
+fails to resolve. Field names match the hosted MCP server's
+`apply_changes` operations. See `src/latris/schema/build_spec.py`.
 
 ## Substrate: Nodes And Edges
 
@@ -111,6 +122,7 @@ latris view project cld|dag|conceptual
 latris view auto-project cld|dag|conceptual
 latris view set <model-type> <target> <attribute> <value> [--rationale "..."]
 latris view set fcm <edge> weight -- -0.7   # `--` before a negative number
+latris view role <model-type> <node> <role>  # e.g. cld "Volunteer departures" outcome
 
 latris version milestone "..."
 latris version alternative "..."
@@ -146,7 +158,12 @@ The library exports Markdown and DOT. Word reports, self-contained
 HTML review packs (and importing completed ones) and story HTML are part
 of the Latris app (`app.latris.app`) since 0.5.0. The Markdown report includes a
 Mermaid sketch of the model (section `diagram`, in every pack) that
-renders on GitHub and in most chat UIs. `--report-url` adds a link to the
+renders on GitHub and in most chat UIs, with links coloured by polarity and
+the feedback loops listed under it (R1, B1, …; cycles that differ by one
+alternative step count as one loop). Sections appear in the pack's own
+order: `client` and `publication` lead with the interpretation (answer,
+implications, confidence) and leave out the change log (`history`); the
+client pack shows approved findings only and says how many are waiting. `--report-url` adds a link to the
 hosted copy of the report in the footer; it defaults to the link recorded
 when the project was shared, if any. `--no-ai` writes the narrative
 preamble without attempting an AI call.

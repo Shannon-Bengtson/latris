@@ -508,9 +508,17 @@ Interpret converts model structure, analysis results, evidence, provenance, and 
 4. Edit prose where needed.
 5. Use the generated sections in Communicate.
 
+## How the claims are counted
+
+- **Evidence coverage** counts links (the model's claims) that have at least one source; factors aren't counted.
+- **Intervention points** are factors many causal paths run through. The outcome the model explains is left out once it's marked: `latris view role cld "<factor>" outcome`.
+- **Feedback loops** are counted as mechanisms: two cycles that differ by one alternative step count once.
+
 ## Keep it current
 
 If the model changes after prose is generated, refresh claims and regenerate affected sections before exporting.
+
+In client and publication reports the answer, implications and confidence come first.
 """,
     ),
     HelpTopic(

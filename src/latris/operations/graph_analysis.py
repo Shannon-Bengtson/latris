@@ -275,6 +275,57 @@ def classify_loop(
     )
 
 
+def group_loop_mechanisms(loops: list[Loop]) -> list[list[Loop]]:
+    """Group elementary cycles that are one feedback mechanism.
+
+    Johnson's algorithm counts every distinct path, so a mechanism with two
+    alternative routes through one step (A→B→C→A and A→D→C→A) shows up as
+    two loops. Two cycles are merged when they have the same classification,
+    share at least two nodes, and differ by at most one alternative step
+    (symmetric difference of their node sets ≤ 2). Grouping is transitive.
+    """
+    parent = list(range(len(loops)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    node_sets = [set(loop.node_ids) for loop in loops]
+    for i in range(len(loops)):
+        for j in range(i + 1, len(loops)):
+            if loops[i].classification != loops[j].classification:
+                continue
+            a, b = node_sets[i], node_sets[j]
+            if len(a & b) >= 2 and len(a ^ b) <= 2:
+                parent[find(i)] = find(j)
+
+    groups: dict[int, list[Loop]] = defaultdict(list)
+    for i, loop in enumerate(loops):
+        groups[find(i)].append(loop)
+    return list(groups.values())
+
+
+def loop_mechanism_summary(loops: list[Loop]) -> str:
+    """One phrase counting loops by class, e.g. ``"3 reinforcing, 1 balancing"``.
+
+    Counts mechanisms (see :func:`group_loop_mechanisms`) and notes the raw
+    cycle count when they differ, so the figure matches what a reader sees
+    in the diagram.
+    """
+    groups = group_loop_mechanisms(loops)
+    parts = []
+    for cls, word in (("R", "reinforcing"), ("B", "balancing"), ("unknown", "unclassified")):
+        n_groups = sum(1 for g in groups if g[0].classification == cls)
+        n_loops = sum(1 for loop in loops if loop.classification == cls)
+        if not n_groups:
+            continue
+        cycles = f" ({n_loops} cycles)" if n_loops != n_groups else ""
+        parts.append(f"{n_groups} {word}{cycles}")
+    return ", ".join(parts)
+
+
 def propagate_polarity(
     from_id: str,
     edges: list[_HasDirection],

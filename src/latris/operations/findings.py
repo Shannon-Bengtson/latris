@@ -18,6 +18,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from latris.operations.commit import auto_commit
+from latris.operations.graph_analysis import group_loop_mechanisms, loop_mechanism_summary
 from latris.repo import git
 from latris.repo.project import require_project
 from latris.repo.yaml_io import atomic_replace, dump_jsonl_append, iter_jsonl, load_model
@@ -313,16 +314,11 @@ def findings_from_loops(
     b_count = sum(1 for loop in loops if loop.classification == "B")
     unknown = sum(1 for loop in loops if loop.classification == "unknown")
 
-    parts = []
-    if r_count:
-        parts.append(f"{r_count} reinforcing")
-    if b_count:
-        parts.append(f"{b_count} balancing")
-    if unknown:
-        parts.append(f"{unknown} unclassified")
-    classification_text = ", ".join(parts)
-
-    statement = f"The model contains {len(loops)} feedback loop{'s' if len(loops) != 1 else ''}: {classification_text}."
+    # Count mechanisms, not raw cycles: one mechanism with two alternative
+    # routes is two elementary cycles but one loop to a reader.
+    n_mech = len(group_loop_mechanisms(loops))
+    plural = "s" if n_mech != 1 else ""
+    statement = f"The model contains {n_mech} feedback loop{plural}: {loop_mechanism_summary(loops)}."
 
     # Build detail with individual loop info
     detail_lines = []

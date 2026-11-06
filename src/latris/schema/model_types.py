@@ -106,6 +106,7 @@ register_model_type(
         roadmap="built",
         availability="stable",
         model_attributes=("polarity",),
+        allowed_roles=("outcome",),
         structural_validators=("loops_present",),
     )
 )
@@ -118,6 +119,7 @@ register_model_type(
         description="Directed graph that must be acyclic; directionality mandatory.",
         roadmap="built",
         availability="stable",
+        allowed_roles=("outcome",),
         structural_validators=("acyclicity",),
     )
 )
@@ -337,6 +339,7 @@ register_model_type(
         roadmap="built",
         availability="stable",
         model_attributes=("weight",),
+        allowed_roles=("outcome",),
     )
 )
 

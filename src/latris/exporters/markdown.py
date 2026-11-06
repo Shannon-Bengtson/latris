@@ -76,6 +76,8 @@ def _is_meta_question(question: str) -> bool:
 # carry mechanism; decision_rule/governance/definitional are policy or
 # identity links and are excluded from loop / centrality analysis.
 _READER_PACKS = frozenset({"client", "publication"})
+# Interpretation sections a reader pack opens with.
+_ANSWER_FIRST = ("answer_to_question", "implications", "confidence_assessment")
 
 _CAUSAL_EDGE_KINDS = frozenset({"causal", "temporal", "decomposition", "conditional"})
 _POLICY_EDGE_KINDS = frozenset({"decision_rule", "governance", "definitional"})
@@ -171,11 +173,23 @@ def render(
     def _include(section: str) -> bool:
         return included is None or section in included
 
-    # ---------- Header + Narrative Preamble ----------
-    if _include("foundation"):
+    # Each section's lines start at a marker; the report is reassembled in
+    # the pack's own section order at the end (reader packs lead with the
+    # answer, not the change log).
+    starts: list[tuple[str, int]] = []
+
+    def _begin(section: str) -> None:
+        starts.append((section, len(out)))
+
+    narrative = None
+    if _include("foundation") or _include("structure") or _include("history"):
         from latris.exporters.narrative import build_narrative
 
         narrative = build_narrative(paths, model_type=model_type, ai=ai)
+
+    # ---------- Header + Narrative Preamble ----------
+    _begin("foundation")
+    if _include("foundation"):
         out.append(f"# {narrative.title}")
         out.append("")
         out.append(narrative.purpose)
@@ -191,7 +205,7 @@ def render(
             out.append("")
             out.append(
                 "_Recorded at project initialisation, before any AI analysis. "
-                "Use this as a check against the AI-generated answer below._"
+                "Use this as a check against the AI-generated answer in this report._"
             )
             out.append("")
             out.append(foundation.predictions.strip())
@@ -206,19 +220,22 @@ def render(
             pass
         out.append("")
 
-        # Model structure (AI prose or mechanical fallback)
-        if narrative.structure_description:
-            out.append("## Model Structure\n")
-            out.append(narrative.structure_description)
-            out.append("")
+    # Model structure (AI prose or mechanical fallback)
+    _begin("structure")
+    if _include("structure") and narrative.structure_description:
+        out.append("## Model Structure\n")
+        out.append(narrative.structure_description)
+        out.append("")
 
-        # Model history (AI prose or mechanical fallback)
-        if narrative.history_summary:
-            out.append("## Model History\n")
-            out.append(narrative.history_summary)
-            out.append("")
+    # Model history — the change log (AI prose or mechanical fallback)
+    _begin("history")
+    if _include("history") and narrative.history_summary:
+        out.append("## Model History\n")
+        out.append(narrative.history_summary)
+        out.append("")
 
     # ---------- Diagram (Mermaid sketch) ----------
+    _begin("diagram")
     if _include("diagram"):
         from latris.exporters import mermaid
 
@@ -230,7 +247,14 @@ def render(
             out.append(diagram.rstrip("\n"))
             out.append("```")
             out.append("")
+            legend = mermaid.loop_legend(paths, model_type=model_type)
+            if legend:
+                out.append("Feedback loops:")
+                out.append("")
+                out.extend(f"- {line}" for line in legend)
+                out.append("")
 
+    _begin("modelling_approach")
     if _include("modelling_approach"):
         out.extend(_render_modelling_approach(paths))
 
@@ -240,6 +264,7 @@ def render(
         labels.setdefault(e.id, f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}")
 
     # ---------- Nodes ----------
+    _begin("nodes")
     if _include("nodes"):
         out.append("## Nodes")
         out.append("")
@@ -257,6 +282,7 @@ def render(
         out.append("")
 
     # ---------- Edges ----------
+    _begin("edges")
     if _include("edges"):
         out.append("## Edges")
         out.append("")
@@ -286,6 +312,8 @@ def render(
                     why = getattr(pol, "rationale", None) if pol else None
                     conf = confidence.get((e.id, "confidence"))
                     desc = descriptions.get((e.id, "description"))
+                    # Agents often set both to the same causal story; say it once.
+                    desc_txt = desc.value if desc and desc.value.strip() != (why or "").strip() else ""
                     id_cell = f"| `{e.id}` " if show_ids else ""
                     out.append(
                         f"{id_cell}| {e.kind} | "
@@ -293,7 +321,7 @@ def render(
                         f"{pol.value if pol else ''} | "
                         f"{_md_escape(why) if why else ''} | "
                         f"{conf.value if conf else ''} | "
-                        f"{_md_escape(desc.value) if desc else ''} |"
+                        f"{_md_escape(desc_txt)} |"
                     )
 
             if causal_edges:
@@ -321,6 +349,7 @@ def render(
                 out.append("")
 
     # ---------- Evidence ----------
+    _begin("evidence")
     if _include("evidence"):
         out.append("## Evidence")
         out.append("")
@@ -331,6 +360,17 @@ def render(
             for link in evidence.entries:
                 by_key.setdefault(link.bibkey, []).append(link)
             ref_by_key = {r.bibkey: r for r in references}
+
+            def _audit(link) -> str:
+                return f"by={link.verified_by} · source={link.source_access} · verdict={link.support_verdict}"
+
+            # The same audit tags on every line is noise; when they're all
+            # alike, say so once.
+            audits = {_audit(link) for link in evidence.entries}
+            shared_audit = audits.pop() if len(audits) == 1 else None
+            if shared_audit:
+                out.append(f"_Every citation below: {shared_audit}._")
+                out.append("")
             for bibkey, links in sorted(by_key.items()):
                 ref = ref_by_key.get(bibkey)
                 cite = _short_citation(ref) if ref else ""
@@ -342,24 +382,21 @@ def render(
                     # "human-verified / ai-verified" badge that conflated
                     # who proposed the link with whether the source
                     # supports the claim.
-                    audit = (
-                        f"by={link.verified_by} · "
-                        f"source={link.source_access} · "
-                        f"verdict={link.support_verdict}"
-                    )
+                    audit = "" if shared_audit else f" ({_audit(link)})"
                     note = f" — _{link.notes}_" if link.notes else ""
                     # "existence" is a sentinel attribute meaning the
                     # reference supports the existence/presence of the
                     # entity or edge itself, not one of its sub-fields.
                     # Render without the "/ attribute" suffix in that case.
                     if link.attribute == "existence":
-                        out.append(f"- {target_label} ({audit}){note}")
+                        out.append(f"- {target_label}{audit}{note}")
                     else:
-                        out.append(f"- {target_label} / **{link.attribute}** ({audit}){note}")
+                        out.append(f"- {target_label} / **{link.attribute}**{audit}{note}")
                     if link.quote:
                         out.append(f"  > {link.quote}")
                 out.append("")
 
+    _begin("assumptions")
     if _include("assumptions"):
         out.append("## Assumptions")
         out.append("")
@@ -375,6 +412,7 @@ def render(
                 )
         out.append("")
 
+    _begin("decisions")
     if _include("decisions"):
         out.append("## Decisions")
         out.append("")
@@ -389,6 +427,7 @@ def render(
                 )
         out.append("")
 
+    _begin("signoffs")
     if _include("signoffs"):
         out.append("## Sign-offs")
         out.append("")
@@ -404,6 +443,7 @@ def render(
                 )
         out.append("")
 
+    _begin("sessions")
     if _include("sessions"):
         out.append("## Sessions")
         out.append("")
@@ -416,6 +456,7 @@ def render(
                 out.append(f"- **{s.held_at.isoformat()}** with {attendees}{notes}")
         out.append("")
 
+    _begin("questions")
     if _include("questions"):
         out.append("## Open questions")
         out.append("")
@@ -436,6 +477,7 @@ def render(
                 )
         out.append("")
 
+    _begin("exclusions")
     if _include("exclusions"):
         out.append("## Exclusions")
         out.append("")
@@ -450,6 +492,7 @@ def render(
                 )
         out.append("")
 
+    _begin("predictions")
     if _include("predictions"):
         out.append("## Predictions")
         out.append("")
@@ -465,6 +508,7 @@ def render(
                 )
         out.append("")
 
+    _begin("challenges")
     if _include("challenges"):
         out.append("## Challenges")
         out.append("")
@@ -504,6 +548,7 @@ def render(
                     )
             out.append("")
 
+    _begin("references")
     if _include("references"):
         out.append("## References")
         out.append("")
@@ -511,9 +556,13 @@ def render(
             out.append("_None._")
         else:
             for r in sorted(references, key=lambda r: r.bibkey):
-                authors = ", ".join(r.authors) if r.authors else ""
+                # "Surname, Given" names already hold commas; separate them
+                # with semicolons so the list stays readable.
+                sep = "; " if any("," in a for a in r.authors or []) else ", "
+                authors = sep.join(r.authors) if r.authors else ""
                 year = f"({r.year})" if r.year else ""
-                bits = [x for x in [authors, year, f"*{r.title}*"] if x]
+                # Names ending in an initial ("L.") already close with a stop.
+                bits = [x.rstrip(".") for x in [authors, year, f"*{r.title}*"] if x]
                 line = f"- **`{r.bibkey}`** — {'. '.join(bits)}."
                 if r.doi:
                     line += f" DOI: {r.doi}"
@@ -522,6 +571,7 @@ def render(
                 out.append(line)
         out.append("")
 
+    _begin("elicitations")
     if _include("elicitations"):
         out.append("## Elicitation Sessions")
         out.append("")
@@ -544,6 +594,7 @@ def render(
                 )
         out.append("")
 
+    _begin("datasets")
     if _include("datasets"):
         out.append("## Datasets")
         out.append("")
@@ -560,6 +611,7 @@ def render(
                 )
         out.append("")
 
+    _begin("data_actions")
     if _include("data_actions"):
         out.append("## Data Actions")
         out.append("")
@@ -584,6 +636,7 @@ def render(
                 )
         out.append("")
 
+    _begin("analyses")
     if _include("analyses"):
         out.append("## Analysis Runs")
         out.append("")
@@ -601,6 +654,7 @@ def render(
                 )
         out.append("")
 
+    _begin("findings")
     if _include("findings"):
         # Client/publication packs only show approved findings.
         visible_maturities = {"proposed", "reviewed", "approved"}
@@ -611,7 +665,13 @@ def render(
 
         out.append("## Findings")
         out.append("")
-        if not visible:
+        waiting = sum(1 for f in all_findings if f.maturity in {"proposed", "reviewed"} and f not in visible)
+        if not visible and waiting:
+            out.append(
+                f"_{waiting} finding{'s' if waiting != 1 else ''} awaiting approval — "
+                "a person approves each one with `latris mature approve <finding>`._"
+            )
+        elif not visible:
             out.append("_No findings recorded._")
         else:
             for cat in FINDING_CATEGORIES:
@@ -632,9 +692,11 @@ def render(
                 out.append("")
         out.append("")
 
+    _begin("interpretation")
     if _include("interpretation"):
-        out.extend(_render_interpretation(paths, model_type=model_type))
+        out.extend(_render_interpretation(paths, model_type=model_type, answer_first=pack in _READER_PACKS))
 
+    _begin("milestones")
     if _include("milestones"):
         out.append("## Milestones")
         out.append("")
@@ -655,6 +717,8 @@ def render(
                 )
         out.append("")
 
+    out = _in_pack_order(out, starts, pack=pack, sections=sections)
+
     # ---------- Footer badge ----------
     out.append("---")
     out.append("")
@@ -665,6 +729,22 @@ def render(
     out.append("")
 
     return "\n".join(out)
+
+
+def _in_pack_order(
+    out: list[str], starts: list[tuple[str, int]], *, pack: str | None, sections: list[str] | None
+) -> list[str]:
+    """Reorder rendered sections to follow the pack's (or caller's) list."""
+    from latris.exporters.packs import get_pack
+
+    order = sections or (get_pack(pack).sections if pack else None)
+    if not order:
+        return out
+    bounds = [*(i for _, i in starts[1:]), len(out)]
+    chunks = {key: out[start:end] for (key, start), end in zip(starts, bounds, strict=True)}
+    head = out[: starts[0][1]] if starts else []
+    ranked = [k for k in order if k in chunks] + [k for k, _ in starts if k not in order]
+    return head + [line for k in ranked for line in chunks[k]]
 
 
 def _render_modelling_approach(paths: ProjectPaths) -> list[str]:
@@ -699,7 +779,9 @@ def _render_modelling_approach(paths: ProjectPaths) -> list[str]:
     return out
 
 
-def _render_interpretation(paths: ProjectPaths, *, model_type: str | None = None) -> list[str]:
+def _render_interpretation(
+    paths: ProjectPaths, *, model_type: str | None = None, answer_first: bool = False
+) -> list[str]:
     """Render the Interpret-phase sections (Answer, Confidence, Limitations,
     etc) into Markdown lines. Empty list if interpretation.yaml is missing
     or has no sections — keeps the report quiet for projects that haven't
@@ -724,8 +806,12 @@ def _render_interpretation(paths: ProjectPaths, *, model_type: str | None = None
     out: list[str] = ["## Interpretation", ""]
 
     # Render in registry order so the report flows logically
-    # (Structural Summary → Key Findings → ... → Open Questions)
+    # (Structural Summary → Key Findings → ... → Open Questions). Reader
+    # packs lead with the answer, what to do about it and how sure we are.
     section_order = list(INTERPRET_SECTION_REGISTRY.keys())
+    if answer_first:
+        lead = [t for t in _ANSWER_FIRST if t in section_order]
+        section_order = lead + [t for t in section_order if t not in lead]
     by_type: dict[str, list] = {}
     for s in scoped_sections:
         by_type.setdefault(s.section_type, []).append(s)

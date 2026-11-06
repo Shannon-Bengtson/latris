@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -793,6 +794,52 @@ def build_example(ex: WorkedExample) -> None:
             "--attendee", "Alice", "--attendee", "Bob",
             "--notes", "Kickoff workshop: identified core causal pathways."])
 
+    # ── 5b. Build from a spec ─────────────────────────────────────────
+    ex.section(
+        "Building from a Spec",
+        "Add many factors, links, sources and citations at once from a YAML or JSON spec — "
+        "checked in full first, applied as one commit. Links name factors by label; "
+        "shown here on a second, small project so the main model is unchanged.",
+    )
+    spec_root = ex.root.parent / "volunteers"
+    ex.run(["init", str(spec_root), "--question", "Why are volunteers leaving?"])
+    os.chdir(spec_root)
+    ex.run(["project", "select-models", "cld"])
+    build_spec = textwrap.dedent("""\
+        outcome: Volunteer departures
+        factors:
+          - label: Workload per volunteer
+            description: Hours each active volunteer covers.
+          - label: Volunteer burnout
+          - label: Volunteer departures
+        links:
+          - from: Workload per volunteer
+            to: Volunteer burnout
+            polarity: "+"
+            reason: More hours per person, more exhaustion.
+            confidence: medium
+            sources: [smith2021]
+          - from: Volunteer burnout
+            to: Volunteer departures
+            polarity: "+"
+            reason: Exhausted volunteers leave.
+          - from: Volunteer departures
+            to: Workload per volunteer
+            polarity: "+"
+            reason: Fewer people share the same work.
+        sources:
+          - key: smith2021
+            title: Volunteer burnout
+            authors: ["Smith, J"]
+            year: 2021
+        assumptions:
+          - Service demand stays steady as numbers fall.
+        """)
+    ex.transcript.append("```yaml" + chr(10) + build_spec + "```" + chr(10))
+    ex.run(["build", "--spec", "-"], input=build_spec)
+    ex.run(["analyse", "loops"])
+    os.chdir(ex.root)
+
     # ── 6. Challenges ─────────────────────────────────────────────────
     ex.section("Challenges", "Open, discuss, and resolve challenges against model elements.")
 
@@ -1306,6 +1353,11 @@ def build_example(ex: WorkedExample) -> None:
         ])
         ex.run(["completeness", "list", "cld", "--disposition", "open"])
 
+    ex.note(
+        "Mark the outcome the model explains, so the interpretation doesn't suggest it "
+        "as an intervention point."
+    )
+    ex.run(["view", "role", "cld", "Respiratory Health", "outcome"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "refresh-claims"])
     ex.run(["interpret", "list"])

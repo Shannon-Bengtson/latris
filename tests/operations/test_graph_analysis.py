@@ -433,3 +433,27 @@ class TestAdjustmentSets:
         assert set() in sets
         # m should not appear in any valid adjustment set
         assert not any("m" in s for s in sets)
+
+
+# ── Loop mechanisms ──────────────────────────────────────────────────────
+
+
+def test_parallel_routes_are_one_mechanism():
+    from latris.operations.graph_analysis import Loop, group_loop_mechanisms, loop_mechanism_summary
+
+    # A→B→C→A and A→D→C→A: one mechanism with two routes through one step.
+    a = Loop(node_ids=("A", "B", "C"), edge_ids=("1", "2", "3"), classification="R")
+    b = Loop(node_ids=("A", "D", "C"), edge_ids=("4", "5", "3"), classification="R")
+    # A separate balancing loop.
+    c = Loop(node_ids=("X", "Y"), edge_ids=("6", "7"), classification="B")
+    assert len(group_loop_mechanisms([a, b, c])) == 2
+    assert loop_mechanism_summary([a, b, c]) == "1 reinforcing (2 cycles), 1 balancing"
+
+
+def test_loops_sharing_one_hub_stay_separate():
+    from latris.operations.graph_analysis import Loop, group_loop_mechanisms
+
+    # A↔B and A↔C share only A — two mechanisms.
+    a = Loop(node_ids=("A", "B"), edge_ids=("1", "2"), classification="B")
+    b = Loop(node_ids=("A", "C"), edge_ids=("3", "4"), classification="B")
+    assert len(group_loop_mechanisms([a, b])) == 2

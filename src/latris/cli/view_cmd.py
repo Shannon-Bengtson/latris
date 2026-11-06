@@ -6,6 +6,7 @@ from rich.console import Console
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit
 from latris.operations import view_attributes as view_attr_ops
+from latris.operations import view_roles as view_role_ops
 from latris.operations import views as view_ops
 
 app = typer.Typer(help="View projection and model-specific attributes.", no_args_is_help=True)
@@ -52,6 +53,29 @@ def view_set(
         commit_sha=sha,
         human=lambda: console.print(
             f"[green]set[/green] {model_type} {attribute} = {value} on [cyan]{target_id}[/cyan] "
+            f"· commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
+
+
+@app.command("role")
+@handle_cli_errors
+def view_role(
+    model_type: str = typer.Argument(..., help="Model type the role belongs to (e.g. cld)."),
+    target: str = typer.Argument(..., help="Node ID or label."),
+    role: str = typer.Argument(..., help="Role in that view, e.g. outcome (cld, dag, fcm)."),
+) -> None:
+    """Give a factor a role in a view, e.g. mark the outcome the model explains.
+
+    ``latris view role cld "Volunteer departures" outcome`` keeps the outcome
+    out of the intervention points the report suggests.
+    """
+    target_id, sha = view_role_ops.set_role(target, model_type, role)
+    emit(
+        {"target_id": target_id, "model_type": model_type, "role": role},
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]set[/green] {model_type} role = {role} on [cyan]{target_id}[/cyan] "
             f"· commit [cyan]{sha[:10]}[/cyan]"
         ),
     )
