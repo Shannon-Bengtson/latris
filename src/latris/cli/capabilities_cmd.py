@@ -64,6 +64,7 @@ def capabilities(
         console.print(f"  - {pack['name']}: for {pack['audience']} — {pack['purpose']}.",
                       markup=False, highlight=False)
     console.print("  Board-ready prose: " + reports["board_ready_prose"], markup=False, highlight=False)
+    console.print("  Link for a person: " + reports["link_for_a_person"], markup=False, highlight=False)
     app = reports["app_formats"]
     console.print(f"  In the Latris app ({app['where']}): {', '.join(app['formats'])}.",
                   markup=False, highlight=False)

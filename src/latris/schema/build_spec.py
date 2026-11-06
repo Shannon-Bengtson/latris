@@ -80,6 +80,43 @@ class SpecSource(_Spec):
     container: str | None = None
     doi: str | None = None
     url: str | None = None
+    notes: str | None = None  # e.g. sample size, key result
+
+
+# A link is named by its two ends, "From -> To" (or "From → To").
+LINK_ARROWS = ("->", "→")
+
+
+class SpecAssumption(_Spec):
+    text: str
+    target: str | None = None  # a factor label, or a link as "From -> To"
+    rationale: str | None = None
+
+
+class SpecFinding(_Spec):
+    """Recorded as proposed: approving a finding is a person's act, done in the tool."""
+
+    statement: str
+    category: Literal["structure", "dynamics", "sensitivity", "inference", "diagnostics", "recommendations"] = (
+        "structure"
+    )
+    detail: str = ""
+    targets: list[str] = Field(default_factory=list)  # factor labels or "From -> To"
+
+
+class SpecChallenge(_Spec):
+    """An open challenge: someone disputes a factor or link."""
+
+    argument: str
+    target: str | None = None  # a factor label, or a link as "From -> To"
+
+
+class SpecInterpretation(_Spec):
+    """Prose for one interpretation section (e.g. answer_to_question)."""
+
+    section: str
+    prose: str
+    by: Literal["ai", "human"] = "ai"
 
 
 class BuildSpec(_Spec):
@@ -90,5 +127,8 @@ class BuildSpec(_Spec):
     factors: list[SpecFactor] = Field(default_factory=list)
     links: list[SpecLink] = Field(default_factory=list)
     sources: list[SpecSource] = Field(default_factory=list)
-    assumptions: list[str] = Field(default_factory=list)
+    assumptions: list[str | SpecAssumption] = Field(default_factory=list)
     questions: list[str] = Field(default_factory=list)
+    findings: list[SpecFinding] = Field(default_factory=list)
+    challenges: list[SpecChallenge] = Field(default_factory=list)
+    interpretation: list[SpecInterpretation] = Field(default_factory=list)

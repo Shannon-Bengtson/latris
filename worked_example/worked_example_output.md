@@ -159,6 +159,11 @@ and open questions, each written from claims Latris extracts from the model.
 generate-prose <section>` (needs an AI key) or read its claims with `latris 
 interpret show <section>` and write the prose yourself with `latris interpret 
 set-prose <section> "..." --by ai`.
+  Link for a person: latris link — prints a link that opens this model in the 
+Latris app (works offline; the model travels inside the link): a hosted report 
+with the full Latris figure (loops, polarity, evidence) that the person can 
+share, and save to a free account for the editor and Word. Give the person this
+link alongside (or instead of) the Markdown.
   In the Latris app (https://app.latris.app (the Latris app)): Word report, 
 HTML review pack (and importing completed reviews), scrollytelling story, 
 hosted report link (no sign-in to view).
@@ -182,42 +187,42 @@ explains so it isn't suggested as an intervention point.
 
 Initialise a new project with a modelling question.
 
-### `latris init C:\Users\dainy\AppData\Local\Temp\latris-demo-tuowffzd\air-quality-model --question What factors drive urban air quality and how do they affect health outcomes?`
+### `latris init C:\Users\dainy\AppData\Local\Temp\latris-demo-qd7zfdg1\air-quality-model --question What factors drive urban air quality and how do they affect health outcomes?`
 
 ```
 initialised project at 
-C:/Users/dainy/AppData/Local/Temp/latris-demo-tuowffzd/air-quality-model
+C:/Users/dainy/AppData/Local/Temp/latris-demo-qd7zfdg1/air-quality-model
 ```
 
 ### `latris project set coverage_dimensions emission sources, atmospheric dispersion, exposure, health outcomes, policy levers`
 
 ```
-set coverage_dimensions (77139cac56)
+set coverage_dimensions (59603716df)
 ```
 
 ### `latris project set granularity_level each node a specific measurable variable a city air-quality team could track`
 
 ```
-set granularity_level (727c8f10f2)
+set granularity_level (02bbdd1aa1)
 ```
 
 ### `latris project set audience a municipal air-quality and public-health team`
 
 ```
-set audience (c5a3509365)
+set audience (b8dc85937e)
 ```
 
 ### `latris project show`
 
 ```
 project root: 
-C:/Users/dainy/AppData/Local/Temp/latris-demo-tuowffzd/air-quality-model
+C:/Users/dainy/AppData/Local/Temp/latris-demo-qd7zfdg1/air-quality-model
 modelling question: What factors drive urban air quality and how do they affect
 health outcomes?
 selected models: (none)
 schema version: 6
-created: 2026-11-06T17:03:03+11:00
-updated: 2026-11-06T17:03:04+11:00
+created: 2026-11-06T18:53:39+11:00
+updated: 2026-11-06T18:53:39+11:00
 ```
 
 
@@ -228,36 +233,36 @@ Add entities (nodes) and causal relationships (edges).
 ### `latris node add Vehicle Emissions --kind variable`
 
 ```
-added variable Vehicle Emissions (node_01M6QQ86NXJVAAN23W7VKDFT9M) · commit 
-959e98c148
+added variable Vehicle Emissions (node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K) · commit 
+70750da813
 ```
 
 ### `latris node add Air Quality Index --kind variable`
 
 ```
-added variable Air Quality Index (node_01M6QQ86VW9ZBK37THRN6G8NWV) · commit 
-99804b3e73
+added variable Air Quality Index (node_01M6QXJQEGRTRACPHDAZWA7DQJ) · commit 
+6201a7d9ab
 ```
 
 ### `latris node add Respiratory Health --kind variable`
 
 ```
-added variable Respiratory Health (node_01M6QQ871NRNAKTRCKZ7EG1TE5) · commit 
-a4e6a30461
+added variable Respiratory Health (node_01M6QXJQPMFR8RGE4SQ7WD2G9V) · commit 
+ae00089963
 ```
 
 ### `latris node add Green Infrastructure --kind concept`
 
 ```
-added concept Green Infrastructure (node_01M6QQ877CTJ1HERZ5QMY64SMG) · commit 
-83f113774d
+added concept Green Infrastructure (node_01M6QXJQYJAH4MSEM4QY5ZXGZS) · commit 
+02daf424ea
 ```
 
 ### `latris node add Transport Policy --kind decision`
 
 ```
-added decision Transport Policy (node_01M6QQ87E5ZHWSMYW4M4DXJS4D) · commit 
-9a1f28db0b
+added decision Transport Policy (node_01M6QXJR8CG5T5P0Q9GRZH5NST) · commit 
+ef3f835da5
 ```
 
 ### `latris node list`
@@ -266,42 +271,42 @@ added decision Transport Policy (node_01M6QQ87E5ZHWSMYW4M4DXJS4D) · commit
 ┌─────────────────────────────────┬──────────┬──────────────────────┐
 │ ID                              │ Kind     │ Label                │
 ├─────────────────────────────────┼──────────┼──────────────────────┤
-│ node_01M6QQ86NXJVAAN23W7VKDFT9M │ variable │ Vehicle Emissions    │
-│ node_01M6QQ86VW9ZBK37THRN6G8NWV │ variable │ Air Quality Index    │
-│ node_01M6QQ871NRNAKTRCKZ7EG1TE5 │ variable │ Respiratory Health   │
-│ node_01M6QQ877CTJ1HERZ5QMY64SMG │ concept  │ Green Infrastructure │
-│ node_01M6QQ87E5ZHWSMYW4M4DXJS4D │ decision │ Transport Policy     │
+│ node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K │ variable │ Vehicle Emissions    │
+│ node_01M6QXJQEGRTRACPHDAZWA7DQJ │ variable │ Air Quality Index    │
+│ node_01M6QXJQPMFR8RGE4SQ7WD2G9V │ variable │ Respiratory Health   │
+│ node_01M6QXJQYJAH4MSEM4QY5ZXGZS │ concept  │ Green Infrastructure │
+│ node_01M6QXJR8CG5T5P0Q9GRZH5NST │ decision │ Transport Policy     │
 └─────────────────────────────────┴──────────┴──────────────────────┘
 ```
 
-### `latris edge add node_01M6QQ86NXJVAAN23W7VKDFT9M node_01M6QQ86VW9ZBK37THRN6G8NWV --kind causal`
+### `latris edge add node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K node_01M6QXJQEGRTRACPHDAZWA7DQJ --kind causal`
 
 ```
-added edge edge_01M6QQ87MXRMZNXE7QJNJ3BDYS (causal) · commit fd9c6139e4
+added edge edge_01M6QXJRHWZDW8C3Z2A996CJF0 (causal) · commit 5411402e20
 ```
 
-### `latris edge add node_01M6QQ86VW9ZBK37THRN6G8NWV node_01M6QQ871NRNAKTRCKZ7EG1TE5 --kind causal`
+### `latris edge add node_01M6QXJQEGRTRACPHDAZWA7DQJ node_01M6QXJQPMFR8RGE4SQ7WD2G9V --kind causal`
 
 ```
-added edge edge_01M6QQ87TZZK4D8956K8AXK39C (causal) · commit 676af0cad3
+added edge edge_01M6QXJRTWK3NVM2S38ZKM2F58 (causal) · commit f87898841c
 ```
 
-### `latris edge add node_01M6QQ877CTJ1HERZ5QMY64SMG node_01M6QQ86VW9ZBK37THRN6G8NWV --kind causal`
+### `latris edge add node_01M6QXJQYJAH4MSEM4QY5ZXGZS node_01M6QXJQEGRTRACPHDAZWA7DQJ --kind causal`
 
 ```
-added edge edge_01M6QQ880YA6ME0N0WEJD2C5J3 (causal) · commit 521dbbfa78
+added edge edge_01M6QXJS391YW166ZA0KJASK1B (causal) · commit 8d982799a7
 ```
 
-### `latris edge add node_01M6QQ87E5ZHWSMYW4M4DXJS4D node_01M6QQ86NXJVAAN23W7VKDFT9M --kind causal`
+### `latris edge add node_01M6QXJR8CG5T5P0Q9GRZH5NST node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K --kind causal`
 
 ```
-added edge edge_01M6QQ886XFZY0NQVX92VK5CVY (causal) · commit f5a80ba769
+added edge edge_01M6QXJSBHJ3V6VMVQSEVKZM23 (causal) · commit 6fb50b66f2
 ```
 
-### `latris edge add node_01M6QQ877CTJ1HERZ5QMY64SMG node_01M6QQ871NRNAKTRCKZ7EG1TE5 --kind causal`
+### `latris edge add node_01M6QXJQYJAH4MSEM4QY5ZXGZS node_01M6QXJQPMFR8RGE4SQ7WD2G9V --kind causal`
 
 ```
-added edge edge_01M6QQ88CYNJAXW9R9P6KZ5W3C (causal) · commit d64c1e2f11
+added edge edge_01M6QXJSKE2B6TF6E60VZS25DN (causal) · commit 15901f6b7c
 ```
 
 ### `latris edge list`
@@ -310,28 +315,28 @@ added edge edge_01M6QQ88CYNJAXW9R9P6KZ5W3C (causal) · commit d64c1e2f11
 ┌─────────────────────┬────────┬─────────────────────┬───┬────────────────────┐
 │ ID                  │ Kind   │ From                │ → │ To                 │
 ├─────────────────────┼────────┼─────────────────────┼───┼────────────────────┤
-│ edge_01M6QQ87MXRMZ… │ causal │ Vehicle Emissions   │ → │ Air Quality Index  │
-│                     │        │ (node_01M6QQ8…)     │   │ (node_01M6QQ8…)    │
-│ edge_01M6QQ87TZZK4… │ causal │ Air Quality Index   │ → │ Respiratory Health │
-│                     │        │ (node_01M6QQ8…)     │   │ (node_01M6QQ8…)    │
-│ edge_01M6QQ880YA6M… │ causal │ Green               │ → │ Air Quality Index  │
-│                     │        │ Infrastructure      │   │ (node_01M6QQ8…)    │
-│                     │        │ (node_01M6QQ8…)     │   │                    │
-│ edge_01M6QQ886XFZY… │ causal │ Transport Policy    │ → │ Vehicle Emissions  │
-│                     │        │ (node_01M6QQ8…)     │   │ (node_01M6QQ8…)    │
-│ edge_01M6QQ88CYNJA… │ causal │ Green               │ → │ Respiratory Health │
-│                     │        │ Infrastructure      │   │ (node_01M6QQ8…)    │
-│                     │        │ (node_01M6QQ8…)     │   │                    │
+│ edge_01M6QXJRHWZDW… │ causal │ Vehicle Emissions   │ → │ Air Quality Index  │
+│                     │        │ (node_01M6QXJ…)     │   │ (node_01M6QXJ…)    │
+│ edge_01M6QXJRTWK3N… │ causal │ Air Quality Index   │ → │ Respiratory Health │
+│                     │        │ (node_01M6QXJ…)     │   │ (node_01M6QXJ…)    │
+│ edge_01M6QXJS391YW… │ causal │ Green               │ → │ Air Quality Index  │
+│                     │        │ Infrastructure      │   │ (node_01M6QXJ…)    │
+│                     │        │ (node_01M6QXJ…)     │   │                    │
+│ edge_01M6QXJSBHJ3V… │ causal │ Transport Policy    │ → │ Vehicle Emissions  │
+│                     │        │ (node_01M6QXJ…)     │   │ (node_01M6QXJ…)    │
+│ edge_01M6QXJSKE2B6… │ causal │ Green               │ → │ Respiratory Health │
+│                     │        │ Infrastructure      │   │ (node_01M6QXJ…)    │
+│                     │        │ (node_01M6QXJ…)     │   │                    │
 └─────────────────────┴────────┴─────────────────────┴───┴────────────────────┘
 ```
 
 ### `latris node show Vehicle Emissions`
 
 ```
-id: node_01M6QQ86NXJVAAN23W7VKDFT9M
+id: node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K
 kind: variable
 label: Vehicle Emissions
-created: 2026-11-06T06:03:04.253000+00:00
+created: 2026-11-06T07:53:40.280000+00:00
 ```
 
 
@@ -344,20 +349,20 @@ _Select target model types — CLD and DAG._
 ### `latris project select-models cld dag`
 
 ```
-selected model types: cld, dag (aa701affd7)
+selected model types: cld, dag (f032ea3a93)
 ```
 
 ### `latris project show`
 
 ```
 project root: 
-C:/Users/dainy/AppData/Local/Temp/latris-demo-tuowffzd/air-quality-model
+C:/Users/dainy/AppData/Local/Temp/latris-demo-qd7zfdg1/air-quality-model
 modelling question: What factors drive urban air quality and how do they affect
 health outcomes?
 selected models: cld, dag
 schema version: 6
-created: 2026-11-06T17:03:03+11:00
-updated: 2026-11-06T17:03:06+11:00
+created: 2026-11-06T18:53:39+11:00
+updated: 2026-11-06T18:53:43+11:00
 ```
 
 
@@ -365,46 +370,46 @@ updated: 2026-11-06T17:03:06+11:00
 
 Add descriptions, confidence levels, and polarity to edges.
 
-### `latris attr set node_01M6QQ86NXJVAAN23W7VKDFT9M description Total pollutant output from road transport including PM2.5, NOx, and CO.`
+### `latris attr set node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K description Total pollutant output from road transport including PM2.5, NOx, and CO.`
 
 ```
-set description on node_01M6QQ86NXJVAAN23W7VKDFT9M · commit 57f31244cb
+set description on node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K · commit 21c3e693d4
 ```
 
-### `latris attr set node_01M6QQ86VW9ZBK37THRN6G8NWV description Composite measure of ambient air pollution concentration.`
+### `latris attr set node_01M6QXJQEGRTRACPHDAZWA7DQJ description Composite measure of ambient air pollution concentration.`
 
 ```
-set description on node_01M6QQ86VW9ZBK37THRN6G8NWV · commit 64396f533e
+set description on node_01M6QXJQEGRTRACPHDAZWA7DQJ · commit 4dbd028f5b
 ```
 
-### `latris attr set node_01M6QQ871NRNAKTRCKZ7EG1TE5 description Population-level respiratory morbidity and mortality rates.`
+### `latris attr set node_01M6QXJQPMFR8RGE4SQ7WD2G9V description Population-level respiratory morbidity and mortality rates.`
 
 ```
-set description on node_01M6QQ871NRNAKTRCKZ7EG1TE5 · commit cbdacd6c02
+set description on node_01M6QXJQPMFR8RGE4SQ7WD2G9V · commit bc1917f1f0
 ```
 
-### `latris view set cld edge_01M6QQ87MXRMZNXE7QJNJ3BDYS polarity - --rationale More vehicle emissions raise pollutant load, worsening the AQI.`
+### `latris view set cld edge_01M6QXJRHWZDW8C3Z2A996CJF0 polarity - --rationale More vehicle emissions raise pollutant load, worsening the AQI.`
 
 ```
-set cld polarity = - on edge_01M6QQ87MXRMZNXE7QJNJ3BDYS · commit f58a53a877
+set cld polarity = - on edge_01M6QXJRHWZDW8C3Z2A996CJF0 · commit 11ef7037ea
 ```
 
-### `latris view set cld edge_01M6QQ87TZZK4D8956K8AXK39C polarity -`
+### `latris view set cld edge_01M6QXJRTWK3NVM2S38ZKM2F58 polarity -`
 
 ```
-set cld polarity = - on edge_01M6QQ87TZZK4D8956K8AXK39C · commit 104fbd3f3d
+set cld polarity = - on edge_01M6QXJRTWK3NVM2S38ZKM2F58 · commit db06ebeefa
 ```
 
-### `latris view set cld edge_01M6QQ880YA6ME0N0WEJD2C5J3 polarity +`
+### `latris view set cld edge_01M6QXJS391YW166ZA0KJASK1B polarity +`
 
 ```
-set cld polarity = + on edge_01M6QQ880YA6ME0N0WEJD2C5J3 · commit 3140d80488
+set cld polarity = + on edge_01M6QXJS391YW166ZA0KJASK1B · commit 69e95ed3e7
 ```
 
-### `latris view set cld edge_01M6QQ886XFZY0NQVX92VK5CVY polarity -`
+### `latris view set cld edge_01M6QXJSBHJ3V6VMVQSEVKZM23 polarity -`
 
 ```
-set cld polarity = - on edge_01M6QQ886XFZY0NQVX92VK5CVY · commit 6b929226c3
+set cld polarity = - on edge_01M6QXJSBHJ3V6VMVQSEVKZM23 · commit ad9f73c914
 ```
 
 _Any command that supports it can print JSON instead of text with the global --json flag — the form agents and the hosted MCP server use._
@@ -412,19 +417,19 @@ _Any command that supports it can print JSON instead of text with the global --j
 ### `latris --json node show Air Quality Index`
 
 ```
-{"result": {"id": "node_01M6QQ86VW9ZBK37THRN6G8NWV", "kind": "variable", "label": "Air Quality Index", "maturity": "proposed", "origin": "human-direct", "verification": "unverified", "source_id": null}}
+{"result": {"id": "node_01M6QXJQEGRTRACPHDAZWA7DQJ", "kind": "variable", "label": "Air Quality Index", "maturity": "proposed", "origin": "human-direct", "verification": "unverified", "source_id": null}}
 ```
 
-### `latris attr set edge_01M6QQ87MXRMZNXE7QJNJ3BDYS confidence high`
+### `latris attr set edge_01M6QXJRHWZDW8C3Z2A996CJF0 confidence high`
 
 ```
-set confidence on edge_01M6QQ87MXRMZNXE7QJNJ3BDYS · commit f681502b82
+set confidence on edge_01M6QXJRHWZDW8C3Z2A996CJF0 · commit 9c776753c8
 ```
 
-### `latris mature review edge_01M6QQ87MXRMZNXE7QJNJ3BDYS`
+### `latris mature review edge_01M6QXJRHWZDW8C3Z2A996CJF0`
 
 ```
-reviewed edge_01M6QQ87MXRMZNXE7QJNJ3BDYS · commit d7b5d99f3b
+reviewed edge_01M6QXJRHWZDW8C3Z2A996CJF0 · commit ef7f612229
 ```
 
 _Marked the Emissions→AQI edge as reviewed (entity-level maturity)._
@@ -437,13 +442,13 @@ Add references and attach evidence to attributes.
 ### `latris ref add who2021 --title WHO Global Air Quality Guidelines 2021 --author World Health Organization --year 2021 --doi 10.1186/978-92-4-003422-8`
 
 ```
-added reference who2021 · commit 73faa577a5
+added reference who2021 · commit 458e3bc3a3
 ```
 
 ### `latris ref add defra2023 --title Air Quality Strategy for England --author DEFRA --year 2023`
 
 ```
-added reference defra2023 · commit b8081777c3
+added reference defra2023 · commit 5fac4e436f
 ```
 
 ### `latris ref list`
@@ -462,19 +467,19 @@ added reference defra2023 · commit b8081777c3
 ### `latris ref snapshot who2021 --url https://www.who.int/publications/i/item/9789240034228 --extract WHO global air quality guidelines (2021) tighten recommended PM2.5 and NO2 limits based on 2010-2020 evidence linking long-term exposure to cardiovascular and respiratory mortality. --kind abstract`
 
 ```
-snapshot set for who2021 (abstract) · commit 9c3b651f28
+snapshot set for who2021 (abstract) · commit 123f12878c
 ```
 
-### `latris evidence add node_01M6QQ86NXJVAAN23W7VKDFT9M description who2021 --notes WHO identifies transport as primary urban PM2.5 source.`
+### `latris evidence add node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K description who2021 --notes WHO identifies transport as primary urban PM2.5 source.`
 
 ```
-attached who2021 → node_01M6QQ86NX…/description · commit 76d2d30c8f
+attached who2021 → node_01M6QXJQ5R…/description · commit b69152d970
 ```
 
-### `latris evidence add edge_01M6QQ87MXRMZNXE7QJNJ3BDYS polarity who2021 --notes Dose-response relationship established in WHO guidelines.`
+### `latris evidence add edge_01M6QXJRHWZDW8C3Z2A996CJF0 polarity who2021 --notes Dose-response relationship established in WHO guidelines.`
 
 ```
-attached who2021 → edge_01M6QQ87MX…/polarity · commit 3fecbf3311
+attached who2021 → edge_01M6QXJRHW…/polarity · commit 7bf7aed8c1
 ```
 
 _A source that argues against a link goes on the same link with `--contradicts`; reports list it as evidence against and show the link under 'Contested links'._
@@ -482,13 +487,13 @@ _A source that argues against a link goes on the same link with `--contradicts`;
 ### `latris ref add dispersal2024 --title Wind dispersal and local air quality (illustrative source) --year 2024`
 
 ```
-added reference dispersal2024 · commit c84ace15cd
+added reference dispersal2024 · commit fd0b7e9a46
 ```
 
-### `latris evidence add edge_01M6QQ87MXRMZNXE7QJNJ3BDYS polarity dispersal2024 --contradicts --notes Strong winds can decouple local emissions from local AQI.`
+### `latris evidence add edge_01M6QXJRHWZDW8C3Z2A996CJF0 polarity dispersal2024 --contradicts --notes Strong winds can decouple local emissions from local AQI.`
 
 ```
-attached dispersal2024 → edge_01M6QQ87MX…/polarity · commit e5a2214e40
+attached dispersal2024 → edge_01M6QXJRHW…/polarity · commit 1b320b9280
 ```
 
 
@@ -499,69 +504,69 @@ Record assumptions, decisions, exclusions, questions, predictions, and sessions.
 ### `latris assumption add Linear dose-response between emissions and AQI --rationale Simplification appropriate for policy-level modelling.`
 
 ```
-logged assumption assumption_01M6QQ8C0DPDNKZ8T3HNZW83WD · commit a11e22d67c
+logged assumption assumption_01M6QXJYT18TCB6F2PDR7ZYVGN · commit fc38a7dca2
 ```
 
 ### `latris assumption add Indoor air quality is out of scope`
 
 ```
-logged assumption assumption_01M6QQ8C6CSCST3NMJ59XJAW6C · commit 6b59b00bcb
+logged assumption assumption_01M6QXJZ1GXJDXH7GC8QKEHM4G · commit dd398f41b7
 ```
 
 ### `latris decision log Exclude industrial emissions from initial scope --rationale Focus on transport for Phase 1; industrial sources added in Phase 2.`
 
 ```
-logged decision decision_01M6QQ8CC28KD0M6ZWRS093C2Z · commit 088c3373a8
+logged decision decision_01M6QXJZ9CF8YV6BR5TYYKFH8E · commit 992c42938e
 ```
 
 ### `latris exclusion add Indoor air quality and workplace exposure --rationale Separate regulatory domain; different exposure pathways.`
 
 ```
-logged exclusion exclusion_01M6QQ8CHWTK2KVFC4K138Y01Z · commit 19b5090313
+logged exclusion exclusion_01M6QXJZH7RHAJHXYB8D8Q8GWP · commit 7d54f18447
 ```
 
 ### `latris question add Should we model seasonal variation in AQI?`
 
 ```
-logged question question_01M6QQ8CQH2CJE29A389JJVQVV · commit d0690db40d
+logged question question_01M6QXJZSHNBDHB8FTVFRQA150 · commit 44b2c7eea7
 ```
 
 ### `latris question add Is green infrastructure effect direct or mediated?`
 
 ```
-logged question question_01M6QQ8CX5RCBQ9K51RMVH6MY2 · commit 0d1e357994
+logged question question_01M6QXK01BRTTNGKP8JC1Q0TZN · commit 76ef5f8ea9
 ```
 
 _Per-target provenance — assumptions, questions, and decisions about specific elements._
 
-### `latris assumption add Polarity is uniformly negative at city-annual scale --rationale Simplification; spatial heterogeneity noted as caveat. --target edge_01M6QQ87MXRMZNXE7QJNJ3BDYS`
+### `latris assumption add Polarity is uniformly negative at city-annual scale --rationale Simplification; spatial heterogeneity noted as caveat. --target edge_01M6QXJRHWZDW8C3Z2A996CJF0`
 
 ```
-logged assumption assumption_01M6QQ8D2XP91NM9G8YQZZ2V94 · commit 3fc495faba
+logged assumption assumption_01M6QXK0915GDSRFPYHKAJSHPB · commit a082d59fea
 ```
 
-### `latris question add Should we model non-linear dose-response for this pathway? --target edge_01M6QQ87TZZK4D8956K8AXK39C`
+### `latris question add Should we model non-linear dose-response for this pathway? --target edge_01M6QXJRTWK3NVM2S38ZKM2F58`
 
 ```
-logged question question_01M6QQ8D8JMDF9HBM45XHB99F3 · commit bd5e28883f
+logged question question_01M6QXK0HPDDRDTTHR42EW0XV4 · commit 81c773b40e
 ```
 
-### `latris decision log Keep as single composite index rather than per-pollutant --rationale Per-pollutant split deferred to Phase 2. --target node_01M6QQ86VW9ZBK37THRN6G8NWV`
+### `latris decision log Keep as single composite index rather than per-pollutant --rationale Per-pollutant split deferred to Phase 2. --target node_01M6QXJQEGRTRACPHDAZWA7DQJ`
 
 ```
-logged decision decision_01M6QQ8DE4F56X64553Q7BQX0T · commit ea9daeaeaf
+logged decision decision_01M6QXK0V0EBMVBBE4VAQE8TEQ · commit 4bbc4bbafd
 ```
 
 ### `latris prediction add AQI will improve 15% in areas with new green corridors --horizon 3 years`
 
 ```
-logged prediction prediction_01M6QQ8DKZE6D9X935ZZ04EEF8 · commit d95106968f
+logged prediction prediction_01M6QXK135H5404CG6HRHN9VRG · commit a85cd7ae2f
 ```
 
 ### `latris session record --date 2026-04-15 --attendee Alice --attendee Bob --notes Kickoff workshop: identified core causal pathways.`
 
 ```
-recorded session session_01M6QQ8DSG2H5HN31K58E0J92P · commit 5e345c91e4
+recorded session session_01M6QXK1CB5XK1ZFR61M9GJYB5 · commit 9c0b0c3bd0
 ```
 
 
@@ -569,17 +574,17 @@ recorded session session_01M6QQ8DSG2H5HN31K58E0J92P · commit 5e345c91e4
 
 Add many factors, links, sources and citations at once from a YAML or JSON spec — checked in full first, applied as one commit. Links name factors by label; shown here on a second, small project so the main model is unchanged.
 
-### `latris init C:\Users\dainy\AppData\Local\Temp\latris-demo-tuowffzd\volunteers --question Why are volunteers leaving?`
+### `latris init C:\Users\dainy\AppData\Local\Temp\latris-demo-qd7zfdg1\volunteers --question Why are volunteers leaving?`
 
 ```
 initialised project at 
-C:/Users/dainy/AppData/Local/Temp/latris-demo-tuowffzd/volunteers
+C:/Users/dainy/AppData/Local/Temp/latris-demo-qd7zfdg1/volunteers
 ```
 
 ### `latris project select-models cld`
 
 ```
-selected model types: cld (00b0751b9c)
+selected model types: cld (dc474c1a19)
 ```
 
 ```yaml
@@ -617,7 +622,7 @@ assumptions:
 
 ```
 built 3 factors, 3 links, 1 sources, 1 citations, 1 assumptions, 0 questions · 
-commit 2aa744e89e
+commit dadcac799d
 ```
 
 ### `latris analyse loops`
@@ -638,24 +643,24 @@ commit 2aa744e89e
 
 Open, discuss, and resolve challenges against model elements.
 
-### `latris challenge open edge_01M6QQ87MXRMZNXE7QJNJ3BDYS Polarity may not be uniformly negative — wind dispersal can decouple local emissions from local AQI. --attribute polarity`
+### `latris challenge open edge_01M6QXJRHWZDW8C3Z2A996CJF0 Polarity may not be uniformly negative — wind dispersal can decouple local emissions from local AQI. --attribute polarity`
 
 ```
-opened challenge challenge_01M6QQ8EY2AMTSRPB2RYQRZJZP · commit 368ddc557c
+opened challenge challenge_01M6QXK3495242PNKXQGH6HTZS · commit ca9e0f6c9a
 ```
 
-### `latris challenge turn challenge_01M6QQ8EY2AMTSRPB2RYQRZJZP Valid point. However, for annual averages at city scale, the negative relationship holds strongly.`
+### `latris challenge turn challenge_01M6QXK3495242PNKXQGH6HTZS Valid point. However, for annual averages at city scale, the negative relationship holds strongly.`
 
 ```
-added turn to challenge_01M6QQ8EY2AMTSRPB2RYQRZJZP (now 1 turn(s)) · commit 
-eb0fa27975
+added turn to challenge_01M6QXK3495242PNKXQGH6HTZS (now 1 turn(s)) · commit 
+8c7999c601
 ```
 
-### `latris challenge resolve challenge_01M6QQ8EY2AMTSRPB2RYQRZJZP --state retained-with-caveat --rationale Negative polarity retained for city-annual scale; spatial heterogeneity noted as caveat.`
+### `latris challenge resolve challenge_01M6QXK3495242PNKXQGH6HTZS --state retained-with-caveat --rationale Negative polarity retained for city-annual scale; spatial heterogeneity noted as caveat.`
 
 ```
-resolved challenge_01M6QQ8EY2AMTSRPB2RYQRZJZP → retained-with-caveat · commit 
-d8d033c67e
+resolved challenge_01M6QXK3495242PNKXQGH6HTZS → retained-with-caveat · commit 
+21c8cc7133
 ```
 
 ### `latris challenge list`
@@ -664,7 +669,7 @@ d8d033c67e
 ┌────────────────┬───────────────┬────────────────┬───────────┬───────────────┐
 │ ID             │ State         │ Target         │ Attribute │ Argument      │
 ├────────────────┼───────────────┼────────────────┼───────────┼───────────────┤
-│ challenge_01M… │ retained-wit… │ edge_01M6QQ87… │ polarity  │ Polarity may  │
+│ challenge_01M… │ retained-wit… │ edge_01M6QXJR… │ polarity  │ Polarity may  │
 │                │               │                │           │ not be        │
 │                │               │                │           │ uniformly     │
 │                │               │                │           │ negative —    │
@@ -682,7 +687,7 @@ Record a formal review sign-off.
 ### `latris signoff record --role Lead modeller --scope Substrate v0.1: core causal structure --notes Structure approved for stakeholder review.`
 
 ```
-recorded sign-off signoff_01M6QQ8FGF1TMA1C0V329RYYGV · commit c961690be6
+recorded sign-off signoff_01M6QXK409ESFREBW111ZEV7S7 · commit 972c0d1469
 ```
 
 
@@ -731,31 +736,31 @@ _Declare discrete state spaces (ordinal ranges are marked --ordered)._
 ### `latris bn set-state-space Transport Policy lax,strict`
 
 ```
-set state space on node_01M6QQ87E5… = lax, strict · commit 3b8f7be163
+set state space on node_01M6QXJR8C… = lax, strict · commit 630222a1bb
 ```
 
 ### `latris bn set-state-space Green Infrastructure low,high --ordered`
 
 ```
-set state space on node_01M6QQ877C… = low, high · commit 91168ea763
+set state space on node_01M6QXJQYJ… = low, high · commit ad5c0e2826
 ```
 
 ### `latris bn set-state-space Vehicle Emissions low,high --ordered`
 
 ```
-set state space on node_01M6QQ86NX… = low, high · commit dabcdcc8dc
+set state space on node_01M6QXJQ5R… = low, high · commit a9ccd57942
 ```
 
 ### `latris bn set-state-space Air Quality Index good,moderate,poor --ordered`
 
 ```
-set state space on node_01M6QQ86VW… = good, moderate, poor · commit 7ae716b669
+set state space on node_01M6QXJQEG… = good, moderate, poor · commit ef401479fc
 ```
 
 ### `latris bn set-state-space Respiratory Health good,poor`
 
 ```
-set state space on node_01M6QQ871N… = good, poor · commit e31aeff281
+set state space on node_01M6QXJQPM… = good, poor · commit f1756cb4a3
 ```
 
 _Fill in the CPTs. Probabilities are row-major with the first parent varying slowest; each conditional distribution sums to 1. --origin and --source stamp provenance on every row of that node's table — note how different nodes draw on different sources (a city policy baseline, WHO guidelines, monitoring data, expert judgement). Finer per-row provenance lives in views/parameters/bn-cpt.yaml._
@@ -763,34 +768,34 @@ _Fill in the CPTs. Probabilities are row-major with the first parent varying slo
 ### `latris bn set-cpt Transport Policy --probs 0.6,0.4 --origin human-direct --source defra2023`
 
 ```
-set CPT on node_01M6QQ87E5… (1 row(s), parents: —) · commit 1bd71b7724
+set CPT on node_01M6QXJR8C… (1 row(s), parents: —) · commit 745c492985
 ```
 
 ### `latris bn set-cpt Green Infrastructure --probs 0.5,0.5 --origin human-direct`
 
 ```
-set CPT on node_01M6QQ877C… (1 row(s), parents: —) · commit d8b05641e9
+set CPT on node_01M6QXJQYJ… (1 row(s), parents: —) · commit ca8f3eeac6
 ```
 
 ### `latris bn set-cpt Vehicle Emissions --parents Transport Policy --probs 0.3,0.7,0.8,0.2 --origin human-elicited --source who2021`
 
 ```
-set CPT on node_01M6QQ86NX… (2 row(s), parents: node_01M6QQ8) · commit 
-b3c2c01c31
+set CPT on node_01M6QXJQ5R… (2 row(s), parents: node_01M6QXJ) · commit 
+ea0f7cf534
 ```
 
 ### `latris bn set-cpt Air Quality Index --parents Vehicle Emissions,Green Infrastructure --probs 0.5,0.35,0.15,0.7,0.25,0.05,0.1,0.3,0.6,0.25,0.4,0.35 --origin data-derived --source who2021`
 
 ```
-set CPT on node_01M6QQ86VW… (4 row(s), parents: node_01M6QQ8, node_01M6QQ8) · 
-commit 77c1a4fab3
+set CPT on node_01M6QXJQEG… (4 row(s), parents: node_01M6QXJ, node_01M6QXJ) · 
+commit cafb63e13e
 ```
 
 ### `latris bn set-cpt Respiratory Health --parents Air Quality Index,Green Infrastructure --probs 0.9,0.1,0.93,0.07,0.75,0.25,0.8,0.2,0.45,0.55,0.55,0.45 --origin human-elicited`
 
 ```
-set CPT on node_01M6QQ871N… (6 row(s), parents: node_01M6QQ8, node_01M6QQ8) · 
-commit aa5245dffb
+set CPT on node_01M6QXJQPM… (6 row(s), parents: node_01M6QXJ, node_01M6QXJ) · 
+commit a2fffdce27
 ```
 
 _The model is now fully quantified — the gate passes._
@@ -968,7 +973,7 @@ _A monitoring dataset whose columns match the node labels is registered (180 row
 ### `latris bn learn monitoring --estimator mle --yes`
 
 ```
-Parameter learning preview — dataset dataset_01M6QQ8ZJG…, 180 row(s) used, 0 
+Parameter learning preview — dataset dataset_01M6QXM52P…, 180 row(s) used, 0 
 dropped (NA)
 
 ┌──────────────────────┬──────────────┬─────────┬──────┬──────────────┐
@@ -980,7 +985,7 @@ dropped (NA)
 │ Green Infrastructure │ data-derived │ 1       │ 0    │              │
 │ Transport Policy     │ data-derived │ 1       │ 0    │              │
 └──────────────────────┴──────────────┴─────────┴──────┴──────────────┘
-applied · run analysis-run_01M6Q… · commit df1d1c8e21
+applied · run analysis-run_01M6Q… · commit f2b8fe6dd2
 ```
 
 
@@ -991,52 +996,52 @@ For a high-fan-in binary node, a Noisy-OR avoids CPT explosion: each cause contr
 ### `latris node add Service Outage --kind variable`
 
 ```
-added variable Service Outage (node_01M6QQ908QWQ1WN3B3ZJA8AC51) · commit 
-277677dbdd
+added variable Service Outage (node_01M6QXM64KEQNZP4MBMSYMXV9Y) · commit 
+2e80d86146
 ```
 
 ### `latris node add Grid Failure --kind variable`
 
 ```
-added variable Grid Failure (node_01M6QQ90EWNYG2KMQVQSV7DDG4) · commit 
-492e0005cc
+added variable Grid Failure (node_01M6QXM6G1VH980CNSXJPPEGSC) · commit 
+6733c0830c
 ```
 
 ### `latris node add Cyber Attack --kind variable`
 
 ```
-added variable Cyber Attack (node_01M6QQ90N40FM2PYDV2AF2EKAP) · commit 
-1ef8f4a20f
+added variable Cyber Attack (node_01M6QXM6VTRJ3NK1033J4D9Z39) · commit 
+8684811664
 ```
 
 ### `latris bn set-state-space Service Outage yes,no`
 
 ```
-set state space on node_01M6QQ908Q… = yes, no · commit 64b6841656
+set state space on node_01M6QXM64K… = yes, no · commit 7d29e9672b
 ```
 
 ### `latris bn set-state-space Grid Failure yes,no`
 
 ```
-set state space on node_01M6QQ90EW… = yes, no · commit 3e80f6911d
+set state space on node_01M6QXM6G1… = yes, no · commit e6a0b13d0d
 ```
 
 ### `latris bn set-state-space Cyber Attack yes,no`
 
 ```
-set state space on node_01M6QQ90N4… = yes, no · commit 8cff5497c6
+set state space on node_01M6QXM6VT… = yes, no · commit 5251a8a828
 ```
 
 ### `latris bn set-cpt Grid Failure --probs 0.05,0.95`
 
 ```
-set CPT on node_01M6QQ90EW… (1 row(s), parents: —) · commit 95173955ca
+set CPT on node_01M6QXM6G1… (1 row(s), parents: —) · commit bc6f77d686
 ```
 
 ### `latris bn set-cpt Cyber Attack --probs 0.02,0.98`
 
 ```
-set CPT on node_01M6QQ90N4… (1 row(s), parents: —) · commit 66eab0bf7b
+set CPT on node_01M6QXM6VT… (1 row(s), parents: —) · commit ea1edf4b8e
 ```
 
 _Two independent causes + a leak — five numbers instead of a full 2-parent table._
@@ -1044,7 +1049,7 @@ _Two independent causes + a leak — five numbers instead of a full 2-parent tab
 ### `latris bn set-noisy-or Service Outage -c Grid Failure=yes:0.8 -c Cyber Attack=yes:0.6 --leak 0.01`
 
 ```
-set Noisy-OR on node_01M6QQ908Q… (2 cause(s), leak 0.01) · commit ac2ad49395
+set Noisy-OR on node_01M6QXM64K… (2 cause(s), leak 0.01) · commit b06b0b853a
 ```
 
 ### `latris bn cpts`
@@ -1143,83 +1148,83 @@ A stock-and-flow model of the urban PM2.5 load: emissions fill it, dispersal dra
 ### `latris node add PM2.5 Load --kind variable`
 
 ```
-added variable PM2.5 Load (node_01M6QQ92Q7WSVCK9YQGC49E9ZD) · commit d1ded7cb45
+added variable PM2.5 Load (node_01M6QXM9XMFXHD980NX9RFYSC8) · commit 38c9a9933d
 ```
 
 ### `latris node add Emission --kind variable`
 
 ```
-added variable Emission (node_01M6QQ92X0K5Z0TZVK4M5VSB16) · commit f3a3ef6d0c
+added variable Emission (node_01M6QXMA64CR41HCJC789AX3BW) · commit e16745df1c
 ```
 
 ### `latris node add Dispersal --kind variable`
 
 ```
-added variable Dispersal (node_01M6QQ933ED5E9MAZCMBZ5NQYS) · commit e62e3737c3
+added variable Dispersal (node_01M6QXMAGVPQ6W6TXXFASBCNNJ) · commit e4a7cd3376
 ```
 
 ### `latris node add Emission Rate --kind variable`
 
 ```
-added variable Emission Rate (node_01M6QQ939R92H4XYMQFWWEY3RT) · commit 
-0c5ffa46e7
+added variable Emission Rate (node_01M6QXMASE6W04978MYE060RJS) · commit 
+6a4a74a8e1
 ```
 
 ### `latris node add Dispersal Rate --kind variable`
 
 ```
-added variable Dispersal Rate (node_01M6QQ93G2YHTEG7CQANW08M9D) · commit 
-9c96bc9dc8
+added variable Dispersal Rate (node_01M6QXMB45JZEPQGKB87H6S8PX) · commit 
+e45df8d38a
 ```
 
 ### `latris node add Urban Sources --kind variable`
 
 ```
-added variable Urban Sources (node_01M6QQ93PCM5GTT6BD51B8GQEF) · commit 
-2f7c81609c
+added variable Urban Sources (node_01M6QXMBD7PSPARQA7737C1204) · commit 
+aa3f8fc215
 ```
 
 ### `latris node add Regional Air --kind variable`
 
 ```
-added variable Regional Air (node_01M6QQ93WG5D88R4HH7PR22XVW) · commit 
-124f8ce6c7
+added variable Regional Air (node_01M6QXMBP32V3JK2J8THSDMS54) · commit 
+f1a352c627
 ```
 
 ### `latris edge add Urban Sources Emission --kind flow`
 
 ```
-added edge edge_01M6QQ9435JN9EVTDDCQGYYGWB (flow) · commit 378962a837
+added edge edge_01M6QXMC0MQT8DSAZVC07JBJRT (flow) · commit 470adea15b
 ```
 
 ### `latris edge add Emission PM2.5 Load --kind flow`
 
 ```
-added edge edge_01M6QQ9493QCZYJYVP80GE30R8 (flow) · commit 7a084f524a
+added edge edge_01M6QXMCAT7RBVZKWE27PZ54R6 (flow) · commit d639dc0668
 ```
 
 ### `latris edge add PM2.5 Load Dispersal --kind flow`
 
 ```
-added edge edge_01M6QQ94FSH06GX90Q2VR397QE (flow) · commit 5d18b03892
+added edge edge_01M6QXMCMA1E6QPJ9N8NCDDFXR (flow) · commit dda7effb5f
 ```
 
 ### `latris edge add Dispersal Regional Air --kind flow`
 
 ```
-added edge edge_01M6QQ94P6E1MV4TS5MVGY9J2Z (flow) · commit 327a2888c5
+added edge edge_01M6QXMCYJ71F59T75B5AHXA4A (flow) · commit 175bffce8d
 ```
 
 ### `latris edge add Emission Rate Emission --kind causal`
 
 ```
-added edge edge_01M6QQ94WKC5G8YS4XJFXEJ1MZ (causal) · commit d2a78de17f
+added edge edge_01M6QXMD7G453ASPPAMEZ4V2KF (causal) · commit a28434796a
 ```
 
 ### `latris edge add Dispersal Rate Dispersal --kind causal`
 
 ```
-added edge edge_01M6QQ952YV3RRH1590NSNV3A9 (causal) · commit 699d60fec1
+added edge edge_01M6QXMDJP2QN29YW0HDPYYY4N (causal) · commit 2b9c399a1c
 ```
 
 _The diagram exists, but nothing is classified yet — the check names every gap._
@@ -1259,67 +1264,67 @@ _The diagram exists, but nothing is classified yet — the check names every gap
 ### `latris sd set-role PM2.5 Load stock`
 
 ```
-set PM2.5 Load → stock · commit 23a6a79d21
+set PM2.5 Load → stock · commit a0ed4c9619
 ```
 
 ### `latris sd set-role Emission flow`
 
 ```
-set Emission → flow · commit a1c7cf2d46
+set Emission → flow · commit d30e899434
 ```
 
 ### `latris sd set-role Dispersal flow`
 
 ```
-set Dispersal → flow · commit 0ee4ab45c0
+set Dispersal → flow · commit 54c3669c01
 ```
 
 ### `latris sd set-role Emission Rate constant`
 
 ```
-set Emission Rate → constant · commit 13716ec723
+set Emission Rate → constant · commit 81911dfc67
 ```
 
 ### `latris sd set-role Dispersal Rate constant`
 
 ```
-set Dispersal Rate → constant · commit 1542dc8488
+set Dispersal Rate → constant · commit 3c3802e2a7
 ```
 
 ### `latris sd set-role Urban Sources source_sink`
 
 ```
-set Urban Sources → source_sink · commit 7ca4de5f6d
+set Urban Sources → source_sink · commit 161b0f606e
 ```
 
 ### `latris sd set-role Regional Air source_sink`
 
 ```
-set Regional Air → source_sink · commit a4b96fae31
+set Regional Air → source_sink · commit a8adbdd898
 ```
 
 ### `latris sd set-initial-value PM2.5 Load 20 --units tonne --non-negative --origin data-derived`
 
 ```
-set PM2.5 Load(0) = 20 tonne · commit e0206b254d
+set PM2.5 Load(0) = 20 tonne · commit 96b4941b45
 ```
 
 ### `latris sd set-constant Emission Rate 120 --units tonne/year --origin data-derived`
 
 ```
-set Emission Rate = 120 tonne/year · commit ef3149e221
+set Emission Rate = 120 tonne/year · commit d093e6d51d
 ```
 
 ### `latris sd set-constant Dispersal Rate 2 --units 1/year --origin human-elicited`
 
 ```
-set Dispersal Rate = 2 1/year · commit 8b376dd6e2
+set Dispersal Rate = 2 1/year · commit 551661bf02
 ```
 
 ### `latris sd set-equation Emission emission_rate --units tonne/year`
 
 ```
-set Emission = emission_rate  · commit 76b14d267d
+set Emission = emission_rate  · commit b81b6f26fe
 ```
 
 _Equations name variables by slugified label (PM2.5 Load → pm2_5_load). A deliberate slip: adding a load to a rate. It parses, but every value is a unit-bearing quantity, so the check catches the dimensional error._
@@ -1327,7 +1332,7 @@ _Equations name variables by slugified label (PM2.5 Load → pm2_5_load). A deli
 ### `latris sd set-equation Dispersal pm2_5_load + dispersal_rate --units tonne/year`
 
 ```
-set Dispersal = pm2_5_load + dispersal_rate  · commit b3a53eafa6
+set Dispersal = pm2_5_load + dispersal_rate  · commit 73c4e3547e
 ```
 
 ### `latris sd check`
@@ -1345,7 +1350,7 @@ set Dispersal = pm2_5_load + dispersal_rate  · commit b3a53eafa6
 ### `latris sd set-equation Dispersal pm2_5_load * dispersal_rate --units tonne/year`
 
 ```
-set Dispersal = pm2_5_load * dispersal_rate  · commit 756a1f670f
+set Dispersal = pm2_5_load * dispersal_rate  · commit 6c4ac75731
 ```
 
 ### `latris sd check`
@@ -1397,7 +1402,7 @@ point(s)
 │ Emission   │ flow  │   120 │     120 │ 120 │     120 │ tonne/year │
 └────────────┴───────┴───────┴─────────┴─────┴─────────┴────────────┘
 
-recorded · run analysis-run_01M6Q… · commit fb00bdc179
+recorded · run analysis-run_01M6Q… · commit c5eec4cce2
 ```
 
 
@@ -1408,71 +1413,71 @@ Heavy pollution tends to coincide with stagnant air, which slows dispersal. That
 ### `latris node add Stagnation Effect --kind variable`
 
 ```
-added variable Stagnation Effect (node_01M6QQ98YVEVWPDMRMVRSEX65Z) · commit 
-0f54e4855f
+added variable Stagnation Effect (node_01M6QXMK7MKJHB86EJB1YQK15J) · commit 
+47038c5c16
 ```
 
 ### `latris node add Reference Load --kind variable`
 
 ```
-added variable Reference Load (node_01M6QQ9959CYM6AM20CFCREATA) · commit 
-f0eefa1f87
+added variable Reference Load (node_01M6QXMKH0ZZ1PJTE7944RTZFC) · commit 
+344f626e17
 ```
 
 ### `latris edge add PM2.5 Load Stagnation Effect --kind causal`
 
 ```
-added edge edge_01M6QQ99C5CSHGT0P9NS1B80XQ (causal) · commit e817be38bf
+added edge edge_01M6QXMKX3WN9ECGAY5D3QZV5N (causal) · commit ac181f7fc8
 ```
 
 ### `latris edge add Reference Load Stagnation Effect --kind causal`
 
 ```
-added edge edge_01M6QQ99JWZNM6N3HZHXQW5SR4 (causal) · commit a7c4dc8f4b
+added edge edge_01M6QXMM6FF8KDKWSGM77NY66D (causal) · commit 577c0244de
 ```
 
 ### `latris edge add Stagnation Effect Dispersal --kind causal`
 
 ```
-added edge edge_01M6QQ99SH3D83YZ8D5K4K2DTF (causal) · commit 8e402700ef
+added edge edge_01M6QXMMG0NN9CWFNC4DW2QCQJ (causal) · commit 1397990702
 ```
 
 ### `latris sd set-role Stagnation Effect auxiliary`
 
 ```
-set Stagnation Effect → auxiliary · commit df5c45cd36
+set Stagnation Effect → auxiliary · commit 69696bc6f7
 ```
 
 ### `latris sd set-role Reference Load constant`
 
 ```
-set Reference Load → constant · commit 25601cad3f
+set Reference Load → constant · commit 6edf109817
 ```
 
 ### `latris sd set-constant Reference Load 50 --units tonne`
 
 ```
-set Reference Load = 50 tonne · commit 6c4f45ca85
+set Reference Load = 50 tonne · commit efe400d402
 ```
 
 ### `latris sd set-equation Stagnation Effect TABLE(pm2_5_load / reference_load) --units dimensionless`
 
 ```
-set Stagnation Effect = TABLE(pm2_5_load / reference_load)  · commit 2286ed4279
+set Stagnation Effect = TABLE(pm2_5_load / reference_load)  · commit 4629421075
 ```
 
 ### `latris sd set-table Stagnation Effect -p 0:1 -p 1:0.8 -p 2:0.5 --x-units dimensionless --y-units dimensionless --origin human-elicited`
 
 ```
 set table on Stagnation Effect (3 point(s), dimensionless → dimensionless) · 
-commit 7e4b797ce7
+commit 84cde24cb5
 ```
 
 ### `latris sd set-equation Dispersal pm2_5_load * dispersal_rate * stagnation_effect --units tonne/year`
 
 ```
 set Dispersal = pm2_5_load * dispersal_rate * stagnation_effect  · commit 
-2c1c58720b
+5f4dd5de25
 ```
 
 ### `latris sd tables`
@@ -1518,7 +1523,7 @@ report point(s)
 
 Demonstrate all AI prompts. In production these call a real LLM; here they use canned mock responses.
 
-### `latris ai call explain node_01M6QQ86NXJVAAN23W7VKDFT9M --yes`
+### `latris ai call explain node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K --yes`
 
 ```
 Vehicle Emissions is a key driver in the air quality model. It represents the 
@@ -1526,34 +1531,34 @@ total pollutant output from road transport, which directly impacts PM2.5 and
 NO2 concentrations. The causal chain runs: Emissions -> Air Quality -> Health 
 Outcomes.
 
-Referenced: node_01M6QQ86NXJVAAN23W7VKDFT9M, node_01M6QQ86VW9ZBK37THRN6G8NWV, 
-node_01M6QQ871NRNAKTRCKZ7EG1TE5
+Referenced: node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K, node_01M6QXJQEGRTRACPHDAZWA7DQJ, 
+node_01M6QXJQPMFR8RGE4SQ7WD2G9V
 
-approved · interaction interaction_01M6QQ9C… · model mock-model · cost $0.0020 
+approved · interaction interaction_01M6QXMR… · model mock-model · cost $0.0020 
 · tokens {'input_tokens': 120, 'output_tokens': 80}
 ```
 
-### `latris ai call challenge edge_01M6QQ87MXRMZNXE7QJNJ3BDYS -a polarity --yes`
+### `latris ai call challenge edge_01M6QXJRHWZDW8C3Z2A996CJF0 -a polarity --yes`
 
 ```
-approved · interaction interaction_01M6QQ9C… · model mock-model · cost —
-applied: challenge_01M6QQ9CGVFW3W56H75K845KYC
+approved · interaction interaction_01M6QXMS… · model mock-model · cost —
+applied: challenge_01M6QXMRV9N4FN8WVFK4RFZD1D
 ```
 
-### `latris ai call suggest-citations node_01M6QQ86NXJVAAN23W7VKDFT9M description --yes`
+### `latris ai call suggest-citations node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K description --yes`
 
 ```
-approved · interaction interaction_01M6QQ9D… · model mock-model · cost —
-applied: chen2022, node_01M6QQ86NXJVAAN23W7VKDFT9M/description@chen2022
+approved · interaction interaction_01M6QXMT… · model mock-model · cost —
+applied: chen2022, node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K/description@chen2022
 ```
 
 ### `latris ai call draft urban air quality factors --yes`
 
 ```
-approved · interaction interaction_01M6QQ9E… · model mock-model · cost —
-applied: node_01M6QQ9DY58QD2DXKGWSQ4MM7S, node_01M6QQ9E2CEFTAW30QGD7KC9CT, 
-node_01M6QQ9E52VXPW7PTF00YE3WGM, edge_01M6QQ9E7T9HFFCD38FDJ9GSG6, 
-edge_01M6QQ9EAJD02ZJENPZ0BYMY4E, assumption_01M6QQ9ECSYY1ZT2HR2DMCXC6Z
+approved · interaction interaction_01M6QXMV… · model mock-model · cost —
+applied: node_01M6QXMTX8SN58ZSA3KBSY9Z8Y, node_01M6QXMV1CWAN4PP5M5W3GXB0C, 
+node_01M6QXMV62XWB03FWD7QCH6FD4, edge_01M6QXMVATQYR38NNR43MB8C5K, 
+edge_01M6QXMVFZBHZ2EKK30NC4QBJ2, assumption_01M6QXMVKSHMFZF4DV9TNRBNEC
 ```
 
 ### `latris ai call attack --yes`
@@ -1566,16 +1571,16 @@ health outcomes. Epidemiological evidence suggests threshold effects and
 non-linear exposure-response curves, particularly for PM2.5 at low 
 concentrations.
 
-Affected nodes: node_01M6QQ86NXJVAAN23W7VKDFT9M, 
-node_01M6QQ86VW9ZBK37THRN6G8NWV
+Affected nodes: node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K, 
+node_01M6QXJQEGRTRACPHDAZWA7DQJ
 
 Recommended action: Add a non-linearity node or caveat the assumption.
 
 Proposed records:
   - record assumption: Linear dose-response relationship
 
-approved · interaction interaction_01M6QQ9F… · model mock-model · cost —
-applied: assumption_01M6QQ9EZ7GKGCJVHTRSH5JRRQ
+approved · interaction interaction_01M6QXMW… · model mock-model · cost —
+applied: assumption_01M6QXMWG61B9MEC1MNPBM6TF9
 ```
 
 ### `latris ai call scope-check --yes`
@@ -1591,7 +1596,7 @@ Suggestions:
   - Consider indoor air quality sources (cooking, heating).
   - Add meteorological factors (wind, temperature inversions).
 
-approved · interaction interaction_01M6QQ9F… · model mock-model · cost —
+approved · interaction interaction_01M6QXMX… · model mock-model · cost —
 ```
 
 ### `latris ai call peer-review --yes`
@@ -1616,7 +1621,7 @@ Questions for the modeller:
   ? What confounders have been explicitly excluded and why?
   ? Is the linear dose-response assumption justified for PM2.5?
 
-approved · interaction interaction_01M6QQ9F… · model mock-model · cost —
+approved · interaction interaction_01M6QXMX… · model mock-model · cost —
 ```
 
 ### `latris ai call research-gaps --yes`
@@ -1624,21 +1629,21 @@ approved · interaction interaction_01M6QQ9F… · model mock-model · cost —
 ```
 Research gaps:
    No evidence for the emission-to-AQ mechanism.
-    affects: node_01M6QQ86NXJVAAN23W7VKDFT9M, node_01M6QQ86VW9ZBK37THRN6G8NWV
+    affects: node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K, node_01M6QXJQEGRTRACPHDAZWA7DQJ
     action: Attach epidemiological study on PM2.5 pathways.
    Green Infrastructure effectiveness is assumed, not cited.
     action: Add urban ecology reference.
 
-approved · interaction interaction_01M6QQ9G… · model mock-model · cost —
-applied: question_01M6QQ9G8V9YR7ZYTYY42C57RW, 
-question_01M6QQ9GDQY6RHHQD9DDEA5XTN
+approved · interaction interaction_01M6QXMY… · model mock-model · cost —
+applied: question_01M6QXMYF3KWENBCWYFR390HG3, 
+question_01M6QXMYQBFPD16212HT121V3A
 ```
 
-### `latris ai call steelman node_01M6QQ86NXJVAAN23W7VKDFT9M --yes`
+### `latris ai call steelman node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K --yes`
 
 ```
-approved · interaction interaction_01M6QQ9H… · model mock-model · cost —
-applied: node_01M6QQ86NXJVAAN23W7VKDFT9M
+approved · interaction interaction_01M6QXMZ… · model mock-model · cost —
+applied: node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K
 ```
 
 ### `latris ai call project-view cld --yes`
@@ -1656,14 +1661,14 @@ Recommended mappings:
 Conflicts:
   ! Several edges lack polarity attributes required for CLD.
 
-approved · interaction interaction_01M6QQ9H… · model mock-model · cost —
+approved · interaction interaction_01M6QXN0… · model mock-model · cost —
 ```
 
 ### `latris ai call find-connections --yes`
 
 ```
-approved · interaction interaction_01M6QQ9J… · model mock-model · cost —
-applied: edge_01M6QQ9HYKSGKFSMED7PT0FEVS, assumption_01M6QQ9J25YDXSDNSNGDE7TJT2
+approved · interaction interaction_01M6QXN1… · model mock-model · cost —
+applied: edge_01M6QXN0Z4T2CFCN9XAQNC4ZNZ, assumption_01M6QXN13VBPX5Q9G3C1P4VCC1
 ```
 
 _`ai call run <PromptName>` is the generic dispatcher for any prompt in the library — useful for prompts without a dedicated subcommand and for scripted workflows._
@@ -1683,7 +1688,7 @@ on emissions."
   ]
 }
 
-approved · interaction interaction_01M6QQ9J… · model mock-model · cost —
+approved · interaction interaction_01M6QXN1… · model mock-model · cost —
 ```
 
 
@@ -1699,17 +1704,17 @@ _EdgeReclassify is a model-scope adversarial pass — it scans every edge and pr
 (mock reclassification) One policy-lever edge currently mistyped as causal. 
 Retag to decision_rule keeps it on the canvas but out of loop counts.
 
- edge_01M6QQ886XFZY0NQVX92VK5CVY: retag → decision_rule — Transport 
+ edge_01M6QXJSBHJ3V6VMVQSEVKZM23: retag → decision_rule — Transport 
 policy → vehicle emissions is a policy lever, not a physical mechanism — 
 counting it as causal would inflate the feedback-loop story.
 
-approved · interaction interaction_01M6QQ9K… · model mock-model · cost —
-applied: edge_01M6QQ886XFZY0NQVX92VK5CVY
+approved · interaction interaction_01M6QXN2… · model mock-model · cost —
+applied: edge_01M6QXJSBHJ3V6VMVQSEVKZM23
 ```
 
 _ChallengeEdge is element-scope. Given one edge, the AI returns the strongest counter-mechanism plus a single repair action (evidence search, polarity flip, or removal). Here the mock picks evidence_search — recording an OpenQuestion for the human to discharge._
 
-### `latris ai call run ChallengeEdge --inputs {"edge_id": "edge_01M6QQ87MXRMZNXE7QJNJ3BDYS", "model_type": "cld"} --yes`
+### `latris ai call run ChallengeEdge --inputs {"edge_id": "edge_01M6QXJRHWZDW8C3Z2A996CJF0", "model_type": "cld"} --yes`
 
 ```
 (mock challenge) Counter-mechanism: dispersion / atmospheric mixing decouples 
@@ -1721,13 +1726,13 @@ holds at the local scale assumed by the model.
 dispersion ventilation dose-response meta-analysis'
 rationale: Need empirical control for ventilation regimes.
 
-approved · interaction interaction_01M6QQ9K… · model mock-model · cost —
-applied: question_01M6QQ9KKFZ99N44B6W8GZ4C5Z
+approved · interaction interaction_01M6QXN3… · model mock-model · cost —
+applied: question_01M6QXN3DBQQ4Z8Q69B55JE7SN
 ```
 
 _EvidenceDemote is element-scope on one (target, attribute, bibkey) link. The AI judges whether the source actually supports the specific claim or only topically overlaps; the verdict flips via the new set_evidence_support_verdict op._
 
-### `latris ai call run EvidenceDemote --inputs {"target_id": "node_01M6QQ86NXJVAAN23W7VKDFT9M", "attribute": "description", "bibkey": "who2021"} --yes`
+### `latris ai call run EvidenceDemote --inputs {"target_id": "node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K", "attribute": "description", "bibkey": "who2021"} --yes`
 
 ```
 (mock demote) WHO guidelines establish health limits and acknowledge transport 
@@ -1737,13 +1742,13 @@ Emissions as a model variable — orthogonal to the claim attached here.
  action: change_verdict → verdict: orthogonal
 rationale: Topical overlap, not load-bearing support.
 
-approved · interaction interaction_01M6QQ9M… · model mock-model · cost —
-applied: who2021:node_01M6QQ86NXJVAAN23W7VKDFT9M/description
+approved · interaction interaction_01M6QXN4… · model mock-model · cost —
+applied: who2021:node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K/description
 ```
 
 _Phase 4a: VerifyClaimAgainstSource. The AI reads the Reference's source_snapshot extract and (on supports) must return a verbatim quote — the apply()-time validator checks the quote appears character-for-character in the stored extract before promoting support_verdict to `supports`. The model cannot self-attest._
 
-### `latris ai call run VerifyClaimAgainstSource --inputs {"target_id": "edge_01M6QQ87MXRMZNXE7QJNJ3BDYS", "attribute": "polarity", "bibkey": "who2021", "claim": "Vehicle emissions raise PM2.5 and NO2, which correlate with respiratory and cardiovascular mortality."} --yes`
+### `latris ai call run VerifyClaimAgainstSource --inputs {"target_id": "edge_01M6QXJRHWZDW8C3Z2A996CJF0", "attribute": "polarity", "bibkey": "who2021", "claim": "Vehicle emissions raise PM2.5 and NO2, which correlate with respiratory and cardiovascular mortality."} --yes`
 
 ```
 verdict: supports
@@ -1755,8 +1760,8 @@ mortality outcomes the polarity claim asserts.
 mortality supports the polarity claim attached to the Vehicle Emissions → AQI 
 edge.
 
-approved · interaction interaction_01M6QQ9M… · model mock-model · cost —
-applied: who2021:edge_01M6QQ87MXRMZNXE7QJNJ3BDYS/polarity
+approved · interaction interaction_01M6QXN5… · model mock-model · cost —
+applied: who2021:edge_01M6QXJRHWZDW8C3Z2A996CJF0/polarity
 ```
 
 _Tier-1 retrieval (`ref fetch`) hits the network, so the worked example uses `ref snapshot` instead. The fetcher is covered hermetically by tests/operations/test_fetch_reference.py via an http_get injection seam._
@@ -1768,7 +1773,7 @@ An external terminal agent (Claude Code, Kimi, …) can answer any prompt WITHOU
 
 _Emit the task package. Nothing is written to the project and no credentials are needed, so this step works in a clean checkout._
 
-### `latris ai task emit ExplainThisElement --inputs {"target_id": "node_01M6QQ86NXJVAAN23W7VKDFT9M"} --output delegated-task.json`
+### `latris ai task emit ExplainThisElement --inputs {"target_id": "node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K"} --output delegated-task.json`
 
 ```
 task written → delegated-task.json
@@ -1783,9 +1788,9 @@ _The external agent answers with JSON matching the task package's response_schem
 it is the upstream source of the two pollution-mediated pathways and is itself 
 directly levered by Transport Policy.
 
-Referenced: node_01M6QQ86NXJVAAN23W7VKDFT9M
+Referenced: node_01M6QXJQ5RNBKM6RJTH2D1ZZ8K
 
-approved · interaction interaction_01M6QQ9N… · model external-agent:demo-agent 
+approved · interaction interaction_01M6QXN6… · model external-agent:demo-agent 
 · cost —
 ```
 
@@ -1885,43 +1890,43 @@ Auto-projected dag view: 37 new mappings created
 ┌──────────────────────┬──────┬─────────────────────┬──────────────┬──────────┐
 │ L2 ID                │ View │ L3 ID               │ Origin       │ Maturity │
 ├──────────────────────┼──────┼─────────────────────┼──────────────┼──────────┤
-│ node_01M6QQ86NXJVAA… │ cld  │ node_01M6QQ86NXJVA… │ human-direct │ approved │
-│ node_01M6QQ86VW9ZBK… │ cld  │ node_01M6QQ86VW9ZB… │ human-direct │ approved │
-│ node_01M6QQ871NRNAK… │ cld  │ node_01M6QQ871NRNA… │ human-direct │ approved │
-│ node_01M6QQ877CTJ1H… │ cld  │ node_01M6QQ877CTJ1… │ human-direct │ approved │
-│ node_01M6QQ87E5ZHWS… │ cld  │ node_01M6QQ87E5ZHW… │ human-direct │ approved │
-│ node_01M6QQ908QWQ1W… │ cld  │ node_01M6QQ908QWQ1… │ human-direct │ approved │
-│ node_01M6QQ90EWNYG2… │ cld  │ node_01M6QQ90EWNYG… │ human-direct │ approved │
-│ node_01M6QQ90N40FM2… │ cld  │ node_01M6QQ90N40FM… │ human-direct │ approved │
-│ node_01M6QQ92Q7WSVC… │ cld  │ node_01M6QQ92Q7WSV… │ human-direct │ approved │
-│ node_01M6QQ92X0K5Z0… │ cld  │ node_01M6QQ92X0K5Z… │ human-direct │ approved │
-│ node_01M6QQ933ED5E9… │ cld  │ node_01M6QQ933ED5E… │ human-direct │ approved │
-│ node_01M6QQ939R92H4… │ cld  │ node_01M6QQ939R92H… │ human-direct │ approved │
-│ node_01M6QQ93G2YHTE… │ cld  │ node_01M6QQ93G2YHT… │ human-direct │ approved │
-│ node_01M6QQ93PCM5GT… │ cld  │ node_01M6QQ93PCM5G… │ human-direct │ approved │
-│ node_01M6QQ93WG5D88… │ cld  │ node_01M6QQ93WG5D8… │ human-direct │ approved │
-│ node_01M6QQ98YVEVWP… │ cld  │ node_01M6QQ98YVEVW… │ human-direct │ approved │
-│ node_01M6QQ9959CYM6… │ cld  │ node_01M6QQ9959CYM… │ human-direct │ approved │
-│ node_01M6QQ9DY58QD2… │ cld  │ node_01M6QQ9DY58QD… │ human-direct │ approved │
-│ node_01M6QQ9E2CEFTA… │ cld  │ node_01M6QQ9E2CEFT… │ human-direct │ approved │
-│ node_01M6QQ9E52VXPW… │ cld  │ node_01M6QQ9E52VXP… │ human-direct │ approved │
-│ edge_01M6QQ87MXRMZN… │ cld  │ edge_01M6QQ87MXRMZ… │ human-direct │ approved │
-│ edge_01M6QQ87TZZK4D… │ cld  │ edge_01M6QQ87TZZK4… │ human-direct │ approved │
-│ edge_01M6QQ880YA6ME… │ cld  │ edge_01M6QQ880YA6M… │ human-direct │ approved │
-│ edge_01M6QQ886XFZY0… │ cld  │ edge_01M6QQ886XFZY… │ human-direct │ approved │
-│ edge_01M6QQ88CYNJAX… │ cld  │ edge_01M6QQ88CYNJA… │ human-direct │ approved │
-│ edge_01M6QQ9435JN9E… │ cld  │ edge_01M6QQ9435JN9… │ human-direct │ approved │
-│ edge_01M6QQ9493QCZY… │ cld  │ edge_01M6QQ9493QCZ… │ human-direct │ approved │
-│ edge_01M6QQ94FSH06G… │ cld  │ edge_01M6QQ94FSH06… │ human-direct │ approved │
-│ edge_01M6QQ94P6E1MV… │ cld  │ edge_01M6QQ94P6E1M… │ human-direct │ approved │
-│ edge_01M6QQ94WKC5G8… │ cld  │ edge_01M6QQ94WKC5G… │ human-direct │ approved │
-│ edge_01M6QQ952YV3RR… │ cld  │ edge_01M6QQ952YV3R… │ human-direct │ approved │
-│ edge_01M6QQ99C5CSHG… │ cld  │ edge_01M6QQ99C5CSH… │ human-direct │ approved │
-│ edge_01M6QQ99JWZNM6… │ cld  │ edge_01M6QQ99JWZNM… │ human-direct │ approved │
-│ edge_01M6QQ99SH3D83… │ cld  │ edge_01M6QQ99SH3D8… │ human-direct │ approved │
-│ edge_01M6QQ9E7T9HFF… │ cld  │ edge_01M6QQ9E7T9HF… │ human-direct │ approved │
-│ edge_01M6QQ9EAJD02Z… │ cld  │ edge_01M6QQ9EAJD02… │ human-direct │ approved │
-│ edge_01M6QQ9HYKSGKF… │ cld  │ edge_01M6QQ9HYKSGK… │ human-direct │ approved │
+│ node_01M6QXJQ5RNBKM… │ cld  │ node_01M6QXJQ5RNBK… │ human-direct │ approved │
+│ node_01M6QXJQEGRTRA… │ cld  │ node_01M6QXJQEGRTR… │ human-direct │ approved │
+│ node_01M6QXJQPMFR8R… │ cld  │ node_01M6QXJQPMFR8… │ human-direct │ approved │
+│ node_01M6QXJQYJAH4M… │ cld  │ node_01M6QXJQYJAH4… │ human-direct │ approved │
+│ node_01M6QXJR8CG5T5… │ cld  │ node_01M6QXJR8CG5T… │ human-direct │ approved │
+│ node_01M6QXM64KEQNZ… │ cld  │ node_01M6QXM64KEQN… │ human-direct │ approved │
+│ node_01M6QXM6G1VH98… │ cld  │ node_01M6QXM6G1VH9… │ human-direct │ approved │
+│ node_01M6QXM6VTRJ3N… │ cld  │ node_01M6QXM6VTRJ3… │ human-direct │ approved │
+│ node_01M6QXM9XMFXHD… │ cld  │ node_01M6QXM9XMFXH… │ human-direct │ approved │
+│ node_01M6QXMA64CR41… │ cld  │ node_01M6QXMA64CR4… │ human-direct │ approved │
+│ node_01M6QXMAGVPQ6W… │ cld  │ node_01M6QXMAGVPQ6… │ human-direct │ approved │
+│ node_01M6QXMASE6W04… │ cld  │ node_01M6QXMASE6W0… │ human-direct │ approved │
+│ node_01M6QXMB45JZEP… │ cld  │ node_01M6QXMB45JZE… │ human-direct │ approved │
+│ node_01M6QXMBD7PSPA… │ cld  │ node_01M6QXMBD7PSP… │ human-direct │ approved │
+│ node_01M6QXMBP32V3J… │ cld  │ node_01M6QXMBP32V3… │ human-direct │ approved │
+│ node_01M6QXMK7MKJHB… │ cld  │ node_01M6QXMK7MKJH… │ human-direct │ approved │
+│ node_01M6QXMKH0ZZ1P… │ cld  │ node_01M6QXMKH0ZZ1… │ human-direct │ approved │
+│ node_01M6QXMTX8SN58… │ cld  │ node_01M6QXMTX8SN5… │ human-direct │ approved │
+│ node_01M6QXMV1CWAN4… │ cld  │ node_01M6QXMV1CWAN… │ human-direct │ approved │
+│ node_01M6QXMV62XWB0… │ cld  │ node_01M6QXMV62XWB… │ human-direct │ approved │
+│ edge_01M6QXJRHWZDW8… │ cld  │ edge_01M6QXJRHWZDW… │ human-direct │ approved │
+│ edge_01M6QXJRTWK3NV… │ cld  │ edge_01M6QXJRTWK3N… │ human-direct │ approved │
+│ edge_01M6QXJS391YW1… │ cld  │ edge_01M6QXJS391YW… │ human-direct │ approved │
+│ edge_01M6QXJSBHJ3V6… │ cld  │ edge_01M6QXJSBHJ3V… │ human-direct │ approved │
+│ edge_01M6QXJSKE2B6T… │ cld  │ edge_01M6QXJSKE2B6… │ human-direct │ approved │
+│ edge_01M6QXMC0MQT8D… │ cld  │ edge_01M6QXMC0MQT8… │ human-direct │ approved │
+│ edge_01M6QXMCAT7RBV… │ cld  │ edge_01M6QXMCAT7RB… │ human-direct │ approved │
+│ edge_01M6QXMCMA1E6Q… │ cld  │ edge_01M6QXMCMA1E6… │ human-direct │ approved │
+│ edge_01M6QXMCYJ71F5… │ cld  │ edge_01M6QXMCYJ71F… │ human-direct │ approved │
+│ edge_01M6QXMD7G453A… │ cld  │ edge_01M6QXMD7G453… │ human-direct │ approved │
+│ edge_01M6QXMDJP2QN2… │ cld  │ edge_01M6QXMDJP2QN… │ human-direct │ approved │
+│ edge_01M6QXMKX3WN9E… │ cld  │ edge_01M6QXMKX3WN9… │ human-direct │ approved │
+│ edge_01M6QXMM6FF8KD… │ cld  │ edge_01M6QXMM6FF8K… │ human-direct │ approved │
+│ edge_01M6QXMMG0NN9C… │ cld  │ edge_01M6QXMMG0NN9… │ human-direct │ approved │
+│ edge_01M6QXMVATQYR3… │ cld  │ edge_01M6QXMVATQYR… │ human-direct │ approved │
+│ edge_01M6QXMVFZBHZ2… │ cld  │ edge_01M6QXMVFZBHZ… │ human-direct │ approved │
+│ edge_01M6QXN0Z4T2CF… │ cld  │ edge_01M6QXN0Z4T2C… │ human-direct │ approved │
 └──────────────────────┴──────┴─────────────────────┴──────────────┴──────────┘
 ```
 
@@ -1989,8 +1994,8 @@ _Record what an analysis showed as a finding, so it reaches the report._
 ### `latris finding add Transport policy reaches respiratory health only through emissions and air quality. --category structure --target Transport Policy --detail From `latris analyse paths`: every path runs via Vehicle Emissions.`
 
 ```
-recorded structure finding finding_01M6QQA5EG16Q367Z6120KE9QV · commit 
-faa48c40cf
+recorded structure finding finding_01M6QXNXEVHEB81DSNG5Y46G4Z · commit 
+c1a4c3f2f7
 ```
 
 
@@ -1998,28 +2003,28 @@ faa48c40cf
 
 FCM extends CLD with continuous edge weights and matrix-based inference to steady state.
 
-### `latris view set fcm edge_01M6QQ87MXRMZNXE7QJNJ3BDYS weight -- -0.7`
+### `latris view set fcm edge_01M6QXJRHWZDW8C3Z2A996CJF0 weight -- -0.7`
 
 ```
-set fcm weight = -0.7 on edge_01M6QQ87MXRMZNXE7QJNJ3BDYS · commit cdfc23fc6d
+set fcm weight = -0.7 on edge_01M6QXJRHWZDW8C3Z2A996CJF0 · commit 91e0e23a2a
 ```
 
-### `latris view set fcm edge_01M6QQ87TZZK4D8956K8AXK39C weight -- -0.6`
+### `latris view set fcm edge_01M6QXJRTWK3NVM2S38ZKM2F58 weight -- -0.6`
 
 ```
-set fcm weight = -0.6 on edge_01M6QQ87TZZK4D8956K8AXK39C · commit 42af957e16
+set fcm weight = -0.6 on edge_01M6QXJRTWK3NVM2S38ZKM2F58 · commit 920abef217
 ```
 
-### `latris view set fcm edge_01M6QQ880YA6ME0N0WEJD2C5J3 weight -- 0.5`
+### `latris view set fcm edge_01M6QXJS391YW166ZA0KJASK1B weight -- 0.5`
 
 ```
-set fcm weight = 0.5 on edge_01M6QQ880YA6ME0N0WEJD2C5J3 · commit 18b0bc8f49
+set fcm weight = 0.5 on edge_01M6QXJS391YW166ZA0KJASK1B · commit f7f41e444d
 ```
 
-### `latris view set fcm edge_01M6QQ886XFZY0NQVX92VK5CVY weight -- -0.8`
+### `latris view set fcm edge_01M6QXJSBHJ3V6VMVQSEVKZM23 weight -- -0.8`
 
 ```
-set fcm weight = -0.8 on edge_01M6QQ886XFZY0NQVX92VK5CVY · commit d913d86c3a
+set fcm weight = -0.8 on edge_01M6QXJSBHJ3V6VMVQSEVKZM23 · commit a57438923d
 ```
 
 ### `latris fcm weights`
@@ -2129,11 +2134,11 @@ _Run the completeness gate to surface variables required by the modelling questi
 coverage_ratio=0.06 · 1 entry
 ```
 
-### `latris completeness override cld missing-var_01M6QQA6X4QARD6QGT8JG5C9B6 --rationale Out of scope for Phase 1: weather variables tracked separately.`
+### `latris completeness override cld missing-var_01M6QXNZJENEHJ75CRT6WTVDAK --rationale Out of scope for Phase 1: weather variables tracked separately.`
 
 ```
 overrode Meteorological exposure (linked Exclusion 
-exclusion_01M6QQA7CTCZXSEG85MKW234GR) · commit b0a111c2bb
+exclusion_01M6QXP09157XZA1PQP8S811A3) · commit c9a953b4ba
 ```
 
 ### `latris completeness list cld --disposition open`
@@ -2147,13 +2152,13 @@ _Mark the outcome the model explains, so the interpretation doesn't suggest it a
 ### `latris view role cld Respiratory Health outcome`
 
 ```
-set cld role = outcome on node_01M6QQ871NRNAKTRCKZ7EG1TE5 · commit f4bd3b3514
+set cld role = outcome on node_01M6QXJQPMFR8RGE4SQ7WD2G9V · commit 8e7d79d3c9
 ```
 
 ### `latris interpret initialise`
 
 ```
-initialised 10 section(s) · commit f76476f88a
+initialised 10 section(s) · commit c08dc12a7f
   · interpret-section_01  structural_summary (dag)  state=empty
   · interpret-section_01  key_findings (dag)  state=empty
   · interpret-section_01  sensitivity (dag)  state=empty
@@ -2172,7 +2177,7 @@ reconsider whether DAG is the appropriate model type.
 ### `latris interpret refresh-claims`
 
 ```
-refreshed 10 section(s) · commit 80e3f42675
+refreshed 10 section(s) · commit 1b5940a398
 ```
 
 ### `latris interpret list`
@@ -2197,10 +2202,10 @@ interpret-section_01  open_questions (dag)  state=claims_only  claims=8
 prose=0c
 ```
 
-### `latris interpret generate-prose interpret-section_01M6QQA80N60E9A6F3A1ZKG50W --yes`
+### `latris interpret generate-prose interpret-section_01M6QXP162P8Z1DBRP2DZ3VZ3Q --yes`
 
 ```
-generated structural_summary · interaction interaction_01M6QQA9… · cost —
+generated structural_summary · interaction interaction_01M6QXP2… · cost —
 ```
 
 _No AI key? An agent (or a person) can write a section from its claims: `interpret show` lists what the model supports, `interpret set-prose` saves the text._
@@ -2208,7 +2213,7 @@ _No AI key? An agent (or a person) can write a section from its claims: `interpr
 ### `latris interpret show answer_to_question --model-type dag`
 
 ```
-answer_to_question (dag) · interpret-section_01M6QQA80N60E9A6F3A1ZKG512 · 
+answer_to_question (dag) · interpret-section_01M6QXP162P8Z1DBRP2DZ3VZ3X · 
 state=claims_only
 
 Claims
@@ -2224,7 +2229,7 @@ Prose
 ### `latris interpret set-prose answer_to_question Vehicle emissions are the main lever: policy reaches air quality, and through it respiratory health, mainly by changing emissions. --model-type dag --by ai`
 
 ```
-wrote answer_to_question (dag) · commit 309f051acd
+wrote answer_to_question (dag) · commit 1bcaa2e5a1
 ```
 
 
@@ -2232,34 +2237,34 @@ wrote answer_to_question (dag) · commit 309f051acd
 
 Run a structured expert elicitation session.
 
-### `latris elicit start --protocol delphi --facilitator Alice --expert Dr. Smith --expert Dr. Jones --target node_01M6QQ86VW9ZBK37THRN6G8NWV/confidence --date 2026-04-20`
+### `latris elicit start --protocol delphi --facilitator Alice --expert Dr. Smith --expert Dr. Jones --target node_01M6QXJQEGRTRACPHDAZWA7DQJ/confidence --date 2026-04-20`
 
 ```
-Started session elicitation_01M6QQA9… (delphi)
+Started session elicitation_01M6QXP3… (delphi)
 ```
 
-### `latris elicit round elicitation_01M6QQA9TFJYF92NRR20HCCF1Y --expert Dr. Smith --input high confidence based on WHO data --rationale 15 years of field monitoring --round 1`
+### `latris elicit round elicitation_01M6QXP3VEGMCNX26883B1W431 --expert Dr. Smith --input high confidence based on WHO data --rationale 15 years of field monitoring --round 1`
 
 ```
 Added round 1 from Dr. Smith
 ```
 
-### `latris elicit round elicitation_01M6QQA9TFJYF92NRR20HCCF1Y --expert Dr. Jones --input medium — uncertain about rural transferability --round 1`
+### `latris elicit round elicitation_01M6QXP3VEGMCNX26883B1W431 --expert Dr. Jones --input medium — uncertain about rural transferability --round 1`
 
 ```
 Added round 1 from Dr. Jones
 ```
 
-### `latris elicit aggregate elicitation_01M6QQA9TFJYF92NRR20HCCF1Y --result {"confidence": "high"} --confidence Agreement: both experts support medium-to-high.`
+### `latris elicit aggregate elicitation_01M6QXP3VEGMCNX26883B1W431 --result {"confidence": "high"} --confidence Agreement: both experts support medium-to-high.`
 
 ```
-Aggregated session elicitation_01M6QQA9…
+Aggregated session elicitation_01M6QXP3…
 ```
 
-### `latris elicit finalise elicitation_01M6QQA9TFJYF92NRR20HCCF1Y`
+### `latris elicit finalise elicitation_01M6QXP3VEGMCNX26883B1W431`
 
 ```
-Finalised session elicitation_01M6QQA9…
+Finalised session elicitation_01M6QXP3…
 ```
 
 ### `latris elicit list`
@@ -2268,21 +2273,21 @@ Finalised session elicitation_01M6QQA9…
 ┌────────────────────────────┬────────────────────────────────────────────────┐
 │ ID                         │ File                                           │
 ├────────────────────────────┼────────────────────────────────────────────────┤
-│ elicitation_01M6QQA9TFJYF… │ provenance/elicitations/2026-04-20-delphi-con… │
+│ elicitation_01M6QXP3VEGMC… │ provenance/elicitations/2026-04-20-delphi-con… │
 └────────────────────────────┴────────────────────────────────────────────────┘
 ```
 
-### `latris elicit show elicitation_01M6QQA9TFJYF92NRR20HCCF1Y`
+### `latris elicit show elicitation_01M6QXP3VEGMCNX26883B1W431`
 
 ```
-id: elicitation_01M6QQA9TFJYF92NRR20HCCF1Y
+id: elicitation_01M6QXP3VEGMCNX26883B1W431
 phase: finalised
 held_at: 2026-04-20
 facilitator: Alice
 protocol: delphi
 experts: Dr. Smith, Dr. Jones
 targets:
-  • node_01M6QQ86VW9ZBK37THRN6G8NWV/confidence
+  • node_01M6QXJQEGRTRACPHDAZWA7DQJ/confidence
 responses: 2
 aggregated: {'confidence': 'high'}
 confidence: Agreement: both experts support medium-to-high.
@@ -2297,23 +2302,37 @@ Export the project as Markdown and Graphviz DOT. Reports can be scoped to a sing
 
 ```
 wrote 
-C:/Users/dainy/AppData/Local/Temp/latris-demo-tuowffzd/air-quality-model/report
+C:/Users/dainy/AppData/Local/Temp/latris-demo-qd7zfdg1/air-quality-model/report
 s/report.md
+For the person: `latris link` prints a link that opens this model in the Latris
+app — the full figure (loops, evidence), a report they can share, and Word once
+they save it. Works offline.
 ```
 
 ### `latris export md --model-type cld --output reports/report-cld.md`
 
 ```
 wrote 
-C:/Users/dainy/AppData/Local/Temp/latris-demo-tuowffzd/air-quality-model/report
+C:/Users/dainy/AppData/Local/Temp/latris-demo-qd7zfdg1/air-quality-model/report
 s/report-cld.md
+For the person: `latris link` prints a link that opens this model in the Latris
+app — the full figure (loops, evidence), a report they can share, and Word once
+they save it. Works offline.
+```
+
+_To hand the model to a person, `latris link` prints a link that opens it in the Latris app (hosted report, full figure, save to an account). It works offline: the model is inside the link._
+
+### `latris --json link --model-type cld`
+
+```
+{"result": {"url": "https://app.latris.app/open#lVjtjts2Fn0VQr9arO2dTNI29QK7GKRJGiDJTDLJzo900HKka4kbSlRJyh43CLAPsU-4T7LnkrJFyXaa_TNjieS9536de6lPWSNrypaZVHb-eye18tt5bQrS2Sz7vSPnlWmwfFNJL1Yy98Y6UVi1JtHZO9kInBP9OSGbQlRmIwojfEV4Xq0o96IiqX0lTOdzU5P7ByS7lvJs-SkLmn7125Yh5LrAUr8Nz2_JtcpKqNyKn4MMLPcYsuWHT5mWd8C5zP5Jlco1iae1cg54HfYV5HKr2h7-O-OlFq3RuvOy8Yyl7WCQNbWwRhbCW9m41lgvVJPrrlBNKa5enS--m4nXl_ezYNqTywVDN53NiQFkm8qcn50_wMu8ogY_z7Pbz7MB1wV886b3zYumoPsDXE9M3RqnPImapOssCbMSsr5TBJDs2ggZm0Vumhxv4Q88LbJUz1FHjRVdmbbT4ehc05q0sMmZ2tg7VewiiCcfMWOZ3FjVc0vUwJiVlc7bLvfADGUfVVNwBBlj60cn3u09e2W0yrfD7oJyxeEabb8mu1Y5iUsEqqSJblWIZ1Jp1pkuPNnekRUX3sv842ghRFC8RIBHr3d5Mnr5k0JSWif10a3iLXxxfP_h0vtQGdd9oowjVUIYziA1xmbD2ibERzwNVTM5tiJL8O2hLcirDpFQkHk6_a-OJr4ajrZGYbFP7aQEYrUpvOPMaM0Gfm41BE3S4sLXxrUVWZWL3jGs-SAxDuqyItFaA6VO3G3FBnVcDWXqhGstcXVW1nRlxawi5E4VibWSYgMFM4E0vOs0eyiWKuqxVrnkNIcF7JNpxTAcY8XTe9RfzOFDZKOS48pMkNE9jFSssWDkVVcj5O2-yuAwL0qgBphQcNB_O8u0aj5G7uIInKAub05wB9RLixdYnuMRtrmA9ZVhZ_SSaCcJ5ascJaSnkTszsQF7UsPBZW9evHnBpLYhVVY-W87PFj_MOForVbBtEF5h5Tjt3YadcE-hch9Wil1NYP1R5MLezmPmBDuPctfE0ATd94nME1z0Ne77SyL1bPFdIvQIXQWBxwI14bFfLVLwi-gffyX6I05JTo7ppT-y57Q9rJU2m_RYsiOcSMjx5JnRnnBqoMmTh9ItvTkJ6_0pvsinU7OOyR_tHPP3SfzHibbfPuHZrzlyuPglPCfYOqbsKQ4dE1MiwnHDSwoeXAV-npAk0yFYiGxpRLEXK0qzJttE8qrJk7FGmzJwJooaw8BAmrsSPoWvj_GfMepwRrTSAykQF9Bsa9VQz5X9cDIi3kCldidem1weYjtVtSeKbMIEYyJ1XcuSeMQdpsI2iOXOyJvRD0uWPFcjyVheY2KuAX1xYH6s2olE7qwrSxi0G68RCAQLKR2FwwsWEw8P3BxDj3ex9zJ3S23wt5b_gkt4gHXCG1EjaiWfH6ZG6qMR289A4p-yj8TmDyOsV14z39_8fCmea3MXy3VPos87dAS0LwDuD8jOV3ESz26M1UXPVOLSlrJRf4QocY_YkrTZkg_BJUZBxYOzxYMHj7__648_PJ7_eD5_ND87e_jo_Hz-OIQ0AisInsWhhwm0FM81ZweVW7HinGtKOKYYg_rp6bO3FyMADxPxo06VWA9uEvvF4HjOOD2653yj4F4X0hNJEp36bZYoejQo2t8MBh3vDy5O4RqkOa6W1oo2Y0OeQMRMvOSUupFNORPXi5FZ5xxa6VxXh1yL4fV0j56TvUTEpMWNzNGcR34sk7gjv-EEG5iD7cQowLUQ4iYD0GtVt1qtVKw4IVuMai2YBxnGXo810Zfs3oRYl716kJXBztRW5XgI5WnK5aaldPdVX5a8p2sUdNQoiobK6GjQQM7XU9k0HbNfLkO79dKW5I-1aDH_uzg2CJy28W-YOPED0itmJlNSQ3yyMR5UKZ3I5ZqkH9mY8mJCsCvUoNk48Vx2QMPDoe5q9n0l1wops0ihn-TWEVTP9GAZxy7WYBykTMlDJ88KR3NqBPZoPljqh9ZKtV906BRQZ3FBiD0k3r7eVcq9YsVLwQN0wBDh8hVC6Kg91XeQjGJtdNzOXxPGnw4W4mkLGqrVvlehXMKgCtYuS3Cv47sCucqAjyj04yio4Ytv1L6jxMH-vLPg7RnaEmg_hzOtjrwSxwfJo_Nm0pQWk8Tl7tDTNzSiF6y46WLeRuqgwcJkhCdOdcF_o_BP2xcn7onWlfr_fROVDIqtDIpQp0WXcz8atSc4l4eD2GpjR9h94glEc12ZDn7b7ALnQl-El9eSq77PN_AEf8J50ffAqZLodVSC5X9wYk0FU0bBh6YakrCMU5K975FMPCpUG7nlwx_4KnIrXpsh6nHbcOmZezO_eAOVeYUe5OqF-O-__yOuY25QsYxpWgmapJHzXbFl_8SI90odB-kD4-_q26MB6a0FOzV8hQXemOx93EFXVBxiKIr-4xnljGCLgujnTlZ4-F1t4OmEX6DSq1hHE99hnJMgSam3Trlfml-am2q7FK8JiUI1MnA35HmMfMGDqSiwieJK4w6zQjMEgcSGgmHTE482o3zt5yK-Zlecf8nFZVe7DRJyd4Efd5zExjgvean4dv6Mv078BkCWHRoMoRAT99sSsScI5ydhOwjijwAHRDVUV0jsg_HwlnMfOaI1NWU_EGF7t7OPR-gYyKH97IZG8U3NYyKlXSZcqlN7vkVNbsFtGMuMcKHHoM7yhQgDxn7-DV5IuL9W9zwF5EgA3CpN18KoOH8M6sK3m_hySkn_fzP8fPv58_8A", "chars": 2780, "factors": 20, "links": 17, "long": false}}
 ```
 
 ### `latris export dot --view cld --output reports/cld-view.dot`
 
 ```
 wrote 
-C:/Users/dainy/AppData/Local/Temp/latris-demo-tuowffzd/air-quality-model/report
+C:/Users/dainy/AppData/Local/Temp/latris-demo-qd7zfdg1/air-quality-model/report
 s/cld-view.dot
 ```
 
@@ -2325,13 +2344,13 @@ Draft a story that walks a non-technical reader through the model: a plain-langu
 ### `latris story draft --model cld`
 
 ```
-drafted story for cld · 6 beats · commit 45ddd7d4f7
-  · story-beat_01M6QQABW  hook  “Why this matters”
-  · story-beat_01M6QQABW  system_tour  “How the system works”
-  · story-beat_01M6QQABW  answer  “What we found”
-  · story-beat_01M6QQABW  uncertainty  “What we're less sure about”
-  · story-beat_01M6QQABW  implication  “What this means for you”
-  · story-beat_01M6QQABW  closing  “Where to next”
+drafted story for cld · 6 beats · commit e278eedb22
+  · story-beat_01M6QXP75  hook  “Why this matters”
+  · story-beat_01M6QXP75  system_tour  “How the system works”
+  · story-beat_01M6QXP75  answer  “What we found”
+  · story-beat_01M6QXP75  uncertainty  “What we're less sure about”
+  · story-beat_01M6QXP75  implication  “What this means for you”
+  · story-beat_01M6QXP75  closing  “Where to next”
 ```
 
 ### `latris story generate-all --model cld`
@@ -2351,15 +2370,15 @@ done
 ```
 air-quality-model — What factors drive urban air quality and how do they affect
 health outcomes?
-  · story-beat_01M6QQABW hook “Why this matters” prose=157c emphasis=0n/0e
-  · story-beat_01M6QQABW system_tour “How the system works” prose=157c 
+  · story-beat_01M6QXP75 hook “Why this matters” prose=157c emphasis=0n/0e
+  · story-beat_01M6QXP75 system_tour “How the system works” prose=157c 
 emphasis=0n/0e
-  · story-beat_01M6QQABW answer “What we found” prose=157c emphasis=0n/0e
-  · story-beat_01M6QQABW uncertainty “What we're less sure about” prose=157c 
+  · story-beat_01M6QXP75 answer “What we found” prose=157c emphasis=0n/0e
+  · story-beat_01M6QXP75 uncertainty “What we're less sure about” prose=157c 
 emphasis=0n/0e
-  · story-beat_01M6QQABW implication “What this means for you” prose=157c 
+  · story-beat_01M6QXP75 implication “What this means for you” prose=157c 
 emphasis=0n/0e
-  · story-beat_01M6QQABW closing “Where to next” prose=157c emphasis=0n/0e
+  · story-beat_01M6QXP75 closing “Where to next” prose=157c emphasis=0n/0e
 ```
 
 
@@ -2370,19 +2389,19 @@ View semantic commit history, status, and diffs.
 ### `latris log --limit 10`
 
 ```
-05076ac112 2026-11-06 Demo Runner · Story: update beat prose (closing)
-b7a5870d79 2026-11-06 Demo Runner · AI interaction interaction_01M6QQAE…: 
+cdeb9883e2 2026-11-06 Demo Runner · Story: update beat prose (closing)
+2edfc2689b 2026-11-06 Demo Runner · AI interaction interaction_01M6QXPB…: 
 approved
-0510c56e54 2026-11-06 Demo Runner · AI interaction: StoryBeatProse (pending)
-b3d9a59c95 2026-11-06 Demo Runner · Story: update beat prose (implication)
-68f9d3545a 2026-11-06 Demo Runner · AI interaction interaction_01M6QQAE…: 
+bc77b35f61 2026-11-06 Demo Runner · AI interaction: StoryBeatProse (pending)
+4f789b4937 2026-11-06 Demo Runner · Story: update beat prose (implication)
+4bad28314b 2026-11-06 Demo Runner · AI interaction interaction_01M6QXPA…: 
 approved
-0560afb997 2026-11-06 Demo Runner · AI interaction: StoryBeatProse (pending)
-bc8ad4d226 2026-11-06 Demo Runner · Story: update beat prose (uncertainty)
-4b4155fe13 2026-11-06 Demo Runner · AI interaction interaction_01M6QQAD…: 
+82f297ee2c 2026-11-06 Demo Runner · AI interaction: StoryBeatProse (pending)
+e65df38624 2026-11-06 Demo Runner · Story: update beat prose (uncertainty)
+f0d4a59745 2026-11-06 Demo Runner · AI interaction interaction_01M6QXP9…: 
 approved
-4384676364 2026-11-06 Demo Runner · AI interaction: StoryBeatProse (pending)
-64943c2772 2026-11-06 Demo Runner · Story: update beat prose (answer)
+86052a913f 2026-11-06 Demo Runner · AI interaction: StoryBeatProse (pending)
+bb278d49b6 2026-11-06 Demo Runner · Story: update beat prose (answer)
 ```
 
 ### `latris status`
@@ -2404,8 +2423,8 @@ _Mark the current state as a milestone before exploring alternatives._
 ### `latris version milestone Baseline CLD --notes Core structure complete, pre-workshop.`
 
 ```
-milestone milestone_01M6QQAFF7HBRZJN8JF8M2Y3GX 'Baseline CLD' (proposed) · 
-commit 54da08df41
+milestone milestone_01M6QXPCC3XMCRJDB6M13DYYK9 'Baseline CLD' (proposed) · 
+commit 00127c8533
 ```
 
 _Show the version tree — one root version with a milestone._
@@ -2422,8 +2441,8 @@ _Create an alternative to explore a what-if scenario._
 ### `latris version alternative What-if: add meteorology --notes Exploring weather factors on air quality.`
 
 ```
-created alternative version_01M6QQAG0THQSHGN2AVEZHKJEV 'What-if: add 
-meteorology' on branch lineage/01M6QQAG0THQSHGN2AVEZHKJEV
+created alternative version_01M6QXPD3YR0KFMA1K3YA6SKTC 'What-if: add 
+meteorology' on branch lineage/01M6QXPD3YR0KFMA1K3YA6SKTC
 ```
 
 _We're now on the alternative version. Add a node that only exists here._
@@ -2431,15 +2450,15 @@ _We're now on the alternative version. Add a node that only exists here._
 ### `latris node add Wind Patterns --kind variable`
 
 ```
-added variable Wind Patterns (node_01M6QQAG9FBP3Y5P9RJNB3FDQJ) · commit 
-3fa3be576d
+added variable Wind Patterns (node_01M6QXPDFSM3KBVS42XV1HZ0RZ) · commit 
+33762848d3
 ```
 
 ### `latris version milestone With wind patterns`
 
 ```
-milestone milestone_01M6QQAGFY33PGQBWWH451PG10 'With wind patterns' (proposed) 
-· commit f1485eb563
+milestone milestone_01M6QXPDS3W29BFFB22KJHAPQ8 'With wind patterns' (proposed) 
+· commit 5510a0b46b
 ```
 
 _Show the tree from the alternative — it knows about its parent._
@@ -2465,8 +2484,8 @@ _Create a second alternative from the original baseline milestone._
 ### `latris version alternative What-if: remove green infra --from Baseline CLD --notes Testing model without green infrastructure.`
 
 ```
-created alternative version_01M6QQAJ8SCSKNSKW9J9WWNC7C 'What-if: remove green 
-infra' on branch lineage/01M6QQAJ8SCSKNSKW9J9WWNC7C
+created alternative version_01M6QXPG8PNKC2H802MNQDYD78 'What-if: remove green 
+infra' on branch lineage/01M6QXPG8PNKC2H802MNQDYD78
 ```
 
 _Show the full tree — root with two alternative branches._
@@ -2490,7 +2509,7 @@ switched to 'air-quality-model'
 ### `latris version update --name Air Quality CLD v1 --maturity approved`
 
 ```
-updated version 'Air Quality CLD v1' (approved) · commit d5cef901b8
+updated version 'Air Quality CLD v1' (approved) · commit a85921db9b
 ```
 
 _Tag the original as the preferred (canonical) model._
@@ -2498,7 +2517,7 @@ _Tag the original as the preferred (canonical) model._
 ### `latris version preferred main`
 
 ```
-preferred → version_01M6QQAF97RASRBB8DZPKEMYW9 · commit 3a19d85c14
+preferred → version_01M6QXPC3PVVV2P9RHWP3HB9KY · commit 6abb85dc82
 ```
 
 ### `latris version tree`
@@ -2517,18 +2536,18 @@ Latris projects are git repositories, so sharing is an ordinary push/pull to a r
 
 _Point the project at the remote, then push the current version._
 
-### `latris sync remote C:\Users\dainy\AppData\Local\Temp\latris-demo-tuowffzd\remote.git`
+### `latris sync remote C:\Users\dainy\AppData\Local\Temp\latris-demo-qd7zfdg1\remote.git`
 
 ```
 remote origin → 
-C:\Users\dainy\AppData\Local\Temp\latris-demo-tuowffzd\remote.git
+C:\Users\dainy\AppData\Local\Temp\latris-demo-qd7zfdg1\remote.git
 ```
 
 ### `latris sync status`
 
 ```
 remote origin: 
-C:\Users\dainy\AppData\Local\Temp\latris-demo-tuowffzd\remote.git
+C:\Users\dainy\AppData\Local\Temp\latris-demo-qd7zfdg1\remote.git
 branch: main
 no upstream tracking yet — push to establish it
 ```
@@ -2536,7 +2555,7 @@ no upstream tracking yet — push to establish it
 ### `latris sync push`
 
 ```
-pushed to origin · HEAD 3a19d85c14
+pushed to origin · HEAD 6abb85dc82
 ```
 
 _After pushing, the branch is up to date with the remote._
@@ -2545,7 +2564,7 @@ _After pushing, the branch is up to date with the remote._
 
 ```
 remote origin: 
-C:\Users\dainy\AppData\Local\Temp\latris-demo-tuowffzd\remote.git
+C:\Users\dainy\AppData\Local\Temp\latris-demo-qd7zfdg1\remote.git
 branch: main
 ahead 0 · behind 0 (since last fetch)
 ```
@@ -2557,7 +2576,7 @@ _Sync state is also tracked per version. Once the project is shared, you publish
 ### `latris version publish main`
 
 ```
-published 'main' · commit 3a19d85c14
+published 'main' · commit 6abb85dc82
 ```
 
 _Per-version status: the published version is in sync, while the what-if alternatives remain local until you publish them too._
@@ -2575,7 +2594,7 @@ _Publish one of the alternatives, then check status again._
 ### `latris version publish What-if: add meteorology`
 
 ```
-published 'lineage/01M6QQAG0THQSHGN2AVEZHKJEV' · commit a03ed99927
+published 'lineage/01M6QXPD3YR0KFMA1K3YA6SKTC' · commit 8cada90195
 ```
 
 ### `latris version sync-status`
@@ -2601,8 +2620,8 @@ _Meanwhile we make a different change to the same version; the app fetches and d
 ### `latris node add Our local change`
 
 ```
-added concept Our local change (node_01M6QQB163MHYVJYYAGWCS9AE9) · commit 
-caab58dfc7
+added concept Our local change (node_01M6QXQ4JRMWAH6436TVC1RQZP) · commit 
+dee6621ec3
 ```
 
 ### `latris version sync-status`
@@ -2626,7 +2645,7 @@ _Keep our line; the shared copy is archived (kept, not deleted)._
 
 ```
 reconciled 'main' (kept mine); the other line is archived as 
-version_01M6QQB638XQXZZ3ZYJGXAB9CA
+version_01M6QXQBJ3HH3D9HWHTQRHNZ2J
 ```
 
 ### `latris version sync-status`

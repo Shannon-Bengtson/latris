@@ -1430,6 +1430,9 @@ def build_example(ex: WorkedExample) -> None:
 
     ex.run(["export", "md", "--output", "reports/report.md"])
     ex.run(["export", "md", "--model-type", "cld", "--output", "reports/report-cld.md"])
+    ex.note("To hand the model to a person, `latris link` prints a link that opens it in the Latris app "
+            "(hosted report, full figure, save to an account). It works offline: the model is inside the link.")
+    ex.run(["--json", "link", "--model-type", "cld"])
     ex.run(["export", "dot", "--view", "cld", "--output", "reports/cld-view.dot"])
 
     # ── 11b. Story (public-facing) ─────────────────────────────────────

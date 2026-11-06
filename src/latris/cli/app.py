@@ -32,6 +32,7 @@ from latris.cli import (  # noqa: E402
     history_cmd,
     interpret_cmd,
     lineage_cmd,
+    link_cmd,
     mapping_cmd,
     maturity_cmd,
     node_cmd,
@@ -55,6 +56,7 @@ app = typer.Typer(
 
 app.command("init")(init_command)
 app.command("build")(build_cmd.build)
+app.command("link")(link_cmd.link)
 app.add_typer(project_cmd.app, name="project")
 app.add_typer(node_cmd.app, name="node")
 app.add_typer(edge_cmd.app, name="edge")

@@ -242,6 +242,7 @@ latris interpret show answer_to_question         # the claims this section must 
 latris interpret set-prose answer_to_question "..." --by ai   # write it (or generate-prose with a key)
 
 latris export md --pack client --no-ai -o report.md   # report with a Mermaid diagram
+latris link                                      # a link that opens it in the Latris app — give it to the person
 latris log                                       # the full history
 ```
 
@@ -285,6 +286,11 @@ Tips for agents:
 - **For a person, give them the client report** (`--pack client`) with the
   interpretation sections written — that's the board-ready version. It has the
   diagram, each link's reason, the evidence and the sources, without internal IDs.
+- **And give them `latris link`'s link.** It opens the model in the Latris app
+  as a hosted report with the full figure (loops, polarity, evidence) that
+  they can share, and save to a free account for the editor and a Word
+  report. It works offline — the model travels inside the link — so it works
+  from sandboxes that can't reach latris.app.
 
 The complete, always-current demonstration of every command is the
 worked example:

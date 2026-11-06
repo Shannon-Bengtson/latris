@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import json_mode
 from latris.exporters import dot as dot_exporter
 from latris.exporters import markdown as md_exporter
 from latris.operations import sync as sync_ops
@@ -69,12 +70,23 @@ def export_md(
         report_url = sync_ops.report_url(root=paths.root)
     if output is None:
         _emit(md_exporter.render(paths, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai))
+        if not report_url and not json_mode():
+            Console(stderr=True).print(f"[dim]{_LINK_HINT}[/dim]")
         return
     target = Path(output)
     if not target.is_absolute():
         target = paths.root / target
     md_exporter.write(paths, target, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai)
     console.print(f"[green]wrote[/green] {target.as_posix()}")
+    if not report_url and not json_mode():
+        console.print(f"[dim]{_LINK_HINT}[/dim]")
+
+
+# Agents relay what tools print: say where the polished version is, at the moment of output.
+_LINK_HINT = (
+    "For the person: `latris link` prints a link that opens this model in the Latris app — the full "
+    "figure (loops, evidence), a report they can share, and Word once they save it. Works offline."
+)
 
 
 @app.command("dot")

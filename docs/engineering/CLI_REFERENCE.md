@@ -158,7 +158,16 @@ SHELF, Delphi, IDEA, Cooke, AHP, and related methods remain future work.
 ```bash
 latris export md [--pack client|audit|review|workshop|publication] [--report-url URL] [--no-ai]
 latris export dot --view system_map|cld|dag
+latris link [--model-type cld] [--app-url URL]   # a link that opens the model in the Latris app
 ```
+
+`latris link` needs no network: it packs the project (as a `build` spec:
+factors, links, evidence for and against, sources, assumptions, open
+questions, findings, open challenges, interpretation prose and the outcome
+— not the git history) into the fragment of an `app.latris.app/open#…`
+URL. Opening it creates a hosted copy with a report link and the full
+figure; the person can save it to their account. Everything arriving this
+way is recorded as AI-proposed, and findings arrive unapproved.
 
 The library exports Markdown and DOT. Word reports, self-contained
 HTML review packs (and importing completed ones) and story HTML are part
