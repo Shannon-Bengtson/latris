@@ -8,14 +8,15 @@ git-native versioning, AI-assisted drafting under human approval, and
 report generation.
 
 This repository is the open-source core: the Python package (`latris`),
-its CLI, and the FastAPI + WebSocket server backend. The Latris desktop
-app (React + Electron) is built on top of this package from a separate
-private repository.
+its CLI, and the FastAPI + WebSocket server backend. The Latris app
+(React, running in the browser at app.latris.app) is built on top of this
+package from a separate private repository.
 
-**New here?** The Latris product — a desktop app for modellers and for
+**New here?** The Latris product — a browser app for modellers and for
 the people who must weigh in on their models — lives at
-[latris.app](https://latris.app) (invite-only early access). This
-repository is the open backend that powers it.
+[latris.app](https://latris.app) (open sign-up at
+[app.latris.app](https://app.latris.app)). This repository is the open
+backend that powers it.
 
 - Every modelling project is a **git repo** — every change is an
   inspectable, reversible commit.
@@ -98,7 +99,7 @@ python -m latris.server --project-root ./air-quality
 ```
 
 Serves the full CRUD/AI/export API on **http://127.0.0.1:8741** (the
-same backend the Latris desktop app embeds). `--help` lists flags.
+same backend the Latris app embeds). `--help` lists flags.
 
 ## AI layer (bring your own key — or your own agent)
 
