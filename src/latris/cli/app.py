@@ -37,7 +37,6 @@ from latris.cli import (  # noqa: E402
     project_cmd,
     provenance_cmd,
     ref_cmd,
-    review_cmd,
     sd_cmd,
     story_cmd,
     sync_cmd,
@@ -76,7 +75,6 @@ app.add_typer(elicit_cmd.app, name="elicit")
 app.add_typer(mapping_cmd.app, name="mapping")
 app.add_typer(view_cmd.app, name="view")
 app.add_typer(export_cmd.app, name="export")
-app.add_typer(review_cmd.app, name="review")
 app.add_typer(story_cmd.app, name="story")
 app.add_typer(sync_cmd.app, name="sync")
 app.add_typer(ai_cmd.app, name="ai")

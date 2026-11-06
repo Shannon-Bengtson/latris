@@ -15,8 +15,8 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
 
 - [`src/latris/`](./src/latris/) — the package. Layered:
   `schema/` → `repo/` → `operations/` → `cli/`, plus `ai/` (LLM layer),
-  `diff/` (semantic diffs), `exporters/` (DOT, Markdown, Word, HTML
-  packs), `server/` (FastAPI + WebSocket backend), `sync/` (client for
+  `diff/` (semantic diffs), `exporters/` (Markdown with a Mermaid
+  sketch, DOT), `server/` (FastAPI + WebSocket backend), `sync/` (client for
   the collaboration control plane — the service itself is separate and
   proprietary; `sync.latris.app` is its public URL).
 - [`tests/`](./tests/) — pytest suite mirroring the package layout.

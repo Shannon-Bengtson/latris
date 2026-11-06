@@ -9,12 +9,10 @@ from rich.console import Console
 from latris.cli._errors import handle_cli_errors
 from latris.exporters import dot as dot_exporter
 from latris.exporters import markdown as md_exporter
-from latris.exporters import review_html as review_exporter
-from latris.exporters import word as word_exporter
 from latris.operations import sync as sync_ops
 from latris.repo.project import require_project
 
-app = typer.Typer(help="Export the project to Markdown, Word, Graphviz DOT, or Review Pack.", no_args_is_help=True)
+app = typer.Typer(help="Export the project to Markdown or Graphviz DOT.", no_args_is_help=True)
 console = Console()
 
 
@@ -75,37 +73,6 @@ def export_md(
     console.print(f"[green]wrote[/green] {target.as_posix()}")
 
 
-@app.command("word")
-@handle_cli_errors
-def export_word(
-    output: str = typer.Option(
-        "report.docx",
-        "--output",
-        "-o",
-        help="Output .docx file. Relative paths resolve to the project root.",
-    ),
-    model_type: str = typer.Option(
-        None,
-        "--model-type",
-        "-m",
-        help="Scope the report to one formalism (e.g. cld, dag, fcm). Omit for the whole project.",
-    ),
-    pack: str = typer.Option(
-        None,
-        "--pack",
-        "-p",
-        help="Report pack (review, audit, client, workshop, publication). Omit for the full report.",
-    ),
-) -> None:
-    """Render the project as a Word (.docx) document."""
-    paths = require_project()
-    target = Path(output)
-    if not target.is_absolute():
-        target = paths.root / target
-    word_exporter.write(paths, target, pack=pack, model_type=model_type)
-    console.print(f"[green]wrote[/green] {target.as_posix()}")
-
-
 @app.command("dot")
 @handle_cli_errors
 def export_dot(
@@ -134,36 +101,4 @@ def export_dot(
     if not target.is_absolute():
         target = paths.root / target
     dot_exporter.write(paths, target, view=view)  # type: ignore[arg-type]
-    console.print(f"[green]wrote[/green] {target.as_posix()}")
-
-
-@app.command("review")
-@handle_cli_errors
-def export_review(
-    output: str = typer.Option(
-        "review.html",
-        "--output",
-        "-o",
-        help="Output .html file. Relative paths resolve to the project root.",
-    ),
-    pack: str = typer.Option(
-        "review",
-        "--pack",
-        "-p",
-        help="Report pack (review, audit, client, workshop, publication).",
-    ),
-    model_type: str = typer.Option(
-        None,
-        "--model-type",
-        "-m",
-        help="Scope the review pack to one formalism (e.g. cld, dag, fcm). Omit for the whole project.",
-    ),
-) -> None:
-    """Render a self-contained HTML review pack for external feedback."""
-    paths = require_project()
-    target = Path(output)
-    if not target.is_absolute():
-        target = paths.root / target
-    html = review_exporter.render(paths, pack=pack, model_type=model_type)
-    target.write_text(html, encoding="utf-8")
     console.print(f"[green]wrote[/green] {target.as_posix()}")

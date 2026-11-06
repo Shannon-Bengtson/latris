@@ -43,10 +43,3 @@ def test_export_dot_contains_digraph(client: TestClient) -> None:
     resp = client.get("/api/export/dot")
     assert resp.status_code == 200
     assert "digraph" in resp.text
-
-
-def test_export_word_returns_docx(client: TestClient) -> None:
-    resp = client.get("/api/export/word")
-    assert resp.status_code == 200
-    assert "attachment" in resp.headers.get("content-disposition", "")
-    assert len(resp.content) > 100  # non-trivial file

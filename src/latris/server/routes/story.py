@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from io import BytesIO
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from latris.server.deps import get_project_root
@@ -106,21 +104,3 @@ def reorder(model_type: str, body: ReorderBody, root: Root) -> dict[str, Any]:
     doc, sha = reorder_beats(model_type, body.ordered_beat_ids, root=root)
     return {"result": doc.model_dump(mode="json"), "commit_sha": sha}
 
-
-@router.get("/export")
-def export_story(
-    root: Root,
-    model_type: str = Query(...),
-    theme: str | None = Query(None),
-) -> StreamingResponse:
-    """Render the story to self-contained HTML and stream it as a download."""
-    from latris.exporters import story_html
-    from latris.repo.layout import ProjectPaths
-
-    html = story_html.render(ProjectPaths(root), model_type, theme=theme)
-    buf = BytesIO(html.encode("utf-8"))
-    return StreamingResponse(
-        buf,
-        media_type="text/html",
-        headers={"Content-Disposition": f'attachment; filename="story-{model_type}.html"'},
-    )

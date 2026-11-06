@@ -41,7 +41,7 @@ def _project(tmp_path):
     return root
 
 
-def test_story_draft_export_and_list(tmp_path, git_identity, monkeypatch):
+def test_story_draft_and_list(tmp_path, git_identity, monkeypatch):
     root = _project(tmp_path)
     monkeypatch.chdir(root)
     runner = CliRunner()
@@ -49,14 +49,6 @@ def test_story_draft_export_and_list(tmp_path, git_identity, monkeypatch):
     r = runner.invoke(app, ["story", "draft", "--model", "cld"])
     assert r.exit_code == 0, r.output
     assert "drafted" in r.output
-
-    out = tmp_path / "story.html"
-    r2 = runner.invoke(app, ["story", "export", "--model", "cld", "-o", str(out)])
-    assert r2.exit_code == 0, r2.output
-    assert out.exists()
-    html = out.read_text(encoding="utf-8")
-    assert "<!DOCTYPE html>" in html
-    assert "Coastal" in html
 
     r3 = runner.invoke(app, ["story", "list"])
     assert r3.exit_code == 0, r3.output
@@ -144,14 +136,3 @@ def test_story_generate_all_missing_errors(tmp_path, git_identity, monkeypatch):
     r = runner.invoke(app, ["story", "generate-all", "--model", "cld"])
     assert r.exit_code == 1
     assert "no story" in r.output
-
-
-def test_story_export_to_stdout(tmp_path, git_identity, monkeypatch):
-    root = _project(tmp_path)
-    monkeypatch.chdir(root)
-    runner = CliRunner()
-    runner.invoke(app, ["story", "draft", "--model", "cld"])
-
-    r = runner.invoke(app, ["story", "export", "--model", "cld"])
-    assert r.exit_code == 0, r.output
-    assert "<!DOCTYPE html>" in r.output

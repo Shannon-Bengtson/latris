@@ -1,4 +1,4 @@
-"""Per-formalism scoping of report exporters (markdown + word).
+"""Per-formalism scoping of report exporters (markdown).
 
 When a report is scoped to a ``model_type`` the substrate is filtered to that
 formalism's view (via mappings) and findings are filtered to that model type.
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from latris.exporters import markdown, word
+from latris.exporters import markdown
 from latris.exporters._scope import view_member_ids
 from latris.operations import edges as edge_ops
 from latris.operations import findings as finding_ops
@@ -75,16 +75,3 @@ def test_markdown_unscoped_includes_everything(two_formalism_project):
     assert "Nutrients" in out
     assert "Rainfall" in out
     assert "Rainfall is exogenous" in out
-
-
-def test_word_scopes_substrate_and_findings(two_formalism_project):
-    root, *_ = two_formalism_project
-    doc = word.render(ProjectPaths(root), sections=["nodes", "findings"], model_type="cld")
-    text = "\n".join(p.text for p in doc.paragraphs)
-    for table in doc.tables:
-        for row in table.rows:
-            text += "\n" + " | ".join(c.text for c in row.cells)
-    assert "Nutrients" in text
-    assert "Rainfall" not in text
-    assert "Nutrients drive algae blooms" in text
-    assert "Rainfall is exogenous" not in text

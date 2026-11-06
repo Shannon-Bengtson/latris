@@ -1344,32 +1344,30 @@ def build_example(ex: WorkedExample) -> None:
     # ── 11. Export ────────────────────────────────────────────────────
     ex.section(
         "Export",
-        "Export the project as Markdown, Word, and Graphviz DOT. Reports can be "
+        "Export the project as Markdown and Graphviz DOT. Reports can be "
         "scoped to a single formalism with --model-type (substrate, findings, and "
         "interpretation are filtered to that formalism's view). The Markdown report "
         "opens with a Mermaid sketch of the model, which renders on GitHub and in "
-        "most chat UIs.",
+        "most chat UIs. Word, review-pack and story HTML exports are part of "
+        "the Latris app.",
     )
 
     ex.run(["export", "md", "--output", "reports/report.md"])
     ex.run(["export", "md", "--model-type", "cld", "--output", "reports/report-cld.md"])
-    ex.run(["export", "word", "--output", "reports/report.docx"])
     ex.run(["export", "dot", "--view", "cld", "--output", "reports/cld-view.dot"])
-    ex.run(["export", "review", "--model-type", "cld", "--output", "communicate/review-cld.html"])
 
     # ── 11b. Story (public-facing) ─────────────────────────────────────
     ex.section(
         "Story (public-facing)",
-        "Generate a self-contained, scrollable HTML story that walks a "
-        "non-technical reader through the model. Produced downstream of the "
-        "report: a plain-language beat skeleton with AI-drafted prose, "
-        "exported as a single shareable HTML file.",
+        "Draft a story that walks a non-technical reader through the model: "
+        "a plain-language beat skeleton with AI-drafted prose, produced "
+        "downstream of the report. The Latris app publishes it as a "
+        "scrollable HTML page.",
     )
 
     ex.run(["story", "draft", "--model", "cld"])
     ex.run(["story", "generate-all", "--model", "cld"])
     ex.run(["story", "show", "--model", "cld"])
-    ex.run(["story", "export", "--model", "cld", "--output", "communicate/story.html"])
 
     # ── 12. History ───────────────────────────────────────────────────
     ex.section("History", "View semantic commit history, status, and diffs.")

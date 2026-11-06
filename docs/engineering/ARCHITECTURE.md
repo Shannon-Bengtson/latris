@@ -239,7 +239,6 @@ src/latris/
 │   ├── interpret.py   # interpretation section CRUD (Interpret phase)
 │   ├── interpret_registry.py # per-model-type section specs
 │   ├── findings.py    # findings lifecycle (JSONL append-only)
-│   ├── review.py      # review pack import + session lifecycle
 │   ├── fcm_inference.py # FCM steady-state computation (pure functions)
 │   ├── view_attributes.py # model-type-scoped attribute queries/mutations
 │   ├── project.py     # project-level operations
@@ -250,11 +249,9 @@ src/latris/
 ├── exporters/
 │   ├── dot.py         # Graphviz DOT
 │   ├── markdown.py    # markdown report
-│   ├── word.py        # .docx export via python-docx
+│   ├── mermaid.py     # Mermaid sketch embedded in the markdown report
 │   ├── narrative.py   # AI-assisted prose narrative
-│   ├── packs.py       # pack configuration and assembly
-│   ├── review_html.py # self-contained HTML review pack
-│   └── diagram.py     # diagram generation
+│   └── packs.py       # pack configuration and assembly
 ├── ai/                # 46 canonical prompts, all wired
 │   ├── prompts.py     # PromptSpec library (46 entries)
 │   ├── call.py        # end-to-end orchestrator
@@ -343,12 +340,12 @@ been built:
 | `operations/compose.py` | **built** | Gather→Build bridge: node/edge suggestions from data, refs, AI |
 | `operations/interpret.py` + `interpret_registry.py` | **built** | Interpretation section CRUD, per-model-type section specs |
 | `operations/findings.py` + `schema/findings.py` | **built** | Findings lifecycle: JSONL append-only, 6 categories |
-| `operations/review.py` + `schema/review.py` | **built** | Review pack HTML export/import, session lifecycle |
+| `schema/review.py` | **built** | Review pack data format (manifest, sessions). Export/import of the HTML pack is part of the Latris app |
 | `operations/configure.py` | **built** | Batch view-attribute configuration for Analyse phase |
 | `operations/fcm_inference.py` | **built** | FCM matrix-based steady-state, pure functions |
 | `operations/view_attributes.py` | **built** | Model-type-scoped attribute queries and mutations |
 | `schema/interpretation.py` | **built** | InterpretSection, audience targeting, staleness tracking |
-| `exporters/narrative.py`, `packs.py`, `review_html.py`, `diagram.py` | **built** | Extended export pipeline (prose, pack assembly, HTML review, diagrams) |
+| `exporters/narrative.py`, `packs.py`, `mermaid.py` | **built** | Report pipeline (prose, pack assembly, Mermaid sketch). Word, review-pack and story HTML exports moved to the Latris app (0.5.0), which adds them to the server through the `latris.server_plugins` hook |
 
 Still planned (not yet built):
 

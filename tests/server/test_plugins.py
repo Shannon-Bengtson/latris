@@ -47,3 +47,26 @@ def test_broken_plugin_refuses_to_start(monkeypatch) -> None:
     monkeypatch.setattr("importlib.metadata.entry_points", lambda *, group: bad)
     with pytest.raises(ModuleNotFoundError):
         app_module.create_app()
+
+
+def test_plugins_named_in_env_var(monkeypatch) -> None:
+    monkeypatch.setattr("importlib.metadata.entry_points", lambda *, group: [])
+    monkeypatch.setenv("LATRIS_SERVER_PLUGINS", f" {__name__}:register , ")
+    client = TestClient(app_module.create_app())
+    assert client.get("/api/plugin-ping").json() == {"pong": "yes"}
+
+
+_calls: list[FastAPI] = []
+
+
+def register_counting(app: FastAPI) -> None:
+    _calls.append(app)
+
+
+def test_env_var_and_entry_point_register_once(monkeypatch) -> None:
+    ep = EntryPoint(name="demo", value=f"{__name__}:register_counting", group=app_module.PLUGIN_ENTRY_POINT_GROUP)
+    monkeypatch.setattr("importlib.metadata.entry_points", lambda *, group: [ep])
+    monkeypatch.setenv("LATRIS_SERVER_PLUGINS", f"{__name__}:register_counting")
+    _calls.clear()
+    app_module.create_app()
+    assert len(_calls) == 1

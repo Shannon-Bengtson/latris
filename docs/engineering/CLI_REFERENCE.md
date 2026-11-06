@@ -139,27 +139,17 @@ SHELF, Delphi, IDEA, Cooke, AHP, and related methods remain future work.
 
 ```bash
 latris export md [--pack client|audit|review|workshop|publication] [--report-url URL] [--no-ai]
-latris export word [--pack client|audit|review|workshop|publication]
 latris export dot --view system_map|cld|dag
-latris export review [--pack client|audit|review|workshop|publication]
 ```
 
-Markdown, Word, DOT, and self-contained HTML review-pack exports are
-built. PDF export is not yet built. The Markdown report includes a
+The library exports Markdown and DOT. Word reports, self-contained
+HTML review packs (and importing completed ones) and story HTML are part
+of the Latris app (`app.latris.app`) since 0.5.0. The Markdown report includes a
 Mermaid sketch of the model (section `diagram`, in every pack) that
 renders on GitHub and in most chat UIs. `--report-url` adds a link to the
 hosted copy of the report in the footer; it defaults to the link recorded
 when the project was shared, if any. `--no-ai` writes the narrative
 preamble without attempting an AI call.
-
-## Review Import
-
-```bash
-latris review import <completed-review.html>
-```
-
-Imports structured feedback from a completed review pack and creates the
-corresponding challenges, questions, and sign-offs.
 
 ## Graph Analysis
 
@@ -269,7 +259,8 @@ latris interpret generate-all          # AI prose for all sections
 
 ## Story (Communicate)
 
-Self-contained scrollytelling HTML built from a versioned `Story` object.
+A versioned `Story` object: a plain-language walk through the model. The
+Latris app publishes it as scrollytelling HTML.
 
 ```bash
 latris story draft                 # scaffold a Story from the current model
@@ -278,7 +269,6 @@ latris story show <story-id>
 latris story generate-prose <beat> # AI prose for one beat (StoryBeatProse)
 latris story generate-all          # AI prose for all beats
 latris story set-prose <beat> ...  # set beat prose manually
-latris story export                # export self-contained HTML
 ```
 
 ## Sync (collaboration)

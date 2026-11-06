@@ -140,13 +140,3 @@ def test_reorder_route(client: TestClient) -> None:
     resp = client.post("/api/story/cld/reorder", json={"ordered_beat_ids": reversed_ids})
     assert resp.status_code == 200, resp.text
     assert [b["id"] for b in resp.json()["result"]["beats"]] == reversed_ids
-
-
-def test_export_route_streams_html(client: TestClient) -> None:
-    _draft(client)
-    resp = client.get("/api/story/export", params={"model_type": "cld"})
-    assert resp.status_code == 200
-    assert resp.headers["content-type"].startswith("text/html")
-    assert 'filename="story-cld.html"' in resp.headers["content-disposition"]
-    assert resp.text.startswith("<!DOCTYPE html>")
-    assert "Coastal water quality" in resp.text

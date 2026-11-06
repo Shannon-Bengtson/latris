@@ -7,8 +7,6 @@ public-register prose per beat, then export self-contained HTML.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import typer
 from rich.console import Console
 
@@ -121,24 +119,3 @@ def set_prose(
 
     b, sha = set_beat_prose(model, beat, text)
     console.print(f"[green]updated[/green] {b.kind} · commit [cyan]{sha[:10]}[/cyan]")
-
-
-@app.command("export")
-@handle_cli_errors
-def export(
-    model: str = typer.Option(..., "--model", "-m"),
-    output: Path = typer.Option(None, "--output", "-o", help="Output HTML path. Omit to print to stdout."),
-    theme: str = typer.Option(None, "--theme", help="Theme name (default: the story's theme)."),
-) -> None:
-    """Render the story to a self-contained HTML file."""
-    from latris.exporters import story_html
-    from latris.repo.project import require_project
-
-    paths = require_project()
-    html = story_html.render(paths, model, theme=theme)
-    if output is None:
-        typer.echo(html)
-        return
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(html, encoding="utf-8", newline="")
-    console.print(f"[green]exported[/green] → [cyan]{output}[/cyan] ({len(html)} bytes)")
