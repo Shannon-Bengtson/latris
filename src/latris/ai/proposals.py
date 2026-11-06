@@ -14,6 +14,7 @@ stops.
 from __future__ import annotations
 
 from contextlib import nullcontext
+from typing import get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -37,6 +38,7 @@ from latris.operations.references import add_reference, list_references
 from latris.operations.view_attributes import set_view_attribute
 from latris.repo.layout import ProjectPaths
 from latris.schema.ai import ChallengeState
+from latris.schema.attributes import Confidence
 from latris.schema.substrate import (
     EntityKind,
     coerce_edge_kind,
@@ -86,7 +88,7 @@ def _apply_provenance_bundle(
     return created
 
 
-_VALID_CONFIDENCE = {"low", "medium", "high", "quantitative-pending"}
+_VALID_CONFIDENCE = set(get_args(Confidence))
 
 
 def _grouped_commit(paths: ProjectPaths, subject: str):

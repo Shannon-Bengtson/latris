@@ -7,6 +7,7 @@ references. Hand-intended as the starting point for a written deliverable.
 
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 
 from latris.exporters._format import BADGE_TEXT as _BADGE_TEXT
@@ -77,10 +78,51 @@ def _is_meta_question(question: str) -> bool:
 # identity links and are excluded from loop / centrality analysis.
 _READER_PACKS = frozenset({"client", "publication"})
 # Interpretation sections a reader pack opens with.
+# Where a reader pack's interpretation splits: the answer above, the rest
+# (after the diagram) below. Never reaches the output.
+_INTERPRETATION_REST = "<!-- interpretation continues -->"
 _ANSWER_FIRST = ("answer_to_question", "implications", "confidence_assessment")
 
 _CAUSAL_EDGE_KINDS = frozenset({"causal", "temporal", "decomposition", "conditional"})
 _POLICY_EDGE_KINDS = frozenset({"decision_rule", "governance", "definitional"})
+
+
+# Evidence audit axes in words a reader understands (the raw values stay
+# in the data and the JSON outputs).
+_AUDIT_TEXT = {
+    ("by", "human"): "attached by a person",
+    ("by", "ai"): "attached by an AI",
+    ("source", "title_only"): "from the source's title",
+    ("source", "abstract"): "from the abstract",
+    ("source", "full_text_chunk"): "from an extract of the text",
+    ("source", "full_text"): "from the full text",
+    ("verdict", "unverified"): "not yet checked against the source",
+    ("verdict", "supports"): "checked: the source supports it",
+    ("verdict", "orthogonal"): "checked: on topic but doesn't address it",
+    ("verdict", "insufficient_extract"): "checked: the extract was too short to tell",
+}
+
+
+def _audit_text(key: str, value: str) -> str:
+    return _AUDIT_TEXT.get((key, value), f"{key}={value}")
+
+
+# Columns a table can do without: dropped when every cell is blank, and
+# (for "Kind") when every row says the same thing — a column of "causal"
+# under "Causal substrate" tells the reader nothing.
+_OPTIONAL_COLUMNS = {"Kind", "Polarity", "Why", "Confidence", "Description"}
+
+
+def _table(headers: list[str], rows: list[list[str]]) -> list[str]:
+    keep = [
+        i
+        for i, h in enumerate(headers)
+        if h not in _OPTIONAL_COLUMNS
+        or (any(r[i] for r in rows) and not (h == "Kind" and len({r[i] for r in rows}) == 1))
+    ]
+    lines = ["| " + " | ".join(headers[i] for i in keep) + " |", "|" + "|".join("---" for _ in keep) + "|"]
+    lines.extend("| " + " | ".join(r[i] for i in keep) + " |" for r in rows)
+    return lines
 
 
 def _short_citation(ref) -> str:
@@ -215,7 +257,8 @@ def render(
                 git_repo.run_git(["rev-parse", "HEAD"], cwd=paths.root).stdout.strip(),
                 paths.root,
             )
-            out.append(f"_Last updated {head_ts.isoformat()}_")
+            utc = head_ts.astimezone(UTC)
+            out.append(f"_Last updated {utc.day} {utc:%b %Y, %H:%M} UTC_")
         except git_repo.GitError:
             pass
         out.append("")
@@ -271,14 +314,14 @@ def render(
         if not substrate.entities:
             out.append("_No nodes yet._")
         else:
-            id_head, id_rule = ("| ID ", "|----") if show_ids else ("", "")
-            out.append(f"{id_head}| Kind | Label | Description |")
-            out.append(f"{id_rule}|------|-------|-------------|")
+            rows = []
             for n in substrate.entities:
                 desc = descriptions.get((n.id, "description"))
-                desc_txt = _md_escape(desc.value) if desc else ""
-                id_cell = f"| `{n.id}` " if show_ids else ""
-                out.append(f"{id_cell}| {n.kind} | {_md_escape(n.label)} | {desc_txt} |")
+                rows.append(
+                    ([f"`{n.id}`"] if show_ids else [])
+                    + [n.kind, _md_escape(n.label), _md_escape(desc.value) if desc else ""]
+                )
+            out.extend(_table((["ID"] if show_ids else []) + ["Kind", "Label", "Description"], rows))
         out.append("")
 
     # ---------- Edges ----------
@@ -302,9 +345,7 @@ def render(
             ]
 
             def _emit_edge_table(edges_list) -> None:
-                id_head, id_rule = ("| ID ", "|----") if show_ids else ("", "")
-                out.append(f"{id_head}| Kind | From → To | Polarity | Why | Confidence | Description |")
-                out.append(f"{id_rule}|------|-----------|----------|-----|------------|-------------|")
+                rows = []
                 for e in edges_list:
                     src = labels.get(e.from_id, e.from_id)
                     dst = labels.get(e.to_id, e.to_id)
@@ -314,15 +355,19 @@ def render(
                     desc = descriptions.get((e.id, "description"))
                     # Agents often set both to the same causal story; say it once.
                     desc_txt = desc.value if desc and desc.value.strip() != (why or "").strip() else ""
-                    id_cell = f"| `{e.id}` " if show_ids else ""
-                    out.append(
-                        f"{id_cell}| {e.kind} | "
-                        f"{_md_escape(src)} → {_md_escape(dst)} | "
-                        f"{pol.value if pol else ''} | "
-                        f"{_md_escape(why) if why else ''} | "
-                        f"{conf.value if conf else ''} | "
-                        f"{_md_escape(desc_txt)} |"
+                    rows.append(
+                        ([f"`{e.id}`"] if show_ids else [])
+                        + [
+                            e.kind,
+                            f"{_md_escape(src)} → {_md_escape(dst)}",
+                            pol.value if pol else "",
+                            _md_escape(why) if why else "",
+                            conf.value if conf else "",
+                            _md_escape(desc_txt),
+                        ]
                     )
+                headers = ["Kind", "From → To", "Polarity", "Why", "Confidence", "Description"]
+                out.extend(_table((["ID"] if show_ids else []) + headers, rows))
 
             if causal_edges:
                 out.append("### Causal substrate")
@@ -381,7 +426,7 @@ def render(
                     values.setdefault(k, set()).add(v)
             shared = {k: next(iter(v)) for k, v in values.items() if len(v) == 1}
             if shared:
-                common = " · ".join(f"{k}={v}" for k, v in shared.items())
+                common = " · ".join(_audit_text(k, v) for k, v in shared.items())
                 out.append(f"_Every citation below: {common}._")
                 out.append("")
             for bibkey, links in sorted(by_key.items()):
@@ -395,7 +440,7 @@ def render(
                     # "human-verified / ai-verified" badge that conflated
                     # who proposed the link with whether the source
                     # supports the claim.
-                    own = " · ".join(f"{k}={v}" for k, v in _tags(link) if k not in shared)
+                    own = " · ".join(_audit_text(k, v) for k, v in _tags(link) if k not in shared)
                     audit = f" ({own})" if own else ""
                     if link.support_verdict == "contradicts":
                         audit = f" — **against**{audit}"
@@ -684,8 +729,8 @@ def render(
         waiting = sum(1 for f in all_findings if f.maturity in {"proposed", "reviewed"} and f not in visible)
         if not visible and waiting:
             out.append(
-                f"_{waiting} finding{'s' if waiting != 1 else ''} awaiting approval — "
-                "a person approves each one with `latris mature approve <finding>`._"
+                f"_{waiting} draft finding{'s are' if waiting != 1 else ' is'} not shown here "
+                f"until a person approves {'them' if waiting != 1 else 'it'}._"
             )
         elif not visible:
             out.append("_No findings recorded._")
@@ -710,7 +755,17 @@ def render(
 
     _begin("interpretation")
     if _include("interpretation"):
-        out.extend(_render_interpretation(paths, model_type=model_type, answer_first=pack in _READER_PACKS))
+        reader = pack in _READER_PACKS
+        lines = _render_interpretation(paths, model_type=model_type, answer_first=reader)
+        if reader and _INTERPRETATION_REST in lines:
+            # Reader packs: the answer stands alone as its own section, and
+            # the rest of the interpretation follows the diagram.
+            cut = lines.index(_INTERPRETATION_REST)
+            out.extend(lines[:cut])
+            _begin("interpretation_rest")
+            out.extend(lines[cut + 1 :])
+        else:
+            out.extend(line for line in lines if line != _INTERPRETATION_REST)
 
     _begin("milestones")
     if _include("milestones"):
@@ -797,6 +852,12 @@ def _in_pack_order(
     order = sections or (get_pack(pack).sections if pack else None)
     if not order:
         return out
+    if "interpretation" in order:
+        # The rest of a split interpretation goes after the diagram when the
+        # diagram follows the answer, else straight after the answer.
+        after = "diagram" if "diagram" in order[order.index("interpretation") :] else "interpretation"
+        order = list(order)
+        order.insert(order.index(after) + 1, "interpretation_rest")
     bounds = [*(i for _, i in starts[1:]), len(out)]
     chunks = {key: out[start:end] for (key, start), end in zip(starts, bounds, strict=True)}
     head = out[: starts[0][1]] if starts else []
@@ -860,7 +921,10 @@ def _render_interpretation(
     if not scoped_sections:
         return []
 
-    out: list[str] = ["## Interpretation", ""]
+    out: list[str] = []
+    answer_alone = answer_first and any(s.section_type == "answer_to_question" for s in scoped_sections)
+    if not answer_alone:
+        out += ["## Interpretation", ""]
 
     # Render in registry order so the report flows logically
     # (Structural Summary → Key Findings → ... → Open Questions). Reader
@@ -884,7 +948,12 @@ def _render_interpretation(
             # Disambiguate by model only in the aggregate (unscoped) report.
             multi = len(by_type.get(section_type, [])) > 1 or len(scoped_sections) > 10
             heading_suffix = f" ({s.model_type.upper()})" if model_type is None and multi else ""
-            out.append(f"### {title}{heading_suffix}")
+            if answer_alone and section_type == "answer_to_question":
+                out.append(f"## {title}{heading_suffix}")
+            else:
+                if answer_alone and _INTERPRETATION_REST not in out:
+                    out += [_INTERPRETATION_REST, "## Interpretation", ""]
+                out.append(f"### {title}{heading_suffix}")
             out.append("")
 
             if s.prose:
@@ -903,7 +972,12 @@ def _render_interpretation(
                 out.append("**Claims (from analysis):**")
                 out.append("")
                 for c in s.claims:
-                    out.append(f"- {_md_escape(c)}")
+                    # "  - item" claims list the items of the claim before
+                    # them; nest them under it, not under an empty bullet.
+                    if c.startswith("  - "):
+                        out.append(f"  - {_md_escape(c[4:])}")
+                    else:
+                        out.append(f"- {_md_escape(c)}")
                 out.append("")
 
             state_marker = {

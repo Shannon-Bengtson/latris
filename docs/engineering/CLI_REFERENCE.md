@@ -42,8 +42,11 @@ latris build --spec model.yaml [--verified-by human|ai]   # '-' reads stdin
 `build` adds a whole model from one YAML or JSON spec — `factors` (label,
 kind, description, sources, contradicts), `links` (from, to, kind, polarity,
 reason, weight, description, confidence, sources, contradicts), `sources` (key, title, authors,
-year, container, doi, url), `assumptions`, `questions`, `outcome` and an
-optional `model_type` — as **one commit**. Links and citations refer to
+year, container, doi, url, notes), `assumptions` (text, or text + target +
+rationale), `questions`, `findings` (statement, category, detail, targets;
+recorded as proposed), `challenges` (argument, target), `interpretation`
+(section, prose, by), `outcome` and an optional `model_type` — as **one
+commit**. Links and citations refer to
 factors by label and to sources by key, from the spec or already in the
 project. The whole spec is checked first and nothing changes if anything
 fails to resolve. Field names match the hosted MCP server's
@@ -66,7 +69,10 @@ latris edge remove <id>
 ## Attributes, References, Evidence
 
 ```bash
-latris attr set <target-id> <attribute> <value>
+latris attr set <target-id> <attribute> <value>   # description | confidence
+#   confidence: low | medium | high | quantitative-pending | by-definition
+#   (by-definition: true by definition or accounting; needs no source and
+#   doesn't count against evidence coverage)
 
 latris ref add <bibkey> --title "..." --author "..." --year ...
 latris ref list

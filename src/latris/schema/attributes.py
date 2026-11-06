@@ -13,7 +13,9 @@ from latris.schema.common import (
     SupportVerdict,
 )
 
-Confidence = Literal["low", "medium", "high", "quantitative-pending"]
+# "by-definition": true by definition or accounting (departures reduce the
+# number of volunteers) — certain, and needs no source.
+Confidence = Literal["low", "medium", "high", "quantitative-pending", "by-definition"]
 # Polarity values: "+" (positive), "-" (negative), "~" (ambiguous —
 # evidence is genuinely contested or the relationship is non-monotonic;
 # loop classification treats any "~" edge as making the loop unknown).

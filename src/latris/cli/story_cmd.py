@@ -1,8 +1,8 @@
-"""Story (Communicate phase) CLI — draft, prose, emphasis, export.
+"""Story (Communicate phase) CLI — draft, prose, emphasis.
 
-Mirrors ``server/routes/story.py`` so the scrollytelling artifact can be
-produced from a script: draft the deterministic beat skeleton, generate
-public-register prose per beat, then export self-contained HTML.
+Mirrors ``server/routes/story.py`` so a story can be prepared from a
+script: draft the deterministic beat skeleton and generate public-register
+prose per beat. The scrollytelling HTML itself is rendered by the Latris app.
 """
 
 from __future__ import annotations
@@ -13,7 +13,8 @@ from rich.console import Console
 from latris.cli._errors import handle_cli_errors
 
 app = typer.Typer(
-    help="Story: self-contained scrollytelling HTML for non-technical audiences.",
+    help="Story: the beats and prose of a scrollytelling story for non-technical audiences "
+    "(the HTML is rendered by the Latris app).",
     no_args_is_help=True,
 )
 console = Console()

@@ -128,10 +128,13 @@ def _report_capabilities() -> dict[str, Any]:
         ],
         "how": "latris export md --pack <name> [--model-type <type>] -o report.md",
         "link_for_a_person": (
-            "latris link — prints a link that opens this model in the Latris app (works offline; the model "
-            "travels inside the link): a hosted report with the full Latris figure (loops, polarity, "
-            "evidence) that the person can share, and save to a free account for the editor and Word. "
-            "Give the person this link alongside (or instead of) the Markdown."
+            "latris link — prints a link that opens this model in the Latris app. Making it needs no "
+            "network (the model travels inside the link); opening it needs app.latris.app. It opens a "
+            "hosted report with the full Latris figure (loops, polarity, evidence) that the person can "
+            "share, and save to a free account for the editor and Word. The link itself never stops "
+            "working; the short report address it opens lasts 30 days unless saved, and saving gives a "
+            "short link that doesn't expire. Give the person this link alongside (or instead of) the "
+            "Markdown."
         ),
         "board_ready_prose": (
             "The client and publication packs include an interpretation: the answer to the modelling "

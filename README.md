@@ -215,8 +215,16 @@ latris build --spec model.yaml
 #   sources:
 #     - {key: smith2021, title: Volunteer burnout, authors: ["Smith, J"], year: 2021}
 #     - {key: tuohy2015, title: Workload and retention revisited, year: 2015}
-#   assumptions: ["Service demand stays steady as numbers fall."]
+#   assumptions:
+#     - {text: "Service demand stays steady as numbers fall.", target: "Burnout -> Volunteer departures",
+#        rationale: "Demand data only covers 2019-2023."}
 #   questions: ["Does recognition matter independently of workload?"]
+#   findings:                            # recorded as proposed; a person approves them
+#     - {statement: "Workload drives departures through burnout.", category: dynamics,
+#        targets: ["Workload -> Burnout"]}
+#   challenges: [{argument: "Burnout may follow intent to leave.", target: "Burnout"}]
+#   interpretation:                      # prose for report sections
+#     - {section: answer_to_question, prose: "Volunteers leave mainly because...", by: ai}
 
 # Or one change at a time:
 latris node add "Workload" --kind variable
@@ -277,6 +285,10 @@ Tips for agents:
   (or `contradicts:` in a build spec) — not as a challenge and not left
   uncited. The report then shows the link's sources for and against under
   "Contested links", and the confidence and open-questions claims name it.
+- **Links that are true by definition** (departures reduce the number of
+  volunteers) take `confidence: by-definition` (or `latris attr set <link>
+  confidence by-definition`). They need no source: they don't count against
+  coverage, and the figure draws them solid rather than as unproven.
 - **Findings you add are proposed.** The client report lists only approved
   ones (it says how many are waiting); a person approves each with
   `latris mature approve <finding-id>`.
@@ -289,8 +301,11 @@ Tips for agents:
 - **And give them `latris link`'s link.** It opens the model in the Latris app
   as a hosted report with the full figure (loops, polarity, evidence) that
   they can share, and save to a free account for the editor and a Word
-  report. It works offline — the model travels inside the link — so it works
-  from sandboxes that can't reach latris.app.
+  report. Making it needs no network — the model travels inside the link —
+  so it works from sandboxes that can't reach latris.app; opening it needs
+  app.latris.app. The link never stops working; the short report address it
+  opens lasts 30 days unless the model is saved, and saving gives a short link
+  that doesn't expire (better for email and board papers).
 
 The complete, always-current demonstration of every command is the
 worked example:

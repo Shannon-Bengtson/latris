@@ -21,13 +21,17 @@ def build(
         "human", "--verified-by", help="human | ai — who verified the citations in the spec apply."
     ),
 ) -> None:
-    """Add factors, links, sources, citations, assumptions and questions from one spec, as one commit.
+    """Add a whole model from one spec, as one commit.
 
     The spec is checked in full first; if anything doesn't resolve, nothing
-    is changed. See `latris build --help` and the README for the format:
-    ``factors`` (label, description, sources), ``links`` (from, to, polarity,
-    reason, confidence, sources), ``sources`` (key, title, authors, year, doi,
-    url), ``assumptions``, ``questions`` and ``outcome``.
+    is changed. Keys (see the README for an example): ``factors`` (label,
+    description, sources, contradicts), ``links`` (from, to, polarity,
+    reason, confidence, sources, contradicts), ``sources`` (key, title,
+    authors, year, doi, url, notes), ``assumptions`` (text, or text + target
+    + rationale), ``questions``, ``findings`` (statement, category, detail,
+    targets; recorded as proposed), ``challenges`` (argument, target),
+    ``interpretation`` (section, prose, by) and ``outcome``. Targets are
+    factor labels or links written "From -> To".
     """
     if verified_by not in {"human", "ai"}:
         raise ValueError("--verified-by must be 'human' or 'ai'.")

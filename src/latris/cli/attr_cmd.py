@@ -16,7 +16,11 @@ console = Console()
 def set_(
     target: str = typer.Argument(..., help="Node ID/label or edge ID."),
     attribute: str = typer.Argument(..., help="description | confidence"),
-    value: str = typer.Argument(..., help="Attribute value."),
+    value: str = typer.Argument(
+        ...,
+        help="Attribute value. Confidence: low | medium | high | quantitative-pending | by-definition "
+        "(true by definition or accounting — needs no source).",
+    ),
 ) -> None:
     """Upsert an attribute value on a target (node or edge).
 

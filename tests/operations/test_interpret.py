@@ -8,6 +8,7 @@ from latris.operations.edges import add_edge
 from latris.operations.findings import record_new_finding
 from latris.operations.init import init_project
 from latris.operations.interpret import (
+    coverage_ratio,
     extract_claims,
     initialise_sections,
     load_interpretation,
@@ -483,3 +484,26 @@ def test_outcome_is_not_an_intervention_point(tmp_path: Path, git_identity):
     assert "Departures" in names(extract_claims("implications", "cld", root=root))
     set_role("Departures", "cld", "outcome", root=root)
     assert "Departures" not in names(extract_claims("implications", "cld", root=root))
+    # The summary agrees with Implications and Sensitivity.
+    summary = " ".join(extract_claims("key_findings", "cld", root=root))
+    assert "most causal paths run through (outcomes excluded)" in summary
+    assert "Departures (betweenness" not in summary
+
+
+def test_links_true_by_definition_need_no_source(tmp_path: Path, git_identity):
+    from latris.operations.attributes import set_attribute
+    from latris.operations.edges import list_edges
+    from latris.operations.project import update_selected_models
+    from latris.repo.layout import ProjectPaths
+
+    root = tmp_path / "definition"
+    init_project(root, statement="Why do volunteers leave?")
+    update_selected_models(["cld"], root=root)
+    for label in ("Departures", "Active volunteers"):
+        add_node(label, root=root)
+    add_edge("Departures", "Active volunteers", root=root)
+    add_edge("Active volunteers", "Departures", root=root)
+    first = list_edges(root=root)[0]
+    assert coverage_ratio("cld", ProjectPaths(root))[1] == 2
+    set_attribute(first.id, "confidence", "by-definition", root=root)
+    assert coverage_ratio("cld", ProjectPaths(root))[1] == 1

@@ -833,6 +833,7 @@ def build_example(ex: WorkedExample) -> None:
             to: Workload per volunteer
             polarity: "+"
             reason: Fewer people share the same work.
+            confidence: by-definition   # accounting: needs no source
         sources:
           - key: smith2021
             title: Volunteer burnout

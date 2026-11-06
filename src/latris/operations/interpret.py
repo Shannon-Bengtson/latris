@@ -274,18 +274,28 @@ def _load_findings(paths, model_type: str | None = None) -> list[Finding]:
     return list_findings(model_type=model_type, root=paths.root)
 
 
-def _coverage_ids(substrate) -> tuple[set[str], str]:
+def _coverage_ids(substrate, paths=None) -> tuple[set[str], str]:
     """The elements evidence coverage is measured over, and their name.
 
     Links are the model's claims, so coverage is "how many links have a
     source". Factors are named things, not claims; counting them too made a
     well-sourced model look thin (11 of 16 links became 11 of 28). Before
-    any link exists, factors are all there is to cover.
+    any link exists, factors are all there is to cover. Links marked
+    ``by-definition`` (e.g. departures reduce the number of volunteers)
+    need no source, so they aren't counted.
     """
     edge_ids = {e.id for e in substrate.edges}
     if edge_ids:
-        return edge_ids, "links"
+        return edge_ids - (_by_definition_ids(paths) if paths is not None else set()), "links"
     return {e.id for e in substrate.entities}, "factors"
+
+
+def _by_definition_ids(paths) -> set[str]:
+    from latris.schema import ConfidenceSet
+
+    if not paths.confidence_yaml.exists():
+        return set()
+    return {e.target_id for e in load_model(ConfidenceSet, paths.confidence_yaml).entries if e.value == "by-definition"}
 
 
 def _element_names(substrate, ids: list[str]) -> list[str]:
@@ -373,7 +383,7 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
         load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
     )
 
-    all_ids, _ = _coverage_ids(substrate)
+    all_ids, _ = _coverage_ids(substrate, paths)
     total = len(all_ids)
     if total == 0:
         return 0, 0, 1.0
@@ -501,15 +511,15 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
     causal = causal_edges(substrate.edges)
     if substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)
-        # Top 3 by betweenness
-        by_betweenness = sorted(centrality, key=lambda c: c.betweenness, reverse=True)
+        # Top 3 by betweenness, outcomes excluded — same ranking as
+        # Sensitivity and Implications, so the sections don't disagree.
         entity_labels = {e.id: e.label for e in substrate.entities}
-        if by_betweenness:
-            top = by_betweenness[:3]
+        top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
+        if top:
             top_names = [
                 f"{entity_labels.get(c.entity_id, c.entity_id[:8])} (betweenness: {c.betweenness:.2f})" for c in top
             ]
-            claims.append(f"Most central nodes: {', '.join(top_names)}.")
+            claims.append(f"Factors the most causal paths run through (outcomes excluded): {', '.join(top_names)}.")
 
         # Highest degree
         by_degree = sorted(centrality, key=lambda c: c.degree_total, reverse=True)
@@ -653,7 +663,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
 
     linked_ids = _for_ids(evidence)
     supported_ids = {e.target_id for e in evidence.entries if e.support_verdict == "supports"}
-    all_ids, noun = _coverage_ids(substrate)
+    all_ids, noun = _coverage_ids(substrate, paths)
 
     total = len(all_ids)
     linked = len(all_ids & linked_ids)
@@ -682,7 +692,7 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
     refs = load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
 
-    all_ids, noun = _coverage_ids(substrate)
+    all_ids, noun = _coverage_ids(substrate, paths)
 
     # Elements without evidence — split linked vs supported (verified). A
     # link with support_verdict != "supports" is a proposed citation, not
@@ -835,7 +845,7 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
     evidence_path = paths.evidence_links_yaml
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
 
-    all_ids, noun = _coverage_ids(substrate)
+    all_ids, noun = _coverage_ids(substrate, paths)
     total_elements = len(all_ids)
     # Links cover an element if at least one EvidenceLink targets it.
     # Supported coverage requires support_verdict == "supports" — i.e. the

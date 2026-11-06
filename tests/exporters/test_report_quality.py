@@ -41,7 +41,8 @@ def project(tmp_path: Path, git_identity) -> Path:
 def test_client_pack_reads_without_internal_ids(project: Path) -> None:
     out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
     assert "`node_" not in out and "`edge_" not in out
-    assert "| Kind | Label | Description |" in out
+    # Two node kinds, so Kind stays; no descriptions, so that column goes.
+    assert "| Kind | Label |" in out and "| Description |" not in out
     # The reason behind a link is shown.
     assert "More hours, more exhaustion." in out
     # Evidence names the link and the source, and the sources are listed.
@@ -100,7 +101,8 @@ def test_finding_add(project: Path, monkeypatch) -> None:
         ProjectPaths(project), pack="review", ai=False
     )
     client = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
-    assert "1 finding awaiting approval" in client
+    assert "1 draft finding is not shown here until a person approves it" in client
+    assert "latris mature" not in client
 
     bad = CliRunner().invoke(app, ["finding", "add", "x", "--category", "vibes"])
     assert bad.exit_code == 2
@@ -164,8 +166,12 @@ def test_identical_audit_tags_are_stated_once(project: Path) -> None:
     evidence_ops.add_evidence(edge.id, "polarity", "lee2022", root=project)
     out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
     evidence = out.split("## Evidence", 1)[1].split("\n## ", 1)[0]
-    assert evidence.count("verdict=unverified") == 1
-    assert "_Every citation below: by=human · source=title_only · verdict=unverified._" in evidence
+    assert evidence.count("not yet checked against the source") == 1
+    assert (
+        "_Every citation below: attached by a person · from the source's title · "
+        "not yet checked against the source._"
+    ) in evidence
+    assert "=" not in evidence
 
 
 def test_diagram_colours_polarity_and_lists_loops(project: Path) -> None:
@@ -212,7 +218,7 @@ def test_sources_against_a_link_show_both_sides(project: Path, monkeypatch) -> N
     evidence = out.split("## Evidence", 1)[1].split("\n## ", 1)[0]
     assert "Workload → Burnout / **polarity** — **against**" in evidence
     # A source against doesn't bring the shared audit tags back onto every line.
-    assert evidence.count("verdict=") == 1
+    assert evidence.count("not yet checked against the source") == 1
 
     # Coverage counts sources for a claim only; the disagreement reaches the claims.
     assert coverage_ratio("cld", ProjectPaths(project))[:2] == (1, 1)
@@ -223,3 +229,38 @@ def test_sources_against_a_link_show_both_sides(project: Path, monkeypatch) -> N
 def test_no_contested_section_without_disagreement(project: Path) -> None:
     out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
     assert "## Contested links" not in out
+
+
+def test_tables_drop_columns_that_say_nothing(project: Path) -> None:
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    edges = out.split("### Causal substrate", 1)[1].split("\n## ", 1)[0]
+    # Every link is causal (the heading says so) and none has a description.
+    assert "| From → To | Polarity | Why |" in edges
+    assert "Kind" not in edges and "Description" not in edges
+
+
+def test_last_updated_is_readable(project: Path) -> None:
+    import re
+
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert re.search(r"_Last updated \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} UTC_", out)
+
+
+def test_client_pack_puts_the_diagram_right_after_the_answer(project: Path) -> None:
+    from latris.operations import interpret as interpret_ops
+    from latris.operations.project import update_selected_models
+
+    update_selected_models(["cld"], root=project)
+    edge_ops.add_edge("Burnout", "Workload", root=project)  # a loop, so the CLD can be interpreted
+    store, _, _ = interpret_ops.initialise_sections(root=project)
+    answer = next(s for s in store.sections if s.section_type == "answer_to_question")
+    interpret_ops.update_prose(answer.id, "Volunteers leave because of workload.", root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    answer = out.index("\n## Answer to Modelling Question")
+    diagram = out.index("## Diagram")
+    rest = out.index("## Interpretation")
+    assert answer < diagram < rest
+    assert "interpretation continues" not in out
+    # Packs for the modelling team keep the interpretation in one piece.
+    review = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
+    assert "\n## Answer to Modelling Question" not in review
