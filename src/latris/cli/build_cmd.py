@@ -24,14 +24,25 @@ def build(
     """Add a whole model from one spec, as one commit.
 
     The spec is checked in full first; if anything doesn't resolve, nothing
-    is changed. Keys (see the README for an example): ``factors`` (label,
-    description, sources, contradicts), ``links`` (from, to, polarity,
-    reason, confidence, sources, contradicts), ``sources`` (key, title,
-    authors, year, doi, url, notes), ``assumptions`` (text, or text + target
-    + rationale), ``questions``, ``findings`` (statement, category, detail,
-    targets; recorded as proposed), ``challenges`` (argument, target),
-    ``interpretation`` (section, prose, by) and ``outcome``. Targets are
-    factor labels or links written "From -> To".
+    is changed. `latris docs` has a worked example. Keys:
+
+    - ``factors``: label, kind, description, sources, contradicts
+    - ``links``: from, to, polarity (+ or -), reason, confidence
+      (low | medium | high | quantitative-pending | by-definition),
+      sources, contradicts
+    - ``sources``: key, title, authors, year, container, doi, url, notes
+    - ``assumptions``: text, or text + target + rationale
+    - ``questions``: text
+    - ``findings``: statement, category (structure | dynamics |
+      sensitivity | inference | diagnostics | recommendations), detail,
+      targets — recorded as proposed; a person approves them
+    - ``challenges``: argument, target
+    - ``decisions``: statement, rationale, target
+    - ``interpretation``: section, prose, by (ai | human)
+    - ``outcome``: the factor the model explains
+
+    Targets are factor labels or links written "From -> To". Quote YAML
+    values that contain a colon.
     """
     if verified_by not in {"human", "ai"}:
         raise ValueError("--verified-by must be 'human' or 'ai'.")

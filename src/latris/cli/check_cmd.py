@@ -14,7 +14,7 @@ from rich.table import Table
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit, json_mode
 
-app = typer.Typer(help="Cross-store coherence checks.", no_args_is_help=True)
+app = typer.Typer(help="Checks: `handover` (ready for a board?) and `coherence`.", no_args_is_help=True)
 console = Console()
 
 
@@ -55,4 +55,42 @@ def coherence() -> None:
     console.print(f"\n{len(findings)} finding(s).")
     likely = sum(1 for f in findings if f.severity == "likely")
     if likely:
+        raise typer.Exit(code=1)
+
+
+@app.command("handover")
+@handle_cli_errors
+def handover(
+    model_type: str = typer.Option(None, "--model-type", "-m", help="Model type to check (default: the first chosen)."),
+) -> None:
+    """Is the model ready to hand to a board? Lists what's left, and how to fix each.
+
+    Checks: links with no source, citations nobody has checked against their
+    source, findings waiting for approval, report sections without prose, and
+    descriptions that contradict their link's polarity. Exits 1 if anything
+    is left.
+    """
+    from dataclasses import asdict
+
+    from latris.operations.handover import handover_check
+
+    report = handover_check(model_type=model_type)
+
+    def human() -> None:
+        if report.ready:
+            console.print("[green]Ready to hand over:[/green] every link sourced, every citation checked, "
+                          "findings approved, every section written.")
+            return
+        n = len(report.items)
+        console.print(f"[bold]Ready to hand over: no[/bold] — {n} thing{'s' if n != 1 else ''} to do\n")
+        for i, item in enumerate(report.items, 1):
+            console.print(f"[yellow]{i}.[/yellow] {item.message}", highlight=False)
+            for ex in item.examples:
+                console.print(f"     · {ex}", markup=False, highlight=False)
+            if item.count > len(item.examples) and item.examples:
+                console.print(f"     · … and {item.count - len(item.examples)} more", highlight=False)
+            console.print(f"   [dim]fix: {item.fix}[/dim]\n", highlight=False)
+
+    emit(asdict(report), human=human)
+    if not report.ready:
         raise typer.Exit(code=1)

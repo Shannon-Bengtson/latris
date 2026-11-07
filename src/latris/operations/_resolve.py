@@ -67,9 +67,29 @@ def resolve_edge(query: str, edges: list[Edge]) -> Edge:
     raise ResolveError(f"no edge matches {query!r}")
 
 
+def resolve_edge_by_name(query: str, substrate) -> Edge | None:
+    """``"Workload -> Burnout"`` (or ``→``): the link between two factors named by label, or None."""
+    from latris.schema.build_spec import LINK_ARROWS
+
+    arrow = next((a for a in LINK_ARROWS if a in query), None)
+    if arrow is None:
+        return None
+    a, b = (part.strip() for part in query.split(arrow, 1))
+    src, dst = resolve_entity(a, substrate.entities), resolve_entity(b, substrate.entities)
+    found = [e for e in substrate.edges if e.from_id == src.id and e.to_id == dst.id]
+    if len(found) > 1:
+        raise ResolveError(f"{query!r} matches {len(found)} links; use an edge ID ({', '.join(e.id for e in found)})")
+    if not found:
+        raise ResolveError(f"no link from {src.label!r} to {dst.label!r}")
+    return found[0]
+
+
 def resolve_target(query: str, substrate) -> str:
     """Return the stable ID of whichever Entity or Edge *query* points at."""
     try:
         return resolve_entity(query, substrate.entities).id
     except ValueError:
+        named = resolve_edge_by_name(query, substrate)  # "A -> B", after labels (a label may hold "->")
+        if named is not None:
+            return named.id
         return resolve_edge(query, substrate.edges).id

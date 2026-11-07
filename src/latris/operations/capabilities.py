@@ -100,12 +100,19 @@ def build_capability_manifest() -> dict[str, Any]:
 def _building_capabilities() -> dict[str, str]:
     """How an agent builds a model quickly and records evidence on both sides."""
     return {
+        "guide": "latris docs — the guide for AI agents, from the installed package (no network needed).",
         "whole_model_in_one_step": (
             "latris build --spec model.yaml (YAML or JSON; '-' reads stdin): factors, links with polarity and "
             "reasons, sources, citations, evidence against, assumptions, questions and the outcome, as one "
-            "commit. The spec is checked in full first; a mistake changes nothing."
+            "commit. The spec is checked in full first; a mistake changes nothing. `latris build --help` "
+            "lists every key and allowed value."
         ),
-        "evidence_for": "latris evidence add <link> polarity <bibkey> [--verified-by ai]",
+        "evidence_for": "latris evidence add \"<from> -> <to>\" polarity <bibkey> [--verified-by ai]",
+        "checking_a_source": (
+            "latris evidence check \"<from> -> <to>\" polarity <bibkey> supports|against|off-topic --rationale "
+            "\"...\" [--by ai --quote \"...\"] — records whether the source actually supports the claim; until "
+            "then reports count the citation as not yet checked."
+        ),
         "evidence_against": (
             "latris evidence add <link> polarity <bibkey> --contradicts — a source that argues against the "
             "link; reports show the link's sources for and against under 'Contested links'."
@@ -133,8 +140,13 @@ def _report_capabilities() -> dict[str, Any]:
             "hosted report with the full Latris figure (loops, polarity, evidence) that the person can "
             "share, and save to a free account for the editor and Word. The link itself never stops "
             "working; the short report address it opens lasts 30 days unless saved, and saving gives a "
-            "short link that doesn't expire. Give the person this link alongside (or instead of) the "
-            "Markdown."
+            "short link that doesn't expire. `export md` also puts this link under the diagram, made fresh "
+            "on every export. Give the person this link alongside (or instead of) the Markdown."
+        ),
+        "ready_to_hand_over": (
+            "latris check handover — lists what's left before a board sees it (links with no source, "
+            "citations not checked against their source, findings waiting for approval, sections without "
+            "prose, contradictions), each with how to fix it. Exits 1 until it's clear."
         ),
         "board_ready_prose": (
             "The client and publication packs include an interpretation: the answer to the modelling "
@@ -146,7 +158,7 @@ def _report_capabilities() -> dict[str, Any]:
         ),
         "library_formats": ["markdown (with a Mermaid diagram)", "graphviz dot"],
         "app_formats": {
-            "where": "https://app.latris.app (the Latris app)",
+            "where": "https://app.latris.app",
             "formats": ["Word report", "HTML review pack (and importing completed reviews)",
                         "scrollytelling story", "hosted report link (no sign-in to view)"],
         },

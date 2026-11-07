@@ -32,6 +32,7 @@ from latris.schema import (
     AssumptionLog,
     ChallengeLog,
     ConfidenceSet,
+    DecisionLog,
     DescriptionSet,
     EvidenceLinkSet,
     PolaritySet,
@@ -44,6 +45,7 @@ from latris.schema.build_spec import (
     BuildSpec,
     SpecAssumption,
     SpecChallenge,
+    SpecDecision,
     SpecFactor,
     SpecFinding,
     SpecInterpretation,
@@ -167,6 +169,10 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         SpecChallenge(argument=c.argument, target=name(c.target_id))
         for c in _load(ChallengeLog, paths.challenges_yaml).entries if c.state == "open"
     ]
+    decisions = [
+        SpecDecision(statement=d.statement, rationale=d.rationale, target=name(d.target_id))
+        for d in _load(DecisionLog, paths.decisions_yaml).entries
+    ]
     interpretation = [
         SpecInterpretation(
             section=s.section_type, prose=s.prose, by="human" if s.generation_state == "edited" else "ai",
@@ -184,7 +190,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
     spec = BuildSpec(
         model_type=model_type, outcome=outcome, factors=factors, links=links, sources=sources,
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
-        interpretation=interpretation,
+        decisions=decisions, interpretation=interpretation,
     )
     return foundation, spec
 

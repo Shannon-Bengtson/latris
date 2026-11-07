@@ -179,9 +179,13 @@ def set_evidence_support_verdict(
     rationale: str,
     quote: str | None = None,
     quote_location: QuoteLocation | None = None,
+    checked_by: Literal["human", "ai"] | None = None,
     root: Path | None = None,
 ) -> tuple[EvidenceLink, str]:
     """Mutate `support_verdict` on an existing evidence link.
+
+    ``checked_by`` (a person reading the source, or an AI) is recorded in
+    the note; ``verified_by`` keeps saying who attached the citation.
 
     Locates the link by (target, attribute, bibkey). Raises ValueError
     on no-op (verdict unchanged). Appends rationale to `notes` so the
@@ -205,7 +209,8 @@ def set_evidence_support_verdict(
         )
 
     link.support_verdict = new_verdict
-    note_addition = f"verdict {old_verdict} → {new_verdict}: {rationale}"
+    who = {"human": " (checked by a person)", "ai": " (checked by an AI)"}.get(checked_by or "", "")
+    note_addition = f"verdict {old_verdict} → {new_verdict}{who}: {rationale}"
     link.notes = f"{link.notes}\n{note_addition}" if link.notes else note_addition
 
     if quote is not None:
@@ -221,7 +226,11 @@ def set_evidence_support_verdict(
     dump_model(store, paths.evidence_links_yaml)
 
     target_label = f"{link.target_id[:15]}…" if link.target_id else "model"
-    subject_verb = "Verified" if new_verdict == "supports" and quote is not None else "Demoted"
+    subject_verb = (
+        "Verified" if new_verdict == "supports" and quote is not None
+        else "Checked" if checked_by is not None
+        else "Demoted"
+    )
     sha = auto_commit(
         paths.root,
         subject=f'{subject_verb} evidence "{bibkey}" on {target_label}/{attribute}: {old_verdict} → {new_verdict}',

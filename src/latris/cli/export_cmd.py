@@ -63,29 +63,44 @@ def export_md(
         "--no-ai",
         help="Write the narrative preamble without an AI call (fast, deterministic, no credentials).",
     ),
+    no_link: bool = typer.Option(
+        False,
+        "--no-link",
+        help="Leave out the link to the full figure in the Latris app (made fresh on every export, offline).",
+    ),
 ) -> None:
-    """Render the project as a Markdown report (stdout by default)."""
+    """Render the project as a Markdown report (stdout by default).
+
+    Under the diagram, the report links to the full Latris figure and the
+    interactive report (the same link `latris link` prints), made fresh on
+    every export so it's never out of date.
+    """
     paths = require_project()
     if report_url is None:
         report_url = sync_ops.report_url(root=paths.root)
     if output is None:
-        _emit(md_exporter.render(paths, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai))
-        if not report_url and not json_mode():
+        _emit(md_exporter.render(
+            paths, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai, app_link=not no_link,
+        ))
+        if not report_url and not no_link and not json_mode():
             Console(stderr=True).print(f"[dim]{_LINK_HINT}[/dim]")
         return
     target = Path(output)
     if not target.is_absolute():
         target = paths.root / target
-    md_exporter.write(paths, target, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai)
+    md_exporter.write(
+        paths, target, pack=pack, model_type=model_type, report_url=report_url, ai=not no_ai, app_link=not no_link,
+    )
     console.print(f"[green]wrote[/green] {target.as_posix()}")
-    if not report_url and not json_mode():
+    if not report_url and not no_link and not json_mode():
         console.print(f"[dim]{_LINK_HINT}[/dim]")
 
 
 # Agents relay what tools print: say where the polished version is, at the moment of output.
 _LINK_HINT = (
-    "For the person: `latris link` prints a link that opens this model in the Latris app — the full "
-    "figure (loops, evidence), a report they can share, and Word once they save it. Works offline."
+    "For the person: under the diagram, the report links to this model in the Latris app — the full "
+    "figure (loops, evidence), a report they can share, and Word once they save it. The link is made "
+    "fresh on every export (no network needed); `latris link` prints it on its own."
 )
 
 

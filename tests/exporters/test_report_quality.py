@@ -47,7 +47,9 @@ def test_client_pack_reads_without_internal_ids(project: Path) -> None:
     assert "More hours, more exhaustion." in out
     # Evidence names the link and the source, and the sources are listed.
     assert "Workload → Burnout" in out
-    assert "### `smith2021` — Smith & Lee (2021), *Volunteer burnout*" in out
+    # Sources by name, not by their internal key.
+    assert "### Smith & Lee (2021), *Volunteer burnout*" in out
+    assert "smith2021" not in out
     assert "## References" in out
 
 
@@ -264,3 +266,36 @@ def test_client_pack_puts_the_diagram_right_after_the_answer(project: Path) -> N
     # Packs for the modelling team keep the interpretation in one piece.
     review = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
     assert "\n## Answer to Modelling Question" not in review
+
+
+def test_reader_packs_drop_claims_where_prose_says_it(project: Path) -> None:
+    from latris.operations import interpret as interpret_ops
+    from latris.operations.project import update_selected_models
+
+    update_selected_models(["cld"], root=project)
+    edge_ops.add_edge("Burnout", "Workload", root=project)
+    store, _, _ = interpret_ops.initialise_sections(root=project)
+    answer = next(s for s in store.sections if s.section_type == "answer_to_question")
+    interpret_ops.refresh_all_claims(root=project)
+    interpret_ops.update_prose(answer.id, "Volunteers leave because of workload.", root=project)
+    client = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    answer_part = client.split("\n## Answer to Modelling Question", 1)[1].split("\n## ", 1)[0]
+    assert "Claims (from analysis)" not in answer_part
+    # Sections without prose still show their claims.
+    assert "Claims (from analysis)" in client
+    review = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
+    assert review.count("Claims (from analysis)") > client.count("Claims (from analysis)")
+
+
+def test_report_links_to_the_model_as_it_is_now(project: Path) -> None:
+    from latris.operations.share_link import decode_payload
+
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False, app_link=True)
+    link = out.split("(https://app.latris.app/open#", 1)[1].split(")", 1)[0]
+    assert [f.label for f in decode_payload(link).spec.factors] == ["Workload", "Burnout"]
+    node_ops.add_node("Recognition", root=project)
+    later = md_exporter.render(ProjectPaths(project), pack="client", ai=False, app_link=True)
+    fresh = later.split("(https://app.latris.app/open#", 1)[1].split(")", 1)[0]
+    assert "Recognition" in [f.label for f in decode_payload(fresh).spec.factors]
+    # Off unless asked for (the hosted page mustn't link to itself).
+    assert "open#" not in md_exporter.render(ProjectPaths(project), pack="client", ai=False)

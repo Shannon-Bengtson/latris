@@ -37,6 +37,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from latris.schema.attributes import Confidence
 from latris.schema.substrate import EdgeKind, EntityKind
 
 
@@ -67,7 +68,7 @@ class SpecLink(_Spec):
     reason: str | None = None  # why the polarity holds (the causal story)
     weight: float | None = Field(default=None, ge=-1, le=1)  # FCM edge weight
     description: str | None = None
-    confidence: str | None = None
+    confidence: Confidence | None = None  # low | medium | high | quantitative-pending | by-definition
     sources: list[str | SpecCitation] = Field(default_factory=list)
     contradicts: list[str | SpecCitation] = Field(default_factory=list)  # sources against the link
 
@@ -104,6 +105,14 @@ class SpecFinding(_Spec):
     targets: list[str] = Field(default_factory=list)  # factor labels or "From -> To"
 
 
+class SpecDecision(_Spec):
+    """A modelling choice and why it was made (e.g. leaving a factor out)."""
+
+    statement: str
+    rationale: str
+    target: str | None = None  # a factor label, or a link as "From -> To"
+
+
 class SpecChallenge(_Spec):
     """An open challenge: someone disputes a factor or link."""
 
@@ -131,4 +140,5 @@ class BuildSpec(_Spec):
     questions: list[str] = Field(default_factory=list)
     findings: list[SpecFinding] = Field(default_factory=list)
     challenges: list[SpecChallenge] = Field(default_factory=list)
+    decisions: list[SpecDecision] = Field(default_factory=list)
     interpretation: list[SpecInterpretation] = Field(default_factory=list)

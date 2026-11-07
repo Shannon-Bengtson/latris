@@ -95,6 +95,8 @@ path = "src/latris/__init__.py"
 packages = ["src/latris"]
 # Agent-facing instructions belong in the repo/sdist, not the installed package.
 exclude = ["**/CLAUDE.md"]
+# The guide travels with the package (`latris docs`): sandboxes often can't reach GitHub.
+force-include = { "README.md" = "latris/_docs/README.md", "llms.txt" = "latris/_docs/llms.txt" }
 
 [tool.hatch.build.targets.sdist]
 include = [

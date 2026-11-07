@@ -18,6 +18,7 @@ latris --version
 latris --help
 latris doctor
 latris capabilities [--json]
+latris docs [agents|readme|llms]   # the guide, from the installed package
 latris --json <group> <command> ...
 ```
 
@@ -27,7 +28,7 @@ mutations (the server routes' shape) and `{"result": [...]}` for listings.
 Errors print `{"error": ..., "type": ...}` with the usual exit codes (1 for
 not-found / git / sync errors, 2 for invalid input). Supported today:
 `node add|list|show|rename|remove`, `edge add|list|remove`, `attr set`,
-`view set|role`, `ref add|list`, `evidence add`, `check coherence`, `build`.
+`view set|role`, `ref add|list`, `evidence add|check`, `check coherence|handover`, `build`, `init`, `docs`.
 
 ## Project
 
@@ -45,8 +46,8 @@ reason, weight, description, confidence, sources, contradicts), `sources` (key, 
 year, container, doi, url, notes), `assumptions` (text, or text + target +
 rationale), `questions`, `findings` (statement, category, detail, targets;
 recorded as proposed), `challenges` (argument, target), `interpretation`
-(section, prose, by), `outcome` and an optional `model_type` — as **one
-commit**. Links and citations refer to
+(section, prose, by), `decisions` (statement, rationale, target), `outcome`
+and an optional `model_type` — as **one commit**. Links and citations refer to
 factors by label and to sources by key, from the spec or already in the
 project. The whole spec is checked first and nothing changes if anything
 fails to resolve. Field names match the hosted MCP server's
@@ -78,7 +79,9 @@ latris ref add <bibkey> --title "..." --author "..." --year ...
 latris ref list
 latris ref import <bibfile>
 
-latris evidence add <target-id> <attribute> <bibkey> [--verified-by human|ai] [--notes "..."] [--contradicts]
+latris evidence add <target> <attribute> <bibkey> [--verified-by human|ai] [--notes "..."] [--contradicts]
+latris evidence check <target> <attribute> <bibkey> supports|against|off-topic|too-little|unchecked     --rationale "..." [--quote "..."] [--by human|ai]
+# <target>: a factor (label or ID) or a link ("From -> To", or its edge ID)
 ```
 
 `--contradicts` records a source that argues **against** the claim. It sits
@@ -162,7 +165,7 @@ SHELF, Delphi, IDEA, Cooke, AHP, and related methods remain future work.
 ## Export
 
 ```bash
-latris export md [--pack client|audit|review|workshop|publication] [--report-url URL] [--no-ai]
+latris export md [--pack client|audit|review|workshop|publication] [--report-url URL] [--no-ai] [--no-link]
 latris export dot --view system_map|cld|dag
 latris link [--model-type cld] [--app-url URL]   # a link that opens the model in the Latris app
 ```
@@ -261,6 +264,7 @@ latris sd simulate [--final-time T] [--dt DT] [--saveper S] [--method euler|rk2|
 
 ```bash
 latris check coherence    # cross-artefact coherence checks over the project
+latris check handover     # ready for a board? what's left, each with its fix (exit 1 until clear)
 ```
 
 ## Completeness

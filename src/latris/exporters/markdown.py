@@ -156,6 +156,7 @@ def render(
     model_type: str | None = None,
     report_url: str | None = None,
     ai: bool = True,
+    app_link: bool = False,
 ) -> str:
     """Render the project as Markdown, optionally filtered by pack or sections.
 
@@ -296,6 +297,13 @@ def render(
                 out.append("")
                 out.extend(f"- {line}" for line in legend)
                 out.append("")
+            link = _app_link(paths, model_type) if app_link and not report_url else None
+            if link:
+                out.append(
+                    f"**[Open the full figure and the interactive report]({link})** — the model travels "
+                    "inside the link and opens in the Latris app."
+                )
+                out.append("")
 
     _begin("modelling_approach")
     if _include("modelling_approach"):
@@ -432,7 +440,11 @@ def render(
             for bibkey, links in sorted(by_key.items()):
                 ref = ref_by_key.get(bibkey)
                 cite = _short_citation(ref) if ref else ""
-                out.append(f"### `{bibkey}` — {cite}" if cite else f"### `{bibkey}`")
+                # Reader packs name the source, not its internal key.
+                if cite and not show_ids:
+                    out.append(f"### {cite}")
+                else:
+                    out.append(f"### `{bibkey}` — {cite}" if cite else f"### `{bibkey}`")
                 out.append("")
                 for link in links:
                     target_label = labels.get(link.target_id, link.target_id)
@@ -616,7 +628,9 @@ def render(
         if not references:
             out.append("_None._")
         else:
-            for r in sorted(references, key=lambda r: r.bibkey):
+            # Reader packs list sources by author and year, without keys.
+            order = (lambda r: r.bibkey) if show_ids else (lambda r: ((r.authors or [r.title])[0].lower(), r.year or 0))
+            for r in sorted(references, key=order):
                 # "Surname, Given" names already hold commas; separate them
                 # with semicolons so the list stays readable.
                 sep = "; " if any("," in a for a in r.authors or []) else ", "
@@ -624,7 +638,7 @@ def render(
                 year = f"({r.year})" if r.year else ""
                 # Names ending in an initial ("L.") already close with a stop.
                 bits = [x.rstrip(".") for x in [authors, year, f"*{r.title}*"] if x]
-                line = f"- **`{r.bibkey}`** — {'. '.join(bits)}."
+                line = f"- **`{r.bibkey}`** — {'. '.join(bits)}." if show_ids else f"- {'. '.join(bits)}."
                 if r.doi:
                     line += f" DOI: {r.doi}"
                 if r.url:
@@ -843,6 +857,16 @@ def _render_contested(evidence, challenges, labels: dict[str, str], references) 
     return out
 
 
+def _app_link(paths: ProjectPaths, model_type: str | None) -> str | None:
+    """A ``latris link`` for this model as it is now, so the report never points at a stale copy."""
+    from latris.operations.share_link import make_link
+
+    try:
+        return make_link(model_type=model_type, root=paths.root).url
+    except (ValueError, OSError):  # e.g. too large to carry in a link
+        return None
+
+
 def _in_pack_order(
     out: list[str], starts: list[tuple[str, int]], *, pack: str | None, sections: list[str] | None
 ) -> list[str]:
@@ -968,7 +992,9 @@ def _render_interpretation(
                 out.append("_Not yet populated._")
                 out.append("")
 
-            if s.claims:
+            # Reader packs: the prose already says it; the claims list is
+            # only shown where no prose has been written yet.
+            if s.claims and not (answer_first and s.prose):
                 out.append("**Claims (from analysis):**")
                 out.append("")
                 for c in s.claims:
@@ -1000,9 +1026,9 @@ def write(
     model_type: str | None = None,
     report_url: str | None = None,
     ai: bool = True,
+    app_link: bool = False,
 ) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        render(paths, pack=pack, model_type=model_type, report_url=report_url, ai=ai), encoding="utf-8", newline=""
-    )
+    text = render(paths, pack=pack, model_type=model_type, report_url=report_url, ai=ai, app_link=app_link)
+    target.write_text(text, encoding="utf-8", newline="")
     return target

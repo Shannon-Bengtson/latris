@@ -633,6 +633,12 @@ def build_example(ex: WorkedExample) -> None:
         "actually do today — registry-only, no project needed.",
     )
     ex.run(["capabilities"])
+    ex.note(
+        "The documentation ships with the package, for sandboxes that can't reach GitHub: `latris docs` "
+        "prints the guide for AI agents, `latris docs readme` the whole README, and `latris docs llms` "
+        "the documentation map below."
+    )
+    ex.run(["docs", "llms"])
 
     # ── 1. Project setup ──────────────────────────────────────────────
     ex.section("Project Setup", "Initialise a new project with a modelling question.")
@@ -841,10 +847,21 @@ def build_example(ex: WorkedExample) -> None:
             year: 2021
         assumptions:
           - Service demand stays steady as numbers fall.
+        decisions:
+          - statement: Left out paid staff.
+            rationale: The program has none.
         """)
     ex.transcript.append("```yaml" + chr(10) + build_spec + "```" + chr(10))
     ex.run(["build", "--spec", "-"], input=build_spec)
     ex.run(["analyse", "loops"])
+    ex.note(
+        "Attaching a citation says only that it was attached. Reading the source and recording what it "
+        "says is a separate step; links can be named \"From -> To\"."
+    )
+    ex.run(["evidence", "check", "Workload per volunteer -> Volunteer burnout", "polarity", "smith2021",
+            "supports", "--rationale", "Hours per volunteer predict exhaustion."])
+    ex.note("Before handing the model to a board: what's left, and how to fix each (exits 1 until clear).")
+    ex.run(["check", "handover"], expect_fail=True)
     os.chdir(ex.root)
 
     # ── 6. Challenges ─────────────────────────────────────────────────

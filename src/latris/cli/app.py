@@ -23,6 +23,7 @@ from latris.cli import (  # noqa: E402
     challenge_cmd,
     check_cmd,
     completeness_cmd,
+    docs_cmd,
     edge_cmd,
     elicit_cmd,
     evidence_cmd,
@@ -49,7 +50,10 @@ from latris.cli.init_cmd import init as init_command  # noqa: E402
 
 app = typer.Typer(
     name="latris",
-    help="AI-assisted, evidence-native modelling workbench (CLI prototype).",
+    help=(
+        "Evidence-native causal modelling. New here (or an AI agent)? `latris docs` prints the guide — "
+        "no network needed — and `latris capabilities` lists what Latris can do."
+    ),
     no_args_is_help=True,
     add_completion=False,
 )
@@ -122,6 +126,7 @@ def main(
 
 
 app.command("capabilities")(capabilities_cmd.capabilities)
+app.command("docs")(docs_cmd.docs)
 
 
 @app.command()

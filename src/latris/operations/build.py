@@ -34,6 +34,7 @@ class BuildResult:
     questions: int = 0
     findings: int = 0
     challenges: int = 0
+    decisions: int = 0
     interpretation: int = 0
     outcome: str | None = None
     notes: list[str] = field(default_factory=list)  # parts that couldn't be applied, and why
@@ -122,6 +123,8 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
             _target(f"finding {i}", t)
     for i, c in enumerate(spec.challenges, 1):
         _target(f"challenge {i}", c.target)
+    for i, d in enumerate(spec.decisions, 1):
+        _target(f"decision {i}", d.target)
     for item in spec.interpretation:
         if item.section not in INTERPRET_SECTION_REGISTRY:
             problems.append(
@@ -140,7 +143,7 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     from latris.operations.evidence import add_evidence
     from latris.operations.findings import record_new_finding
     from latris.operations.nodes import add_node
-    from latris.operations.provenance import add_assumption, add_question
+    from latris.operations.provenance import add_assumption, add_question, log_decision
     from latris.operations.references import add_reference
     from latris.operations.view_attributes import set_view_attribute
     from latris.operations.view_roles import set_role
@@ -230,6 +233,9 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
         for c in spec.challenges:
             open_challenge(_target_id(c.target), c.argument, root=paths.root)
             result.challenges += 1
+        for d in spec.decisions:
+            log_decision(d.statement, d.rationale, target_id=_target_id(d.target), root=paths.root)
+            result.decisions += 1
         if spec.interpretation:
             _apply_interpretation(spec, model_type, paths.root, result)
 

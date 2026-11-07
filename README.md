@@ -29,7 +29,7 @@ backend that powers it.
   per-cell provenance, exact inference, parameter learning), and more
   views on the architecture's path.
 
-Status: **alpha** (0.3.1). Apache-2.0 licensed.
+Status: **alpha**. Apache-2.0 licensed.
 
 ## Prerequisites
 
@@ -146,9 +146,11 @@ python -m pytest tests/test_worked_example.py --slow   # acceptance test (regene
 
 ## For AI agents
 
-**Latris** is an evidence-native causal-modelling CLI + API server. The
-engineering docs are the source of truth for an agent working in a
-Latris project: start from [`llms.txt`](llms.txt) and
+**Latris** is an evidence-native causal-modelling CLI + API server. This
+section ships with the package: `latris docs` prints it with no network
+(`latris docs readme` for the whole README, `latris docs llms` for
+[`llms.txt`](llms.txt)), and `latris capabilities` lists what Latris can
+do. The engineering docs are in the repo:
 [`docs/README.md`](docs/README.md).
 
 **An agent can act as the model.** The AI layer doesn't require its own
@@ -219,6 +221,7 @@ latris build --spec model.yaml
 #     - {text: "Service demand stays steady as numbers fall.", target: "Burnout -> Volunteer departures",
 #        rationale: "Demand data only covers 2019-2023."}
 #   questions: ["Does recognition matter independently of workload?"]
+#   decisions: [{statement: "Left out paid staff.", rationale: "The program has none."}]
 #   findings:                            # recorded as proposed; a person approves them
 #     - {statement: "Workload drives departures through burnout.", category: dynamics,
 #        targets: ["Workload -> Burnout"]}
@@ -280,7 +283,12 @@ Tips for agents:
   then `latris ai task apply` (see "An agent can act as the model" above).
   `export md --no-ai` (and any export without a key) skips the AI prose.
 - **Evidence you attach is marked AI-proposed and unverified** until a person
-  reviews it — say so when you hand the model over.
+  reviews it — say so when you hand the model over. Attaching a citation
+  says only that it was attached; whether the source actually supports the
+  claim is recorded with `latris evidence check "<from> -> <to>" polarity
+  <key> supports|against|off-topic --rationale "..."` (a person by default;
+  an agent that read the source adds `--by ai --quote "..."`). Links can be
+  named `"From -> To"` wherever a command takes one.
 - **Sources that disagree with a link go on that link** with `--contradicts`
   (or `contradicts:` in a build spec) — not as a challenge and not left
   uncited. The report then shows the link's sources for and against under
@@ -298,7 +306,13 @@ Tips for agents:
 - **For a person, give them the client report** (`--pack client`) with the
   interpretation sections written — that's the board-ready version. It has the
   diagram, each link's reason, the evidence and the sources, without internal IDs.
-- **And give them `latris link`'s link.** It opens the model in the Latris app
+- **Before handing over, run `latris check handover`.** It lists what's
+  left — links with no source, citations not checked against their source,
+  findings waiting for approval, sections without prose, contradictions —
+  each with how to fix it, and exits 1 until it's clear. Tell the person
+  what's still on it.
+- **And give them `latris link`'s link** (`export md` also writes it under
+  the diagram, fresh on every export). It opens the model in the Latris app
   as a hosted report with the full figure (loops, polarity, evidence) that
   they can share, and save to a free account for the editor and a Word
   report. Making it needs no network — the model travels inside the link —

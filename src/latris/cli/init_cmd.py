@@ -5,12 +5,14 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from latris.cli._errors import _fail, handle_cli_errors
+from latris.cli._output import emit
 from latris.operations.init import ProjectAlreadyExistsError, init_project
-from latris.repo.git import GitError, IdentityError
 
 console = Console()
 
 
+@handle_cli_errors
 def init(
     name: str = typer.Argument(..., help="Project directory to create (relative or absolute)."),
     question: str = typer.Option(
@@ -35,14 +37,10 @@ def init(
             statement=question,
             name=display_name,
         )
-    except IdentityError as exc:
-        console.print(f"[red]identity error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
     except ProjectAlreadyExistsError as exc:
-        console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except GitError as exc:
-        console.print(f"[red]git error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
+        raise _fail("error", exc, 1) from None
 
-    console.print(f"[green]initialised[/green] project at [bold]{paths.root.as_posix()}[/bold]")
+    emit(
+        {"root": paths.root.as_posix(), "name": display_name, "question": question},
+        human=lambda: console.print(f"[green]initialised[/green] project at [bold]{paths.root.as_posix()}[/bold]"),
+    )
