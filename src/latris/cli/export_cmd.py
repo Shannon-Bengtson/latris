@@ -72,7 +72,7 @@ def export_md(
     """Render the project as a Markdown report (stdout by default).
 
     Under the diagram, the report links to the full Latris figure and the
-    interactive report (the same link `latris link` prints), made fresh on
+    hosted report (the same link `latris link` prints), made fresh on
     every export so it's never out of date.
     """
     paths = require_project()

@@ -300,7 +300,7 @@ def render(
             link = _app_link(paths, model_type) if app_link and not report_url else None
             if link:
                 out.append(
-                    f"**[Open the full figure and the interactive report]({link})** — the model travels "
+                    f"**[Open the full figure and the hosted report]({link})** — the model travels "
                     "inside the link and opens in the Latris app."
                 )
                 out.append("")
