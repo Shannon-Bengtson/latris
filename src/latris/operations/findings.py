@@ -66,7 +66,7 @@ def record_new_finding(
     payload: dict | None = None,
     origin: ProvenanceOrigin | None = None,
     source_id: str | None = None,
-    source_type: FindingSourceType = "human-direct",
+    source_type: FindingSourceType | None = None,
     target_ids: list[str] | None = None,
     related_attributes: list[str] | None = None,
     root: Path | None = None,
@@ -74,8 +74,13 @@ def record_new_finding(
     """Create and record a new finding in one step.
 
     Convenience wrapper: builds a :class:`Finding`, appends it, and commits.
+    Left out, ``source_type`` follows the origin: an AI-proposed finding came
+    from an AI interaction, not from a person.
     """
     paths = require_project(root)
+    origin = origin or default_origin()
+    if source_type is None:
+        source_type = "ai-interaction" if origin == "ai-proposed" else "human-direct"
     finding = Finding(
         id=new_id("finding"),
         category=category,
@@ -83,7 +88,7 @@ def record_new_finding(
         statement=statement,
         detail=detail,
         payload=dict(payload or {}),
-        origin=origin or default_origin(),
+        origin=origin,
         source_id=source_id,
         source_type=source_type,
         target_ids=list(target_ids or []),

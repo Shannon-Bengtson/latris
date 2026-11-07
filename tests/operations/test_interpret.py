@@ -298,7 +298,7 @@ class TestRefreshClaims:
     def test_refresh_updates_claims(self, project_with_findings: Path):
         store, _, _ = initialise_sections(root=project_with_findings)
         section = store.sections[0]
-        assert section.generation_state == "empty"
+        assert section.generation_state == "claims_only"  # initialise fills claims
 
         updated, sha = refresh_claims(section.id, root=project_with_findings)
         assert updated.generation_state == "claims_only"

@@ -120,6 +120,11 @@ def initialise_sections(
                 section_type=spec.section_type,
                 model_type=model_type,
             )
+            # New sections start with their claims, so prose can be checked
+            # against them straight away (no separate refresh-claims step).
+            section.claims = extract_claims(spec.section_type, model_type, root=paths.root)
+            section.model_commit = git.head_sha(paths.root)
+            section.generation_state = "claims_only"
             store.sections.append(section)
 
     sha = save_interpretation(

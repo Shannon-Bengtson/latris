@@ -25,7 +25,7 @@ console = Console()
 @app.command("initialise")
 @handle_cli_errors
 def initialise() -> None:
-    """Create interpretation sections for all selected model types."""
+    """Create interpretation sections (with their claims) for all selected model types."""
     from latris.operations.interpret import initialise_sections
 
     store, sha, skipped = initialise_sections()

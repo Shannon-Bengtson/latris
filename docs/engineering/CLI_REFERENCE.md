@@ -293,9 +293,9 @@ latris finding check-stale    # flag findings whose underlying state changed
 Interpret-phase sections: template claims + AI-generated prose.
 
 ```bash
-latris interpret initialise            # create section scaffold for the model type
+latris interpret initialise            # create the sections, with their claims
 latris interpret list                  # list interpretation sections
-latris interpret refresh-claims        # refresh template-derived claims
+latris interpret refresh-claims        # re-derive claims after changing the model
 latris interpret generate-prose <section>  # AI prose for one section
 latris interpret generate-all          # AI prose for all sections
 latris interpret show <section|type>   # a section's claims and prose (e.g. answer_to_question)

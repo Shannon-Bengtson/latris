@@ -117,3 +117,16 @@ def test_init_speaks_json(tmp_path: Path, git_identity, monkeypatch) -> None:
     result = CliRunner().invoke(app, ["--json", "init", "p", "-q", "Why?"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["result"]["question"] == "Why?"
+
+
+def test_initialise_fills_claims_and_ai_findings_say_so(project: Path, monkeypatch) -> None:
+    from latris.operations.findings import record_new_finding
+    from latris.operations.interpret import initialise_sections
+
+    store, _, _ = initialise_sections(root=project)
+    assert store.sections and all(s.generation_state == "claims_only" for s in store.sections)
+    assert any(s.claims for s in store.sections)
+
+    monkeypatch.setenv("LATRIS_DEFAULT_ORIGIN", "ai-proposed")
+    finding, _ = record_new_finding("Burnout matters.", "dynamics", "cld", root=project)
+    assert (finding.origin, finding.source_type) == ("ai-proposed", "ai-interaction")
