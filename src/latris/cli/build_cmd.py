@@ -26,11 +26,14 @@ def build(
     The spec is checked in full first; if anything doesn't resolve, nothing
     is changed. `latris docs` has a worked example. Keys:
 
+    - ``context``: background, audience, boundary, intuition (what the
+      person expects the answer to be) — the top of the report
     - ``factors``: label, kind, description, sources, contradicts
     - ``links``: from, to, polarity (+ or -), reason, confidence
       (low | medium | high | quantitative-pending | by-definition),
       sources, contradicts
-    - ``sources``: key, title, authors, year, container, doi, url, notes
+    - ``sources``: key, title, authors, year, container, doi, url, notes,
+      extract (the text you read), extract_url, extract_kind
     - ``assumptions``: text, or text + target + rationale
     - ``questions``: text
     - ``findings``: statement, category (structure | dynamics |

@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 from latris.operations import challenges as ops
 from latris.schema.ids import id_timestamp
 
@@ -73,6 +74,9 @@ def turn(
 def list_() -> None:
     """List all challenges."""
     entries = ops.list_challenges()
+    if json_mode():
+        emit(entries, human=lambda: None)
+        return
     if not entries:
         console.print("[dim](no challenges yet)[/dim]")
         return

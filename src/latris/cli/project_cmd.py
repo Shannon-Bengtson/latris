@@ -9,6 +9,7 @@ from latris.operations.project import (
     set_question,
     update_selected_models,
 )
+from latris.cli._output import emit, json_mode
 from latris.repo import git
 from latris.repo.git import GitError, IdentityError
 from latris.repo.project import NotAProjectError
@@ -26,6 +27,9 @@ def show() -> None:
         console.print(f"[red]error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
 
+    if json_mode():
+        emit(foundation, human=lambda: None)
+        return
     console.print(f"[bold]project root:[/bold] {paths.root.as_posix()}")
     console.print(f"[bold]modelling question:[/bold] {foundation.statement}")
     models = ", ".join(foundation.selected_model_types) if foundation.selected_model_types else "(none)"

@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
-from latris.cli._output import emit
+from latris.cli._output import emit, json_mode
 from latris.schema.ids import id_timestamp
 
 app = typer.Typer(help="Model findings — analysis results and interpretations.", no_args_is_help=True)
@@ -90,6 +90,9 @@ def list_cmd(
         limit=limit,
     )
 
+    if json_mode():
+        emit(results, human=lambda: None)
+        return
     if not results:
         console.print("[dim](no findings match the filters)[/dim]")
         return

@@ -50,6 +50,7 @@ from latris.schema.build_spec import (
     SpecFinding,
     SpecInterpretation,
     SpecLink,
+    SpecContext,
     SpecSource,
 )
 
@@ -187,8 +188,14 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         None,
     ) if role_path.exists() else None
 
+    context = SpecContext(
+        background=foundation.background or None, audience=foundation.audience or None,
+        boundary=foundation.boundary or None, intuition=foundation.predictions or None,
+    )
     spec = BuildSpec(
-        model_type=model_type, outcome=outcome, factors=factors, links=links, sources=sources,
+        model_type=model_type,
+        context=context if context.model_dump(exclude_none=True) else None,
+        outcome=outcome, factors=factors, links=links, sources=sources,
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
     )

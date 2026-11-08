@@ -38,6 +38,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from latris.schema.attributes import Confidence
+from latris.schema.references import SourceSnapshotKind
 from latris.schema.substrate import EdgeKind, EntityKind
 
 
@@ -82,6 +83,11 @@ class SpecSource(_Spec):
     doi: str | None = None
     url: str | None = None
     notes: str | None = None  # e.g. sample size, key result
+    # What was actually read: an abstract or passage (≤ ~2000 chars), so a
+    # check of the source is grounded in visible text.
+    extract: str | None = Field(None, max_length=4000)
+    extract_url: str | None = None  # where the extract came from; defaults to url
+    extract_kind: SourceSnapshotKind = "abstract"
 
 
 # A link is named by its two ends, "From -> To" (or "From → To").
@@ -128,10 +134,20 @@ class SpecInterpretation(_Spec):
     by: Literal["ai", "human"] = "ai"
 
 
+class SpecContext(_Spec):
+    """The situation the model is built in. Shown at the top of the report."""
+
+    background: str | None = None  # the situation behind the question
+    audience: str | None = None  # who will read it ("Prepared for")
+    boundary: str | None = None  # what's in and out of scope
+    intuition: str | None = None  # what the person expects the answer to be, in their words
+
+
 class BuildSpec(_Spec):
     """Everything ``latris build`` adds, applied as one commit."""
 
     model_type: str | None = None  # view for polarity and roles; default: the project's first selected type
+    context: SpecContext | None = None
     outcome: str | None = None  # factor the model explains (gets the outcome role)
     factors: list[SpecFactor] = Field(default_factory=list)
     links: list[SpecLink] = Field(default_factory=list)

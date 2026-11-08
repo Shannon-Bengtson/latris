@@ -77,6 +77,9 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
         (link.from_.casefold(), link.to.casefold()) for link in spec.links
     }
     problems: list[str] = []
+    for s in spec.sources:
+        if s.extract and not (s.extract_url or s.url or s.doi):
+            problems.append(f"source {s.key!r}: an extract needs extract_url (or the source's url or doi)")
     if dupes:
         problems.append(f"factor listed twice: {', '.join(dupes)}")
     clash = sorted(label for label in spec_labels if label.casefold() in existing)
@@ -175,11 +178,25 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
         return edge_ids[(ends[0].casefold(), ends[1].casefold())]
 
     with batch(paths.root, subject=subject):
+        if spec.context:
+            from latris.operations.project import set_foundation_field
+
+            for field, value in (("background", spec.context.background), ("audience", spec.context.audience),
+                                 ("boundary", spec.context.boundary), ("predictions", spec.context.intuition)):
+                if value and value.strip():
+                    set_foundation_field(field, value.strip(), root=paths.root)
         for s in spec.sources:
             add_reference(
                 s.key, s.title, authors=s.authors or None, year=s.year, container=s.container,
                 doi=s.doi, url=s.url, notes=s.notes, root=paths.root,
             )
+            if s.extract and s.extract.strip():
+                from latris.operations.references import set_source_snapshot
+
+                set_source_snapshot(
+                    s.key, retrieval_url=s.extract_url or s.url or (f"https://doi.org/{s.doi}" if s.doi else ""),
+                    extract=s.extract.strip(), kind=s.extract_kind, root=paths.root,
+                )
             result.sources += 1
 
         def _cite(target: str, attribute: str, items: list[str | SpecCitation], *, against: bool = False) -> None:

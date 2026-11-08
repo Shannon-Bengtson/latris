@@ -135,3 +135,51 @@ def test_initialise_fills_claims_and_ai_findings_say_so(project: Path, monkeypat
 def test_maturity_accepts_link_names(project: Path) -> None:
     result = CliRunner().invoke(app, ["mature", "propose", "Workload -> Burnout"])
     assert result.exit_code == 0, result.output
+
+
+CONTEXT_SPEC = """
+context:
+  background: The food bank lost a third of its volunteers since 2023.
+  audience: The food bank's board
+  boundary: Current volunteers only.
+  intuition: Rostering changes pushed people out.
+factors:
+  - label: Rostering
+sources:
+  - {key: lee2022, title: Rostering and retention, url: "https://example.org/lee", extract: "Abstract: rigid rosters predicted exits."}
+"""
+
+
+def test_context_and_extracts_from_a_spec_reach_the_report(tmp_path: Path, git_identity, monkeypatch) -> None:
+    from latris.exporters.markdown import render
+    from latris.operations.share_link import export_spec
+    from latris.schema import ReferenceLibrary
+
+    root = tmp_path / "ctx"
+    init_project(root, statement="Why do volunteers leave?")
+    update_selected_models(["cld"], root=root)
+    build_ops.build_from_spec(build_ops.load_spec(CONTEXT_SPEC), root=root)
+
+    ref = load_model(ReferenceLibrary, ProjectPaths(root).references_yaml).entries[0]
+    assert ref.source_snapshot.extract.startswith("Abstract:")
+    md = render(ProjectPaths(root), model_type="cld", pack="client", ai=False)
+    assert "**Prepared for:** The food bank's board" in md
+    assert "**Background.** The food bank lost a third" in md
+    assert "Rostering changes pushed people out." in md
+    # Context travels in `latris link`; extracts stay out of it.
+    _, spec = export_spec(root=root)
+    assert spec.context.audience == "The food bank's board" and spec.sources[0].extract is None
+
+    with pytest.raises(ValueError, match="extract needs"):
+        build_ops.build_from_spec(build_ops.load_spec("sources:\n  - {key: x, title: X, extract: text}\n"),
+                                  root=root)
+
+
+def test_record_listings_speak_json(project: Path) -> None:
+    findings = json.loads(CliRunner().invoke(app, ["--json", "finding", "list"]).output)["result"]
+    assert findings[0]["statement"] == "Workload drives departures through burnout."
+    CliRunner().invoke(app, ["challenge", "open", "Burnout", "It may follow intent to leave."])
+    challenges = json.loads(CliRunner().invoke(app, ["--json", "challenge", "list"]).output)["result"]
+    assert challenges[0]["argument"] == "It may follow intent to leave."
+    shown = json.loads(CliRunner().invoke(app, ["--json", "project", "show"]).output)["result"]
+    assert shown["statement"] == "Why do volunteers leave?"

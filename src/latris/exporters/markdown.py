@@ -236,19 +236,27 @@ def render(
         out.append(f"# {narrative.title}")
         out.append("")
         out.append(narrative.purpose)
+        # The context the model was built in: who it's for, the situation
+        # behind the question, and what's in scope.
+        if foundation.audience.strip():
+            out.append("")
+            out.append(f"**Prepared for:** {foundation.audience.strip()}")
+        if foundation.background.strip():
+            out.append("")
+            out.append(f"**Background.** {foundation.background.strip()}")
         if narrative.boundary:
             out.append("")
             out.append(narrative.boundary)
         out.append("")
         # Pre-modelling intuition (foundation.predictions) — surfaced near
-        # the top so reviewers can compare AI-generated findings against
-        # the human prior recorded at project initialisation.
+        # the top so readers can compare the person's own expectation with
+        # the model's answer.
         if foundation.predictions.strip():
             out.append("## Pre-modelling intuition")
             out.append("")
             out.append(
-                "_Recorded at project initialisation, before any AI analysis. "
-                "Use this as a check against the AI-generated answer in this report._"
+                "_What the person who asked for this model expected the answer to be, in their own "
+                "words. Compare it with the answer in this report._"
             )
             out.append("")
             out.append(foundation.predictions.strip())

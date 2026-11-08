@@ -818,6 +818,10 @@ def build_example(ex: WorkedExample) -> None:
     os.chdir(spec_root)
     ex.run(["project", "select-models", "cld"])
     build_spec = textwrap.dedent("""\
+        context:   # asked of the person before building; the report opens with it
+          background: The program lost a third of its volunteers since 2023; the board is deciding on a paid coordinator.
+          audience: The program's board
+          intuition: Rostering changes after the merger pushed people out.
         outcome: Volunteer departures
         factors:
           - label: Workload per volunteer
@@ -845,6 +849,8 @@ def build_example(ex: WorkedExample) -> None:
             title: Volunteer burnout
             authors: ["Smith, J"]
             year: 2021
+            url: https://example.org/smith2021
+            extract: "Abstract: hours per volunteer predicted emotional exhaustion (r = 0.41)."   # what was read
         assumptions:
           - Service demand stays steady as numbers fall.
         decisions:
@@ -863,6 +869,9 @@ def build_example(ex: WorkedExample) -> None:
             "supports", "--rationale", "Hours per volunteer predict exhaustion."])
     ex.note("Before handing the model to a board: what's left, and how to fix each (exits 1 until clear).")
     ex.run(["check", "handover"], expect_fail=True)
+    ex.note("The context opens the report — who it's for, the situation, and the person's own expectation "
+            "to compare with the answer:")
+    ex.run(["--json", "project", "show"])
     os.chdir(ex.root)
 
     # ── 6. Challenges ─────────────────────────────────────────────────

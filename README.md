@@ -191,6 +191,15 @@ Setup (one shot):
 pip install "latris[server,data]"
 ```
 
+**Ask before you build.** Latris records the situation a model is built
+in and puts it at the top of the report, but only if someone asks for it.
+Unless the request already says, ask the person, in one message of at most
+three short questions: the background (what's happening, and what decision
+this informs), who will read it, and what they expect the answer to be. Add
+anything they share as sources. If they'd rather you just build, do, and
+record each unanswered point with `latris question add` or `latris
+assumption add`, so the gap shows in the report instead of disappearing.
+
 A causal loop diagram, end to end (works in a sandbox with no API key):
 
 ```bash
@@ -206,6 +215,11 @@ latris project select-models cld
 # Fastest: the whole model in one file, one command, one commit (YAML or JSON;
 # '-' reads stdin). Checked in full first — a typo changes nothing.
 latris build --spec model.yaml
+#   context:                             # top of the report: the situation, for whom, the person's own prior
+#     background: "Food bank lost a third of its volunteers since 2023; the board decides on a paid coordinator."
+#     audience: "The food bank's board"
+#     boundary: "Current volunteers only; recruitment is out of scope."
+#     intuition: "Rostering changes after the merger pushed people out."   # what they expect, in their words
 #   outcome: Volunteer departures        # what the model explains
 #   factors:
 #     - {label: Workload, description: Hours asked of each volunteer.}
@@ -215,7 +229,8 @@ latris build --spec model.yaml
 #     - {from: Workload, to: Burnout, polarity: "+", reason: "More hours, more exhaustion.",
 #        confidence: high, sources: [smith2021], contradicts: [tuohy2015]}
 #   sources:
-#     - {key: smith2021, title: Volunteer burnout, authors: ["Smith, J"], year: 2021}
+#     - {key: smith2021, title: Volunteer burnout, authors: ["Smith, J"], year: 2021,
+#        url: "https://doi.org/...", extract: "Abstract: ..."}   # extract: the text you actually read
 #     - {key: tuohy2015, title: Workload and retention revisited, year: 2015}
 #   assumptions:
 #     - {text: "Service demand stays steady as numbers fall.", target: "Burnout -> Volunteer departures",
@@ -230,6 +245,9 @@ latris build --spec model.yaml
 #     - {section: answer_to_question, prose: "Volunteers leave mainly because...", by: ai}
 
 # Or one change at a time:
+latris project set background "Food bank lost a third of its volunteers since 2023."
+latris project set audience "The food bank's board"
+latris project set predictions "Rostering changes pushed people out."   # their prior, in their words
 latris node add "Workload" --kind variable
 latris node add "Burnout" --kind state
 latris attr set "Workload" description "Hours asked of each volunteer."
@@ -239,6 +257,7 @@ latris view set cld <edge-id> polarity + --rationale "More hours, more exhaustio
 #   negative numbers need `--`:  latris view set fcm <edge-id> weight -- -0.4
 
 latris ref add smith2021 --title "Volunteer burnout" --author "Smith, J" --year 2021
+latris ref snapshot smith2021 --url "https://..." --extract "Abstract: ..."   # what you read
 latris evidence add <edge-id> polarity smith2021 --verified-by ai
 latris evidence add <edge-id> polarity tuohy2015 --verified-by ai --contradicts   # a source against the link
 latris assumption add "Service demand stays steady as numbers fall."  # for unsourced links
@@ -276,8 +295,13 @@ report link to share, are made in the Latris app (app.latris.app).
 Tips for agents:
 
 - **`latris --json <command>`** prints one JSON object (`{"result", "commit_sha"}`)
-  for node, edge, attr, view set, ref, evidence, finding and check commands — no
-  output parsing needed.
+  for node, edge, attr, view set, ref, evidence, finding, challenge, project
+  show, check, analyse, interpret, bn, sd and fcm commands — no output parsing
+  needed.
+- **One model, several views.** `latris project select-models cld fcm` (or
+  `bn`, `dag`) keeps the same factors and links and adds a quantitative view —
+  set FCM weights or BN probability tables on the diagram you already have
+  instead of starting again.
 - **No API key?** Checks and drafting that use AI (e.g. the completeness check)
   can be answered by you: `latris ai task emit <PromptName> --inputs '<json>'`,
   then `latris ai task apply` (see "An agent can act as the model" above).
