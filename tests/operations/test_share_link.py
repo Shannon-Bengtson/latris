@@ -145,3 +145,85 @@ def test_export_points_agents_at_the_link(built: Path, monkeypatch) -> None:
     assert "`latris link`" in out.output
     quiet = CliRunner().invoke(app, ["--json", "export", "md", "--no-ai", "-o", "r.md"])
     assert "latris link" not in quiet.output
+
+
+# ── quantified models: parameters travel, results are recomputed on arrival ──
+
+
+def _comparable(root: Path) -> list[tuple[str, dict]]:
+    """Report results with node ids replaced by labels (ids differ between projects)."""
+    from latris.operations import analysis_results as ar
+    from latris.schema import Substrate
+
+    sub = load_model(Substrate, ProjectPaths(root).conceptual_yaml)
+    names = {e.id: e.label for e in sub.entities} | {e.id: "edge" for e in sub.edges}
+    out = []
+    for r in ar.report_results(root=root):
+        text = json.dumps({k: v for k, v in r.payload.items() if k != "seconds"}, sort_keys=True)
+        for i, label in names.items():
+            text = text.replace(i, label)
+        out.append((r.run.result_kind, json.loads(text)))
+    return out
+
+
+def test_an_sd_model_travels_with_its_analyses(sd_bathtub_root: Path, tmp_path: Path) -> None:
+    pytest.importorskip("scipy")
+    from latris.operations import sd as sd_ops
+    from latris.operations import sd_scenarios, uncertainty
+
+    root = sd_bathtub_root
+    update_selected_models(["sd"], root=root)
+    settings = {"final_time": 10, "dt": 0.25, "method": "euler"}
+    sd_scenarios.set_scenario("Faster drain", ["Drain Rate=0.2"], reason="plumber's quote", root=root)
+    uncertainty.set_uncertainty("Drain Rate", "triangular", {"min": 0.05, "mode": 0.1, "max": 0.2},
+                                origin="ai-proposed", root=root)
+    payload, runs = sd_ops.simulate_scenarios(["Faster drain"], ["Inflow Rate=6"], **settings, root=root)
+    sd_ops.record_comparison(payload, runs, root=root)
+    sd_ops.record_monte_carlo(sd_ops.run_monte_carlo(runs=50, seed=7, settings=settings, root=root), root=root)
+    sd_ops.record_sensitivity(sd_ops.run_sensitivity("Water", metric="at:5", settings=settings, root=root),
+                              root=root)
+    sd_ops.record_loops(sd_ops.run_loops(scenario="Faster drain", settings=settings, root=root), root=root)
+
+    link = share_link.make_link(root=root)
+    assert not link.long and link.chars < 10_000
+    spec = share_link.decode_payload(link.url.split("#", 1)[1]).spec
+    assert [a.kind for a in spec.analyses] == ["simulate", "monte_carlo", "sensitivity", "loops"]
+
+    copy = tmp_path / "copy"
+    init_project(copy, statement="How full does the bathtub get?")
+    update_selected_models(["sd"], root=copy)
+    result = build_from_spec(spec, verified_by="ai", root=copy)
+    assert not result.notes and len(result.analyses) == 4 and result.parameters >= 10
+    assert _comparable(copy) == _comparable(root)
+    (range_,) = uncertainty.list_uncertainty(root=copy)
+    assert range_.origin == "ai-proposed" and range_.verification == "unverified"
+
+
+def test_a_bn_model_travels_with_its_query(tmp_path: Path, git_identity) -> None:
+    pytest.importorskip("pgmpy")
+    from latris.operations import bn as bn_ops
+    from latris.operations import edges as edge_ops
+    from latris.operations import nodes as node_ops
+
+    root = tmp_path / "bn"
+    init_project(root, statement="Will it be wet?")
+    update_selected_models(["bn"], root=root)
+    rain = node_ops.add_node("Rain", kind="variable", root=root)[0]
+    sprinkler = node_ops.add_node("Sprinkler", kind="variable", root=root)[0]
+    wet = node_ops.add_node("Wet", kind="variable", root=root)[0]
+    edge_ops.add_edge(rain.id, wet.id, kind="causal", root=root)
+    edge_ops.add_edge(sprinkler.id, wet.id, kind="causal", root=root)
+    for n in ("Rain", "Sprinkler", "Wet"):
+        bn_ops.set_state_space(n, ["yes", "no"], root=root)
+    bn_ops.set_cpt("Rain", [], [0.2, 0.8], root=root)
+    bn_ops.set_cpt("Sprinkler", [], [0.4, 0.6], root=root)
+    bn_ops.set_cpt("Wet", ["Rain", "Sprinkler"], [0.99, 0.01, 0.9, 0.1, 0.8, 0.2, 0.05, 0.95], root=root)
+    bn_ops.record_query(bn_ops.infer(query=["Rain"], evidence={"Wet": "yes"}, root=root), root=root)
+
+    spec = share_link.decode_payload(share_link.make_link(root=root).url.split("#", 1)[1]).spec
+    assert spec.bn and spec.bn.tables[2].probabilities == [0.99, 0.01, 0.9, 0.1, 0.8, 0.2, 0.05, 0.95]
+    copy = tmp_path / "copy"
+    init_project(copy, statement="Will it be wet?")
+    update_selected_models(["bn"], root=copy)
+    build_from_spec(spec, root=copy)
+    assert _comparable(copy) == _comparable(root)

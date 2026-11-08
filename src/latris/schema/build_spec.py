@@ -38,6 +38,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from latris.schema.attributes import Confidence
+from latris.schema.common import ProvenanceOrigin
 from latris.schema.references import SourceSnapshotKind
 from latris.schema.substrate import EdgeKind, EntityKind
 
@@ -144,6 +145,137 @@ class SpecContext(_Spec):
     intuition: str | None = None  # what the person expects the answer to be, in their words
 
 
+# ── quantitative parameters (System Dynamics, Bayesian networks) ─────────
+# Field names match the MCP server's apply_changes operations (set_sd_role,
+# set_equation, set_constant, set_initial_value, set_table, set_states,
+# set_probability_table, set_noisy_or). Nodes are named by label.
+
+
+class _SpecParam(_Spec):
+    origin: ProvenanceOrigin | None = None  # default: ai-proposed when built --verified-by ai, else human-direct
+    source: str | None = None  # a source key (or analysis run id) the value comes from
+
+
+class SpecSDRole(_Spec):
+    node: str
+    role: Literal["stock", "flow", "auxiliary", "constant", "source_sink"]
+
+
+class SpecSDEquation(_SpecParam):
+    node: str
+    expression: str
+    units: str
+
+
+class SpecSDValue(_SpecParam):
+    node: str
+    value: float
+    units: str
+
+
+class SpecSDStock(SpecSDValue):
+    non_negative: bool = False
+
+
+class SpecSDTable(_SpecParam):
+    node: str
+    points: list[tuple[float, float]] = Field(min_length=2)
+    x_units: str
+    y_units: str
+    extrapolate: Literal["clamp", "linear"] = "clamp"
+
+
+class SpecUncertainty(_SpecParam):
+    """A distribution over a constant's or stock's value, in its own units."""
+
+    node: str
+    distribution: Literal["uniform", "triangular", "normal", "lognormal", "beta", "gamma"]
+    params: dict[str, float]
+    reason: str = ""
+
+
+class SpecScenario(_Spec):
+    """A named what-if: ``set`` holds 'Variable=value [units]' assignments."""
+
+    name: str
+    set: list[str] = Field(min_length=1)
+    description: str = ""
+    reason: str = ""
+    origin: ProvenanceOrigin | None = None
+    source: str | None = None
+
+
+class SpecSD(_Spec):
+    roles: list[SpecSDRole] = Field(default_factory=list)
+    stocks: list[SpecSDStock] = Field(default_factory=list)  # initial values
+    constants: list[SpecSDValue] = Field(default_factory=list)
+    equations: list[SpecSDEquation] = Field(default_factory=list)
+    tables: list[SpecSDTable] = Field(default_factory=list)
+    uncertainty: list[SpecUncertainty] = Field(default_factory=list)
+    scenarios: list[SpecScenario] = Field(default_factory=list)
+
+
+class SpecBNStates(_Spec):
+    node: str
+    states: list[str] = Field(min_length=2)
+    ordered: bool = False
+
+
+class SpecBNTable(_SpecParam):
+    """probabilities: one block per parent-state combination (first parent slowest), in state order."""
+
+    node: str
+    parents: list[str] = Field(default_factory=list)
+    probabilities: list[float] = Field(min_length=1)
+
+
+class SpecNoisyOrCause(_Spec):
+    parent: str
+    active_state: str
+    probability: float = Field(ge=0, le=1)
+
+
+class SpecNoisyOr(_SpecParam):
+    node: str
+    causes: list[SpecNoisyOrCause] = Field(min_length=1)
+    leak: float = Field(0.0, ge=0, le=1)
+
+
+class SpecBN(_Spec):
+    states: list[SpecBNStates] = Field(default_factory=list)
+    tables: list[SpecBNTable] = Field(default_factory=list)
+    noisy_or: list[SpecNoisyOr] = Field(default_factory=list)
+
+
+class SpecAnalysis(_Spec):
+    """An analysis to run (and record, so the report shows it) once the model is built.
+
+    kind: simulate (scenarios, set) | monte_carlo (runs, seed, sampling, variables, scenario)
+    | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
+    | bn_query (evidence, query) | bn_sensitivity (target, state, evidence).
+    ``settings``: initial_time, final_time, dt, saveper, method, time_units.
+    """
+
+    kind: Literal["simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_sensitivity"]
+    settings: dict[str, float | str] = Field(default_factory=dict)
+    scenarios: list[str] = Field(default_factory=list)
+    set: list[str] = Field(default_factory=list)
+    scenario: str | None = None
+    runs: int | None = None
+    seed: int | None = None
+    sampling: Literal["lhs", "random"] | None = None
+    variables: list[str] = Field(default_factory=list)
+    variable: str | None = None
+    metric: str | None = None
+    pct: float | None = None
+    start: float | None = None
+    end: float | None = None
+    evidence: dict[str, str] = Field(default_factory=dict)
+    query: list[str] = Field(default_factory=list)
+    target: str | None = None
+    state: str | None = None
+
+
 class BuildSpec(_Spec):
     """Everything ``latris build`` adds, applied as one commit."""
 
@@ -159,3 +291,6 @@ class BuildSpec(_Spec):
     challenges: list[SpecChallenge] = Field(default_factory=list)
     decisions: list[SpecDecision] = Field(default_factory=list)
     interpretation: list[SpecInterpretation] = Field(default_factory=list)
+    sd: SpecSD | None = None  # System Dynamics roles, values, equations, tables, uncertainty, scenarios
+    bn: SpecBN | None = None  # Bayesian network states and probability tables
+    analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

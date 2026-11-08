@@ -43,6 +43,13 @@ def build(
     - ``decisions``: statement, rationale, target
     - ``interpretation``: section, prose, by (ai | human)
     - ``outcome``: the factor the model explains
+    - ``sd``: roles, stocks, constants, equations, tables, uncertainty
+      (node, distribution, params, reason), scenarios (name, set:
+      ["Variable=value units"], description, reason)
+    - ``bn``: states, tables (node, parents, probabilities), noisy_or
+    - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
+      bn_query | bn_sensitivity) + its options — run and recorded after
+      building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML
     values that contain a colon.
@@ -57,6 +64,10 @@ def build(
         human=lambda: console.print(
             f"[green]built[/green] {result.factors} factors, {len(result.links)} links, "
             f"{result.sources} sources, {result.citations} citations, {result.assumptions} assumptions, "
-            f"{result.questions} questions · commit [cyan]{result.commit_sha[:10]}[/cyan]"
+            f"{result.questions} questions"
+            + (f", {result.parameters} parameters" if result.parameters else "")
+            + (f", {len(result.analyses)} analyses run" if result.analyses else "")
+            + f" · commit [cyan]{result.commit_sha[:10]}[/cyan]"
+            + "".join(f"\n[yellow]note:[/yellow] {n}" for n in result.notes)
         ),
     )

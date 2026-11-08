@@ -198,8 +198,103 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         outcome=outcome, factors=factors, links=links, sources=sources,
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
+        sd=_export_sd(paths, labels), bn=_export_bn(paths, labels), analyses=_export_analyses(paths),
     )
     return foundation, spec
+
+
+def _export_sd(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
+    """System Dynamics parameters as spec entries (origins kept; reviews are not carried)."""
+    from latris.operations import sd as sd_ops
+    from latris.operations import sd_scenarios, uncertainty
+    from latris.schema.build_spec import (
+        SpecScenario,
+        SpecSD,
+        SpecSDEquation,
+        SpecSDRole,
+        SpecSDStock,
+        SpecSDTable,
+        SpecSDValue,
+        SpecUncertainty,
+    )
+
+    def named(target_id: str) -> bool:
+        return target_id in labels
+
+    roles = [SpecSDRole(node=labels[r.target_id], role=r.value)
+             for r in sd_ops.get_roles(root=paths.root).entries if named(r.target_id)]
+    if not roles:
+        return None
+    stocks = [SpecSDStock(node=labels[e.target_id], value=e.initial_value, units=e.units,
+                          non_negative=e.non_negative, origin=e.origin, source=e.source_id)
+              for e in sd_ops.get_stocks(root=paths.root).entries if named(e.target_id)]
+    constants = [SpecSDValue(node=labels[e.target_id], value=e.value, units=e.units, origin=e.origin,
+                             source=e.source_id)
+                 for e in sd_ops.get_constants(root=paths.root).entries if named(e.target_id)]
+    equations = [SpecSDEquation(node=labels[e.target_id], expression=e.expression, units=e.units,
+                                origin=e.origin, source=e.source_id)
+                 for e in sd_ops.get_equations(root=paths.root).entries if named(e.target_id)]
+    tables = [SpecSDTable(node=labels[e.target_id], points=[(p.x, p.y) for p in e.points], x_units=e.x_units,
+                          y_units=e.y_units, extrapolate=e.extrapolate, origin=e.origin, source=e.source_id)
+              for e in sd_ops.get_tables(root=paths.root).entries if named(e.target_id)]
+    ranges = [SpecUncertainty(node=labels[e.target_id], distribution=e.distribution, params=e.params,
+                              reason=e.reason, origin=e.origin, source=e.source_id)
+              for e in uncertainty.sd_specs(paths).values() if named(e.target_id)]
+    scenarios = [
+        SpecScenario(
+            name=s.name, description=s.description, reason=s.reason, origin=s.origin, source=s.source_id,
+            set=[f"{labels[o.target_id]}={o.value!r} {o.units}" for o in s.overrides if named(o.target_id)],
+        )
+        for s in sd_scenarios.load(paths).scenarios
+        if any(named(o.target_id) for o in s.overrides)
+    ]
+    return SpecSD(roles=roles, stocks=stocks, constants=constants, equations=equations, tables=tables,
+                  uncertainty=ranges, scenarios=scenarios)
+
+
+def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
+    """Bayesian network states and tables as spec entries (flattened, first parent slowest)."""
+    import itertools
+
+    from latris.operations import bn as bn_ops
+    from latris.schema.build_spec import SpecBN, SpecBNStates, SpecBNTable, SpecNoisyOr, SpecNoisyOrCause
+
+    spaces = {e.target_id: e for e in bn_ops.get_state_spaces(root=paths.root).entries if e.target_id in labels}
+    if not spaces:
+        return None
+    states = [SpecBNStates(node=labels[k], states=e.states, ordered=e.ordered) for k, e in spaces.items()]
+    tables = []
+    for cpt in bn_ops.get_cpts(root=paths.root).entries:
+        if cpt.target_id not in labels or any(p not in spaces for p in cpt.parents):
+            continue
+        rows = {tuple(sorted(r.parent_states.items())): r for r in cpt.rows}
+        probs: list[float] = []
+        for combo in itertools.product(*(spaces[p].states for p in cpt.parents)):
+            row = rows.get(tuple(sorted(zip(cpt.parents, combo, strict=True))))
+            if row is None:
+                break
+            probs.extend(row.p)
+        else:
+            first = cpt.rows[0] if cpt.rows else None
+            tables.append(SpecBNTable(
+                node=labels[cpt.target_id], parents=[labels[p] for p in cpt.parents], probabilities=probs,
+                origin=first.origin if first else None, source=first.source_id if first else None,
+            ))
+    noisy = [
+        SpecNoisyOr(
+            node=labels[e.target_id], leak=e.leak, origin=e.origin, source=e.source_id,
+            causes=[SpecNoisyOrCause(parent=labels[c.parent_id], active_state=c.active_state, probability=c.prob)
+                    for c in e.links if c.parent_id in labels],
+        )
+        for e in bn_ops.get_noisy_or(root=paths.root).entries if e.target_id in labels and e.links
+    ]
+    return SpecBN(states=states, tables=tables, noisy_or=noisy)
+
+
+def _export_analyses(paths):  # noqa: ANN001, ANN202
+    from latris.operations.analysis_replay import definitions
+
+    return definitions(root=paths.root)
 
 
 def encode_payload(payload: LinkPayload) -> str:

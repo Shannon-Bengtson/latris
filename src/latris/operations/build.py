@@ -36,6 +36,8 @@ class BuildResult:
     challenges: int = 0
     decisions: int = 0
     interpretation: int = 0
+    parameters: int = 0  # SD/BN roles, values, equations, tables, uncertainty ranges, scenarios
+    analyses: list[str] = field(default_factory=list)  # run ids of the analyses replayed after building
     outcome: str | None = None
     notes: list[str] = field(default_factory=list)  # parts that couldn't be applied, and why
     commit_sha: str = ""
@@ -262,11 +264,81 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
         for d in spec.decisions:
             log_decision(d.statement, d.rationale, target_id=_target_id(d.target), root=paths.root)
             result.decisions += 1
+        default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+        if spec.sd:
+            result.parameters += _apply_sd(spec.sd, default_origin, paths.root)
+        if spec.bn:
+            result.parameters += _apply_bn(spec.bn, default_origin, paths.root)
         if spec.interpretation:
             _apply_interpretation(spec, model_type, paths.root, result)
 
     result.commit_sha = git.head_sha(paths.root)
+    # Analyses run after the model is built; each is recorded (its own commit) for the report.
+    from latris.operations.analysis_replay import run_analysis
+
+    for a in spec.analyses:
+        try:
+            result.analyses.append(run_analysis(a, root=paths.root))
+        except (ValueError, RuntimeError) as exc:
+            result.notes.append(f"analysis {a.kind!r} not run: {exc}")
+    if result.analyses:
+        result.commit_sha = git.head_sha(paths.root)
     return result
+
+
+def _apply_sd(sd, default_origin: str, root: Path) -> int:
+    """Roles first (equations need them), then values, equations, tables, uncertainty, scenarios."""
+    from latris.operations import sd as sd_ops
+    from latris.operations import sd_scenarios, uncertainty
+
+    n = 0
+    for r in sd.roles:
+        sd_ops.set_role(r.node, r.role, root=root)
+        n += 1
+    for s in sd.stocks:
+        sd_ops.set_initial_value(s.node, s.value, s.units, non_negative=s.non_negative,
+                                 origin=s.origin or default_origin, source_id=s.source, root=root)
+        n += 1
+    for c in sd.constants:
+        sd_ops.set_constant(c.node, c.value, c.units, origin=c.origin or default_origin, source_id=c.source,
+                            root=root)
+        n += 1
+    for e in sd.equations:
+        sd_ops.set_equation(e.node, e.expression, e.units, origin=e.origin or default_origin, source_id=e.source,
+                            root=root)
+        n += 1
+    for t in sd.tables:
+        sd_ops.set_table(t.node, [tuple(p) for p in t.points], t.x_units, t.y_units, extrapolate=t.extrapolate,
+                         origin=t.origin or default_origin, source_id=t.source, root=root)
+        n += 1
+    for u in sd.uncertainty:
+        uncertainty.set_uncertainty(u.node, u.distribution, u.params, reason=u.reason, source_id=u.source,
+                                    origin=u.origin or default_origin, root=root)  # type: ignore[arg-type]
+        n += 1
+    for sc in sd.scenarios:
+        sd_scenarios.set_scenario(sc.name, sc.set, description=sc.description, reason=sc.reason,
+                                  origin=sc.origin or default_origin, source_id=sc.source,  # type: ignore[arg-type]
+                                  root=root)
+        n += 1
+    return n
+
+
+def _apply_bn(bn, default_origin: str, root: Path) -> int:
+    from latris.operations import bn as bn_ops
+
+    n = 0
+    for s in bn.states:
+        bn_ops.set_state_space(s.node, s.states, ordered=s.ordered, root=root)
+        n += 1
+    for t in bn.tables:
+        bn_ops.set_cpt(t.node, t.parents, t.probabilities, origin=t.origin or default_origin,  # type: ignore[arg-type]
+                       source_id=t.source, root=root)
+        n += 1
+    for no in bn.noisy_or:
+        bn_ops.set_noisy_or(no.node, no.leak, [(c.parent, c.active_state, c.probability) for c in no.causes],
+                            origin=no.origin or default_origin, source_id=no.source, root=root)  # type: ignore[arg-type]
+        n += 1
+    return n
 
 
 def _apply_interpretation(spec: BuildSpec, model_type: str, root: Path, result: BuildResult) -> None:
