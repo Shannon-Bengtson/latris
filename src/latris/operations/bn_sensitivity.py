@@ -13,14 +13,11 @@ run is logged as an :class:`AnalysisRun` with the result persisted to
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from latris.operations import bn as bn_ops
 from latris.operations._bn_engine import build_network, query_marginals
 from latris.operations._resolve import resolve_target
-from latris.operations.analysis_runs import record_run
-from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
@@ -125,41 +122,31 @@ def sensitivity(
 
 
 def record_sensitivity(result: SensitivityResult, *, root: Path | None = None) -> tuple[str, str]:
-    """Persist a sensitivity result to ``analysis/outputs/`` and log an AnalysisRun.
+    """Persist a sensitivity result as a result reports show, and log an AnalysisRun.
 
     Returns (commit_sha, run_id)."""
     import pgmpy
 
-    from latris.schema import new_id
+    from latris.operations.analysis_results import record_result
 
-    paths = require_project(root)
-    # Name the artifact by a fresh unique slug so it can be recorded *in* the run.
-    slug = new_id("analysis-run").split("_", 1)[1]
-    paths.analysis_outputs_dir.mkdir(parents=True, exist_ok=True)
-    artifact = paths.analysis_outputs_dir / f"sensitivity-{slug}.json"
-    artifact.write_text(json.dumps(result.model_dump(mode="json"), indent=2), encoding="utf-8")
-    rel = artifact.relative_to(paths.root).as_posix()
-
-    run, _ = record_run(
+    evidence = ",".join(f"{k}={v}" for k, v in sorted((result.evidence or {}).items()))
+    sha, run = record_result(
+        kind="bn-sensitivity",
+        key=f"bn-sensitivity|{result.target_id}={result.target_state}|{evidence}",
+        payload=result.model_dump(mode="json"),
         purpose="sensitivity-analysis",
         algorithm="one-way-tornado",
-        library_version=pgmpy.__version__,
-        hyperparameters={"target": result.target_id, "target_state": result.target_state,
-                         "evidence": result.evidence},
-        output_summary=(
+        library_version=f"pgmpy {pgmpy.__version__}",
+        summary=(
             f"Sensitivity of P({result.target_id}={result.target_state}) "
             f"= {result.baseline:.3f}; {len(result.findings)} parameter(s) ranked"
         ),
-        output_artifacts=[rel],
+        model_type="bn",
+        hyperparameters={"target": result.target_id, "target_state": result.target_state,
+                         "evidence": result.evidence},
         metrics={"inference_runs": result.inference_runs, "baseline": result.baseline},
         affected_target_ids=[result.target_id],
-        commit=False,
-        root=paths.root,
-    )
-    sha = auto_commit(
-        paths.root,
-        subject=f"Sensitivity analysis: {result.target_id[:15]}…={result.target_state}",
-        body=f"run: {run.id}\nartifact: {rel}",
-        paths=[artifact, paths.analysis_runs_jsonl],
+        commit_subject=f"Sensitivity analysis: {result.target_id[:15]}…={result.target_state}",
+        root=root,
     )
     return sha, run.id

@@ -60,6 +60,10 @@ def record_run(
     metrics: dict | None = None,
     affected_target_ids: list[str] | None = None,
     duration_seconds: float | None = None,
+    result_kind: str = "",
+    analysis_key: str = "",
+    model_fingerprint: str = "",
+    run_id: str | None = None,
     commit: bool = True,
     root: Path | None = None,
 ) -> tuple[AnalysisRun, str | None]:
@@ -70,7 +74,7 @@ def record_run(
     """
     paths = require_project(root)
     record = AnalysisRun(
-        id=new_id("analysis-run"),
+        id=run_id or new_id("analysis-run"),
         run_by=_actor_from_git(paths.root),
         purpose=purpose,
         algorithm=algorithm,
@@ -85,6 +89,9 @@ def record_run(
         metrics=dict(metrics or {}),
         affected_target_ids=list(affected_target_ids or []),
         duration_seconds=duration_seconds,
+        result_kind=result_kind,
+        analysis_key=analysis_key,
+        model_fingerprint=model_fingerprint,
     )
     dump_jsonl_append(record, paths.analysis_runs_jsonl)
 

@@ -91,6 +91,19 @@ def test_bn(tmp_path: Path, git_identity, monkeypatch) -> None:
     sens = _json("bn", "sensitivity", "Wet", "--state", "yes", "--no-record")["result"]
     assert sens["target"] == "Wet" and sens["parameters"]
 
+    # Queries are recorded: the latest of each (query, evidence) shows in reports, with its priors.
+    _json("bn", "query", "-e", "Rain=yes", "-q", "Wet")
+    shown = _json("results", "list")["result"]
+    assert sorted(r["kind"] for r in shown) == ["bn-query", "bn-query"]  # the query + the prior marginals
+    from latris.operations import analysis_results as ar
+
+    query = next(r for r in ar.report_results(root=root) if r.payload["evidence"])
+    wet = next(k for k, v in query.payload["labels"].items() if v == "Wet")
+    assert query.payload["priors"][wet]["yes"] == pytest.approx(0.2 * 0.9 + 0.8 * 0.1)
+    assert not query.stale
+    _json("bn", "set-cpt", "Rain", "--probs", "0.3,0.7")
+    assert all(r.stale for r in ar.report_results(root=root))
+
 
 def test_sd(sd_bathtub_root, monkeypatch) -> None:
     monkeypatch.chdir(sd_bathtub_root)

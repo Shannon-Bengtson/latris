@@ -374,7 +374,11 @@ def analyse(
         order=order,
         equations=parsed,
         eq_units=eq_units,
-        unit_text={**{s: stock_entries[s].units for s in stock_ids}, **{v: eq_entries[v].units for v in parsed}},
+        unit_text={
+            **{s: stock_entries[s].units for s in stock_ids},
+            **{v: eq_entries[v].units for v in parsed},
+            **{c: const_entries[c].units for c in const_q},
+        },
         tables={t: e for t, e in table_map.items() if t in parsed},
         inflows=inflows,
         outflows=outflows,

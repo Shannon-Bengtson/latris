@@ -103,6 +103,11 @@ class ProjectPaths:
     def data_links_yaml(self) -> Path:
         return self.attributes_dir / "data-links.yaml"
 
+    @property
+    def parameter_uncertainty_yaml(self) -> Path:
+        """Uncertainty distributions on quantitative parameters (any model type)."""
+        return self.attributes_dir / "parameter-uncertainty.yaml"
+
     # Views (Layer 3)
     @property
     def views_dir(self) -> Path:
@@ -275,6 +280,11 @@ class ProjectPaths:
     @property
     def analysis_outputs_dir(self) -> Path:
         return self.analysis_dir / "outputs"
+
+    @property
+    def analysis_report_yaml(self) -> Path:
+        """Which recorded results the reports hide."""
+        return self.analysis_dir / "report.yaml"
 
     # Reports
     @property

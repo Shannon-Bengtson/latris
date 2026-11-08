@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from latris.operations import sd as sd_ops
+from latris.operations import sd_scenarios
 from latris.server.deps import get_project_root
 
 router = APIRouter(prefix="/api/sd", tags=["sd"])
@@ -197,21 +198,64 @@ class SimulateRequest(BaseModel):
     saveper: float | None = None
     method: Literal["euler", "rk2", "rk4", "adaptive"] | None = None
     time_units: str | None = None
+    scenarios: list[str] = []
+    set: list[str] = []
     record: bool = True
 
 
 @router.post("/simulate")
 def simulate(body: SimulateRequest, root: Root) -> dict[str, Any]:
+    """Run the baseline (plus any scenarios). ``result`` is the baseline run; ``comparison`` has every run."""
     try:
-        result = sd_ops.simulate(
+        payload, runs = sd_ops.simulate_scenarios(
+            body.scenarios, body.set,
             initial_time=body.initial_time, final_time=body.final_time, dt=body.dt, saveper=body.saveper,
             method=body.method, time_units=body.time_units, root=root,
         )
     except ValueError as exc:
         raise _bad_request(exc) from exc
-    out: dict[str, Any] = {"result": asdict(result)}
+    out: dict[str, Any] = {"result": asdict(runs[0].result), "comparison": payload}
     if body.record:
-        sha, run_id = sd_ops.record_simulation(result, root=root)
+        sha, run_id = sd_ops.record_comparison(payload, runs, root=root)
         out["commit_sha"] = sha
         out["run_id"] = run_id
     return out
+
+
+# ── scenarios ────────────────────────────────────────────────────────
+
+
+class ScenarioRequest(BaseModel):
+    name: str
+    set: list[str]
+    description: str = ""
+    reason: str = ""
+    source_id: str | None = None
+    origin: str = "human-direct"
+
+
+@router.get("/scenarios")
+def list_scenarios(root: Root) -> dict[str, Any]:
+    items = sd_scenarios.list_scenarios(root=root)
+    return {"scenarios": [s.model_dump(mode="json") for s in items], "count": len(items)}
+
+
+@router.post("/scenario")
+def set_scenario(body: ScenarioRequest, root: Root) -> dict[str, Any]:
+    try:
+        scenario, sha = sd_scenarios.set_scenario(
+            body.name, body.set, description=body.description, reason=body.reason,
+            source_id=body.source_id, origin=body.origin, root=root,  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        raise _bad_request(exc) from exc
+    return {"result": scenario.model_dump(mode="json"), "commit_sha": sha}
+
+
+@router.delete("/scenario/{name}")
+def remove_scenario(name: str, root: Root) -> dict[str, Any]:
+    try:
+        sha = sd_scenarios.remove_scenario(name, root=root)
+    except ValueError as exc:
+        raise _bad_request(exc) from exc
+    return {"result": {"removed": name}, "commit_sha": sha}

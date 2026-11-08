@@ -276,12 +276,15 @@ def check() -> None:
 
 @app.command("marginals")
 @handle_cli_errors
-def marginals() -> None:
+def marginals(
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
     """Show prior marginal distributions for every node."""
     from latris.operations import bn as bn_ops
 
     result = bn_ops.infer()
-    _print_marginals(result, header="Prior marginals")
+    recorded = bn_ops.record_query(result) if record and result.marginals else None
+    _print_marginals(result, header="Prior marginals", recorded=recorded)
 
 
 @app.command("query")
@@ -289,8 +292,9 @@ def marginals() -> None:
 def query(
     evidence: list[str] | None = typer.Option(None, "--evidence", "-e", help="Observed node=state (repeatable)."),
     query_nodes: list[str] | None = typer.Option(None, "--query", "-q", help="Node to compute (repeatable)."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
 ) -> None:
-    """Compute posterior marginals given evidence."""
+    """Compute posterior marginals given evidence (recorded, so reports can show the posteriors)."""
     from latris.operations import bn as bn_ops
 
     ev: dict[str, str] = {}
@@ -304,7 +308,8 @@ def query(
     # result.evidence is keyed by resolved node ID, so labels resolve cleanly
     # in the header (the raw ``ev`` keys are user input — IDs, prefixes, or
     # labels — and wouldn't match the node-ID-keyed label map).
-    _print_marginals(result, header="Posterior marginals", evidence=result.evidence)
+    recorded = bn_ops.record_query(result) if record and result.marginals else None
+    _print_marginals(result, header="Posterior marginals", evidence=result.evidence, recorded=recorded)
 
 
 @app.command("sensitivity")
@@ -381,14 +386,17 @@ def sensitivity(
         )
 
 
-def _print_marginals(result, *, header: str, evidence: dict[str, str] | None = None) -> None:
+def _print_marginals(
+    result, *, header: str, evidence: dict[str, str] | None = None, recorded: tuple[str, str] | None = None
+) -> None:
     labels = _labels()
     if json_mode():
         emit({
             "given": {labels.get(k, k): v for k, v in (evidence or {}).items()},
             "marginals": {labels.get(nid, nid): {s: round(p, 4) for s, p in dist.items()}
                           for nid, dist in result.marginals.items()},
-        }, human=lambda: None)
+            "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
         return
     if evidence:
         cond = ", ".join(f"{labels.get(k, k[:8])}={v}" for k, v in evidence.items())
@@ -407,3 +415,6 @@ def _print_marginals(result, *, header: str, evidence: dict[str, str] | None = N
         cells = "   ".join(f"{state} {prob:.3f}" for state, prob in dist.items())
         table.add_row(labels.get(node_id, node_id[:12]), cells)
     console.print(table)
+    if recorded:
+        sha, run_id = recorded
+        console.print(f"\n[green]recorded[/green] · run [cyan]{run_id[:18]}…[/cyan] · commit [cyan]{sha[:10]}[/cyan]")

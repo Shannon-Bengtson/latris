@@ -136,7 +136,7 @@ register_model_type(
     )
 )
 
-# -- planned (registered, not switchable). See each entry's ``roadmap``. ---
+# -- System Dynamics (stable; registered after the first four) ---------------
 
 register_model_type(
     ModelTypeSpec(
@@ -165,6 +165,8 @@ register_model_type(
         required_edge_kinds=("flow",),
     )
 )
+
+# -- planned (registered, not switchable). See each entry's ``roadmap``. ---
 
 register_model_type(
     ModelTypeSpec(

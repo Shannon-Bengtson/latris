@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict, Field
+
 # ---------------------------------------------------------------------------
 # Author identity
 # ---------------------------------------------------------------------------
@@ -26,7 +28,6 @@ from latris.repo.yaml_io import dump_model, iter_jsonl, load_model
 from latris.schema import (
     EvidenceLinkSet,
     Finding,
-    FloatSet,
     HumanActor,
     LineageNode,
     MappingRegistry,
@@ -41,6 +42,13 @@ from latris.schema import (
 )
 from latris.schema.ai import ChallengeLog
 from latris.schema.common import now_utc
+
+
+class _ParameterEntries(BaseModel):
+    """Any ``views/parameters`` file, read only for which targets it quantifies."""
+
+    model_config = ConfigDict(extra="ignore")
+    entries: list[dict] = Field(default_factory=list)
 
 # ---------------------------------------------------------------------------
 # Target dispatch
@@ -272,11 +280,13 @@ def compute_badges(
         params_dir = paths.root / "views" / "parameters"
         if params_dir.exists():
             for f in params_dir.glob(f"{model_type}-*.yaml"):
+                # Any per-target parameter file counts (FCM weights, SD constants
+                # and equations, BN tables), whatever its entry shape.
                 try:
-                    fs = load_model(FloatSet, f)
+                    fs = load_model(_ParameterEntries, f)
                 except Exception:
                     continue
-                if any(e.target_id == target_id for e in fs.entries):
+                if any(e.get("target_id") == target_id for e in fs.entries):
                     has_quantification = True
                     break
 

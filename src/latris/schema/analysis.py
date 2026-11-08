@@ -45,3 +45,15 @@ class AnalysisRun(_Base):
     metrics: dict = Field(default_factory=dict)
     affected_target_ids: list[str] = Field(default_factory=list)
     duration_seconds: float | None = None
+    # What kind of result the artifact holds ("sd-simulation", "bn-query", ...),
+    # which runs count as "the same analysis" (the report shows the latest of
+    # each), and a fingerprint of the model the run used (to spot stale results).
+    result_kind: str = ""
+    analysis_key: str = ""
+    model_fingerprint: str = ""
+
+
+class ReportSelection(_Base):
+    """Which recorded results the reports leave out (``analysis/report.yaml``)."""
+
+    hidden: list[str] = Field(default_factory=list)

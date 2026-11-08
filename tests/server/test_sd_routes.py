@@ -85,3 +85,25 @@ def test_simulate_rejects_bad_requests(client):
 def test_simulate_incomplete_model(diagram_client):
     r = diagram_client.post("/api/sd/simulate", json={"record": False})
     assert r.status_code == 400 and "not ready to simulate" in r.json()["detail"]
+
+
+def test_scenarios_and_results(client):
+    pytest.importorskip("scipy")
+    bad = client.post("/api/sd/scenario", json={"name": "Wrong", "set": ["Drain Rate=1 liter"]})
+    assert bad.status_code == 400 and "can't replace" in bad.json()["detail"]
+    ok = client.post("/api/sd/scenario", json={"name": "Faster drain", "set": ["Drain Rate=0.2"]})
+    assert ok.status_code == 200 and ok.json()["commit_sha"]
+    assert client.get("/api/sd/scenarios").json()["count"] == 1
+
+    body = client.post("/api/sd/simulate", json={"final_time": 5, "scenarios": ["Faster drain"]}).json()
+    assert [s["name"] for s in body["comparison"]["scenarios"]] == ["baseline", "Faster drain"]
+    run_id = body["run_id"]
+
+    listed = client.get("/api/results").json()
+    assert [r["run"]["id"] for r in listed["results"]] == [run_id]
+    assert client.get(f"/api/results/{run_id}").json()["result"]["scenarios"][1]["name"] == "Faster drain"
+    assert client.post(f"/api/results/{run_id}/hide").json()["result"]["hidden"] is True
+    assert client.get("/api/results").json()["count"] == 0
+    assert client.get("/api/results", params={"all": True}).json()["results"][0]["hidden"] is True
+    assert client.get("/api/results/nope").status_code == 404
+    assert client.delete("/api/sd/scenario/Faster drain").status_code == 200

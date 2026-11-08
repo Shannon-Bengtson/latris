@@ -337,3 +337,45 @@ def infer(
         {resolve_target(k, substrate): v for k, v in evidence.items()} if evidence else None
     )
     return bn_infer(ss_map, cpt_map, query=query_ids, evidence=evidence_ids)
+
+
+def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tuple[str, str]:
+    """Record a query's posteriors (with the no-evidence priors) as a result reports show.
+
+    Returns (commit_sha, run_id). Reports show the latest run per (query, evidence).
+    """
+    import pgmpy
+
+    from latris.operations.analysis_results import record_result
+
+    paths = require_project(root)
+    labels = {e.id: e.label for e in load_model(Substrate, paths.conceptual_yaml).entities}
+    nodes = sorted(result.marginals)
+    priors = (
+        infer(query=nodes, root=paths.root).marginals if result.evidence else result.marginals
+    )
+    evidence_text = ", ".join(f"{labels.get(k, k)}={v}" for k, v in sorted(result.evidence.items()))
+
+    def top(node: str) -> str:
+        dist = result.marginals[node]
+        state = max(dist, key=dist.get)  # type: ignore[arg-type]
+        return f"{labels.get(node, node)}: {state} {dist[state]:.0%}"
+
+    sha, run = record_result(
+        kind="bn-query",
+        key="bn-query|" + ",".join(nodes) + "|" + ",".join(f"{k}={v}" for k, v in sorted(result.evidence.items())),
+        payload={
+            "evidence": result.evidence, "posteriors": result.marginals, "priors": priors,
+            "labels": {n: labels.get(n, n) for n in {*nodes, *result.evidence}}, "method": result.method,
+        },
+        purpose="inference",
+        algorithm=result.method,
+        library_version=f"pgmpy {pgmpy.__version__}",
+        summary=f"P(· | {evidence_text or 'no evidence'}): " + "; ".join(top(n) for n in nodes[:8]),
+        model_type=_MODEL_TYPE,
+        hyperparameters={"query": nodes, "evidence": result.evidence},
+        affected_target_ids=nodes,
+        commit_subject=f"BN query: {len(nodes)} node(s) given {evidence_text or 'no evidence'}"[:120],
+        root=paths.root,
+    )
+    return sha, run.id

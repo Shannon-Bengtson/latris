@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 
 import typer
 from rich.console import Console
@@ -327,69 +326,200 @@ def check() -> None:
     raise typer.Exit(code=1)
 
 
+def _settings_options(initial_time, final_time, dt, saveper, method, time_units) -> dict:
+    return {"initial_time": initial_time, "final_time": final_time, "dt": dt, "saveper": saveper,
+            "method": method, "time_units": time_units}
+
+
+def _change(c: dict | None) -> str:
+    if not c:
+        return ""
+    pct = f" ({c['end_pct']:+.3g}%)" if c.get("end_pct") is not None else ""
+    return f"{c['end']:+.6g}{pct}"
+
+
 @app.command("simulate")
 @handle_cli_errors
 def simulate(
+    scenario: list[str] | None = typer.Option(
+        None, "--scenario", "-s", help="Also run a saved scenario and compare it with the baseline (repeatable)."),
+    assignments: list[str] | None = typer.Option(
+        None, "--set", help="Ad-hoc what-if, not saved: 'Variable=value [units]' (repeatable)."),
     initial_time: float | None = typer.Option(None, "--initial-time", help="Start time (default 0)."),
     final_time: float | None = typer.Option(None, "--final-time", help="End time (default 100)."),
     dt: float | None = typer.Option(None, "--dt", help="Time step (default 0.25)."),
     saveper: float | None = typer.Option(None, "--saveper", help="Reporting interval (default dt)."),
     method: str | None = typer.Option(None, "--method", help="euler | rk2 | rk4 (default) | adaptive."),
     time_units: str | None = typer.Option(None, "--time-units", help="Time unit (default years)."),
-    record: bool = typer.Option(True, "--record/--no-record", help="Save the series + log an AnalysisRun."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
     json_output: bool = typer.Option(False, "--json", help="Emit the full time series as JSON (for agents/scripts)."),
 ) -> None:
-    """Run one deterministic simulation and summarise each variable's trajectory."""
+    """Run the model (baseline, plus any scenarios) and summarise each variable's trajectory.
+
+    With --scenario or --set, every run is compared with the baseline: the end
+    value of each variable and its change. Recorded results appear in reports.
+    """
     from latris.operations import sd as sd_ops
 
-    result = sd_ops.simulate(
-        initial_time=initial_time, final_time=final_time, dt=dt, saveper=saveper,
-        method=method, time_units=time_units,
+    payload, runs = sd_ops.simulate_scenarios(
+        scenario or [], assignments or [],
+        **_settings_options(initial_time, final_time, dt, saveper, method, time_units),
     )
-    recorded = sd_ops.record_simulation(result) if record else None
+    recorded = sd_ops.record_comparison(payload, runs) if record else None
+    base = runs[0].result
+    success = all(r.result.success for r in runs)
 
     if json_mode() and not json_output:
         # One compact object for agents: each variable's trajectory summarised,
         # with the series thinned to at most ~50 points.
-        step = max(1, len(result.times) // 50)
+        step = max(1, len(base.times) // 50)
+
+        def variables(res, change=None):
+            return [
+                {"variable": res.labels[v], "role": res.roles[v], "units": res.units[v],
+                 "start": vals[0], "end": vals[-1], "min": min(vals), "max": max(vals),
+                 **({"change_vs_baseline": change[v]} if change and v in change else {}),
+                 "series": vals[::step]}
+                for v, vals in res.series.items() if vals
+            ]
+
+        scenarios = []
+        for r, sc in zip(runs[1:], payload["scenarios"][1:], strict=True):
+            scenarios.append({
+                "scenario": r.name, "success": r.result.success, "message": r.result.message,
+                "changes": [f"{o['label']}: {o['baseline']} → {o['value']:g} {o['units']}" for o in sc["overrides"]],
+                "variables": variables(r.result, sc.get("change_vs_baseline")),
+                "warnings": r.result.warnings,
+            })
         emit({
-            "success": result.success, "message": result.message, "algorithm": result.algorithm,
-            "time_units": result.time_units, "times": result.times[::step],
-            "variables": [
-                {"variable": result.labels[v], "role": result.roles[v], "units": result.units[v],
-                 "start": vals[0], "end": vals[-1], "min": min(vals), "max": max(vals), "series": vals[::step]}
-                for v, vals in result.series.items() if vals
-            ],
-            "warnings": result.warnings, "run_id": recorded[1] if recorded else None,
+            "success": success, "message": base.message, "algorithm": base.algorithm,
+            "time_units": base.time_units, "times": base.times[::step],
+            "variables": variables(base), "scenarios": scenarios,
+            "warnings": base.warnings, "run_id": recorded[1] if recorded else None,
         }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
     elif json_output:
-        payload = asdict(result)
+        # The baseline's full, unthinned series stay at the top level (as before scenarios existed).
+        out = {**payload, "success": success, "message": base.message, "series": base.series,
+               "warnings": base.warnings}
         if recorded:
-            payload["commit_sha"], payload["run_id"] = recorded
-        typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+            out["commit_sha"], out["run_id"] = recorded
+        typer.echo(json.dumps(out, indent=2, ensure_ascii=False))
     else:
-        t = result.times
-        span = f"{t[0]:g}–{t[-1]:g} {result.time_units}" if t else "(no output)"
-        console.print(f"[bold]Simulation[/bold] {span} · {result.algorithm} · {len(t)} report point(s)\n")
+        t = base.times
+        span = f"{t[0]:g}–{t[-1]:g} {base.time_units}" if t else "(no output)"
+        console.print(f"[bold]Simulation[/bold] {span} · {base.algorithm} · {len(t)} report point(s)\n")
         table = Table(show_header=True, header_style="bold")
         for col, justify in (("Variable", "left"), ("Role", "left"), ("Start", "right"), ("End", "right"),
                              ("Min", "right"), ("Max", "right"), ("Units", "left")):
             table.add_column(col, justify=justify)  # type: ignore[arg-type]
-        order = sorted(result.series, key=lambda i: (_ROLE_ORDER.get(result.roles[i], 9), result.labels[i]))
+        order = sorted(base.series, key=lambda i: (_ROLE_ORDER.get(base.roles[i], 9), base.labels[i]))
         for vid in order:
-            vals = result.series[vid]
+            vals = base.series[vid]
             if not vals:
                 continue
-            table.add_row(result.labels[vid], result.roles[vid], f"{vals[0]:.6g}", f"{vals[-1]:.6g}",
-                          f"{min(vals):.6g}", f"{max(vals):.6g}", result.units[vid])
+            table.add_row(base.labels[vid], base.roles[vid], f"{vals[0]:.6g}", f"{vals[-1]:.6g}",
+                          f"{min(vals):.6g}", f"{max(vals):.6g}", base.units[vid])
         console.print(table)
-        for w in result.warnings:
-            console.print(f"[yellow]⚠ {escape(w)}[/yellow]")
-        if not result.success:
-            console.print(f"[red]simulation failed:[/red] {escape(result.message)}")
+        for r, sc in zip(runs[1:], payload["scenarios"][1:], strict=True):
+            title = f"\n[bold]Scenario {escape(r.name)}[/bold]"
+            console.print(title + (f" — {escape(sc['description'])}" if sc.get("description") else ""))
+            for o in sc["overrides"]:
+                console.print(f"  {escape(o['label'])}: {escape(o['baseline'])} → {o['value']:g} {escape(o['units'])}")
+            ct = Table(show_header=True, header_style="bold")
+            for col, justify in (("Variable", "left"), ("Baseline end", "right"), ("Scenario end", "right"),
+                                 ("Change", "right"), ("Units", "left")):
+                ct.add_column(col, justify=justify)  # type: ignore[arg-type]
+            for vid in order:
+                if not base.series[vid] or not r.result.series[vid]:
+                    continue
+                ct.add_row(base.labels[vid], f"{base.series[vid][-1]:.6g}", f"{r.result.series[vid][-1]:.6g}",
+                           _change(sc.get("change_vs_baseline", {}).get(vid)), base.units[vid])
+            console.print(ct)
+        for r in runs:
+            for w in r.result.warnings:
+                console.print(f"[yellow]⚠ {escape(r.name)}: {escape(w)}[/yellow]")
+            if not r.result.success:
+                console.print(f"[red]{escape(r.name)} failed:[/red] {escape(r.result.message)}")
         if recorded:
             sha, run_id = recorded
             console.print(f"\n[green]recorded[/green] · run [cyan]{run_id[:18]}…[/cyan] · {_sha(sha)}")
 
-    if not result.success:
+    if not success:
         raise typer.Exit(code=1)
+
+
+# ── scenarios ────────────────────────────────────────────────────────
+
+
+def _changes(overrides, labels) -> list[dict]:
+    return [{"variable": labels.get(o.target_id, o.target_id), "attribute": o.attribute,
+             "value": o.value, "units": o.units} for o in overrides]
+
+
+@app.command("set-scenario")
+@handle_cli_errors
+def set_scenario(
+    name: str = typer.Argument(..., help="Scenario name, e.g. 'Congestion charge'."),
+    assignments: list[str] = typer.Option(
+        ..., "--set", help="'Variable=value [units]' for a constant or a stock's initial value (repeatable)."),
+    description: str = typer.Option("", "--description", "-d", help="What the scenario represents."),
+    reason: str = typer.Option("", "--reason", help="Why these values (assumption, policy, source)."),
+    source: str | None = typer.Option(None, "--source", help="Source ID backing the values."),
+    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+) -> None:
+    """Save a named what-if: the model with some constants or initial values changed.
+
+    Values are unit-checked: a delay declared in years can be set as '6 month',
+    but not as '6 person'. Run it with `sd simulate --scenario NAME`.
+    """
+    from latris.operations import sd_scenarios
+
+    scenario, sha = sd_scenarios.set_scenario(
+        name, assignments, description=description, reason=reason, source_id=source,
+        origin=origin,  # type: ignore[arg-type]
+    )
+    labels = _labels()
+    if json_mode():
+        emit({"name": scenario.name, "description": scenario.description, "origin": scenario.origin,
+              "changes": _changes(scenario.overrides, labels)}, human=lambda: None, commit_sha=sha)
+        return
+    changes = ", ".join(f"{labels.get(o.target_id, o.target_id)} = {o.value:g} {o.units}" for o in scenario.overrides)
+    console.print(f"[green]scenario[/green] {escape(scenario.name)}: {escape(changes)} · {_sha(sha)}")
+
+
+@app.command("scenarios")
+@handle_cli_errors
+def scenarios() -> None:
+    """List saved scenarios and what each one changes."""
+    from latris.operations import sd_scenarios
+
+    items = sd_scenarios.list_scenarios()
+    labels = _labels()
+    if json_mode():
+        emit([{"name": s.name, "description": s.description, "reason": s.reason, "origin": s.origin,
+               "verification": s.verification, "source_id": s.source_id,
+               "changes": _changes(s.overrides, labels)} for s in items], human=lambda: None)
+        return
+    if not items:
+        console.print("No scenarios yet. Add one with `latris sd set-scenario NAME --set 'Variable=value'`.")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for col in ("Scenario", "Changes", "Description", "Origin"):
+        table.add_column(col)
+    for s in items:
+        changes = "; ".join(f"{labels.get(o.target_id, o.target_id)} = {o.value:g} {o.units}" for o in s.overrides)
+        table.add_row(escape(s.name), escape(changes), escape(s.description), s.origin)
+    console.print(table)
+
+
+@app.command("remove-scenario")
+@handle_cli_errors
+def remove_scenario(name: str = typer.Argument(..., help="Scenario name.")) -> None:
+    """Delete a saved scenario."""
+    from latris.operations import sd_scenarios
+
+    sha = sd_scenarios.remove_scenario(name)
+    if json_mode():
+        emit({"removed": name}, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]removed[/green] scenario {escape(name)} · {_sha(sha)}")

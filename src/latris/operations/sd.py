@@ -16,11 +16,9 @@ same as BN and FCM settings today.
 
 from __future__ import annotations
 
-import json
-from dataclasses import asdict
 from pathlib import Path
 
-from latris.operations import sd_inference
+from latris.operations import sd_inference, sd_scenarios
 from latris.operations._resolve import resolve_entity
 from latris.operations._sd_eval import parse, slugify
 from latris.operations._units import parse_unit
@@ -291,7 +289,8 @@ def get_tables(*, root: Path | None = None) -> SDTableSet:
 def check(*, root: Path | None = None):
     """Run every SD structural validator and return the gaps.
 
-    Bypasses ``assess_readiness`` (which short-circuits while SD is "planned").
+    Runs the validators directly over the whole substrate (no view scoping), so it works
+    before any view mapping exists.
     Unlike BN, SD validators depend on view roles, so the real role set is loaded.
     """
     from latris.operations.readiness import _STRUCTURAL_VALIDATORS, SD_VALIDATORS, ValidationContext
@@ -332,6 +331,33 @@ def build_settings(
     return SDSettings(**{k: v for k, v in overrides.items() if v is not None})
 
 
+def compile_project(
+    *,
+    initial_time: float | None = None,
+    final_time: float | None = None,
+    dt: float | None = None,
+    saveper: float | None = None,
+    method: str | None = None,
+    time_units: str | None = None,
+    root: Path | None = None,
+) -> sd_inference.SDModel:
+    """Load the project's SD model and compile it (raises if it isn't ready to simulate)."""
+    paths = require_project(root)
+    settings = build_settings(
+        initial_time=initial_time, final_time=final_time, dt=dt, saveper=saveper,
+        method=method, time_units=time_units,
+    )
+    return sd_inference.build_model(
+        load_model(Substrate, paths.conceptual_yaml),
+        _load_roles(paths),
+        _load(paths, SDEquationSet, "equations"),
+        _load(paths, SDStockSet, "initial_value"),
+        _load(paths, SDConstantSet, "constant"),
+        _load(paths, SDTableSet, "table"),
+        settings,
+    )
+
+
 def simulate(
     *,
     initial_time: float | None = None,
@@ -343,63 +369,94 @@ def simulate(
     root: Path | None = None,
 ) -> SDSimulationResult:
     """Compile the project's SD model and run one deterministic simulation."""
-    paths = require_project(root)
-    settings = build_settings(
+    model = compile_project(
         initial_time=initial_time, final_time=final_time, dt=dt, saveper=saveper,
-        method=method, time_units=time_units,
-    )
-    model = sd_inference.build_model(
-        load_model(Substrate, paths.conceptual_yaml),
-        _load_roles(paths),
-        _load(paths, SDEquationSet, "equations"),
-        _load(paths, SDStockSet, "initial_value"),
-        _load(paths, SDConstantSet, "constant"),
-        _load(paths, SDTableSet, "table"),
-        settings,
+        method=method, time_units=time_units, root=root,
     )
     return sd_inference.simulate(model)
 
 
-def record_simulation(result: SDSimulationResult, *, root: Path | None = None) -> tuple[str, str]:
-    """Persist a run's full time series to ``analysis/outputs/`` and log an AnalysisRun.
+def simulate_scenarios(
+    scenarios: list[str] | None = None,
+    assignments: list[str] | None = None,
+    *,
+    initial_time: float | None = None,
+    final_time: float | None = None,
+    dt: float | None = None,
+    saveper: float | None = None,
+    method: str | None = None,
+    time_units: str | None = None,
+    root: Path | None = None,
+) -> tuple[dict, list[sd_scenarios.ScenarioRun]]:
+    """Simulate the baseline plus the named scenarios (and an ad-hoc what-if from ``assignments``).
 
-    Returns (commit_sha, run_id).
+    Returns the comparison payload (what reports and agents read) and the raw runs.
     """
-    from latris.operations._units import library_version as pint_version
-    from latris.operations.analysis_runs import record_run
-    from latris.schema import new_id
-
     paths = require_project(root)
-    slug = new_id("analysis-run").split("_", 1)[1]
-    paths.analysis_outputs_dir.mkdir(parents=True, exist_ok=True)
-    artifact = paths.analysis_outputs_dir / f"sd-simulation-{slug}.json"
-    artifact.write_text(json.dumps(asdict(result), indent=2), encoding="utf-8")
-    rel = artifact.relative_to(paths.root).as_posix()
+    model = compile_project(
+        initial_time=initial_time, final_time=final_time, dt=dt, saveper=saveper,
+        method=method, time_units=time_units, root=paths.root,
+    )
+    chosen = [sd_scenarios.get(n, paths) for n in dict.fromkeys(scenarios or [])]
+    if assignments:
+        chosen.append(sd_scenarios.what_if(assignments, paths))
+    runs = sd_scenarios.run(model, chosen)
+    return sd_scenarios.comparison(runs, model), runs
 
-    stocks = [i for i, r in result.roles.items() if r == "stock"]
-    span = f"{result.times[0]:g}–{result.times[-1]:g} {result.time_units}" if result.times else "(no output)"
-    finals = "; ".join(
-        f"{result.labels[s]} {result.series[s][0]:.6g} → {result.series[s][-1]:.6g} {result.units[s]}"
-        for s in stocks if result.series[s]
-    )
-    run, _ = record_run(
+
+def _span(payload: dict) -> str:
+    t = payload["times"]
+    return f"{t[0]:g}–{t[-1]:g} {payload['time_units']}" if t else "(no output)"
+
+
+def comparison_summary(payload: dict) -> str:
+    """One line per run for the run log: each stock's start → end, and changes against the baseline."""
+    labels, units = payload["labels"], payload["units"]
+    stocks = [v for v, r in payload["roles"].items() if r == "stock"]
+    parts = []
+    for sc in payload["scenarios"]:
+        failed = "" if sc["success"] else f" (FAILED: {sc['message']})"
+        ends = "; ".join(
+            f"{labels[s]} {sc['summary'][s]['start']:.6g} → {sc['summary'][s]['end']:.6g} {units[s]}"
+            for s in stocks if sc["summary"].get(s)
+        )
+        parts.append(f"{sc['name']}{failed}: {ends}")
+    return f"Simulated {_span(payload)}. " + " | ".join(parts)
+
+
+def record_comparison(
+    payload: dict, runs: list[sd_scenarios.ScenarioRun], *, root: Path | None = None
+) -> tuple[str, str]:
+    """Record a baseline/scenario comparison as a result the reports show. Returns (commit_sha, run_id)."""
+    from latris.operations._units import library_version as pint_version
+    from latris.operations.analysis_results import record_result
+
+    saved = [r.name for r in runs[1:] if r.name != sd_scenarios.WHAT_IF]
+    stocks = [v for v, r in payload["roles"].items() if r == "stock"]
+    sha, run = record_result(
+        kind="sd-simulation",
+        key=sd_scenarios.key(runs),
+        payload=payload,
         purpose="simulation",
-        algorithm=result.algorithm,
-        library_version=f"{result.library_version}; pint {pint_version()}",
-        hyperparameters=result.settings,
-        target_view=_MODEL_TYPE,
-        output_summary=f"Simulated {span}{' (FAILED: ' + result.message + ')' if not result.success else ''}. "
-                       f"{finals}",
-        output_artifacts=[rel],
-        metrics={"report_points": len(result.times), "success": result.success, "warnings": len(result.warnings)},
+        algorithm=payload["algorithm"],
+        library_version=f"{payload['library_version']}; pint {pint_version()}",
+        summary=comparison_summary(payload),
+        model_type=_MODEL_TYPE,
+        hyperparameters={**payload["settings"], "scenarios": [r.name for r in runs[1:]]},
+        scenarios=saved,
+        metrics={
+            "report_points": len(payload["times"]),
+            "success": all(s["success"] for s in payload["scenarios"]),
+            "warnings": sum(len(s["warnings"]) for s in payload["scenarios"]),
+        },
         affected_target_ids=stocks,
-        commit=False,
-        root=paths.root,
-    )
-    sha = auto_commit(
-        paths.root,
-        subject=f"SD simulation: {len(stocks)} stock(s), {span} [{result.method}]",
-        body=f"run: {run.id}\nartifact: {rel}",
-        paths=[artifact, paths.analysis_runs_jsonl],
+        commit_subject=f"SD simulation: {len(runs)} run(s), {_span(payload)} [{payload['method']}]",
+        root=root,
     )
     return sha, run.id
+
+
+def record_simulation(result: SDSimulationResult, *, root: Path | None = None) -> tuple[str, str]:
+    """Record a single baseline run (see :func:`record_comparison`). Returns (commit_sha, run_id)."""
+    runs = [sd_scenarios.ScenarioRun(sd_scenarios.BASELINE, None, result)]
+    return record_comparison(sd_scenarios.comparison(runs), runs, root=root)

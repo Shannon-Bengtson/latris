@@ -30,6 +30,7 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 
 
 def _non_blank(value: str, what: str) -> str:
@@ -136,3 +137,54 @@ class SDTableEntry(_EntryBase):
 
 class SDTableSet(_Base):
     entries: list[SDTableEntry] = Field(default_factory=list)
+
+
+# ── scenarios ────────────────────────────────────────────────────────
+
+
+class SDOverride(_Base):
+    """One value a scenario changes: a constant, or a stock's initial value.
+
+    ``units`` may differ from the declared units if they're compatible
+    (a scenario can say ``6 month`` for a constant declared in years).
+    """
+
+    target_id: str
+    attribute: Literal["constant", "initial_value"]
+    value: float
+    units: str
+
+    @field_validator("units")
+    @classmethod
+    def _units_present(cls, v: str) -> str:
+        return _non_blank(v, "units (use 'dimensionless' for a pure number)")
+
+
+class SDScenario(_Base):
+    """A named what-if: the baseline model with some values changed.
+
+    Saved with the model (``views/parameters/sd-scenarios.yaml``) so a report
+    can say exactly what each scenario changed, who proposed it and why.
+    """
+
+    name: str
+    description: str = ""
+    overrides: list[SDOverride] = Field(default_factory=list)
+    reason: str = ""
+    origin: ProvenanceOrigin = "human-direct"
+    verification: ProvenanceVerification = "unverified"
+    source_id: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_present(cls, v: str) -> str:
+        name = _non_blank(v, "a scenario name")
+        if name.lower() == "baseline":
+            raise ValueError("'baseline' is the unchanged model; give the scenario another name")
+        if "," in name or "|" in name:
+            raise ValueError("scenario names can't contain ',' or '|'")
+        return name
+
+
+class SDScenarioSet(_Base):
+    scenarios: list[SDScenario] = Field(default_factory=list)

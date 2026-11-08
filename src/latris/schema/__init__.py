@@ -5,7 +5,7 @@ from latris.schema.ai import (
     ChallengeState,
     ConversationTurn,
 )
-from latris.schema.analysis import AnalysisRun
+from latris.schema.analysis import AnalysisRun, ReportSelection
 from latris.schema.attributes import (
     Confidence,
     ConfidenceEntry,
@@ -167,6 +167,7 @@ __all__ = [
     "AIInteraction",
     "Actor",
     "AnalysisRun",
+    "ReportSelection",
     "ColumnSpec",
     "CompletenessReport",
     "DataAction",
