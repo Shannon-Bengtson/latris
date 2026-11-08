@@ -114,14 +114,16 @@ the schema change.
 | Elicitation index | `ElicitationLog` | `provenance/elicitations.yaml` |
 | Per-session elicitation | `ElicitationSession` | `provenance/elicitations/<YYYY-MM-DD>-<slug>.yaml` |
 | View roles | `ViewRoleMap` | `views/roles/{view_kind}-roles.yaml` | **built** |
-| Model settings | `SDSettings` / `FCMSettings` / `MarkovSettings` | `views/settings/{model_type}-settings.yaml` | **built** (schema) |
-| Parameter uncertainty | `ParameterUncertaintySet` | `substrate/attributes/parameter-uncertainty.yaml` | **built** (schema) |
+| Model settings | `SDSettings` / `FCMSettings` / `MarkovSettings` | per run (CLI options); not stored | **built** (schema) |
+| Parameter uncertainty | `ParameterUncertaintySet` (`parameter_cell_id` `sd:constant` / `sd:initial_value`) | `substrate/attributes/parameter-uncertainty.yaml` | **built** (SD) |
 | Datasets | `DatasetLibrary` | `data/datasets.yaml` | **built** |
 | Committed dataset files | *(arbitrary content)* | `data/files/<name>` | **built** |
 | Dataset action log | `DataActionLog` | `data/actions/{dataset_id}.yaml` | **built** |
 | Dataset versions | `DatasetVersionLibrary` | `data/versions.yaml` | **built** |
-| Analysis runs | `AnalysisRun` (one per line) | `analysis/runs.jsonl` | schema only |
-| Analysis outputs | *(arbitrary)* | `analysis/outputs/<run_id>/...` |
+| Analysis runs | `AnalysisRun` (one per line; `result_kind`, `analysis_key`, `model_fingerprint`) | `analysis/runs.jsonl` | **built** |
+| Analysis outputs | `{"kind", "result"}` JSON per recorded result | `analysis/outputs/<run_id>.json` | **built** |
+| Results hidden from reports | `ReportSelection` | `analysis/report.yaml` | **built** |
+| SD scenarios | `SDScenarioSet` | `views/parameters/sd-scenarios.yaml` | **built** |
 | BN CPTs | `BNCPTFile` | `views/parameters/bn-cpt.yaml` |
 | SD equations (flows + auxiliaries) | `SDEquationSet` | `views/parameters/sd-equations.yaml` |
 | SD stock initial values | `SDStockSet` | `views/parameters/sd-initial_value.yaml` |
@@ -143,7 +145,8 @@ which is what keeps these models inside the inspectability test (see
 annotates any such cell with a distribution; **Monte Carlo / PSA / EVPI**
 is a cross-cutting *analysis layer* that propagates those uncertainties
 over any parameterized model (BN, regression, SD, …) — it is not itself a
-model type or a parameter file. See the PARAMETERS design spec (held in the private design docs).
+model type or a parameter file. Built for SD (`sd monte-carlo`,
+`sd sensitivity`); BN PSA/EVPI would reuse the same store. See the PARAMETERS design spec (held in the private design docs).
 
 ## Maturity ladder
 
@@ -231,8 +234,10 @@ AnalysisRun is schema-stubbed only.**
   versioning with restore, column metadata editing, and preview/stats
   all work end-to-end. GUI data view with `ColumnInspector`, `DataTable`,
   `DataToolbar`.
-- **`AnalysisRun`** (append-only in `analysis/runs.jsonl`) — **schema
-  only.** An algorithm execution recording purpose, algorithm, library
+- **`AnalysisRun`** (append-only in `analysis/runs.jsonl`) — **built.**
+  Written by BN learning, queries and sensitivity, and every SD
+  simulation, Monte Carlo, sensitivity and loop analysis; reports read the
+  latest run of each `analysis_key` (`operations/analysis_results.py`). An algorithm execution recording purpose, algorithm, library
   version, hyperparameters, seed, input dataset(s), input substrate
   commit, outputs, metrics, and what was changed. Distinct from
   `AIInteraction`, which is an LLM call.

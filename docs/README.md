@@ -30,10 +30,10 @@ this package from a separate private repository. Start at the repo-root
   via CLI `bn` + `/api/bn/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
-- A *general* quantitative modelling engine. ODE simulation, regression
-  fitting, causal identification, and a Monte Carlo / PSA analysis layer
-  are deferred. The discrete BN engine above is the quantitative
-  beachhead.
+- A *general* quantitative modelling engine. System dynamics (unit-checked
+  simulation, scenarios, Monte Carlo bands, sensitivity, loop dominance)
+  and the discrete BN engine above are built; regression fitting, model
+  calibration to data, and BN PSA/EVPI are deferred.
 
 **Isn't ever (excluded by design — fails the inspectability test):**
 - Black-box predictors you can run but can't inspect or defend (random

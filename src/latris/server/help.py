@@ -801,7 +801,7 @@ Every CPT row carries its own provenance — `origin` (human-direct, human-elici
 - **`bn set-noisy-or <node> -c "<parent>=<state>:<prob>" --leak …`** — a *canonical model* for high-fan-in binary nodes: each cause contributes independently, so k causes need k probabilities + a leak instead of 2^k rows.
 - **`bn learn <dataset>`** — fit CPTs from data. Rows you elicited or verified are **protected**; data fills only the gaps. Learned rows are stamped data-derived and the run is logged.
 - **`bn check`** — readiness: state spaces defined, CPTs complete + normalised, acyclic.
-- **`bn marginals` / `bn query --evidence … --query …`** — exact inference.
+- **`bn marginals` / `bn query --evidence … --query …`** — exact inference. Each query is recorded (`--no-record` to skip); reports show the latest one per evidence set, posterior against prior, with a chart.
 - **`bn sensitivity <target> --state …`** — rank the parameters that move a conclusion, flagging the ones that aren't human-verified.
 
 ## Not yet
@@ -813,7 +813,7 @@ Interactive belief-bar GUI, continuous/hybrid nodes, structure learning, dynamic
         id="model-type-sd",
         title="System Dynamics (stock-and-flow)",
         category="model-types",
-        summary="Stocks, flows, unit-checked equations, table functions, and deterministic simulation — with per-parameter provenance.",
+        summary="Stocks, flows, unit-checked equations, scenarios, Monte Carlo uncertainty, sensitivity and loop dominance — with per-parameter provenance.",
         body="""## What an SD model adds
 
 System Dynamics models how quantities accumulate and drain over time. **Stocks** (population, inventory, pollutant load) change only through **flows** (births, orders, emissions); flows and **auxiliaries** are computed from equations; **constants** are fixed parameters; a **source_sink** is a cloud outside the model boundary. Simulating integrates the model forward in time, so you can see growth, overshoot, oscillation, or collapse emerge from the feedback structure.
@@ -824,7 +824,7 @@ SD uses the same entities and edges as every other view. Each SD variable is an 
 
 ## Equations and units
 
-Equations reference variables by slugified label (`Birth Rate` → `birth_rate`) plus `TIME`, using arithmetic, comparisons, and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE(cond, a, b)`, `STEP(height, start)`, `TABLE(x)`, `EXP`, `LN`, `SQRT`. Every stock, constant and equation declares its **units** (pint syntax: `liter`, `person/year`, `1/year`, `dimensionless`; `person`, `dollar` and `item` are built in). Values are evaluated as unit-bearing quantities, so adding litres to people, or a flow whose units aren't its stock's units per time unit, is caught as an error rather than producing a wrong number. Equations have no unit literals — give a unit-bearing number its own named, sourced constant. An equation that is just a bare number (`3`) takes its declared units.
+Equations reference variables by slugified label (`Birth Rate` → `birth_rate`) plus `TIME`, using arithmetic, comparisons, and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE(cond, a, b)`, `STEP(height, start)`, `RAMP(slope, start[, end])`, `PULSE(start, width)`, `TABLE(x)`, `EXP`, `LN`, `SQRT`. A bare start, end or width is in the model's time units. Every stock, constant and equation declares its **units** (pint syntax: `liter`, `person/year`, `1/year`, `dimensionless`; `person`, `dollar` and `item` are built in). Values are evaluated as unit-bearing quantities, so adding litres to people, or a flow whose units aren't its stock's units per time unit, is caught as an error rather than producing a wrong number. Equations have no unit literals — give a unit-bearing number its own named, sourced constant. An equation that is just a bare number (`3`) takes its declared units.
 
 ## Working with SD (the `sd` commands)
 
@@ -833,16 +833,25 @@ Equations reference variables by slugified label (`Birth Rate` → `birth_rate`)
 - **`sd set-constant <node> <value> --units …`** and **`sd set-equation <flow|aux> "<expr>" --units …`** — each with `--origin`/`--source` provenance.
 - **`sd set-table <node> -p x:y -p x:y … --x-units … --y-units …`** — a piecewise-linear lookup the node's equation calls as `TABLE(x)`; typically elicited from experts as a curve.
 - **`sd check`** — readiness: classification, stock-flow plumbing, no algebraic loops among flows/auxiliaries, equations match the diagram's links (no hidden or unused dependencies), values and tables present, and full dimensional consistency.
-- **`sd simulate`** — one deterministic run (`--final-time`, `--dt`, `--saveper`, `--method euler|rk2|rk4|adaptive`, `--time-units`). The full series is saved and logged as an AnalysisRun; `--json` prints it for scripts and agents.
+- **`sd simulate`** — a deterministic run (`--final-time`, `--dt`, `--saveper`, `--method euler|rk2|rk4|adaptive`, `--time-units`). `--scenario NAME` (repeatable) and `--set "Variable=value [units]"` add what-ifs, each compared with the baseline (end, peak, change). The result is recorded and shows in reports; `--json` prints the full series.
+- **`sd set-scenario NAME --set "Variable=value [units]" …`** — a named what-if saved with the model, with `--description`, `--reason`, `--source`. Values replace constants or initial values and are unit-checked (a delay in years can be set as `6 month`, not `6 person`). `sd scenarios`, `sd remove-scenario`.
+- **`sd set-uncertainty <node> <distribution> …`** — how uncertain a constant or initial value is, in its own units: uniform (`--min --max`), triangular (`--min --mode --max`), normal/lognormal (`--mean --sd`, optional `--min/--max` truncation), beta (`--alpha --beta`, scaled to min..max), gamma (`--shape --scale`); with `--reason`/`--source`/`--origin`. `sd uncertainty`, `sd clear-uncertainty`.
+- **`sd monte-carlo`** — samples every value that has a range (Latin hypercube by default, `--seed` for repeatability, `--runs` up to 1000) and reports each variable's percentile bands over time (50/75/95/100% of runs) and which uncertain values drive the spread (rank correlation).
+- **`sd sensitivity <variable>`** — a tornado: each constant and initial value swung across its range's 5th–95th percentile (or ±10%), ranked by how far it moves one result (`--metric final|peak|peak-time|min|mean|at:T`); values that aren't human-verified are flagged.
+- **`sd loops`** — which feedback loop drives the behaviour, and when (Loops That Matter, with the 2023 flow-to-stock revision): loops through the stocks and equations are scored at each step, and a loop (or the fewest loops) holding half the score dominates. Dominant loops built on unsourced or contested links are flagged. Scores are zero when the stocks stop changing — the method explains change, not equilibrium.
 - **`sd roles` / `sd equations` / `sd stocks` / `sd constants` / `sd tables`** — listings.
+
+## Results in reports
+
+Simulations, Monte Carlo runs, sensitivity and loop analyses (and BN queries) are recorded. Reports show the latest run of each analysis in a **Results** section — with charts in the hosted report and Word — and the interpretation's claims include what they found. A result computed before the model last changed is marked out of date. `latris results list` shows what reports use; `latris results hide <run>` leaves one out. A `latris link` carries the parameters and the analyses, and opening it recomputes the same results.
 
 ## Integration methods
 
-`euler` is fixed-step forward Euler at `dt`. `rk4` and `rk2` use scipy's adaptive Runge–Kutta (RK45 / RK23) bounded to never step past `dt` — close to, but not bit-identical with, the classical fixed-step RK4 of Vensim/Stella. `adaptive` lets scipy choose its own steps. Halving `dt`, or comparing `euler` with `rk4`, is a quick check that results aren't integration artefacts.
+Once a model passes its unit check it runs on a compiled float path (identical results, many times faster), which is what makes hundreds of Monte Carlo runs practical; models with offset units such as degC use the slower unit-checked path. `euler` is fixed-step forward Euler at `dt`. `rk4` and `rk2` use scipy's adaptive Runge–Kutta (RK45 / RK23) bounded to never step past `dt` — close to, but not bit-identical with, the classical fixed-step RK4 of Vensim/Stella. `adaptive` lets scipy choose its own steps. Halving `dt`, or comparing `euler` with `rk4`, is a quick check that results aren't integration artefacts.
 
 ## Not yet
 
-Monte Carlo / uncertainty bands, scenario comparison, calibration to data, sensitivity analysis, loop-dominance analysis, delay functions, AI-drafted equations, the GUI stock-and-flow canvas, and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
+Calibration to data, delay functions (DELAY1/SMOOTH), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, the GUI stock-and-flow canvas, and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
 """,
     ),
     HelpTopic(

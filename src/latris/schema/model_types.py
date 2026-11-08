@@ -144,8 +144,8 @@ register_model_type(
         display_name="System Dynamics",
         short_name="SD",
         description=(
-            "Stocks, flows, and feedback loops with unit-checked equations, simulated over time "
-            "(deterministic ODE integration)."
+            "Stocks, flows, and feedback loops with unit-checked equations, simulated over time, with "
+            "scenarios, Monte Carlo uncertainty bands, sensitivity, and loop dominance."
         ),
         roadmap="built",
         availability="stable",

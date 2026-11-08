@@ -1168,6 +1168,60 @@ def build_example(ex: WorkedExample) -> None:
     )
     ex.run(["sd", "simulate", "--final-time", "10", "--dt", "0.05", "--saveper", "1", "--no-record"])
 
+    # ── 7.11 SD scenarios ─────────────────────────────────────────────
+    _sd_run = ["--final-time", "10", "--dt", "0.05", "--method", "euler"]
+    ex.section(
+        "System Dynamics — Scenarios",
+        "A scenario is the baseline with some values changed, saved with the model "
+        "and its reason. Values are unit-checked against what they replace: a "
+        "clean-transport policy can set the emission rate in tonnes per month, but "
+        "not in people.",
+    )
+    ex.run(["sd", "set-scenario", "Clean transport", "--set", "Emission Rate=6.5 tonne/month",
+            "--description", "Electrified buses and freight", "--reason", "Policy target: one-third cut"])
+    ex.run(["sd", "set-scenario", "Wrong units", "--set", "Emission Rate=80 person"], expect_fail=True)
+    ex.note(
+        "Simulating with the scenario compares it with the baseline. Cutting emissions "
+        "keeps the load below the stagnation tipping point, so it settles near 48 t "
+        "instead of climbing to 120 t. The result is recorded: reports show it."
+    )
+    ex.run(["sd", "simulate", "--scenario", "Clean transport", *_sd_run, "--saveper", "1"])
+
+    # ── 7.12 SD uncertainty: Monte Carlo ──────────────────────────────
+    ex.section(
+        "System Dynamics — Uncertainty",
+        "Each uncertain value gets a distribution in its own units, with the reason "
+        "for its range. Monte Carlo samples them (Latin hypercube, seeded, so the run "
+        "repeats exactly) and reports the spread of outcomes and what drives it.",
+    )
+    ex.run(["sd", "set-uncertainty", "Emission Rate", "triangular", "--min", "90", "--mode", "120",
+            "--max", "140", "--reason", "Inventory reports 90–140 t/yr"])
+    ex.run(["sd", "set-uncertainty", "Dispersal Rate", "lognormal", "--mean", "2", "--sd", "0.4",
+            "--reason", "Wind-speed variability across years"])
+    ex.run(["sd", "uncertainty"])
+    ex.run(["sd", "monte-carlo", "--runs", "100", *_sd_run, "--saveper", "0.5"])
+
+    # ── 7.13 SD sensitivity ───────────────────────────────────────────
+    ex.section(
+        "System Dynamics — Sensitivity",
+        "One value at a time, swung across its range (5th–95th percentile, or ±10% "
+        "without one), ranked by how far it moves a result. Values nobody has "
+        "reviewed are flagged: here every one of them.",
+    )
+    ex.run(["sd", "sensitivity", "PM2.5 Load", "--metric", "final", *_sd_run])
+
+    # ── 7.14 SD loop dominance ────────────────────────────────────────
+    ex.section(
+        "System Dynamics — Loop Dominance",
+        "Which feedback loop drives the load, and when (Loops That Matter). The "
+        "balancing dispersal loop dominates until the stagnation loop briefly takes "
+        "over at the tipping point — the reinforcing push that carries the load "
+        "past 60 t.",
+    )
+    ex.run(["sd", "loops", *_sd_run])
+    ex.note("Reports show the latest result of each analysis; `results hide` leaves one out.")
+    ex.run(["results", "list"])
+
     # ── 8. AI prompts (mock mode) ─────────────────────────────────────
     ex.section("AI-Assisted Modelling (mock mode)",
                "Demonstrate all AI prompts. In production these call a real LLM; "

@@ -302,12 +302,24 @@ Tips for agents:
 
 - **`latris --json <command>`** prints one JSON object (`{"result", "commit_sha"}`)
   for node, edge, attr, view set, ref, evidence, finding, challenge, project
-  show, check, analyse, interpret, bn, sd and fcm commands — no output parsing
-  needed.
+  show, check, analyse, interpret, bn, sd, fcm and results commands — no
+  output parsing needed.
 - **One model, several views.** `latris project select-models cld fcm` (or
   `bn`, `dag`) keeps the same factors and links and adds a quantitative view —
   set FCM weights or BN probability tables on the diagram you already have
   instead of starting again.
+- **Quantified answers carry their evidence.** For system dynamics: save
+  what-ifs (`latris sd set-scenario "Low emissions" --set "Emission Rate=80"`)
+  and compare them (`sd simulate --scenario ...`); give uncertain values a
+  range (`sd set-uncertainty "Emission Rate" triangular --min 90 --mode 120
+  --max 140 --reason "..."`), then `sd monte-carlo` (how sure: bands),
+  `sd sensitivity <variable>` (which values matter, flagging unreviewed ones)
+  and `sd loops` (which feedback loop drives it). These and `bn query` are
+  recorded: the client report's Results section shows the latest of each,
+  and `latris interpret refresh-claims` turns them into claims the
+  interpretation can use. `latris results list` / `results hide <run>`
+  choose what the report shows. Values you set are AI-proposed under
+  `LATRIS_DEFAULT_ORIGIN=ai-proposed`; the report says so.
 - **No API key?** Checks and drafting that use AI (e.g. the completeness check)
   can be answered by you: `latris ai task emit <PromptName> --inputs '<json>'`,
   then `latris ai task apply` (see "An agent can act as the model" above).

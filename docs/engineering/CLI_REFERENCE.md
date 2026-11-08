@@ -244,8 +244,8 @@ latris bn learn <dataset>                      # learn parameters from data (pro
 latris bn state-spaces                         # list defined state spaces
 latris bn cpts                                 # list defined CPTs
 latris bn check                                # validate state-space / CPT completeness
-latris bn marginals                            # compute prior marginals
-latris bn query <node> [--given node=state]    # posterior query under evidence
+latris bn marginals                            # compute prior marginals (recorded; --no-record)
+latris bn query [-q node] [-e node=state]      # posterior query under evidence (recorded; --no-record)
 latris bn sensitivity <target>                 # provenance-aware sensitivity analysis
 ```
 
@@ -266,7 +266,31 @@ latris sd set-equation <flow|aux> "<expression>" --units <u>   # names = slugifi
 latris sd set-table <flow|aux> -p x:y -p x:y ... --x-units <u> --y-units <u> [--extrapolate clamp|linear]
 latris sd roles | equations | stocks | constants | tables   # listings
 latris sd check                                # readiness incl. dimensional consistency
-latris sd simulate [--final-time T] [--dt DT] [--saveper S] [--method euler|rk2|rk4|adaptive] [--json] [--no-record]
+latris sd simulate [--scenario NAME ...] [--set "Var=value [units]" ...] [--final-time T] [--dt DT] [--saveper S] [--method euler|rk2|rk4|adaptive] [--json] [--no-record]
+latris sd set-scenario NAME --set "Var=value [units]" ... [--description] [--reason] [--source] [--origin]
+latris sd scenarios | remove-scenario NAME
+latris sd set-uncertainty <constant|stock> <uniform|triangular|normal|lognormal|beta|gamma> [--min --mode --max --mean --sd --alpha --beta --shape --scale] [--reason] [--source]
+latris sd uncertainty | clear-uncertainty <node>
+latris sd monte-carlo [--runs 200] [--seed 1234] [--sampling lhs|random] [--var V ...] [--scenario NAME] [--max-seconds 60]
+latris sd sensitivity <variable> [--metric final|peak|peak-time|min|mean|at:T] [--pct 10] [--scenario NAME]
+latris sd loops [--scenario NAME] [--from T] [--to T]          # loop dominance (Loops That Matter)
+```
+
+Simulate, monte-carlo, sensitivity and loops take the run settings
+(`--final-time`, `--dt`, `--method`) and record their result
+(`--no-record` to skip).
+
+## Results
+
+Recorded analysis results and which ones reports show (the latest run of
+each analysis; results computed before the model changed are marked out of
+date).
+
+```bash
+latris results list [--all]      # what reports use (--all: every recorded result)
+latris results show <run>        # one result in full
+latris results hide <run>        # leave it out of reports (stays in the log)
+latris results unhide <run>
 ```
 
 ## Check (coherence)

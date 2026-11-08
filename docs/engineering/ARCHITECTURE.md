@@ -141,7 +141,9 @@ project-name/
 ├── analysis/                      # analysis outputs + interpretation
 │   ├── findings.jsonl             # append-only findings log
 │   ├── interpretation.yaml        # InterpretSection content
-│   └── runs.jsonl                 # AnalysisRun records (schema only, no ops yet)
+│   ├── runs.jsonl                 # AnalysisRun records (operations/analysis_runs.py)
+│   ├── outputs/<run_id>.json      # recorded results (operations/analysis_results.py)
+│   └── report.yaml                # results hidden from reports
 ├── layout/                        # excluded from semantic diffs
 │   ├── conceptual.layout.yaml
 │   ├── cld.layout.yaml
@@ -362,7 +364,7 @@ When these land, the chokepoints list extends:
 |---|---|
 | `compile/validator.py` | All parameter-completeness checks against views |
 | `compile/materialize.py` | Translation from on-disk parameter files to runtime backend objects (when the future `latris` library lands) |
-| `analysis/runs.py` | All AnalysisRun creation; only place that writes `analysis/runs.jsonl` |
+| `operations/analysis_runs.py` | All AnalysisRun creation; only place that writes `analysis/runs.jsonl` (results go through `operations/analysis_results.py`) |
 
 ## GUI architecture (React + Electron + Python backend)
 
