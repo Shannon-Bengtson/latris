@@ -161,7 +161,15 @@ def extract_claims(
     extractor = extractors.get(section_type)
     if extractor is None:
         return []
-    return extractor(model_type, paths)
+    claims = extractor(model_type, paths)
+    # What recorded runs show (simulations, scenarios, uncertainty, loops, queries).
+    from latris.operations.result_claims import claims_by_section
+
+    extra = claims_by_section(model_type, paths).get(section_type, [])
+    if extra:
+        placeholders = ("Insufficient model structure", "No open questions, challenges")
+        claims = [c for c in claims if not c.startswith(placeholders)] + extra
+    return claims
 
 
 def refresh_claims(
@@ -598,7 +606,8 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
         # mediating layer between source(s) and sink(s) — that's topology,
         # not dynamic leverage. Capability-run reviewers correctly flagged
         # the "highest leverage" framing as overclaim on DAGs.
-        has_loops = bool(find_all_loops(causal))
+        # SD feedback runs through stocks (flow edges), so it never shows as a causal-edge cycle.
+        has_loops = bool(find_all_loops(causal)) or model_type == "sd"
 
         top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
         if top:

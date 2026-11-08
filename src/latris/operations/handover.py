@@ -22,7 +22,7 @@ from latris.repo.yaml_io import load_model
 @dataclass
 class HandoverItem:
     # unsourced_links | unchecked_citations | unread_sources | unfound_quotes | unapproved_findings
-    # | missing_prose | stale_prose | contradictions
+    # | missing_prose | stale_prose | contradictions | stale_results | model_incomplete
     kind: str
     count: int
     message: str
@@ -171,6 +171,31 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             "`latris check coherence` lists them; fix the description or the polarity",
             _element_names(substrate, [c.target_id for c in likely])[:5],
         ))
+
+    from latris.operations.analysis_results import report_results
+
+    out_of_date = [r for r in report_results(model_types=[model_type], root=paths.root) if r.stale]
+    if out_of_date:
+        items.append(HandoverItem(
+            "stale_results", len(out_of_date),
+            f"{len(out_of_date)} result{'s' if len(out_of_date) != 1 else ''} in the report "
+            f"{'were' if len(out_of_date) != 1 else 'was'} computed before the model last changed",
+            "re-run the analysis (e.g. `latris sd simulate`, `latris sd monte-carlo`), or leave it out of the "
+            "report with `latris results hide <run>`",
+            [r.run.output_summary[:120] for r in out_of_date[:5]],
+        ))
+
+    if model_type == "sd":
+        from latris.operations import sd as sd_ops
+
+        gaps = sd_ops.check(root=paths.root)
+        if gaps:
+            items.append(HandoverItem(
+                "model_incomplete", len(gaps),
+                f"the System Dynamics model doesn't pass its check ({len(gaps)} gap{'s' if len(gaps) != 1 else ''})",
+                "`latris sd check` lists each gap and how to fix it",
+                [g.message for g in gaps[:5]],
+            ))
 
     return HandoverReport(model_type=model_type, ready=not items, items=items)
 

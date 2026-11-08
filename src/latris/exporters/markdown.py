@@ -161,6 +161,7 @@ def render(
     report_url: str | None = None,
     ai: bool = True,
     app_link: bool = False,
+    chart_markers: bool = False,
 ) -> str:
     """Render the project as Markdown, optionally filtered by pack or sections.
 
@@ -169,7 +170,8 @@ def render(
     filtered to that model type. ``model_type=None`` renders the whole project
     (legacy aggregate behaviour). ``report_url`` adds a link to the hosted
     copy of this report in the footer. ``ai=False`` writes the narrative
-    preamble without attempting an AI call.
+    preamble without attempting an AI call. ``chart_markers=True`` puts a
+    fenced ``latris-chart`` block before each result for the app to draw.
     """
     from latris.exporters.packs import get_pack
 
@@ -316,6 +318,21 @@ def render(
                     "inside the link and opens in the Latris app."
                 )
                 out.append("")
+
+    # ---------- Results (recorded simulations, uncertainty runs, queries) ----------
+    _begin("results")
+    if _include("results"):
+        from latris.exporters.results import render_results
+
+        out.extend(
+            render_results(
+                paths,
+                model_types=[model_type] if model_type else None,
+                chart_markers=chart_markers,
+                show_ids=show_ids,
+                labels={e.id: e.label for e in substrate.entities},
+            )
+        )
 
     _begin("modelling_approach")
     if _include("modelling_approach"):
@@ -900,6 +917,8 @@ def _in_pack_order(
         # The rest of a split interpretation goes after the diagram when the
         # diagram follows the answer, else straight after the answer.
         after = "diagram" if "diagram" in order[order.index("interpretation") :] else "interpretation"
+        if after == "diagram" and "results" in order and order.index("results") == order.index("diagram") + 1:
+            after = "results"  # answer → diagram → the numbers behind it → the rest of the interpretation
         order = list(order)
         order.insert(order.index(after) + 1, "interpretation_rest")
     bounds = [*(i for _, i in starts[1:]), len(out)]
