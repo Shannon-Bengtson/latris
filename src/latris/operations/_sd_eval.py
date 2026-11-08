@@ -36,7 +36,7 @@ from latris.schema.sd import SDTableEntry
 
 TIME = "TIME"
 FUNCTIONS: tuple[str, ...] = (
-    "MIN", "MAX", "ABS", "IF_THEN_ELSE", "STEP", "TABLE", "EXP", "LN", "SQRT",
+    "MIN", "MAX", "ABS", "IF_THEN_ELSE", "STEP", "RAMP", "PULSE", "TABLE", "EXP", "LN", "SQRT",
 )
 
 _MAX_EXPONENT = 100
@@ -233,7 +233,7 @@ class Evaluator:
             operators=_OPERATORS,
             functions={
                 "MIN": _min, "MAX": _max, "ABS": _abs, "IF_THEN_ELSE": _if_then_else,
-                "STEP": self._step, "TABLE": self._table_lookup,
+                "STEP": self._step, "RAMP": self._ramp, "PULSE": self._pulse, "TABLE": self._table_lookup,
                 "EXP": _exp, "LN": _ln, "SQRT": _sqrt,
             },
             names={},
@@ -245,6 +245,31 @@ class Evaluator:
         if isinstance(height, Quantity):
             return height if now >= start_q else height * 0
         return height if now >= start_q else 0.0
+
+    def _time_arg(self, value: Any, fname: str) -> Any:
+        """A STEP/RAMP/PULSE time argument: a bare number is in the model's time units."""
+        now = self._s.names[TIME]
+        if isinstance(value, Quantity):
+            if not value.is_compatible_with(now.units):
+                raise EquationError(f"{fname} expects a time, got {value.units}")
+            return value
+        return Quantity(float(value), now.units)
+
+    def _ramp(self, slope: Any, start: Any, end: Any = None) -> Any:
+        """0 before ``start``; then grows at ``slope`` per time unit; flat after ``end``."""
+        now = self._s.names[TIME]
+        start_q = self._time_arg(start, "RAMP")
+        stop = now if end is None else min(now, self._time_arg(end, "RAMP"))
+        if now <= start_q:
+            return slope * (start_q - start_q)
+        return slope * (stop - start_q)
+
+    def _pulse(self, start: Any, width: Any) -> Any:
+        """1 from ``start`` for ``width`` time units, otherwise 0 (dimensionless)."""
+        now = self._s.names[TIME]
+        start_q = self._time_arg(start, "PULSE")
+        width_q = self._time_arg(width, "PULSE")
+        return 1.0 if start_q <= now < start_q + width_q else 0.0
 
     def _table_lookup(self, x: Any) -> Any:
         table = self._table

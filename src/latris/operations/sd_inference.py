@@ -16,6 +16,7 @@ special-case checks.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import math
 from dataclasses import dataclass, field
 from typing import Any
@@ -95,6 +96,7 @@ class SDModel:
     inflows: dict[str, list[str]]
     outflows: dict[str, list[str]]
     evaluator: Evaluator = field(default_factory=Evaluator)
+    fast: Any = None  # compiled float functions (``_sd_fast``); shared across value-only copies
 
 
 @dataclass(frozen=True)
@@ -481,13 +483,55 @@ def derivatives(model: SDModel, t: float, y: list[float]) -> list[float]:
     return out
 
 
-def simulate(model: SDModel) -> SDSimulationResult:
-    """Integrate the model over its settings' horizon; report stocks, flows and auxiliaries."""
+def with_values(
+    model: SDModel,
+    *,
+    constants: dict[str, Any] | None = None,
+    initial: dict[str, float] | None = None,
+    settings: SDSettings | None = None,
+) -> SDModel:
+    """A copy of ``model`` with some constants (pint quantities) or initial stock values replaced.
+
+    Structure, equations and the compiled fast path are shared, so sweeps over
+    values skip re-analysis. Callers are responsible for unit-compatible values
+    (see ``sd_scenarios.apply_overrides``).
+    """
+    return dataclasses.replace(
+        model,
+        constants={**model.constants, **(constants or {})},
+        initial={**model.initial, **(initial or {})},
+        settings=settings or model.settings,
+    )
+
+
+def fast_model(model: SDModel) -> Any:
+    """The model's compiled float functions, or ``None`` if it must use the pint path."""
+    from latris.operations import _sd_fast
+
+    if model.fast is None:
+        model.fast = _sd_fast.compile_model(model) or False
+    return model.fast or None
+
+
+def simulate(model: SDModel, *, fast: bool = True) -> SDSimulationResult:
+    """Integrate the model over its settings' horizon; report stocks, flows and auxiliaries.
+
+    ``fast`` uses the compiled float path when the model allows it (identical
+    results to solver precision); ``fast=False`` forces the pint reference path.
+    """
     st = model.settings
     interval = st.saveper or st.dt
+    compiled = fast_model(model) if fast else None
+    consts = compiled.constants_vector(model) if compiled else []
 
     def rhs(t: float, y: list[float]) -> list[float]:
         try:
+            if compiled is not None:
+                try:
+                    return compiled.deriv(t, y, consts)
+                except Exception as fast_exc:
+                    derivatives(model, t, y)  # the reference path names the failing equation
+                    raise EquationError(f"cannot evaluate the model: {fast_exc}") from fast_exc
             return derivatives(model, t, y)
         except EquationError as exc:
             raise EquationError(f"at {TIME}={t:.6g} {st.time_units}: {exc}", target_id=exc.target_id) from exc
@@ -502,6 +546,15 @@ def simulate(model: SDModel) -> SDSimulationResult:
     for t, y in zip(engine.times, engine.states, strict=True):
         for s, val in zip(model.stocks, y, strict=True):
             series[s].append(val)
+        if compiled is not None:
+            try:
+                vals = compiled.values(t, y, consts)
+            except Exception:
+                vals = None
+            if vals is not None:
+                for v, x in zip(model.order, vals, strict=True):
+                    series[v].append(x / compiled.out_factor[v])
+                continue
         for v, q in evaluate_step(model, t, y).items():
             series[v].append(float(q.magnitude))
 

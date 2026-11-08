@@ -61,6 +61,8 @@ class ValidationContext:
     spec: ModelTypeSpec
     roles: RoleSet
     paths: object  # ProjectPaths (untyped to avoid circular import)
+    # Per-check memo: validators that share one expensive analysis (SD) compute it once.
+    cache: dict = field(default_factory=dict, compare=False, hash=False)
 
 
 # ---------------------------------------------------------------------------
@@ -285,16 +287,18 @@ def _sd_problems(ctx: ValidationContext, categories: frozenset[str]) -> list[Rea
         path = ctx.paths.view_attribute_path(ctx.spec.id, attribute)
         return load_model(cls, path) if path.exists() else cls()
 
-    _, problems = sd_inference.analyse(
-        ctx.substrate,
-        ctx.roles,
-        _load(SDEquationSet, "equations"),
-        _load(SDStockSet, "initial_value"),
-        _load(SDConstantSet, "constant"),
-        _load(SDTableSet, "table"),
-        entity_ids=ctx.view_entity_ids,
-        edge_ids=ctx.view_edge_ids,
-    )
+    if "sd_problems" not in ctx.cache:
+        ctx.cache["sd_problems"] = sd_inference.analyse(
+            ctx.substrate,
+            ctx.roles,
+            _load(SDEquationSet, "equations"),
+            _load(SDStockSet, "initial_value"),
+            _load(SDConstantSet, "constant"),
+            _load(SDTableSet, "table"),
+            entity_ids=ctx.view_entity_ids,
+            edge_ids=ctx.view_edge_ids,
+        )[1]
+    problems = ctx.cache["sd_problems"]
     labels = {e.id: e.label for e in ctx.substrate.entities}
     labels.update(
         {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
