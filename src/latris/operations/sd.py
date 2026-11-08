@@ -460,3 +460,132 @@ def record_simulation(result: SDSimulationResult, *, root: Path | None = None) -
     """Record a single baseline run (see :func:`record_comparison`). Returns (commit_sha, run_id)."""
     runs = [sd_scenarios.ScenarioRun(sd_scenarios.BASELINE, None, result)]
     return record_comparison(sd_scenarios.comparison(runs), runs, root=root)
+
+
+# ── uncertainty: Monte Carlo and one-at-a-time sensitivity ───────────
+
+
+def _settings_kwargs(settings: dict | None) -> dict:
+    return dict(settings or {})
+
+
+def _provenance(paths) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for store in (_load(paths, SDConstantSet, "constant"), _load(paths, SDStockSet, "initial_value")):
+        for e in store.entries:
+            out[e.target_id] = {
+                "origin": e.origin, "verification": e.verification, "source_id": e.source_id,
+                "contested": e.contested,
+            }
+    return out
+
+
+def run_monte_carlo(
+    *,
+    runs: int = 200,
+    seed: int = 1234,
+    sampling: str = "lhs",
+    variables: list[str] | None = None,
+    scenario: str | None = None,
+    max_seconds: float = 60.0,
+    settings: dict | None = None,
+    root: Path | None = None,
+) -> dict:
+    """Sample every value that has an uncertainty range and summarise the runs as bands."""
+    from latris.operations import sd_montecarlo, uncertainty
+
+    paths = require_project(root)
+    model = compile_project(**_settings_kwargs(settings), root=paths.root)
+    chosen = sd_scenarios.get(scenario, paths) if scenario else None
+    return sd_montecarlo.monte_carlo(
+        model, uncertainty.sd_specs(paths), runs=runs, seed=seed, sampling=sampling,
+        variables=variables, scenario=chosen, max_seconds=max_seconds,
+    )
+
+
+def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
+    from latris.operations.analysis_results import record_result
+    from latris.operations.sd_montecarlo import describe_end
+
+    scenario = payload.get("scenario")
+    summary = (
+        f"Monte Carlo, {payload['succeeded']}/{payload['runs']} runs ({payload['sampling']}, seed {payload['seed']}"
+        f"{', scenario ' + scenario if scenario else ''}): "
+        + "; ".join(describe_end(payload, v) for v in payload["variables"])
+    )
+    sha, run = record_result(
+        kind="sd-monte-carlo",
+        key=f"sd-monte-carlo|{scenario or 'baseline'}|{','.join(payload['variables'])}",
+        payload=payload,
+        purpose="sensitivity-analysis",
+        algorithm=f"monte-carlo[{payload['sampling']}]; {payload['algorithm']}",
+        library_version=payload["library_version"],
+        summary=summary,
+        model_type=_MODEL_TYPE,
+        hyperparameters={
+            **payload["settings"], "runs": payload["runs"], "sampling": payload["sampling"],
+            "variables": payload["variables"], "scenario": scenario,
+        },
+        scenarios=[scenario] if scenario else None,
+        uncertainty=True,
+        seed=payload["seed"],
+        metrics={"succeeded": payload["succeeded"], "failed": payload["failed"], "seconds": payload["seconds"]},
+        affected_target_ids=payload["variables"],
+        duration_seconds=payload["seconds"],
+        commit_subject=f"SD Monte Carlo: {payload['succeeded']} runs, {len(payload['variables'])} variable(s)",
+        root=root,
+    )
+    return sha, run.id
+
+
+def run_sensitivity(
+    variable: str,
+    *,
+    metric: str = "final",
+    pct: float = 10.0,
+    scenario: str | None = None,
+    settings: dict | None = None,
+    root: Path | None = None,
+) -> dict:
+    """Swing every constant and initial value low/high and rank them by effect on one result."""
+    from latris.operations import sd_sensitivity, uncertainty
+
+    paths = require_project(root)
+    model = compile_project(**_settings_kwargs(settings), root=paths.root)
+    chosen = sd_scenarios.get(scenario, paths) if scenario else None
+    return sd_sensitivity.tornado(
+        model, variable, metric=metric, specs=uncertainty.sd_specs(paths), provenance=_provenance(paths),
+        pct=pct, scenario=chosen,
+    )
+
+
+def record_sensitivity(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
+    from latris.operations.analysis_results import record_result
+
+    top = [p for p in payload["parameters"] if p.get("swing") is not None][:3]
+    scenario = payload.get("scenario")
+    summary = (
+        f"Sensitivity of {payload['label']} ({payload['metric_label']}, baseline {payload['baseline']:.4g}"
+        f"{', scenario ' + scenario if scenario else ''}): "
+        + "; ".join(f"{p['label']} swing {p['swing']:.4g}{' (weak)' if p['weak'] else ''}" for p in top)
+    )
+    metric = payload["metric"] if payload["at"] is None else f"at:{payload['at']:g}"
+    sha, run = record_result(
+        kind="sd-sensitivity",
+        key=f"sd-sensitivity|{payload['variable']}:{metric}|{scenario or 'baseline'}",
+        payload=payload,
+        purpose="sensitivity-analysis",
+        algorithm=f"one-at-a-time; {payload['algorithm']}",
+        library_version="latris",
+        summary=summary,
+        model_type=_MODEL_TYPE,
+        hyperparameters={**payload["settings"], "variable": payload["variable"], "metric": metric,
+                         "pct": payload["pct"], "scenario": scenario},
+        scenarios=[scenario] if scenario else None,
+        uncertainty=True,
+        metrics={"runs": payload["runs"], "baseline": payload["baseline"]},
+        affected_target_ids=[payload["variable"]],
+        commit_subject=f"SD sensitivity: {payload['label']} ({payload['metric_label']})"[:120],
+        root=root,
+    )
+    return sha, run.id

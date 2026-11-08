@@ -98,22 +98,63 @@ class FloatSet(_Base):
     entries: list[FloatEntry] = Field(default_factory=list)
 
 
+Distribution = Literal["unknown", "uniform", "triangular", "normal", "lognormal", "beta", "gamma"]
+
+# Parameters each distribution needs, and the optional ones it accepts. Values
+# are in the annotated parameter's own units (e.g. a constant in tonne/year).
+DISTRIBUTION_PARAMS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "unknown": ((), ()),
+    "uniform": (("min", "max"), ()),
+    "triangular": (("min", "mode", "max"), ()),
+    "normal": (("mean", "sd"), ("min", "max")),  # min/max truncate
+    "lognormal": (("mean", "sd"), ("min", "max")),  # mean/sd of the value itself, not of its log
+    "beta": (("alpha", "beta"), ("min", "max")),  # scaled to [min, max], default [0, 1]
+    "gamma": (("shape", "scale"), ("min", "max")),
+}
+
+
 class ParameterUncertainty(_EntryBase):
-    """Uncertainty distribution annotation for a parameter cell.
+    """How uncertain a quantitative parameter is: a distribution over its value.
 
-    Associates a probability distribution with a quantitative parameter
-    value, enabling PSA (Probabilistic Sensitivity Analysis) and EVPI
-    computation.  Each distribution choice is a modelling decision with
-    its own provenance — who chose Beta(2,5) and why?
+    Monte Carlo runs sample from it, and one-at-a-time sensitivity uses its
+    5th–95th percentile range. Each distribution choice is a modelling
+    decision with its own provenance — who chose Triangular(80, 120, 150) and
+    why — recorded in ``origin``/``source_id``/``reason``.
 
-    Schema shell for now — operations will be added in the quantitative
-    modelling phases.
+    ``parameter_cell_id`` names what is annotated: ``sd:constant`` or
+    ``sd:initial_value`` for System Dynamics.
     """
 
     attribute: str = "uncertainty"
-    distribution: str = "unknown"  # e.g. "beta", "gamma", "lognormal", "uniform", "triangular", "normal"
-    params: dict[str, float] = Field(default_factory=dict)  # e.g. {"alpha": 2.0, "beta": 5.0}
+    distribution: Distribution = "unknown"
+    params: dict[str, float] = Field(default_factory=dict)  # e.g. {"min": 80, "mode": 120, "max": 150}
     parameter_cell_id: str | None = None  # links to the parameter entry this annotates
+    reason: str = ""
+
+    @model_validator(mode="after")
+    def _check_params(self) -> ParameterUncertainty:
+        required, optional = DISTRIBUTION_PARAMS[self.distribution]
+        missing = [k for k in required if k not in self.params]
+        unknown = [k for k in self.params if k not in required + optional]
+        if missing or unknown:
+            need = ", ".join(required) or "nothing"
+            raise ValueError(
+                f"a {self.distribution} distribution needs {need}"
+                + (f" (optional: {', '.join(optional)})" if optional else "")
+                + (f"; missing {', '.join(missing)}" if missing else "")
+                + (f"; unexpected {', '.join(unknown)}" if unknown else "")
+            )
+        p = self.params
+        if "min" in p and "max" in p and not p["min"] < p["max"]:
+            raise ValueError("min must be less than max")
+        if self.distribution == "triangular" and not p["min"] <= p["mode"] <= p["max"]:
+            raise ValueError("a triangular distribution needs min ≤ mode ≤ max")
+        for key in ("sd", "alpha", "beta", "shape", "scale"):
+            if key in p and p[key] <= 0:
+                raise ValueError(f"{key} must be positive")
+        if self.distribution == "lognormal" and p["mean"] <= 0:
+            raise ValueError("a lognormal distribution needs a positive mean")
+        return self
 
 
 class ParameterUncertaintySet(_Base):

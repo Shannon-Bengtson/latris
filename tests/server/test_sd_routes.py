@@ -107,3 +107,20 @@ def test_scenarios_and_results(client):
     assert client.get("/api/results", params={"all": True}).json()["results"][0]["hidden"] is True
     assert client.get("/api/results/nope").status_code == 404
     assert client.delete("/api/sd/scenario/Faster drain").status_code == 200
+
+
+def test_uncertainty_monte_carlo_and_sensitivity(client):
+    pytest.importorskip("scipy")
+    bad = client.post("/api/sd/uncertainty", json={"target": "Drain Rate", "distribution": "uniform",
+                                                   "params": {"min": 1, "max": 2}})
+    assert bad.status_code == 400
+    ok = client.post("/api/sd/uncertainty", json={"target": "Drain Rate", "distribution": "uniform",
+                                                  "params": {"min": 0.05, "max": 0.2}})
+    assert ok.status_code == 200
+    assert client.get("/api/sd/uncertainty").json()["count"] == 1
+    mc = client.post("/api/sd/monte-carlo", json={"runs": 20, "final_time": 5, "method": "euler"}).json()
+    assert mc["result"]["succeeded"] == 20 and mc["run_id"]
+    sens = client.post("/api/sd/sensitivity", json={"variable": "Water", "final_time": 5, "record": False}).json()
+    assert sens["result"]["parameters"][0]["label"] == "Drain Rate" and "run_id" not in sens
+    assert client.post("/api/sd/sensitivity", json={"variable": "Nope"}).status_code == 400
+    assert client.delete("/api/sd/uncertainty/Drain Rate").status_code == 200

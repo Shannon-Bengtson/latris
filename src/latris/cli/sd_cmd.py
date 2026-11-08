@@ -523,3 +523,214 @@ def remove_scenario(name: str = typer.Argument(..., help="Scenario name.")) -> N
         emit({"removed": name}, human=lambda: None, commit_sha=sha)
         return
     console.print(f"[green]removed[/green] scenario {escape(name)} · {_sha(sha)}")
+
+
+# ── uncertainty ──────────────────────────────────────────────────────
+
+
+def _run_settings(final_time, dt, saveper, method) -> dict:
+    return {k: v for k, v in {"final_time": final_time, "dt": dt, "saveper": saveper, "method": method}.items()
+            if v is not None}
+
+
+@app.command("set-uncertainty")
+@handle_cli_errors
+def set_uncertainty(
+    target: str = typer.Argument(..., help="A constant or stock (ID, prefix or label)."),
+    distribution: str = typer.Argument(..., help="uniform | triangular | normal | lognormal | beta | gamma"),
+    min_: float | None = typer.Option(None, "--min", help="Lower bound (uniform, triangular; truncates others)."),
+    mode: float | None = typer.Option(None, "--mode", help="Most likely value (triangular)."),
+    max_: float | None = typer.Option(None, "--max", help="Upper bound (uniform, triangular; truncates others)."),
+    mean: float | None = typer.Option(None, "--mean", help="Mean (normal, lognormal)."),
+    sd: float | None = typer.Option(None, "--sd", help="Standard deviation (normal, lognormal)."),
+    alpha: float | None = typer.Option(None, "--alpha", help="Beta shape α."),
+    beta: float | None = typer.Option(None, "--beta", help="Beta shape β."),
+    shape: float | None = typer.Option(None, "--shape", help="Gamma shape."),
+    scale: float | None = typer.Option(None, "--scale", help="Gamma scale."),
+    reason: str = typer.Option("", "--reason", help="Why this range (e.g. 'inventory reports 90–140')."),
+    source: str | None = typer.Option(None, "--source", help="Source ID backing the range."),
+    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+) -> None:
+    """Say how uncertain a constant or initial value is, as a distribution in its own units.
+
+    Monte Carlo samples from it; `sd sensitivity` swings it across its 5th–95th
+    percentile. Example: sd set-uncertainty "Emission Rate" triangular --min 90 --mode 120 --max 140
+    """
+    from latris.operations import uncertainty
+
+    raw = {"min": min_, "mode": mode, "max": max_, "mean": mean, "sd": sd, "alpha": alpha, "beta": beta,
+           "shape": shape, "scale": scale}
+    params = {k: v for k, v in raw.items() if v is not None}
+    entry, sha = uncertainty.set_uncertainty(
+        target, distribution, params, reason=reason, source_id=source, origin=origin,  # type: ignore[arg-type]
+    )
+    label = _labels().get(entry.target_id, entry.target_id)
+    if json_mode():
+        emit({"variable": label, "distribution": entry.distribution, "params": entry.params,
+              "cell": entry.parameter_cell_id, "origin": entry.origin}, human=lambda: None, commit_sha=sha)
+        return
+    pretty = ", ".join(f"{k}={v:g}" for k, v in entry.params.items())
+    console.print(f"[green]uncertainty[/green] {escape(label)} ~ {entry.distribution}({pretty}) · {_sha(sha)}")
+
+
+@app.command("uncertainty")
+@handle_cli_errors
+def list_uncertainty() -> None:
+    """List the uncertainty ranges on constants and initial values."""
+    from latris.operations import uncertainty
+
+    entries = uncertainty.list_uncertainty()
+    labels = _labels()
+    if json_mode():
+        emit([{"variable": labels.get(e.target_id, e.target_id), "distribution": e.distribution, "params": e.params,
+               "cell": e.parameter_cell_id, "reason": e.reason, "origin": e.origin, "verification": e.verification,
+               "source_id": e.source_id} for e in entries], human=lambda: None)
+        return
+    if not entries:
+        console.print("No uncertainty ranges yet. Add one with `latris sd set-uncertainty`.")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for col in ("Variable", "Distribution", "Origin", "Reason"):
+        table.add_column(col)
+    for e in entries:
+        pretty = ", ".join(f"{k}={v:g}" for k, v in e.params.items())
+        table.add_row(escape(labels.get(e.target_id, e.target_id)), f"{e.distribution}({pretty})", e.origin,
+                      escape(e.reason))
+    console.print(table)
+
+
+@app.command("clear-uncertainty")
+@handle_cli_errors
+def clear_uncertainty(target: str = typer.Argument(..., help="A constant or stock (ID, prefix or label).")) -> None:
+    """Remove a value's uncertainty range."""
+    from latris.operations import uncertainty
+
+    sha = uncertainty.clear_uncertainty(target)
+    if json_mode():
+        emit({"cleared": target}, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]cleared[/green] uncertainty on {escape(target)} · {_sha(sha)}")
+
+
+@app.command("monte-carlo")
+@handle_cli_errors
+def monte_carlo(
+    runs: int = typer.Option(200, "--runs", "-n", help="Number of sampled runs (2–1000)."),
+    seed: int = typer.Option(1234, "--seed", help="Random seed; the same seed gives the same runs."),
+    sampling: str = typer.Option("lhs", "--sampling", help="lhs (Latin hypercube) | random."),
+    variable: list[str] | None = typer.Option(None, "--var", "-v", help="Variable to summarise (default: stocks)."),
+    scenario: str | None = typer.Option(None, "--scenario", "-s", help="Use a saved scenario, not the baseline."),
+    final_time: float | None = typer.Option(None, "--final-time", help="End time (default 100)."),
+    dt: float | None = typer.Option(None, "--dt", help="Time step (default 0.25)."),
+    saveper: float | None = typer.Option(None, "--saveper", help="Reporting interval (default dt)."),
+    method: str | None = typer.Option(None, "--method", help="euler | rk2 | rk4 (default) | adaptive."),
+    max_seconds: float = typer.Option(60.0, "--max-seconds", help="Stop early if the runs would take longer."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
+    """Sample every value that has an uncertainty range and show the spread of outcomes.
+
+    Each chosen variable gets percentile bands over time (50/75/95/100% of runs),
+    and the uncertain values are ranked by how strongly they drive its end value.
+    """
+    from latris.operations import sd as sd_ops
+    from latris.operations.sd_montecarlo import describe_end
+
+    payload = sd_ops.run_monte_carlo(
+        runs=runs, seed=seed, sampling=sampling, variables=variable, scenario=scenario, max_seconds=max_seconds,
+        settings=_run_settings(final_time, dt, saveper, method),
+    )
+    recorded = sd_ops.record_monte_carlo(payload) if record else None
+    if json_mode():
+        emit({
+            "runs": payload["runs"], "succeeded": payload["succeeded"], "failed": payload["failed"],
+            "seed": payload["seed"], "sampling": payload["sampling"], "scenario": payload["scenario"],
+            "time_units": payload["time_units"],
+            "outcomes": [{
+                "variable": payload["labels"][v], "units": payload["units"][v],
+                "end": payload["end"][v], "summary": describe_end(payload, v),
+                "drivers": [{"parameter": r["label"], "rank_correlation": r["rho"]} for r in payload["influence"][v]],
+            } for v in payload["variables"]],
+            "parameters": [{"parameter": p["label"], "distribution": p["distribution"], "params": p["params"],
+                            "units": p["units"], "origin": p["origin"], "verification": p["verification"]}
+                           for p in payload["parameters"]],
+            "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
+        return
+    on = f" · scenario {escape(payload['scenario'])}" if payload["scenario"] else ""
+    console.print(f"[bold]Monte Carlo[/bold] {payload['succeeded']}/{payload['runs']} runs · {payload['sampling']} · "
+                  f"seed {payload['seed']}{on}")
+    for p in payload["parameters"]:
+        pretty = ", ".join(f"{k}={v:g}" for k, v in p["params"].items())
+        flag = "" if p["verification"] == "human-verified" else f" [yellow]({p['origin']}, unverified)[/yellow]"
+        console.print(f"  {escape(p['label'])} ~ {p['distribution']}({pretty}) {escape(p['units'])}{flag}")
+    for p in payload["skipped_parameters"]:
+        console.print(f"  [dim]{escape(p['label'])}: {p['reason']}[/dim]")
+    for v in payload["variables"]:
+        console.print(f"\n{escape(describe_end(payload, v))}")
+        e = payload["end"][v]
+        console.print(f"  50% of runs {e['p25']:.4g}–{e['p75']:.4g}; baseline {e['baseline']:.4g}")
+        drivers = [r for r in payload["influence"][v] if r["rho"] is not None][:3]
+        if drivers:
+            console.print("  driven by: " + ", ".join(f"{escape(r['label'])} (ρ={r['rho']:+.2f})" for r in drivers))
+    if payload["failed"]:
+        console.print(f"[yellow]⚠ {payload['failed']} run(s) failed[/yellow]")
+    if recorded:
+        console.print(f"\n[green]recorded[/green] · run [cyan]{recorded[1][:18]}…[/cyan] · {_sha(recorded[0])}")
+
+
+@app.command("sensitivity")
+@handle_cli_errors
+def sensitivity(
+    variable: str = typer.Argument(..., help="The result to explain: a stock, flow or auxiliary."),
+    metric: str = typer.Option("final", "--metric", "-m", help="final | peak | peak-time | min | mean | at:T"),
+    pct: float = typer.Option(10.0, "--pct", help="± percentage for values without an uncertainty range."),
+    scenario: str | None = typer.Option(None, "--scenario", "-s", help="Use a saved scenario, not the baseline."),
+    final_time: float | None = typer.Option(None, "--final-time", help="End time (default 100)."),
+    dt: float | None = typer.Option(None, "--dt", help="Time step (default 0.25)."),
+    method: str | None = typer.Option(None, "--method", help="euler | rk2 | rk4 (default) | adaptive."),
+    top: int = typer.Option(15, "--top", help="Show the N most influential values."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
+    """Rank every constant and initial value by how much it moves one result (a tornado).
+
+    Each value is swung across its uncertainty range (5th–95th percentile), or
+    ±10% if it has none. Values that aren't human-verified are flagged weak, so
+    you can see when the answer hinges on a number nobody has checked.
+    """
+    from latris.operations import sd as sd_ops
+
+    payload = sd_ops.run_sensitivity(
+        variable, metric=metric, pct=pct, scenario=scenario,
+        settings=_run_settings(final_time, dt, None, method),
+    )
+    recorded = sd_ops.record_sensitivity(payload) if record else None
+    rows = payload["parameters"][:top]
+    if json_mode():
+        emit({
+            "variable": payload["label"], "metric": payload["metric_label"], "units": payload["units"],
+            "baseline": payload["baseline"], "scenario": payload["scenario"],
+            "parameters": [{
+                "parameter": r["label"], "range": [r["low"], r["high"]], "range_from": r["range_source"],
+                "result_range": [r.get("result_low"), r.get("result_high")], "swing": r["swing"],
+                "origin": r["origin"], "verification": r["verification"], "weak": r["weak"],
+                **({"error": r["error"]} if "error" in r else {}),
+            } for r in rows],
+            "weakly_grounded": [r["label"] for r in rows if r["weak"] and r["swing"]],
+            "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
+        return
+    console.print(f"[bold]Sensitivity of {escape(payload['label'])}[/bold] — {payload['metric_label']}, "
+                  f"baseline {payload['baseline']:.6g} {escape(payload['units'])}\n")
+    table = Table(show_header=True, header_style="bold")
+    for col, justify in (("Value", "left"), ("Range", "right"), ("From", "left"), ("Result range", "right"),
+                         ("Swing", "right"), ("Grounding", "left")):
+        table.add_column(col, justify=justify)  # type: ignore[arg-type]
+    for r in rows:
+        grounding = f"[yellow]{r['origin']}, {r['verification']}[/yellow]" if r["weak"] else r["verification"]
+        result = "error" if "error" in r else f"{r['result_low']:.4g} – {r['result_high']:.4g}"
+        swing = "" if r["swing"] is None else f"{r['swing']:.4g}"
+        table.add_row(escape(r["label"]), f"{r['low']:.4g} – {r['high']:.4g} {escape(r['units'])}",
+                      r["range_source"], result, swing, grounding)
+    console.print(table)
+    if recorded:
+        console.print(f"\n[green]recorded[/green] · run [cyan]{recorded[1][:18]}…[/cyan] · {_sha(recorded[0])}")

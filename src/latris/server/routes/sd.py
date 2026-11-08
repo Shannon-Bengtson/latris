@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from latris.operations import sd as sd_ops
-from latris.operations import sd_scenarios
+from latris.operations import sd_scenarios, uncertainty
 from latris.server.deps import get_project_root
 
 router = APIRouter(prefix="/api/sd", tags=["sd"])
@@ -259,3 +259,101 @@ def remove_scenario(name: str, root: Root) -> dict[str, Any]:
     except ValueError as exc:
         raise _bad_request(exc) from exc
     return {"result": {"removed": name}, "commit_sha": sha}
+
+
+# ── uncertainty, Monte Carlo, sensitivity ────────────────────────────
+
+
+class UncertaintyRequest(BaseModel):
+    target: str
+    distribution: str
+    params: dict[str, float]
+    reason: str = ""
+    source_id: str | None = None
+    origin: str = "human-direct"
+
+
+class RunSettings(BaseModel):
+    final_time: float | None = None
+    dt: float | None = None
+    saveper: float | None = None
+    method: Literal["euler", "rk2", "rk4", "adaptive"] | None = None
+
+    def kwargs(self) -> dict[str, Any]:
+        fields = ("final_time", "dt", "saveper", "method")
+        return {k: getattr(self, k) for k in fields if getattr(self, k) is not None}
+
+
+class MonteCarloRequest(RunSettings):
+    runs: int = 200
+    seed: int = 1234
+    sampling: Literal["lhs", "random"] = "lhs"
+    variables: list[str] | None = None
+    scenario: str | None = None
+    max_seconds: float = 60.0
+    record: bool = True
+
+
+class SensitivityRequest(RunSettings):
+    variable: str
+    metric: str = "final"
+    pct: float = 10.0
+    scenario: str | None = None
+    record: bool = True
+
+
+@router.get("/uncertainty")
+def list_uncertainty(root: Root) -> dict[str, Any]:
+    entries = uncertainty.list_uncertainty(root=root)
+    return {"uncertainty": [e.model_dump(mode="json") for e in entries], "count": len(entries)}
+
+
+@router.post("/uncertainty")
+def set_uncertainty(body: UncertaintyRequest, root: Root) -> dict[str, Any]:
+    try:
+        entry, sha = uncertainty.set_uncertainty(
+            body.target, body.distribution, body.params, reason=body.reason, source_id=body.source_id,
+            origin=body.origin, root=root,  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        raise _bad_request(exc) from exc
+    return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
+
+
+@router.delete("/uncertainty/{target}")
+def clear_uncertainty(target: str, root: Root) -> dict[str, Any]:
+    try:
+        sha = uncertainty.clear_uncertainty(target, root=root)
+    except ValueError as exc:
+        raise _bad_request(exc) from exc
+    return {"result": {"cleared": target}, "commit_sha": sha}
+
+
+@router.post("/monte-carlo")
+def monte_carlo(body: MonteCarloRequest, root: Root) -> dict[str, Any]:
+    try:
+        payload = sd_ops.run_monte_carlo(
+            runs=body.runs, seed=body.seed, sampling=body.sampling, variables=body.variables,
+            scenario=body.scenario, max_seconds=body.max_seconds, settings=body.kwargs(), root=root,
+        )
+    except ValueError as exc:
+        raise _bad_request(exc) from exc
+    out: dict[str, Any] = {"result": payload}
+    if body.record:
+        out["commit_sha"], out["run_id"] = sd_ops.record_monte_carlo(payload, root=root)
+    return out
+
+
+@router.post("/sensitivity")
+def sensitivity(body: SensitivityRequest, root: Root) -> dict[str, Any]:
+    try:
+        payload = sd_ops.run_sensitivity(
+            body.variable, metric=body.metric, pct=body.pct, scenario=body.scenario, settings=body.kwargs(),
+            root=root,
+        )
+    except ValueError as exc:
+        raise _bad_request(exc) from exc
+    out: dict[str, Any] = {"result": payload}
+    if body.record:
+        out["commit_sha"], out["run_id"] = sd_ops.record_sensitivity(payload, root=root)
+    return out
