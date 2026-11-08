@@ -734,3 +734,61 @@ def sensitivity(
     console.print(table)
     if recorded:
         console.print(f"\n[green]recorded[/green] · run [cyan]{recorded[1][:18]}…[/cyan] · {_sha(recorded[0])}")
+
+
+# ── loop dominance ───────────────────────────────────────────────────
+
+
+@app.command("loops")
+@handle_cli_errors
+def loops(
+    scenario: str | None = typer.Option(None, "--scenario", "-s", help="Use a saved scenario, not the baseline."),
+    start: float | None = typer.Option(None, "--from", help="Start of the window to analyse (default: run start)."),
+    end: float | None = typer.Option(None, "--to", help="End of the window to analyse (default: run end)."),
+    final_time: float | None = typer.Option(None, "--final-time", help="End time (default 100)."),
+    dt: float | None = typer.Option(None, "--dt", help="Time step (default 0.25)."),
+    method: str | None = typer.Option(None, "--method", help="euler | rk2 | rk4 (default) | adaptive."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
+    """Which feedback loop drives the behaviour, and when (Loops That Matter).
+
+    Every loop through the stocks and equations is scored at each step; a loop
+    (or the fewest loops) holding at least half the total score dominates.
+    Loops built on unsourced or contested links are flagged.
+    """
+    from latris.operations import sd as sd_ops
+    from latris.operations import sd_loops
+
+    payload = sd_ops.run_loops(scenario=scenario, start=start, end=end,
+                               settings=_run_settings(final_time, dt, None, method))
+    recorded = sd_ops.record_loops(payload) if record else None
+    if json_mode():
+        emit({
+            "summary": sd_loops.describe(payload), "time_units": payload["time_units"], "window": payload["window"],
+            "scenario": payload["scenario"],
+            "loops": [{"loop": lp["id"], "polarity": "reinforcing" if lp["polarity"] == "R" else "balancing",
+                       "path": lp["members"], "average_share": lp["average_share"],
+                       "polarity_changes": lp["polarity_changes"], "weak_links": lp["weak_links"]}
+                      for lp in payload["loops"]],
+            "dominance": [p for s in payload["sets"] for p in s["dominant_periods"]],
+            "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
+        return
+    if not payload["loops"]:
+        console.print("This model has no feedback loops: every effect runs one way.")
+        return
+    lo, hi = payload["window"]
+    on = f" · scenario {escape(payload['scenario'])}" if payload["scenario"] else ""
+    console.print(f"[bold]Loop dominance[/bold] {lo:g}–{hi:g} {payload['time_units']}{on}\n")
+    table = Table(show_header=True, header_style="bold")
+    for col, justify in (("Loop", "left"), ("Path", "left"), ("Avg share", "right"), ("Weak links", "left")):
+        table.add_column(col, justify=justify)  # type: ignore[arg-type]
+    for lp in payload["loops"]:
+        weak = "; ".join(f"{w['link']} ({w['why']})" for w in lp["weak_links"])
+        path = " → ".join(lp["members"]) + f" → {lp['members'][0]}"
+        table.add_row(lp["id"], escape(path), f"{lp['average_share'] * 100:.0f}%",
+                      f"[yellow]{escape(weak)}[/yellow]" if weak else "")
+    console.print(table)
+    console.print(f"\n{escape(sd_loops.describe(payload))}")
+    if recorded:
+        console.print(f"\n[green]recorded[/green] · run [cyan]{recorded[1][:18]}…[/cyan] · {_sha(recorded[0])}")

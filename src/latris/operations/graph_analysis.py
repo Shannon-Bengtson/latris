@@ -169,8 +169,15 @@ def weakly_connected_components(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def find_all_loops(edges: list[_HasDirection]) -> list[Loop]:
+class TooManyLoops(ValueError):
+    """More elementary circuits than the caller's ``max_loops``."""
+
+
+def find_all_loops(edges: list[_HasDirection], *, max_loops: int | None = None) -> list[Loop]:
     """Find all elementary circuits using Johnson's algorithm.
+
+    ``max_loops`` stops enumeration (raising :class:`TooManyLoops`) once more
+    circuits than that are found — loop counts can grow factorially.
 
     Based on Donald B. Johnson, "Finding all the elementary circuits
     of a directed graph", SIAM J. Computing, 4(1), 1975, pp. 77–84.
@@ -218,6 +225,8 @@ def find_all_loops(edges: list[_HasDirection]) -> list[Loop]:
                         edge_ids=tuple(cycle_edges),
                     )
                 )
+                if max_loops is not None and len(result) > max_loops:
+                    raise TooManyLoops(f"more than {max_loops} feedback loops")
                 found = True
             elif w not in blocked_set and _circuit(w, s):
                 found = True

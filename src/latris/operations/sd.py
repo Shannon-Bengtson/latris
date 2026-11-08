@@ -589,3 +589,69 @@ def record_sensitivity(payload: dict, *, root: Path | None = None) -> tuple[str,
         root=root,
     )
     return sha, run.id
+
+
+# ── loop dominance ───────────────────────────────────────────────────
+
+
+def _edge_evidence(paths) -> tuple[dict[tuple[str, str], str], dict[str, dict]]:
+    """(from, to) → edge id, and per edge: its confidence, supporting sources, evidence against."""
+    from latris.schema.attributes import ConfidenceSet, EvidenceLinkSet
+
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    lookup = {(e.from_id, e.to_id): e.id for e in substrate.edges}
+    info: dict[str, dict] = {e.id: {"confidence": None, "sources": 0, "against": 0} for e in substrate.edges}
+    if paths.confidence_yaml.exists():
+        for c in load_model(ConfidenceSet, paths.confidence_yaml).entries:
+            if c.target_id in info:
+                info[c.target_id]["confidence"] = c.value
+    if paths.evidence_links_yaml.exists():
+        for ev in load_model(EvidenceLinkSet, paths.evidence_links_yaml).entries:
+            if ev.target_id in info:
+                info[ev.target_id]["against" if ev.is_against else "sources"] += 1
+    return lookup, info
+
+
+def run_loops(
+    *,
+    scenario: str | None = None,
+    start: float | None = None,
+    end: float | None = None,
+    settings: dict | None = None,
+    root: Path | None = None,
+) -> dict:
+    """Score every feedback loop over a run and report when each one dominates (Loops That Matter)."""
+    from latris.operations import sd_loops
+
+    paths = require_project(root)
+    model = compile_project(**_settings_kwargs(settings), root=paths.root)
+    chosen = sd_scenarios.get(scenario, paths) if scenario else None
+    lookup, info = _edge_evidence(paths)
+    return sd_loops.loop_dominance(
+        model, scenario=chosen, edge_lookup=lookup, edge_info=info, start=start, end=end,
+    )
+
+
+def record_loops(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
+    from latris.operations import sd_loops
+    from latris.operations.analysis_results import record_result
+
+    scenario = payload.get("scenario")
+    lo, hi = payload["window"]
+    sha, run = record_result(
+        kind="sd-loops",
+        key=f"sd-loops|{scenario or 'baseline'}|{lo:g}-{hi:g}",
+        payload=payload,
+        purpose="other",
+        algorithm=f"loops-that-matter[2023 flow-to-stock]; {payload['algorithm']}",
+        library_version="latris",
+        summary=f"Loop dominance{' (scenario ' + scenario + ')' if scenario else ''}: {sd_loops.describe(payload)}",
+        model_type=_MODEL_TYPE,
+        hyperparameters={**payload["settings"], "scenario": scenario, "window": payload["window"]},
+        scenarios=[scenario] if scenario else None,
+        metrics={"loops": len(payload["loops"]), "links": payload["links"]},
+        affected_target_ids=sorted({m for lp in payload["loops"] for m in lp["member_ids"]}),
+        commit_subject=f"SD loop dominance: {len(payload['loops'])} loop(s)",
+        root=root,
+    )
+    return sha, run.id

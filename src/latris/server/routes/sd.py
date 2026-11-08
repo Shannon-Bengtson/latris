@@ -357,3 +357,24 @@ def sensitivity(body: SensitivityRequest, root: Root) -> dict[str, Any]:
     if body.record:
         out["commit_sha"], out["run_id"] = sd_ops.record_sensitivity(payload, root=root)
     return out
+
+
+class LoopsRequest(RunSettings):
+    scenario: str | None = None
+    start: float | None = None
+    end: float | None = None
+    record: bool = True
+
+
+@router.post("/loops")
+def loops(body: LoopsRequest, root: Root) -> dict[str, Any]:
+    try:
+        payload = sd_ops.run_loops(
+            scenario=body.scenario, start=body.start, end=body.end, settings=body.kwargs(), root=root,
+        )
+    except ValueError as exc:
+        raise _bad_request(exc) from exc
+    out: dict[str, Any] = {"result": payload}
+    if body.record:
+        out["commit_sha"], out["run_id"] = sd_ops.record_loops(payload, root=root)
+    return out

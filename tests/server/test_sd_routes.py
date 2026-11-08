@@ -124,3 +124,10 @@ def test_uncertainty_monte_carlo_and_sensitivity(client):
     assert sens["result"]["parameters"][0]["label"] == "Drain Rate" and "run_id" not in sens
     assert client.post("/api/sd/sensitivity", json={"variable": "Nope"}).status_code == 400
     assert client.delete("/api/sd/uncertainty/Drain Rate").status_code == 200
+
+
+def test_loops_route(client):
+    pytest.importorskip("scipy")
+    body = client.post("/api/sd/loops", json={"final_time": 5, "dt": 0.1, "method": "euler"}).json()
+    assert body["result"]["loops"][0]["id"] == "B1" and body["run_id"]
+    assert client.post("/api/sd/loops", json={"start": 4, "end": 1}).status_code == 400
