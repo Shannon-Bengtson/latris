@@ -29,7 +29,8 @@ def _sections_json(store) -> list[dict]:
         {"section": s.section_type, "model_type": s.model_type,
          "title": INTERPRET_SECTION_REGISTRY[s.section_type].display_name
          if s.section_type in INTERPRET_SECTION_REGISTRY else s.section_type,
-         "claims": list(s.claims or []), "prose": s.prose or "", "state": s.generation_state}
+         "claims": list(s.claims or []), "prose": s.prose or "", "state": s.generation_state,
+         "stale": s.is_stale()}
         for s in store.sections
     ]
 
@@ -76,7 +77,8 @@ def list_sections() -> None:
         claim_count = len(s.claims or [])
         console.print(
             f"[cyan]{s.id[:20]}[/cyan]  {s.section_type} ({s.model_type})  "
-            f"state=[bold]{s.generation_state}[/bold]  claims={claim_count}  prose={prose_len}c"
+            f"state=[bold]{s.generation_state}[/bold]{' [yellow](out of date)[/yellow]' if s.is_stale() else ''}  "
+            f"claims={claim_count}  prose={prose_len}c"
         )
 
 
@@ -97,6 +99,11 @@ def show(
 
     def _human() -> None:
         console.print(f"[bold]{s.section_type}[/bold] ({s.model_type}) · {s.id} · state={s.generation_state}")
+        if s.is_stale():
+            console.print(
+                "[yellow]The prose is out of date: the claims below changed after it was written. "
+                "Rewrite it with `latris interpret set-prose`.[/yellow]"
+            )
         console.print("\n[bold]Claims[/bold]")
         for i, claim in enumerate(s.claims, 1):
             console.print(f"  {i}. {claim}", markup=False, highlight=False)
@@ -107,7 +114,7 @@ def show(
 
     emit(
         {"id": s.id, "section_type": s.section_type, "model_type": s.model_type, "claims": s.claims,
-         "prose": s.prose, "generation_state": s.generation_state},
+         "prose": s.prose, "generation_state": s.generation_state, "stale": s.is_stale()},
         human=_human,
     )
 
@@ -125,8 +132,8 @@ def set_prose(
     """Write a section's prose yourself (no AI key needed).
 
     Stick to the section's claims (`latris interpret show`). `--by ai`
-    records it as AI-written, so the report marks it stale when the
-    claims change.
+    records it as AI-written. Either way the report marks it out of date
+    when the claims change.
     """
     from latris.operations.interpret import resolve_section, update_prose
 
@@ -153,7 +160,11 @@ def refresh_claims(
         help="Section ID to refresh. Omit to refresh all sections.",
     ),
 ) -> None:
-    """Re-extract claims from project state into one or all sections."""
+    """Re-extract claims from project state into one or all sections.
+
+    Prose written against the old claims is then marked out of date, in
+    `interpret list`/`show`, `check handover` and the report.
+    """
     from latris.operations.interpret import (
         refresh_all_claims as _refresh_all,
     )
@@ -165,11 +176,15 @@ def refresh_claims(
         store, sha = _refresh_all()
         n = len(store.sections)
         console.print(f"[green]refreshed[/green] {n} section(s) · commit [cyan]{sha[:10]}[/cyan]")
+        stale = [x.section_type for x in store.sections if x.is_stale()]
+        if stale:
+            console.print(f"[yellow]out of date (rewrite the prose):[/yellow] {', '.join(stale)}")
     else:
         sec, sha = _refresh_one(section)
         console.print(
             f"[green]refreshed[/green] {sec.section_type} "
             f"(claims={len(sec.claims)}) · commit [cyan]{sha[:10]}[/cyan]"
+            + (" · [yellow]prose out of date[/yellow]" if sec.is_stale() else "")
         )
 
 

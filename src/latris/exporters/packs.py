@@ -15,7 +15,7 @@ class PackConfig:
     purpose: str = ""
 
 
-# Section names match the heading keys used in markdown.py and word.py
+# Section names match the heading keys used in markdown.py
 ALL_SECTIONS = [
     "foundation",
     "structure",

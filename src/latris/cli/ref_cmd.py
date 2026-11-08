@@ -28,8 +28,16 @@ def add(
     doi: str = typer.Option(None, "--doi", help="DOI."),
     url: str = typer.Option(None, "--url", help="URL."),
     notes: str = typer.Option(None, "--notes", help="Free-text notes."),
+    cited_via: str = typer.Option(
+        None, "--cited-via", help="Key of the source you read this one in (e.g. a review quoting a study)."
+    ),
 ) -> None:
-    """Add a reference to the project library."""
+    """Add a reference to the project library.
+
+    Give only identifiers you have seen: a DOI recalled from memory is
+    worse than none. A source read second-hand (a review describing a
+    study) takes `--cited-via <review key>`, and the report says so.
+    """
     ref, sha = ops.add_reference(
         bibkey,
         title,
@@ -39,12 +47,60 @@ def add(
         doi=doi,
         url=url,
         notes=notes,
+        cited_via=cited_via,
     )
     emit(
         ref,
         commit_sha=sha,
         human=lambda: console.print(
             f"[green]added[/green] reference [bold]{ref.bibkey}[/bold] · commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
+
+
+@app.command("edit")
+@handle_cli_errors
+def edit(
+    bibkey: str = typer.Argument(..., help="Key of the reference to correct."),
+    title: str = typer.Option(None, "--title"),
+    author: list[str] = typer.Option(None, "--author", "-a", help="Replaces the author list. Repeat for several."),
+    year: int = typer.Option(None, "--year"),
+    container: str = typer.Option(None, "--container"),
+    doi: str = typer.Option(None, "--doi", help='Correct the DOI; "" removes it.'),
+    url: str = typer.Option(None, "--url", help='Correct the URL; "" removes it.'),
+    notes: str = typer.Option(None, "--notes"),
+    cited_via: str = typer.Option(None, "--cited-via", help='Key of the source you read it in; "" clears it.'),
+) -> None:
+    """Correct a reference's details (only the options given change), as a recorded change."""
+    ref, sha = ops.update_reference(
+        bibkey, title=title, authors=author or None, year=year, container=container,
+        doi=doi, url=url, notes=notes, cited_via=cited_via,
+    )
+    emit(
+        ref,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]updated[/green] reference [bold]{ref.bibkey}[/bold] · commit [cyan]{sha[:10]}[/cyan]"
+        ),
+    )
+
+
+@app.command("remove")
+@handle_cli_errors
+def remove(
+    bibkey: str = typer.Argument(..., help="Key of the reference to remove."),
+    with_citations: bool = typer.Option(
+        False, "--with-citations", help="Also remove the evidence links that cite it (same commit)."
+    ),
+    rationale: str = typer.Option(None, "--rationale", "-r", help="Why (kept in the history)."),
+) -> None:
+    """Remove a reference (refused while it is cited, unless --with-citations)."""
+    ref, sha = ops.remove_reference(bibkey, with_citations=with_citations, rationale=rationale)
+    emit(
+        ref,
+        commit_sha=sha,
+        human=lambda: console.print(
+            f"[green]removed[/green] reference [bold]{ref.bibkey}[/bold] · commit [cyan]{sha[:10]}[/cyan]"
         ),
     )
 

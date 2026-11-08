@@ -111,11 +111,18 @@ def _building_capabilities() -> dict[str, str]:
         "checking_a_source": (
             "latris evidence check \"<from> -> <to>\" polarity <bibkey> supports|against|off-topic --rationale "
             "\"...\" [--by ai --quote \"...\"] — records whether the source actually supports the claim; until "
-            "then reports count the citation as not yet checked."
+            "then reports count the citation as not yet checked. The quote is looked up in the text Latris "
+            "holds for the source (save it with `latris ref snapshot` first); an AI's paraphrase is refused."
         ),
         "evidence_against": (
             "latris evidence add <link> polarity <bibkey> --contradicts — a source that argues against the "
-            "link; reports show the link's sources for and against under 'Contested links'."
+            "link; reports show the link's sources for and against under 'Contested links'. Still unchecked "
+            "until someone reads it."
+        ),
+        "correcting_sources": (
+            "latris ref edit <key> --doi|--url|--title ... (\"\" clears), latris ref remove <key> "
+            "[--with-citations], latris evidence remove <link> polarity <key> — recorded changes; never "
+            "hand-edit the YAML. A source read in another: --cited-via <key>."
         ),
         "outcome": (
             "latris view role cld <factor> outcome — marks what the model explains so it isn't suggested as "

@@ -1501,9 +1501,6 @@ class VerifyClaimAgainstSourceProposal(_Base):
     confidence: str = Field("medium", description="One of: high, medium, low.")
 
     def apply(self, paths: ProjectPaths) -> list[str]:
-        from latris.ai.context import _load_reference_for_verify
-        from latris.schema import QuoteLocation
-
         if self.verdict not in _VERIFY_VERDICTS:
             raise ValueError(
                 f"VerifyClaimAgainstSource invalid verdict {self.verdict!r}; "
@@ -1523,71 +1520,38 @@ class VerifyClaimAgainstSourceProposal(_Base):
             )
             return [f"{link.bibkey}:{link.target_id or 'model'}/{link.attribute}"]
 
-        # supports — the audit-load-bearing path. Validate verbatim.
+        # supports — the audit-load-bearing path. The operation looks the
+        # quote up in the fetched full text, the snapshot or the abstract,
+        # and refuses an AI's quote it can't find (a paraphrase).
         if not self.quote:
             raise ValueError(
                 "VerifyClaimAgainstSource verdict=supports requires a verbatim quote"
             )
-        reference = _load_reference_for_verify(self.bibkey, paths)
-
-        # Phase 4b: when a full-text artefact exists, validate against
-        # the chunk identified by the proposal's quote_location.chunk_hash
-        # (or any chunk that contains the quote — chunks overlap by 200
-        # chars so the model has some leeway). Fall back to Phase 4a
-        # behaviour against the source_snapshot.extract.
-        location: QuoteLocation
-        extract_path = paths.references_extract_path(self.bibkey)
-        if extract_path.exists():
-            from latris.operations._chunking import chunk_text
-
-            full_text = extract_path.read_text(encoding="utf-8")
-            chunks = chunk_text(full_text)
-            matching = next((c for c in chunks if self.quote in c.text), None)
-            if matching is None:
-                raise ValueError(
-                    "verbatim mismatch — model attested a quote that does not "
-                    "appear in any chunk of the fetched source. Proposal rejected; "
-                    "the audit invariant is that the apply-time check (not the "
-                    "model) is the source of truth on whether a source "
-                    "supports a claim."
-                )
-            offset_in_chunk = matching.text.index(self.quote)
-            location = QuoteLocation(
-                chunk_hash=matching.content_hash,
-                page=None,
-                offset=matching.offset + offset_in_chunk,
+        try:
+            link, _ = set_evidence_support_verdict(
+                self.target_id,
+                self.attribute,
+                self.bibkey,
+                new_verdict="supports",
+                rationale=self.rationale or self.summary or "verbatim match against source snapshot",
+                quote=self.quote,
+                checked_by="ai",
+                root=paths.root,
             )
-        else:
-            snapshot = reference.source_snapshot
-            if snapshot is None or not snapshot.extract:
+        except ValueError as exc:
+            if "holds no text" in str(exc):
                 raise ValueError(
                     f"reference {self.bibkey!r} has no source_snapshot.extract — "
                     "fetch a source snapshot before verifying"
-                )
-            if self.quote not in snapshot.extract:
+                ) from exc
+            if "isn't in the text" in str(exc):
                 raise ValueError(
-                    "verbatim mismatch — model attested a quote that does not "
-                    "appear in the source snapshot. Proposal rejected; the "
-                    "audit invariant is that the apply-time check (not the "
-                    "model) is the source of truth on whether a source "
-                    "supports a claim."
-                )
-            offset = snapshot.extract.index(self.quote)
-            location = QuoteLocation(
-                chunk_hash=snapshot.content_hash,
-                page=None,
-                offset=offset,
-            )
-        link, _ = set_evidence_support_verdict(
-            self.target_id,
-            self.attribute,
-            self.bibkey,
-            new_verdict="supports",
-            rationale=self.rationale or self.summary or "verbatim match against source snapshot",
-            quote=self.quote,
-            quote_location=location,
-            root=paths.root,
-        )
+                    "verbatim mismatch — model attested a quote that does not appear in the "
+                    "source's stored text (any chunk of the fetched source, the snapshot or the abstract). "
+                    "Proposal rejected; the apply-time check (not the "
+                    "model) is the source of truth on whether a source supports a claim."
+                ) from exc
+            raise
         return [f"{link.bibkey}:{link.target_id or 'model'}/{link.attribute}"]
 
 

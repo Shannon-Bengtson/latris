@@ -101,13 +101,21 @@ def add_reference(
     doi: str | None = None,
     url: str | None = None,
     notes: str | None = None,
+    cited_via: str | None = None,
     root: Path | None = None,
 ) -> tuple[Reference, str]:
+    """Add a reference.
+
+    ``cited_via`` names the source this one was read through (a review
+    quoting a primary study), which must already be in the library.
+    """
     paths = require_project(root)
     library, library_path = load_library(paths)
 
     if any(r.bibkey == bibkey for r in library.entries):
         raise ValueError(f"reference with bibkey {bibkey!r} already exists")
+    doi = _clean_doi(doi)
+    _check_cited_via(library, bibkey, cited_via)
 
     ref = Reference(
         bibkey=bibkey,
@@ -118,6 +126,7 @@ def add_reference(
         doi=doi,
         url=url,
         notes=notes,
+        cited_via=cited_via,
         imported_from="manual",
     )
     library.entries.append(ref)
@@ -130,6 +139,35 @@ def add_reference(
         paths=[library_path],
     )
     return ref, sha
+
+
+def _clean_doi(doi: str | None) -> str | None:
+    """A bare DOI ("10.1234/abc"), from any of its usual spellings; refuses what isn't one.
+
+    This checks the form only: a well-formed DOI can still be wrong, which
+    is why `check handover` flags sources with nothing on file showing they
+    were read (`ref fetch`, `ref snapshot`).
+    """
+    if doi is None or not doi.strip():
+        return None
+    try:
+        return _normalize_doi(doi)
+    except ValueError:
+        raise ValueError(
+            f"{doi!r} isn't a DOI (a DOI looks like 10.1234/abcd). Leave it out rather than guess; "
+            "give the source's --url instead"
+        ) from None
+
+
+def _check_cited_via(library: ReferenceLibrary, bibkey: str, cited_via: str | None) -> None:
+    if not cited_via:
+        return
+    if cited_via == bibkey:
+        raise ValueError("a source can't be cited via itself")
+    if not any(r.bibkey == cited_via for r in library.entries):
+        raise ValueError(
+            f"cited_via {cited_via!r} isn't a reference yet: add the source you read it in first"
+        )
 
 
 # ── Source access + snapshot (AI interrogation Phase 2) ──────────────
@@ -358,11 +396,22 @@ def update_reference(
     doi: str | None = None,
     url: str | None = None,
     notes: str | None = None,
+    cited_via: str | None = None,
     root: Path | None = None,
 ) -> tuple[Reference, str]:
+    """Correct a reference's details. Only the fields given change; "" clears an optional one.
+
+    Correcting a DOI or URL keeps any stored snapshot: it is still the
+    text that was read.
+    """
     paths = require_project(root)
     library, library_path = load_library(paths)
     ref = _find_ref(library, bibkey)
+    before = ref.model_dump()
+    if doi:
+        doi = _clean_doi(doi)
+    if cited_via:
+        _check_cited_via(library, ref.bibkey, cited_via)
 
     if title is not None:
         ref.title = title
@@ -378,12 +427,23 @@ def update_reference(
         ref.url = url
     if notes is not None:
         ref.notes = notes
+    if cited_via is not None:
+        ref.cited_via = cited_via
+    for field in ("container", "doi", "url", "notes", "cited_via"):
+        if getattr(ref, field) == "":
+            setattr(ref, field, None)
 
+    after = ref.model_dump()
+    changed = [k for k in after if after[k] != before[k]]
+    if not changed:
+        from latris.repo import git
+
+        return ref, git.head_sha(paths.root)
     dump_model(library, library_path)
     sha = auto_commit(
         paths.root,
-        subject=f'Updated reference "{ref.bibkey}"',
-        body="",
+        subject=f'Updated reference "{ref.bibkey}": {", ".join(changed)}',
+        body="\n".join(f"{k}: {before[k]!r} → {after[k]!r}" for k in changed),
         paths=[library_path],
     )
     return ref, sha
@@ -395,30 +455,58 @@ def update_reference(
 def remove_reference(
     bibkey: str,
     *,
+    with_citations: bool = False,
+    rationale: str | None = None,
     root: Path | None = None,
 ) -> tuple[Reference, str]:
-    """Remove a reference.  Raises ValueError if evidence links still cite it."""
+    """Remove a reference.
+
+    Refuses while evidence links cite it, unless ``with_citations``: then
+    those citations go too, in the same commit. Refuses while another
+    reference was read through it (``cited_via``).
+    """
     paths = require_project(root)
     library, library_path = load_library(paths)
     ref = _find_ref(library, bibkey)
+
+    via = [r.bibkey for r in library.entries if r.cited_via == ref.bibkey]
+    if via:
+        raise ValueError(
+            f"cannot remove reference {ref.bibkey!r}: {', '.join(via)} {'was' if len(via) == 1 else 'were'} "
+            f"read through it (`latris ref edit <key> --cited-via \"\"` first)"
+        )
 
     # Referential integrity: check evidence links.
     from latris.schema import EvidenceLinkSet
 
     evidence_path = paths.evidence_links_yaml
+    touched = [library_path]
+    citing = []
     if evidence_path.exists():
         evidence = load_model(EvidenceLinkSet, evidence_path)
         citing = [e for e in evidence.entries if e.bibkey == ref.bibkey]
+        if citing and not with_citations:
+            raise ValueError(
+                f"cannot remove reference {ref.bibkey!r}: {len(citing)} evidence link(s) still cite it "
+                "(remove them with `latris evidence remove`, or pass --with-citations)"
+            )
         if citing:
-            raise ValueError(f"cannot remove reference {ref.bibkey!r}: {len(citing)} evidence link(s) still cite it")
+            evidence.entries = [e for e in evidence.entries if e.bibkey != ref.bibkey]
+            dump_model(evidence, evidence_path)
+            touched.append(evidence_path)
 
     library.entries = [r for r in library.entries if r.bibkey != ref.bibkey]
     dump_model(library, library_path)
+    body = f"title: {ref.title}"
+    if citing:
+        body += f"\ncitations removed: {len(citing)}"
+    if rationale:
+        body += f"\nrationale: {rationale}"
     sha = auto_commit(
         paths.root,
-        subject=f'Removed reference "{ref.bibkey}"',
-        body="",
-        paths=[library_path],
+        subject=f'Removed reference "{ref.bibkey}"' + (f" and its {len(citing)} citation(s)" if citing else ""),
+        body=body,
+        paths=touched,
     )
     return ref, sha
 

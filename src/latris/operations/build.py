@@ -77,9 +77,17 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
         (link.from_.casefold(), link.to.casefold()) for link in spec.links
     }
     problems: list[str] = []
+    from latris.operations.references import _clean_doi
+
     for s in spec.sources:
         if s.extract and not (s.extract_url or s.url or s.doi):
             problems.append(f"source {s.key!r}: an extract needs extract_url (or the source's url or doi)")
+        if s.cited_via and (s.cited_via == s.key or s.cited_via not in keys):
+            problems.append(f"source {s.key!r}: cited_via {s.cited_via!r} isn't another source")
+        try:
+            _clean_doi(s.doi)
+        except ValueError as exc:
+            problems.append(f"source {s.key!r}: {exc}")
     if dupes:
         problems.append(f"factor listed twice: {', '.join(dupes)}")
     clash = sorted(label for label in spec_labels if label.casefold() in existing)
@@ -185,10 +193,11 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
                                  ("boundary", spec.context.boundary), ("predictions", spec.context.intuition)):
                 if value and value.strip():
                     set_foundation_field(field, value.strip(), root=paths.root)
-        for s in spec.sources:
+        # A source read in another goes in after it.
+        for s in sorted(spec.sources, key=lambda s: s.cited_via is not None):
             add_reference(
                 s.key, s.title, authors=s.authors or None, year=s.year, container=s.container,
-                doi=s.doi, url=s.url, notes=s.notes, root=paths.root,
+                doi=s.doi, url=s.url, notes=s.notes, cited_via=s.cited_via, root=paths.root,
             )
             if s.extract and s.extract.strip():
                 from latris.operations.references import set_source_snapshot

@@ -258,8 +258,14 @@ latris view set cld <edge-id> polarity + --rationale "More hours, more exhaustio
 
 latris ref add smith2021 --title "Volunteer burnout" --author "Smith, J" --year 2021
 latris ref snapshot smith2021 --url "https://..." --extract "Abstract: ..."   # what you read
+latris ref add jones2019 --title "..." --cited-via smith2021   # read only as described in smith2021
 latris evidence add <edge-id> polarity smith2021 --verified-by ai
 latris evidence add <edge-id> polarity tuohy2015 --verified-by ai --contradicts   # a source against the link
+latris evidence check "Workload -> Burnout" polarity smith2021 supports --by ai \
+  --rationale "Hours predicted exhaustion." --quote "hours predicted emotional exhaustion"   # copied, not paraphrased
+latris ref edit smith2021 --doi 10.1234/abcd     # correct a source (also --title, --url, ...; "" clears)
+latris ref remove tuohy2015 --with-citations     # drop a source and its citations
+latris evidence remove "Workload -> Burnout" polarity smith2021   # detach one citation
 latris assumption add "Service demand stays steady as numbers fall."  # for unsourced links
 latris view role cld "Volunteer departures" outcome   # the outcome isn't suggested as an intervention point
 
@@ -311,12 +317,32 @@ Tips for agents:
   says only that it was attached; whether the source actually supports the
   claim is recorded with `latris evidence check "<from> -> <to>" polarity
   <key> supports|against|off-topic --rationale "..."` (a person by default;
-  an agent that read the source adds `--by ai --quote "..."`). Links can be
-  named `"From -> To"` wherever a command takes one.
+  an agent that read the source adds `--by ai`). Links can be named
+  `"From -> To"` wherever a command takes one.
+- **A quote must be copied, not paraphrased.** An agent's `supports` needs
+  `--quote`, and the quote is looked up in the text Latris holds for the
+  source: the `extract` you saved (`ref snapshot`, or `extract:` in a build
+  spec), a fetched full text (`ref fetch`) or the abstract. Whitespace,
+  quote marks and case don't matter and `...` marks a gap; a quote that
+  isn't there is refused. So save the passage you read first. The report
+  says what each check rests on — an extract of the full text, or only the
+  abstract or a summary — so a check against an abstract never reads as a
+  check against the paper.
 - **Sources that disagree with a link go on that link** with `--contradicts`
   (or `contradicts:` in a build spec) — not as a challenge and not left
   uncited. The report then shows the link's sources for and against under
   "Contested links", and the confidence and open-questions claims name it.
+  Like any citation it is not yet checked: check it with `evidence check
+  ... against` once you've read it.
+- **Only give identifiers you have seen.** A DOI recalled from memory is
+  worse than none (`ref add` refuses what isn't shaped like a DOI, but can't
+  tell a real one from a wrong one). A study you only read about in another
+  source (a review) takes `--cited-via <that source's key>` (`cited_via:` in
+  a build spec); the report says it was read second-hand.
+- **Correct the record with commands, never by editing the YAML.** `ref edit`,
+  `ref remove`, `evidence remove` (and `evidence check ... unchecked` to undo
+  a check) are recorded changes with reasons; a hand edit committed with git
+  skips the model's history.
 - **Links that are true by definition** (departures reduce the number of
   volunteers) take `confidence: by-definition` (or `latris attr set <link>
   confidence by-definition`). They need no source: they don't count against
@@ -332,10 +358,19 @@ Tips for agents:
   diagram, each link's reason, the evidence and the sources, without internal IDs.
 - **Before handing over, run `latris check handover`.** It lists what's
   left — links with no source, citations not checked against their source,
-  findings waiting for approval, sections without prose, contradictions —
+  cited sources with nothing on file showing they were read, checks whose
+  quote isn't in the stored text, findings waiting for approval, sections
+  without prose or written before the model last changed, contradictions —
   each with how to fix it, and exits 1 until it's clear. Tell the person
   what's still on it.
-- **And give them `latris link`'s link** (`export md` also writes it under
+- **Prose goes out of date.** When the model changes after a section was
+  written, `interpret list`/`show`, the handover check and the report say so;
+  run `latris interpret refresh-claims` and rewrite it.
+- **If the Latris connector is available** (chat tools such as `create_model`
+  and `get_report` from mcp.latris.app), use it rather than the CLI: its
+  `report_url` is already a short link to share, and the model is saved from
+  it with `get_save_link`. Use one or the other for a model, not both.
+- **Otherwise give them `latris link`'s link** (`export md` also writes it under
   the diagram, fresh on every export). It opens the model in the Latris app
   as a hosted report with the full figure (loops, polarity, evidence) that
   they can share, and save to a free account for the editor and a Word

@@ -45,12 +45,12 @@ from latris.schema.build_spec import (
     BuildSpec,
     SpecAssumption,
     SpecChallenge,
+    SpecContext,
     SpecDecision,
     SpecFactor,
     SpecFinding,
     SpecInterpretation,
     SpecLink,
-    SpecContext,
     SpecSource,
 )
 
@@ -124,7 +124,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
     def cites(target_id: str, *, against: bool) -> list[str]:
         keys = [
             e.bibkey for e in evidence
-            if e.target_id == target_id and (e.support_verdict == "contradicts") == against
+            if e.target_id == target_id and e.is_against == against
         ]
         return list(dict.fromkeys(keys))
 
@@ -149,7 +149,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
     sources = [
         SpecSource(
             key=r.bibkey, title=r.title, authors=list(r.authors), year=r.year, container=r.container,
-            doi=r.doi, url=r.url, notes=r.notes,
+            doi=r.doi, url=r.url, notes=r.notes, cited_via=r.cited_via,
         )
         for r in _load(ReferenceLibrary, paths.references_yaml).entries
     ]

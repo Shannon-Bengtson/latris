@@ -867,6 +867,33 @@ def build_example(ex: WorkedExample) -> None:
     )
     ex.run(["evidence", "check", "Workload per volunteer -> Volunteer burnout", "polarity", "smith2021",
             "supports", "--rationale", "Hours per volunteer predict exhaustion."])
+    ex.note("An agent's check needs a quote copied from the text Latris holds for the source (here the "
+            "extract saved by the spec). A paraphrase is refused; the copied passage is found, and the check "
+            "is recorded as resting on the abstract.")
+    ex.run(["evidence", "check", "Workload per volunteer -> Volunteer burnout", "polarity", "smith2021",
+            "supports", "--by", "ai", "--rationale", "Hours per volunteer predict exhaustion.",
+            "--quote", "Volunteers who work long hours burn out."], expect_fail=True)
+    ex.run(["evidence", "check", "Workload per volunteer -> Volunteer burnout", "polarity", "smith2021",
+            "supports", "--by", "ai", "--rationale", "Hours per volunteer predict exhaustion.",
+            "--quote", "hours per volunteer predicted emotional exhaustion"])
+    ex.note("A study read only as described in another source is cited via that source; the report says it "
+            "was read second-hand. Sources and citations are corrected with commands, so each correction is "
+            "in the history.")
+    ex.run(["ref", "add", "jones2018", "--title", "Rostering and retention (illustrative)", "--year", "2018",
+            "--cited-via", "smith2021"])
+    ex.run(["ref", "edit", "jones2018", "--doi", "https://doi.org/10.5555/rostering.2018"])
+    ex.run(["evidence", "add", "Volunteer burnout -> Volunteer departures", "polarity", "jones2018",
+            "--verified-by", "ai"])
+    ex.run(["evidence", "remove", "Volunteer burnout -> Volunteer departures", "polarity", "jones2018",
+            "--rationale", "Only read second-hand; not enough on its own."])
+    ex.run(["ref", "remove", "jones2018", "--rationale", "No longer cited."])
+    ex.note("Prose written before the model changes is flagged as out of date.")
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "set-prose", "structural_summary",
+            "Three factors form one reinforcing loop.", "--by", "ai"])
+    ex.run(["node", "add", "Recognition"])
+    ex.run(["edge", "add", "Recognition", "Volunteer departures"])
+    ex.run(["interpret", "refresh-claims"])
     ex.note("Before handing the model to a board: what's left, and how to fix each (exits 1 until clear).")
     ex.run(["check", "handover"], expect_fail=True)
     ex.note("The context opens the report — who it's for, the situation, and the person's own expectation "

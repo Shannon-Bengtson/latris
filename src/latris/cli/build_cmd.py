@@ -33,7 +33,7 @@ def build(
       (low | medium | high | quantitative-pending | by-definition),
       sources, contradicts
     - ``sources``: key, title, authors, year, container, doi, url, notes,
-      extract (the text you read), extract_url, extract_kind
+      extract (the text you read), extract_url, extract_kind, cited_via (the source it was read in)
     - ``assumptions``: text, or text + target + rationale
     - ``questions``: text
     - ``findings``: statement, category (structure | dynamics |

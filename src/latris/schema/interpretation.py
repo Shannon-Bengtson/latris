@@ -84,7 +84,7 @@ class InterpretSection(_Base):
     # Template-generated claims (current state from analysis/findings)
     claims: list[str] = Field(default_factory=list)
 
-    # Claims that were active when prose was last generated (staleness check)
+    # Claims that were active when prose was last written (staleness check)
     claims_at_generation: list[str] = Field(default_factory=list)
 
     # Editable prose (AI-generated, then human-edited)
@@ -100,6 +100,18 @@ class InterpretSection(_Base):
     # Staleness signal — the moment prose was last regenerated. Creation
     # is derived from ``id`` via ``id_timestamp``.
     updated_at: datetime = Field(default_factory=now_utc)
+
+    def is_stale(self, current_claims: list[str] | None = None) -> bool:
+        """The prose was written against claims that have since changed.
+
+        Compares with ``current_claims`` when given (freshly extracted),
+        else with the stored ``claims`` (as of the last refresh). Prose
+        written before claims were snapshotted can't be judged: not stale.
+        """
+        if not self.prose.strip() or not self.claims_at_generation:
+            return False
+        current = self.claims if current_claims is None else current_claims
+        return list(current) != list(self.claims_at_generation)
 
 
 class InterpretationStore(_Base):

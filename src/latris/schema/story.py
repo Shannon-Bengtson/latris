@@ -1,9 +1,9 @@
 """Story schemas — the Communicate-phase scrollytelling artifact.
 
 A Story is a self-contained, public-facing narrative generated downstream of
-the Report and rendered to self-contained HTML. The ``StoryDoc`` is the source
-of truth (persisted to ``communicate/story.yaml``, one doc per model type); the
-HTML is a deterministic render. See ``docs/design/STORY.md``.
+the Report. The ``StoryDoc`` is the source of truth (persisted to
+``communicate/story.yaml``, one doc per model type); the scrollytelling HTML
+is rendered by the Latris app. See ``docs/design/STORY.md``.
 
 Beat prose reuses ``InterpretTextVersion`` so the AI-draft → human-edit →
 version contract is identical to the Interpret phase.

@@ -1037,7 +1037,9 @@ class TestVerifyClaimAgainstSourceProposal:
         assert link.quote_location.offset == 0
         assert link.quote_location.chunk_hash.startswith("sha256:")
         # source_access bumps from abstract → full_text_chunk
-        assert link.source_access == "full_text_chunk"
+        # Found in an abstract snapshot: the check rests on the abstract.
+        assert link.source_access == "abstract"
+        assert link.quote_verified is True
 
     def test_verbatim_mismatch_rejects_proposal(self, project: Path, paths: ProjectPaths) -> None:
         """Audit invariant: paraphrased quote must be rejected. Link

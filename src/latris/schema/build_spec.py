@@ -88,6 +88,7 @@ class SpecSource(_Spec):
     extract: str | None = Field(None, max_length=4000)
     extract_url: str | None = None  # where the extract came from; defaults to url
     extract_kind: SourceSnapshotKind = "abstract"
+    cited_via: str | None = None  # key of the source this one was read in (e.g. a review)
 
 
 # A link is named by its two ends, "From -> To" (or "From → To").

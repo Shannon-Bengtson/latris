@@ -3,13 +3,13 @@ from __future__ import annotations
 import typer
 from rich.console import Console
 
+from latris.cli._output import emit, json_mode
 from latris.operations.project import (
     load_foundation,
     set_foundation_field,
     set_question,
     update_selected_models,
 )
-from latris.cli._output import emit, json_mode
 from latris.repo import git
 from latris.repo.git import GitError, IdentityError
 from latris.repo.project import NotAProjectError

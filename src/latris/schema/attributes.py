@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from latris.schema.common import (
     Informants,
@@ -133,6 +134,12 @@ class EvidenceLink(_Base):
     - ``support_verdict``: whether the source backs the specific claim
     - ``quote`` + ``quote_location``: verbatim supporting span
 
+    ``stance`` says what the citation is offered as (evidence for the claim
+    or against it); ``support_verdict`` stays the result of someone reading
+    the source, so citing a source as "against" never counts as checking
+    it. ``quote_verified`` says whether a check's quote was found in the
+    stored text of the source (None: no quote).
+
     A single ``ai-verified`` label conflated all four; the new shape
     makes structural lies (AI labelled a paper "verified" without
     reading it) impossible to express.
@@ -150,12 +157,41 @@ class EvidenceLink(_Base):
     verified_by: Literal["human", "ai"] = "human"
     source_access: SourceAccess = "title_only"
     support_verdict: SupportVerdict = "unverified"
+    stance: Literal["for", "against"] = "for"
     quote: str | None = None
     quote_location: QuoteLocation | None = None
+    quote_verified: bool | None = None
+
+    @property
+    def is_against(self) -> bool:
+        """Evidence against the claim: cited as against it, or checked and found to contradict it."""
+        return self.stance == "against" or self.support_verdict == "contradicts"
+
+    @property
+    def checked(self) -> bool:
+        return self.support_verdict != "unverified"
 
 
 class EvidenceLinkSet(_Base):
     entries: list[EvidenceLink] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _split_stance(cls, data):  # noqa: ANN001, ANN206
+        # Before 0.7.7 a source cited as against a claim was stored as
+        # support_verdict=contradicts, as if it had been checked. On load,
+        # unless a check recorded that verdict (its note says
+        # "→ contradicts"), it becomes an unchecked citation against it.
+        if not isinstance(data, dict):
+            return data
+        entries = []
+        for e in data.get("entries") or []:
+            if isinstance(e, dict) and "stance" not in e and e.get("support_verdict") == "contradicts":
+                e = {**e, "stance": "against"}
+                if not re.search(r"→ contradicts", e.get("notes") or ""):
+                    e["support_verdict"] = "unverified"
+            entries.append(e)
+        return {**data, "entries": entries}
 
 
 class DataLink(_Base):

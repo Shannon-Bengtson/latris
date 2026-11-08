@@ -132,7 +132,7 @@ def _fake_search_results(query: str, *, limit: int = 10):
             title="Water Quality Pricing Models",
             authors=["A. Author", "B. Author", "C. Author", "D. Author"],
             year=2021,
-            doi="10.1/abc",
+            doi="10.1234/abc",
             url="https://openalex.org/a",
             abstract="A study of water quality and price demand drivers.",
         ),

@@ -169,7 +169,7 @@ def refresh_claims(
     *,
     root: Path | None = None,
 ) -> tuple[InterpretSection, str]:
-    """Re-extract claims for a section. Marks prose stale if claims changed."""
+    """Re-extract claims for a section. Prose then shows as stale if they changed (``is_stale``)."""
     paths = require_project(root)
     store = load_interpretation(root=paths.root)
 
@@ -245,12 +245,12 @@ def update_prose(
     section.prose = prose
     section.updated_at = now_utc()
 
-    # Snapshot current claims at generation time for staleness tracking
-    if source == "ai":
-        section.claims_at_generation = list(section.claims)
-        section.generation_state = "generated"
-    else:
-        section.generation_state = "edited"
+    # Prose is written against the model as it is now: refresh the claims
+    # and keep them, so a later change to the model shows the prose is out
+    # of date (``InterpretSection.is_stale``), whoever wrote it.
+    section.claims = extract_claims(section.section_type, section.model_type, root=paths.root)
+    section.claims_at_generation = list(section.claims)
+    section.generation_state = "generated" if source == "ai" else "edited"
 
     # Append to version history
     version = InterpretTextVersion(
@@ -319,18 +319,23 @@ def _element_names(substrate, ids: list[str]) -> list[str]:
 
 def _for_ids(evidence) -> set[str]:
     """Targets with at least one source *for* them (contradicting sources don't cover a claim)."""
-    return {e.target_id for e in evidence.entries if e.target_id is not None and e.support_verdict != "contradicts"}
+    return {e.target_id for e in evidence.entries if e.target_id is not None and not e.is_against}
+
+
+def _supported_ids(evidence) -> set[str | None]:
+    """Targets with a source checked and found to support them."""
+    return {e.target_id for e in evidence.entries if e.support_verdict == "supports" and not e.is_against}
 
 
 def _contested(substrate, evidence) -> list[str]:
     """``"A → B: 2 sources for, 1 against (tuohy2015)"`` for each claim with sources against it."""
     against: dict[str, list[str]] = {}
     for e in evidence.entries:
-        if e.target_id and e.support_verdict == "contradicts":
+        if e.target_id and e.is_against:
             against.setdefault(e.target_id, []).append(e.bibkey)
     out = []
     for target_id, keys in against.items():
-        n_for = sum(1 for e in evidence.entries if e.target_id == target_id and e.support_verdict != "contradicts")
+        n_for = sum(1 for e in evidence.entries if e.target_id == target_id and not e.is_against)
         name = _element_names(substrate, [target_id])[0]
         out.append(
             f"{name}: {n_for} source{'s' if n_for != 1 else ''} for, {len(keys)} against ({', '.join(sorted(keys))})"
@@ -667,7 +672,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
 
     linked_ids = _for_ids(evidence)
-    supported_ids = {e.target_id for e in evidence.entries if e.support_verdict == "supports"}
+    supported_ids = _supported_ids(evidence)
     all_ids, noun = _coverage_ids(substrate, paths)
 
     total = len(all_ids)
@@ -704,7 +709,7 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     # verified backing; report the two figures separately so the partner
     # reviewer knows what proportion of the model is actually grounded.
     evidence_target_ids = _for_ids(evidence)
-    supported_target_ids = {e.target_id for e in evidence.entries if e.support_verdict == "supports"}
+    supported_target_ids = _supported_ids(evidence)
     uncited_ids = all_ids - evidence_target_ids
     cited_count = len(all_ids) - len(uncited_ids)
     supported_count = len(all_ids & supported_target_ids)
@@ -857,7 +862,7 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
     # source was actually read and the claim was backed. Reporting only the
     # linked-percentage rewards title-only citation stuffing.
     linked_elements = len(all_ids & _for_ids(evidence))
-    supported_elements = len(all_ids & {e.target_id for e in evidence.entries if e.support_verdict == "supports"})
+    supported_elements = len(all_ids & _supported_ids(evidence))
     linked_pct = int(100 * linked_elements / max(total_elements, 1))
     supported_pct = int(100 * supported_elements / max(total_elements, 1))
 

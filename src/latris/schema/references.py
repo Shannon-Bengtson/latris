@@ -47,6 +47,9 @@ class Reference(BaseModel):
     imported_from: str | None = None  # e.g. "zotero", "manual"
     notes: str | None = None
     source_snapshot: SourceSnapshot | None = None
+    # The key of the source this one was read through (a review quoting a
+    # primary study): the citation is second-hand, and the report says so.
+    cited_via: str | None = None
 
 
 class ReferenceLibrary(BaseModel):

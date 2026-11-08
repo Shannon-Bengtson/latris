@@ -2,8 +2,10 @@
 
 Everything here is already in the project — this only gathers it: links
 nobody has sourced, citations nobody has checked against their source,
-findings waiting for a person's approval, report sections without prose,
-and descriptions that contradict their link's polarity. Each item says how
+cited sources with nothing on file showing they were read, checks resting
+on a quote that isn't in the source's stored text, findings waiting for a
+person's approval, report sections without prose or with prose the model
+has outgrown, and descriptions that contradict their link's polarity. Each item says how
 to fix it. Contested links aren't on the list: showing both sides is the
 point, not a gap.
 """
@@ -19,7 +21,9 @@ from latris.repo.yaml_io import load_model
 
 @dataclass
 class HandoverItem:
-    kind: str  # unsourced_links | unchecked_citations | unapproved_findings | missing_prose | contradictions
+    # unsourced_links | unchecked_citations | unread_sources | unfound_quotes | unapproved_findings
+    # | missing_prose | stale_prose | contradictions
+    kind: str
     count: int
     message: str
     fix: str
@@ -68,7 +72,7 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             _element_names(substrate, [e.target_id for e in unchecked if e.target_id]),
             strict=True,
         ))
-        cited = [e for e in evidence.entries if e.support_verdict != "contradicts"]
+        cited = evidence.entries
         items.append(HandoverItem(
             "unchecked_citations", len(unchecked),
             f"{len(unchecked)} of {len(cited)} citations {'hasn' if len(unchecked) == 1 else 'haven'}'t been "
@@ -76,6 +80,35 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             "read each source, then `latris evidence check <link> polarity <key> supports|against|off-topic "
             "--rationale \"...\"`",
             [f"{e.bibkey} on {names.get(e.target_id, 'the model')}" for e in unchecked[:5]],
+        ))
+
+    from latris.operations._quotes import has_stored_text
+    from latris.operations.references import load_library
+
+    refs = {r.bibkey: r for r in load_library(paths)[0].entries}
+    unread = sorted(
+        k for k in {e.bibkey for e in evidence.entries} if k in refs and not has_stored_text(refs[k], paths)
+    )
+    if unread:
+        items.append(HandoverItem(
+            "unread_sources", len(unread),
+            f"{len(unread)} cited source{'s have' if len(unread) != 1 else ' has'} nothing on file showing "
+            "it was read, or that its DOI or URL leads to it",
+            "save what you read (`latris ref snapshot <key> --url <where> --kind abstract --extract \"...\"`) "
+            "or fetch it (`latris ref fetch <key>`); correct a wrong identifier with `latris ref edit`, "
+            "drop an unusable source with `latris ref remove`",
+            [_cite_name(refs[k]) for k in unread[:5]],
+        ))
+
+    unfound = [e for e in evidence.entries if e.quote and e.quote_verified is not True]
+    if unfound:
+        items.append(HandoverItem(
+            "unfound_quotes", len(unfound),
+            f"{len(unfound)} check{'s rest' if len(unfound) != 1 else ' rests'} on a quote that isn't in the "
+            "source's stored text (the report says so)",
+            "save the passage you read with `latris ref snapshot`, then repeat the check with the quote "
+            "copied from it; or reset it (`latris evidence check <link> polarity <key> unchecked -r \"...\"`)",
+            [f"{e.bibkey}: \"{e.quote[:60]}\"" for e in unfound[:5]],
         ))
 
     waiting = [
@@ -112,6 +145,23 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
                 names[:5],
             ))
 
+    from latris.operations.interpret import extract_claims
+
+    stale = [s for s in sections if s.is_stale(extract_claims(s.section_type, s.model_type, root=paths.root))]
+    if stale:
+        items.append(HandoverItem(
+            "stale_prose", len(stale),
+            f"{len(stale)} report section{'s were' if len(stale) != 1 else ' was'} written before the model "
+            f"last changed, and the claims behind {'them' if len(stale) != 1 else 'it'} have changed",
+            "`latris interpret refresh-claims`, then `latris interpret show <section>` and rewrite it with "
+            "`latris interpret set-prose`",
+            [
+                INTERPRET_SECTION_REGISTRY[s.section_type].display_name
+                if s.section_type in INTERPRET_SECTION_REGISTRY else s.section_type
+                for s in stale[:5]
+            ],
+        ))
+
     likely = [c for c in run_coherence_check(root=paths.root) if c.severity == "likely"]
     if likely:
         items.append(HandoverItem(
@@ -123,3 +173,8 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
         ))
 
     return HandoverReport(model_type=model_type, ready=not items, items=items)
+
+
+def _cite_name(ref) -> str:
+    first = (ref.authors or [""])[0].split(",")[0].strip()
+    return f"{ref.bibkey} ({first} {ref.year or ''})".replace(" )", ")").replace("( ", "(") if first else ref.bibkey

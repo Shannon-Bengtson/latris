@@ -98,6 +98,10 @@ _AUDIT_TEXT = {
     ("source", "full_text"): "from the full text",
     ("verdict", "unverified"): "not yet checked against the source",
     ("verdict", "supports"): "checked: the source supports it",
+    ("verdict", "contradicts"): "checked: the source contradicts it",
+    ("verdict", "confirmed_against"): "checked: the source does argue against it",
+    ("quote", "found"): "quote found in the stored text",
+    ("quote", "not_found"): "quote not found in the stored text",
     ("verdict", "orthogonal"): "checked: on topic but doesn't address it",
     ("verdict", "insufficient_extract"): "checked: the extract was too short to tell",
 }
@@ -427,11 +431,16 @@ def render(
             ref_by_key = {r.bibkey: r for r in references}
 
             def _tags(link) -> list[tuple[str, str]]:
-                # A source against a claim is marked "against" instead of
-                # carrying verdict=contradicts.
+                # A source against a claim is marked "against" (below); its
+                # check, like any other, says what the source was read as.
                 tags = [("by", link.verified_by), ("source", link.source_access)]
-                if link.support_verdict != "contradicts":
-                    tags.append(("verdict", link.support_verdict))
+                verdict = link.support_verdict
+                if link.stance == "against" and verdict == "contradicts":
+                    verdict = "confirmed_against"
+                tags.append(("verdict", verdict))
+                if link.quote:
+                    # Legacy checks (before 0.7.7) never looked the quote up.
+                    tags.append(("quote", "found" if link.quote_verified else "not_found"))
                 return tags
 
             # The same audit tag on every line is noise: a tag every citation
@@ -462,7 +471,7 @@ def render(
                     # supports the claim.
                     own = " · ".join(_audit_text(k, v) for k, v in _tags(link) if k not in shared)
                     audit = f" ({own})" if own else ""
-                    if link.support_verdict == "contradicts":
+                    if link.is_against:
                         audit = f" — **against**{audit}"
                     note = f" — _{link.notes}_" if link.notes else ""
                     # "existence" is a sentinel attribute meaning the
@@ -651,6 +660,9 @@ def render(
                     line += f" DOI: {r.doi}"
                 if r.url:
                     line += f" · <{r.url}>"
+                via = next((v for v in references if v.bibkey == r.cited_via), None) if r.cited_via else None
+                if via is not None:
+                    line += f" _Read as cited in {_short_citation(via)}, not first-hand._"
                 out.append(line)
         out.append("")
 
@@ -832,7 +844,7 @@ def _render_contested(evidence, challenges, labels: dict[str, str], references) 
     """
     against: dict[str, list[str]] = {}
     for e in evidence.entries:
-        if e.target_id and e.support_verdict == "contradicts":
+        if e.target_id and e.is_against:
             against.setdefault(e.target_id, []).append(e.bibkey)
     open_challenges: dict[str, list[str]] = {}
     for c in challenges:
@@ -853,7 +865,7 @@ def _render_contested(evidence, challenges, labels: dict[str, str], references) 
     for t in targets:
         out.append(f"- **{_md_escape(labels.get(t, t))}**")
         for_keys = sorted(
-            {e.bibkey for e in evidence.entries if e.target_id == t and e.support_verdict != "contradicts"}
+            {e.bibkey for e in evidence.entries if e.target_id == t and not e.is_against}
         )
         if for_keys:
             out.append(f"  - For: {'; '.join(_cite(k) for k in for_keys)}")
@@ -929,6 +941,19 @@ def _render_modelling_approach(paths: ProjectPaths) -> list[str]:
     return out
 
 
+def _prose_is_stale(section, paths: ProjectPaths) -> bool:
+    """The section's prose rests on claims the model no longer gives (see ``InterpretSection.is_stale``)."""
+    if not section.prose.strip() or not section.claims_at_generation:
+        return False
+    from latris.operations.interpret import extract_claims
+
+    try:
+        current = extract_claims(section.section_type, section.model_type, root=paths.root)
+    except Exception:  # noqa: BLE001 — a report never fails over a staleness check
+        current = None
+    return section.is_stale(current)
+
+
 def _render_interpretation(
     paths: ProjectPaths, *, model_type: str | None = None, answer_first: bool = False
 ) -> list[str]:
@@ -988,11 +1013,18 @@ def _render_interpretation(
                 out.append(f"### {title}{heading_suffix}")
             out.append("")
 
+            stale = _prose_is_stale(s, paths)
             if s.prose:
                 # Prose is already Markdown — render verbatim, indented
                 # paragraphs preserved.
                 out.append(s.prose.rstrip())
                 out.append("")
+                if stale:
+                    out.append(
+                        "_Out of date: the model has changed since this was written, and what it rests on "
+                        "has changed with it._"
+                    )
+                    out.append("")
             elif s.claims:
                 out.append("_AI prose not generated yet — claims only:_")
                 out.append("")
@@ -1020,6 +1052,8 @@ def _render_interpretation(
                 "generated": "AI-generated",
                 "edited": "human-edited",
             }.get(s.generation_state, s.generation_state)
+            if stale:
+                state_marker += ", out of date"
             out.append(f"_State: {state_marker} · last updated {s.updated_at.date().isoformat()}_")
             out.append("")
 

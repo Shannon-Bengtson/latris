@@ -79,12 +79,17 @@ latris attr set <target-id> <attribute> <value>   # description | confidence
 #   (by-definition: true by definition or accounting; needs no source and
 #   doesn't count against evidence coverage)
 
-latris ref add <bibkey> --title "..." --author "..." --year ...
+latris ref add <bibkey> --title "..." --author "..." --year ... [--doi ...] [--url ...] [--cited-via <key>]
+latris ref edit <bibkey> [--title ...] [--author ...] [--year ...] [--doi ...] [--url ...] [--notes ...] [--cited-via <key>]   # "" clears
+latris ref remove <bibkey> [--with-citations] [--rationale "..."]
 latris ref list
 latris ref import <bibfile>
 
 latris evidence add <target> <attribute> <bibkey> [--verified-by human|ai] [--notes "..."] [--contradicts]
 latris evidence check <target> <attribute> <bibkey> supports|against|off-topic|too-little|unchecked     --rationale "..." [--quote "..."] [--by human|ai]
+    # --quote is looked up in the source's stored text (snapshot, fetched full text, abstract);
+    # an AI's quote that isn't found is refused, and an AI's `supports` needs one.
+latris evidence remove <target> <attribute> <bibkey> [--rationale "..."]
 # <target>: a factor (label or ID) or a link ("From -> To", or its edge ID)
 ```
 

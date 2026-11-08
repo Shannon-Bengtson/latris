@@ -655,8 +655,9 @@ Each evidence link carries four orthogonal axes so a reviewer can answer four se
 
 - **Who proposed it?** `verified_by`: human or ai.
 - **What did the proposer see?** `source_access`: title only, abstract, full-text chunk, or full text.
-- **Does the source actually support the specific claim?** `support_verdict`: unverified, supports, contradicts, orthogonal, or insufficient extract.
-- **Where exactly?** `quote` plus `quote_location` (chunk hash, page, offset) when the verdict is `supports`.
+- **Does the source actually support the specific claim?** `support_verdict`: unverified, supports, contradicts, orthogonal, or insufficient extract — the result of someone reading it.
+- **Is it offered for the claim or against it?** `stance`: for or against. Citing a source as against a claim (`--contradicts`) sets the stance; it stays unchecked until someone reads it.
+- **Where exactly?** `quote` plus `quote_location` (chunk hash, page, offset), and `quote_verified`: whether the quote was found in the text held for the source.
 
 A single ai-verified or human-verified badge conflated these — an AI-suggested link with no source access could read as if it had been verified against the paper. The split makes the difference visible.
 
@@ -1155,7 +1156,9 @@ Tests inject a stub via the `http_get` parameter on `fetch_reference_source`. No
         summary="Apply-time verbatim quote validation against the stored source snapshot. The model cannot self-attest.",
         body="""## The audit invariant
 
-When VerifyClaimAgainstSource returns `verdict="supports"`, the server checks that the model's verbatim quote appears **character-for-character** in the stored source snapshot extract (or in a chunk of the fetched full text). On match, the link's `support_verdict` flips to `supports`, the quote and `quote_location` (chunk_hash + offset) land on the link, and `source_access` bumps to `full_text_chunk`. On mismatch, the proposal is rejected and the substrate stays unchanged.
+When VerifyClaimAgainstSource returns `verdict="supports"`, the server checks that the model's quote appears in the text held for the source: a chunk of the fetched full text, the stored snapshot extract, or the abstract. Copying artefacts are forgiven (whitespace, curly quotes, dashes, case; `...` marks a gap); wording is not. On match, the link's `support_verdict` flips to `supports`, the quote and `quote_location` (chunk_hash + offset) land on the link with `quote_verified: true`, and `source_access` records what the quote was found in (`full_text_chunk` for the full text or a full-text excerpt, `abstract` for an abstract or summary). On mismatch, the proposal is rejected and the substrate stays unchanged.
+
+The same check runs on `latris evidence check --by ai --quote ...` (and the chat connector's check): an agent cannot record a quote that isn't in the stored text. A person's check with a quote Latris can't find is recorded with `quote_verified: false`, and the report says the quote was not found.
 
 The validator is the source of truth — not the model's confidence, not its prose. The model cannot self-attest.
 

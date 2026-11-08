@@ -80,8 +80,10 @@ def test_builds_everything_in_one_commit(project: Path) -> None:
     evidence = load_model(EvidenceLinkSet, paths.evidence_links_yaml)
     assert evidence.entries[0].target_id == result.links[0]["id"]
     assert evidence.entries[0].attribute == "polarity"
-    against = [e for e in evidence.entries if e.support_verdict == "contradicts"]
+    against = [e for e in evidence.entries if e.is_against]
     assert [(e.bibkey, e.target_id) for e in against] == [("tuohy2015", result.links[2]["id"])]
+    # Citing a source as against a link is not checking it.
+    assert against[0].stance == "against" and against[0].support_verdict == "unverified"
     roles = load_model(RoleSet, paths.role_path("cld"))
     departures = next(e.id for e in substrate.entities if e.label == "Volunteer departures")
     assert [(r.target_id, r.value) for r in roles.entries] == [(departures, "outcome")]

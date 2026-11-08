@@ -19,7 +19,6 @@ from latris.schema import (
     EvidenceLink,
     EvidenceLinkSet,
     Informants,
-    QuoteLocation,
     ReferenceLibrary,
     Substrate,
     SupportVerdict,
@@ -47,8 +46,9 @@ def add_evidence(
     """Cite ``bibkey`` on a (target, attribute) claim.
 
     ``contradicts=True`` records a source that argues *against* the claim
-    (``support_verdict="contradicts"``): it stays on the same link as the
-    supporting sources, so reports can show both sides.
+    (``stance="against"``): it stays on the same link as the supporting
+    sources, so reports can show both sides. Like any citation it is not
+    yet checked; ``set_evidence_support_verdict`` records a check.
     """
     paths = require_project(root)
 
@@ -92,7 +92,7 @@ def add_evidence(
         notes=notes,
         verified_by=verified_by,
         source_access=source_access,
-        support_verdict="contradicts" if contradicts else "unverified",
+        stance="against" if contradicts else "for",
         origin=default_origin(),
     )
     store.entries.append(link)
@@ -178,63 +178,83 @@ def set_evidence_support_verdict(
     new_verdict: SupportVerdict,
     rationale: str,
     quote: str | None = None,
-    quote_location: QuoteLocation | None = None,
     checked_by: Literal["human", "ai"] | None = None,
     root: Path | None = None,
 ) -> tuple[EvidenceLink, str]:
-    """Mutate `support_verdict` on an existing evidence link.
+    """Record a check: whether the source supports the claim it is cited for.
 
     ``checked_by`` (a person reading the source, or an AI) is recorded in
     the note; ``verified_by`` keeps saying who attached the citation.
+    The rationale is appended to ``notes``, so the audit chain stays in the
+    YAML alongside the commit message.
 
-    Locates the link by (target, attribute, bibkey). Raises ValueError
-    on no-op (verdict unchanged). Appends rationale to `notes` so the
-    audit chain in the YAML is preserved alongside the commit message.
-
-    When ``new_verdict == "supports"`` and a verbatim ``quote`` (plus
-    ``quote_location``) is supplied — i.e. coming from the Phase 4
-    apply()-time validator — the quote and its location are written
-    onto the link, and ``source_access`` is bumped to
-    ``"full_text_chunk"`` if it was previously narrower. Phase 4
-    enforces the verbatim invariant; this operation just persists.
+    A ``quote`` is looked up in the text Latris holds for the source
+    (``_quotes.locate_quote``). Found: the quote, its location and what it
+    was found in (``source_access``) are recorded, ``quote_verified=True``.
+    Not found: an AI's check is refused (a paraphrase is not a quote); a
+    person's is recorded with ``quote_verified=False``, since they may have
+    read text Latris doesn't hold. An AI's "supports" needs a quote.
     """
+    from latris.operations._quotes import has_stored_text, locate_quote
+
     paths = require_project(root)
     store = load_model(EvidenceLinkSet, paths.evidence_links_yaml)
     link = _resolve_link(store, target, attribute, bibkey, paths)
     old_verdict = link.support_verdict
-    if old_verdict == new_verdict:
+    if old_verdict == new_verdict and (quote is None or quote == link.quote):
         raise ValueError(
             f"evidence {bibkey!r} on {link.target_id or 'model'}/{attribute} "
             f"already has support_verdict {new_verdict!r}"
         )
+    if checked_by == "ai" and new_verdict == "supports" and not quote:
+        raise ValueError(
+            "an AI's check that a source supports a claim needs --quote: a passage copied from the source"
+        )
+
+    match = None
+    if quote:
+        reference = next((r for r in _load_library(paths).entries if r.bibkey == bibkey), None)
+        match = locate_quote(quote, reference, paths) if reference is not None else None
+        if match is None and checked_by == "ai":
+            held = (
+                "the text it holds doesn't contain it" if reference is not None and has_stored_text(reference, paths)
+                else "it holds no text for this source"
+            )
+            raise ValueError(
+                f"the quote isn't in the text Latris holds for {bibkey!r} ({held}). A quote must be copied "
+                "from the source, not paraphrased (at least 20 characters; '...' may mark a gap). Save the "
+                f"passage you read first — `latris ref snapshot {bibkey} --url <where you read it> --kind "
+                "abstract|full_text_excerpt --extract \"...\"` — then check again. A verdict other than "
+                "supports can be recorded without --quote."
+            )
 
     link.support_verdict = new_verdict
     who = {"human": " (checked by a person)", "ai": " (checked by an AI)"}.get(checked_by or "", "")
     note_addition = f"verdict {old_verdict} → {new_verdict}{who}: {rationale}"
     link.notes = f"{link.notes}\n{note_addition}" if link.notes else note_addition
 
-    if quote is not None:
-        link.quote = quote
-    if quote_location is not None:
-        link.quote_location = quote_location
-    # Phase 4: a verbatim-quoted "supports" verdict means the proposer
-    # actually saw a chunk of full text. Bump source_access if the
-    # prior level was narrower.
-    if new_verdict == "supports" and quote is not None and link.source_access in {"title_only", "abstract"}:
-        link.source_access = "full_text_chunk"
+    link.quote = quote or None
+    link.quote_location = match.location if match else None
+    link.quote_verified = None if not quote else match is not None
+    if match is not None:
+        # What the check rests on: the text the quote was found in.
+        link.source_access = match.tier
 
     dump_model(store, paths.evidence_links_yaml)
 
     target_label = f"{link.target_id[:15]}…" if link.target_id else "model"
     subject_verb = (
-        "Verified" if new_verdict == "supports" and quote is not None
+        "Verified" if new_verdict == "supports" and match is not None
         else "Checked" if checked_by is not None
         else "Demoted"
     )
+    body = f"target: {link.target_id or 'model'}\nattribute: {attribute}\nbibkey: {bibkey}\nrationale: {rationale}"
+    if quote:
+        body += f"\nquote: {'found in ' + match.where if match else 'not found in the stored text'}"
     sha = auto_commit(
         paths.root,
         subject=f'{subject_verb} evidence "{bibkey}" on {target_label}/{attribute}: {old_verdict} → {new_verdict}',
-        body=f"target: {link.target_id or 'model'}\nattribute: {attribute}\nbibkey: {bibkey}\nrationale: {rationale}",
+        body=body,
         paths=[paths.evidence_links_yaml],
     )
     return link, sha
