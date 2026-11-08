@@ -45,7 +45,8 @@ def parse_unit(spec: str) -> pint.Unit:
     except Exception as exc:  # user input: pint surfaces malformed text as many error types (incl. TokenError)
         raise UnitError(
             f"unknown or malformed units {spec!r} — use pint syntax such as "
-            f"'liter', 'person/year', '1/year', 'dollar/month' or 'dimensionless'"
+            f"'liter', 'person/year', '1/year', 'dollar/month' or 'dimensionless'; count other things "
+            f"(bikes, patients, trees) as 'item', e.g. 'item/year'"
         ) from exc
 
 
