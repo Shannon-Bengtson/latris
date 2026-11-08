@@ -28,7 +28,11 @@ mutations (the server routes' shape) and `{"result": [...]}` for listings.
 Errors print `{"error": ..., "type": ...}` with the usual exit codes (1 for
 not-found / git / sync errors, 2 for invalid input). Supported today:
 `node add|list|show|rename|remove`, `edge add|list|remove`, `attr set`,
-`view set|role`, `ref add|list`, `evidence add|check`, `check coherence|handover`, `build`, `init`, `docs`.
+`view set|role`, `ref add|list`, `evidence add|check`, `check coherence|handover`, `build`, `init`, `docs`,
+`analyse loops|propagate|paths|d-sep|blanket|adjustment-sets`, `interpret initialise|list|show|set-prose`,
+`bn` (setters, `state-spaces`, `cpts`, `check`, `marginals`, `query`, `sensitivity`), `sd` (setters, listings,
+`check`, `simulate` — a compact summary; its own `--json` still prints the full series) and `fcm`
+(`set-weight`, `weights`, `infer`). In JSON mode `bn check` and `sd check` report `ready` and exit 0.
 
 ## Project
 

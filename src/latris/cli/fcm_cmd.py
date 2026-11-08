@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Fuzzy Cognitive Map operations.", no_args_is_help=True)
 console = Console()
@@ -22,6 +23,9 @@ def set_weight(
     from latris.operations import view_attributes as va
 
     target_id, sha = va.set_view_attribute(edge, "fcm", "weight", value)
+    if json_mode():
+        emit({"target_id": target_id, "weight": value}, human=lambda: None, commit_sha=sha)
+        return
     console.print(f"[green]set[/green] FCM weight on {target_id[:15]}… = {value} · commit [cyan]{sha[:10]}[/cyan]")
 
 
@@ -39,6 +43,13 @@ def weights() -> None:
 
     labels = {e.id: e.label for e in entities}
     weight_map = {e.target_id: e.value for e in store.entries}
+    if json_mode():
+        emit([
+            {"link": f"{labels.get(e.from_id, e.from_id)} -> {labels.get(e.to_id, e.to_id)}", "id": e.id,
+             "weight": weight_map.get(e.id)}
+            for e in edges
+        ], human=lambda: None)
+        return
 
     if not edges:
         console.print("[dim](no edges)[/dim]")
@@ -88,6 +99,13 @@ def infer(
             clamped[eid] = float(val_str.strip())
 
     result = infer_fcm(clamped=clamped or None)
+    if json_mode():
+        emit({"converged": result.converged, "iterations": result.iterations, "activations": [
+            {"variable": labels.get(eid, eid), "activation": round(result.activations.get(eid, 0.5), 4),
+             "clamped": eid in clamped}
+            for eid in entity_ids
+        ]}, human=lambda: None)
+        return
 
     # Display
     status = "[green]converged[/green]" if result.converged else "[yellow]did not converge[/yellow]"

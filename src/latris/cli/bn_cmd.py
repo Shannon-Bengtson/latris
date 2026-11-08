@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Bayesian Network operations.", no_args_is_help=True)
 console = Console()
@@ -33,6 +34,9 @@ def set_state_space(
     from latris.operations import bn as bn_ops
 
     entry, sha = bn_ops.set_state_space(node, _split(states), ordered=ordered)
+    if json_mode():
+        emit(entry, human=lambda: None, commit_sha=sha)
+        return
     console.print(
         f"[green]set[/green] state space on {entry.target_id[:15]}… = "
         f"{', '.join(entry.states)} · commit [cyan]{sha[:10]}[/cyan]"
@@ -63,6 +67,9 @@ def set_cpt(
         raise typer.BadParameter(f"--probs must be comma-separated numbers: {exc}") from exc
 
     cpt, sha = bn_ops.set_cpt(node, parent_list, prob_list, origin=origin, source_id=source)
+    if json_mode():
+        emit(cpt, human=lambda: None, commit_sha=sha)
+        return
     parent_desc = ", ".join(p[:12] for p in cpt.parents) or "—"
     console.print(
         f"[green]set[/green] CPT on {cpt.target_id[:15]}… "
@@ -104,6 +111,9 @@ def set_noisy_or(
         causes.append((parent.strip(), active_state.strip(), prob))
 
     entry, sha = bn_ops.set_noisy_or(node, leak, causes, origin=origin, source_id=source)
+    if json_mode():
+        emit(entry, human=lambda: None, commit_sha=sha)
+        return
     console.print(
         f"[green]set[/green] Noisy-OR on {entry.target_id[:15]}… "
         f"({len(entry.links)} cause(s), leak {entry.leak}) · commit [cyan]{sha[:10]}[/cyan]"
@@ -174,6 +184,11 @@ def state_spaces() -> None:
     from latris.operations import bn as bn_ops
 
     store = bn_ops.get_state_spaces()
+    if json_mode():
+        labels = _labels()
+        emit([{"node": labels.get(e.target_id, e.target_id), "states": e.states, "ordered": e.ordered}
+              for e in store.entries], human=lambda: None)
+        return
     if not store.entries:
         console.print("[dim](no state spaces defined)[/dim]")
         return
@@ -197,6 +212,18 @@ def cpts() -> None:
     from latris.operations import bn as bn_ops
 
     cpt_map = bn_ops.effective_cpts()
+    if json_mode():
+        canonical = {e.target_id for e in bn_ops.get_noisy_or().entries}
+        labels = _labels()
+        emit([
+            {"node": labels.get(nid, nid), "kind": "noisy-or" if nid in canonical else "table",
+             "states": cpt.states, "parents": [labels.get(p, p) for p in cpt.parents],
+             "rows": [{"given": {labels.get(k, k): v for k, v in row.parent_states.items()},
+                       "p": dict(zip(cpt.states, row.p, strict=True)), "origin": row.origin}
+                      for row in cpt.rows]}
+            for nid, cpt in cpt_map.items()
+        ], human=lambda: None)
+        return
     if not cpt_map:
         console.print("[dim](no CPTs defined)[/dim]")
         return
@@ -225,6 +252,13 @@ def check() -> None:
     from latris.operations import bn as bn_ops
 
     gaps = bn_ops.check()
+    if json_mode():
+        labels = _labels()
+        emit({"ready": not gaps, "gaps": [
+            {"node": labels.get(g.element_id, g.element_label or g.element_id), "gap": g.gap_type, "detail": g.message}
+            for g in gaps
+        ]}, human=lambda: None)
+        return
     if not gaps:
         console.print("[green]✓[/green] BN is fully quantified and ready to compute.")
         return
@@ -299,6 +333,22 @@ def sensitivity(
 
     result = bn_sensitivity.sensitivity(target, state, evidence=ev or None, top=top)
     labels = _labels()
+    if json_mode():
+        payload = {
+            "target": labels.get(result.target_id, result.target_id), "state": result.target_state,
+            "baseline": round(result.baseline, 4),
+            "given": {labels.get(k, k): v for k, v in (result.evidence or {}).items()},
+            "parameters": [
+                {"node": labels.get(f.node_id, f.node_id),
+                 "given": {labels.get(k, k): v for k, v in f.parent_states.items()},
+                 "state": f.state, "influence": round(f.influence, 4), "origin": f.origin,
+                 "human_verified": f.verification == "human-verified", "weakly_grounded": bool(f.weak)}
+                for f in result.findings
+            ],
+        }
+        sha = bn_sensitivity.record_sensitivity(result)[0] if record else None
+        emit(payload, human=lambda: None, commit_sha=sha)
+        return
     cond = ""
     if result.evidence:
         given = ", ".join(f"{labels.get(k, k[:8])}={v}" for k, v in result.evidence.items())
@@ -333,6 +383,13 @@ def sensitivity(
 
 def _print_marginals(result, *, header: str, evidence: dict[str, str] | None = None) -> None:
     labels = _labels()
+    if json_mode():
+        emit({
+            "given": {labels.get(k, k): v for k, v in (evidence or {}).items()},
+            "marginals": {labels.get(nid, nid): {s: round(p, 4) for s, p in dist.items()}
+                          for nid, dist in result.marginals.items()},
+        }, human=lambda: None)
+        return
     if evidence:
         cond = ", ".join(f"{labels.get(k, k[:8])}={v}" for k, v in evidence.items())
         console.print(f"[bold]{header}[/bold]  (given {cond})\n")

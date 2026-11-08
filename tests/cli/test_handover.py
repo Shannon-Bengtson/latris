@@ -130,3 +130,8 @@ def test_initialise_fills_claims_and_ai_findings_say_so(project: Path, monkeypat
     monkeypatch.setenv("LATRIS_DEFAULT_ORIGIN", "ai-proposed")
     finding, _ = record_new_finding("Burnout matters.", "dynamics", "cld", root=project)
     assert (finding.origin, finding.source_type) == ("ai-proposed", "ai-interaction")
+
+
+def test_maturity_accepts_link_names(project: Path) -> None:
+    result = CliRunner().invoke(app, ["mature", "propose", "Workload -> Burnout"])
+    assert result.exit_code == 0, result.output

@@ -854,6 +854,7 @@ def build_example(ex: WorkedExample) -> None:
     ex.transcript.append("```yaml" + chr(10) + build_spec + "```" + chr(10))
     ex.run(["build", "--spec", "-"], input=build_spec)
     ex.run(["analyse", "loops"])
+    ex.run(["--json", "analyse", "loops"])
     ex.note(
         "Attaching a citation says only that it was attached. Reading the source and recording what it "
         "says is a separate step; links can be named \"From -> To\"."
@@ -971,6 +972,11 @@ def build_example(ex: WorkedExample) -> None:
     )
     ex.run(["bn", "query", "--evidence", "Respiratory Health=poor",
             "--query", "Transport Policy", "--query", "Vehicle Emissions"])
+    ex.note(
+        "Analyses also speak --json — one object an agent can read instead of a table. The hosted "
+        "MCP server's named tools (query_bn, find_loops, simulate_sd, run_fcm, ...) are built on it."
+    )
+    ex.run(["--json", "bn", "query", "--evidence", "Transport Policy=strict", "--query", "Respiratory Health"])
 
     # ── 7.6 BN sensitivity analysis ───────────────────────────────────
     ex.section(

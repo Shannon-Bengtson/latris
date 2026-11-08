@@ -19,7 +19,7 @@ from pathlib import Path
 # Author identity
 # ---------------------------------------------------------------------------
 from latris.operations._actor import author as _author
-from latris.operations._resolve import resolve_edge, resolve_entity
+from latris.operations._resolve import resolve_edge, resolve_edge_by_name, resolve_entity
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, iter_jsonl, load_model
@@ -131,7 +131,7 @@ def _resolve_and_set(target: str, maturity: Maturity, paths) -> tuple[str, Path]
     except ValueError:
         pass
     try:
-        edge = resolve_edge(target, substrate.edges)
+        edge = resolve_edge_by_name(target, substrate) or resolve_edge(target, substrate.edges)
         path = _set_maturity_in_substrate(edge.id, maturity, paths)
         if path is not None:
             return edge.id, path

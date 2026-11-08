@@ -13,13 +13,25 @@ import typer
 from rich.console import Console
 
 from latris.cli._errors import handle_cli_errors
-from latris.cli._output import emit
+from latris.cli._output import emit, json_mode
 
 app = typer.Typer(
     help="Interpret phase: sections, claims, AI prose.",
     no_args_is_help=True,
 )
 console = Console()
+
+
+def _sections_json(store) -> list[dict]:
+    from latris.operations.interpret_registry import INTERPRET_SECTION_REGISTRY
+
+    return [
+        {"section": s.section_type, "model_type": s.model_type,
+         "title": INTERPRET_SECTION_REGISTRY[s.section_type].display_name
+         if s.section_type in INTERPRET_SECTION_REGISTRY else s.section_type,
+         "claims": list(s.claims or []), "prose": s.prose or "", "state": s.generation_state}
+        for s in store.sections
+    ]
 
 
 @app.command("initialise")
@@ -29,6 +41,10 @@ def initialise() -> None:
     from latris.operations.interpret import initialise_sections
 
     store, sha, skipped = initialise_sections()
+    if json_mode():
+        emit({"sections": _sections_json(store), "skipped": [{"model_type": m, "reason": r} for m, r in skipped]},
+             human=lambda: None, commit_sha=sha)
+        return
     n = len(store.sections)
     console.print(
         f"[green]initialised[/green] {n} section(s) · commit [cyan]{sha[:10]}[/cyan]"
@@ -49,6 +65,9 @@ def list_sections() -> None:
     from latris.operations.interpret import load_interpretation
 
     store = load_interpretation()
+    if json_mode():
+        emit(_sections_json(store), human=lambda: None)
+        return
     if not store.sections:
         console.print("[dim](no sections — run `interpret initialise` first)[/dim]")
         return

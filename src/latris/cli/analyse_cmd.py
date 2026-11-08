@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Graph analysis operations.", no_args_is_help=True)
 console = Console()
@@ -36,6 +37,14 @@ def loops() -> None:
     from latris.operations.analysis import analyse_loops
 
     classified = analyse_loops()
+    if json_mode():
+        labels = _labels()
+        emit([
+            {"type": loop.classification, "length": len(loop.node_ids),
+             "variables": [labels.get(n, n) for n in loop.node_ids], "ids": list(loop.node_ids)}
+            for loop in classified
+        ], human=lambda: None)
+        return
     if not classified:
         console.print("[dim](no feedback loops found)[/dim]")
         return
@@ -64,6 +73,14 @@ def propagate(
 
     target_id = _resolve(variable)
     effects = analyse_propagation(target_id)
+    if json_mode():
+        labels = _labels()
+        emit({"from": labels.get(target_id, target_id), "effects": [
+            {"variable": labels.get(e.entity_id, e.entity_id), "effect": e.effect,
+             "positive_paths": e.paths_positive, "negative_paths": e.paths_negative}
+            for e in effects
+        ]}, human=lambda: None)
+        return
     if not effects:
         console.print("[dim](no reachable nodes with known polarity)[/dim]")
         return
@@ -112,6 +129,10 @@ def d_sep(
     result = analyse_d_separation({x_id}, {y_id}, z_ids)
 
     labels = _labels()
+    if json_mode():
+        emit({"x": labels.get(x_id, x_id), "y": labels.get(y_id, y_id),
+              "given": sorted(labels.get(z, z) for z in z_ids), "d_separated": bool(result)}, human=lambda: None)
+        return
     x_label = labels.get(x_id, x_id[:12])
     y_label = labels.get(y_id, y_id[:12])
     z_labels = ", ".join(labels.get(zid, zid[:12]) for zid in z_ids) if z_ids else "(nothing)"
@@ -140,6 +161,10 @@ def blanket(
     mb = analyse_blanket(target_id)
     labels = _labels()
     target_label = labels.get(target_id, target_id[:12])
+    if json_mode():
+        emit({"variable": labels.get(target_id, target_id), "blanket": sorted(labels.get(n, n) for n in mb)},
+             human=lambda: None)
+        return
 
     if not mb:
         console.print(f"[dim]Markov blanket of {target_label} is empty (isolated node).[/dim]")
@@ -166,6 +191,13 @@ def paths_cmd(
     labels = _labels()
     from_label = labels.get(from_id, from_id[:12])
     to_label = labels.get(to_id, to_id[:12])
+    if json_mode():
+        emit({"from": labels.get(from_id, from_id), "to": labels.get(to_id, to_id), "paths": [
+            {"directed": p.is_directed,
+             "nodes": [{"variable": labels.get(n.entity_id, n.entity_id), "role": n.classification} for n in p.nodes]}
+            for p in found
+        ]}, human=lambda: None)
+        return
 
     if not found:
         console.print(f"[dim]No paths found between {from_label} and {to_label}.[/dim]")
@@ -206,6 +238,10 @@ def adjustment_sets_cmd(
     labels = _labels()
     treatment_label = labels.get(treatment_id, treatment_id[:12])
     outcome_label = labels.get(outcome_id, outcome_id[:12])
+    if json_mode():
+        emit({"treatment": labels.get(treatment_id, treatment_id), "outcome": labels.get(outcome_id, outcome_id),
+              "adjustment_sets": [sorted(labels.get(n, n) for n in st) for st in sets]}, human=lambda: None)
+        return
 
     if not sets:
         console.print(f"[dim]No valid adjustment sets found for {treatment_label} → {outcome_label}.[/dim]")

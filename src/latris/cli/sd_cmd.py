@@ -11,6 +11,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="System Dynamics (stock-and-flow) operations.", no_args_is_help=True)
 console = Console()
@@ -43,6 +44,9 @@ def set_role(
     from latris.operations import sd as sd_ops
 
     target_id, sha = sd_ops.set_role(target, role)
+    if json_mode():
+        emit({"target_id": target_id, "role": role}, human=lambda: None, commit_sha=sha)
+        return
     console.print(f"[green]set[/green] {_labels().get(target_id, target_id[:15])} → {role} · {_sha(sha)}")
 
 
@@ -53,6 +57,10 @@ def roles() -> None:
     from latris.operations import sd as sd_ops
 
     entries = sd_ops.get_roles().entries
+    if json_mode():
+        labels = _labels()
+        emit([{"node": labels.get(e.target_id, e.target_id), "role": e.value} for e in entries], human=lambda: None)
+        return
     if not entries:
         console.print("[dim](no SD roles assigned)[/dim]")
         return
@@ -84,6 +92,9 @@ def set_equation(
     from latris.operations import sd as sd_ops
 
     entry, sha = sd_ops.set_equation(target, expression, units, origin=origin, source_id=source)
+    if json_mode():
+        emit(entry, human=lambda: None, commit_sha=sha)
+        return
     console.print(
         f"[green]set[/green] {_labels().get(entry.target_id, entry.target_id[:15])} = "
         f"{entry.expression} [{entry.units}] · {_sha(sha)}"
@@ -98,6 +109,11 @@ def equations() -> None:
     from latris.operations.sd_inference import role_map
 
     entries = sd_ops.get_equations().entries
+    if json_mode():
+        labels = _labels()
+        emit([{"variable": labels.get(e.target_id, e.target_id), "equation": e.expression, "units": e.units,
+               "origin": e.origin} for e in entries], human=lambda: None)
+        return
     if not entries:
         console.print("[dim](no equations defined)[/dim]")
         return
@@ -130,6 +146,9 @@ def set_initial_value(
     entry, sha = sd_ops.set_initial_value(
         stock, value, units, non_negative=non_negative, origin=origin, source_id=source
     )
+    if json_mode():
+        emit(entry, human=lambda: None, commit_sha=sha)
+        return
     console.print(
         f"[green]set[/green] {_labels().get(entry.target_id, entry.target_id[:15])}(0) = "
         f"{entry.initial_value:g} {entry.units} · {_sha(sha)}"
@@ -143,6 +162,11 @@ def stocks() -> None:
     from latris.operations import sd as sd_ops
 
     entries = sd_ops.get_stocks().entries
+    if json_mode():
+        labels = _labels()
+        emit([{"stock": labels.get(e.target_id, e.target_id), "initial_value": e.initial_value, "units": e.units,
+               "non_negative": e.non_negative, "origin": e.origin} for e in entries], human=lambda: None)
+        return
     if not entries:
         console.print("[dim](no initial values defined)[/dim]")
         return
@@ -172,6 +196,9 @@ def set_constant(
     from latris.operations import sd as sd_ops
 
     entry, sha = sd_ops.set_constant(target, value, units, origin=origin, source_id=source)
+    if json_mode():
+        emit(entry, human=lambda: None, commit_sha=sha)
+        return
     console.print(
         f"[green]set[/green] {_labels().get(entry.target_id, entry.target_id[:15])} = "
         f"{entry.value:g} {entry.units} · {_sha(sha)}"
@@ -185,6 +212,11 @@ def constants() -> None:
     from latris.operations import sd as sd_ops
 
     entries = sd_ops.get_constants().entries
+    if json_mode():
+        labels = _labels()
+        emit([{"constant": labels.get(e.target_id, e.target_id), "value": e.value, "units": e.units,
+               "origin": e.origin} for e in entries], human=lambda: None)
+        return
     if not entries:
         console.print("[dim](no constants defined)[/dim]")
         return
@@ -232,6 +264,9 @@ def set_table(
     entry, sha = sd_ops.set_table(
         target, points, x_units, y_units, extrapolate=extrapolate, origin=origin, source_id=source
     )
+    if json_mode():
+        emit(entry, human=lambda: None, commit_sha=sha)
+        return
     console.print(
         f"[green]set[/green] table on {_labels().get(entry.target_id, entry.target_id[:15])} "
         f"({len(entry.points)} point(s), {entry.x_units} → {entry.y_units}) · {_sha(sha)}"
@@ -245,6 +280,12 @@ def tables() -> None:
     from latris.operations import sd as sd_ops
 
     entries = sd_ops.get_tables().entries
+    if json_mode():
+        labels = _labels()
+        emit([{"variable": labels.get(e.target_id, e.target_id), "points": [[p.x, p.y] for p in e.points],
+               "x_units": e.x_units, "y_units": e.y_units, "extrapolate": e.extrapolate} for e in entries],
+             human=lambda: None)
+        return
     if not entries:
         console.print("[dim](no tables defined)[/dim]")
         return
@@ -268,6 +309,11 @@ def check() -> None:
     from latris.operations import sd as sd_ops
 
     gaps = sd_ops.check()
+    if json_mode():
+        emit({"ready": not gaps, "gaps": [
+            {"element": g.element_label or g.element_id, "gap": g.gap_type, "detail": g.message} for g in gaps
+        ]}, human=lambda: None)
+        return
     if not gaps:
         console.print("[green]✓[/green] SD model is complete, dimensionally consistent, and ready to simulate.")
         return
@@ -302,7 +348,21 @@ def simulate(
     )
     recorded = sd_ops.record_simulation(result) if record else None
 
-    if json_output:
+    if json_mode() and not json_output:
+        # One compact object for agents: each variable's trajectory summarised,
+        # with the series thinned to at most ~50 points.
+        step = max(1, len(result.times) // 50)
+        emit({
+            "success": result.success, "message": result.message, "algorithm": result.algorithm,
+            "time_units": result.time_units, "times": result.times[::step],
+            "variables": [
+                {"variable": result.labels[v], "role": result.roles[v], "units": result.units[v],
+                 "start": vals[0], "end": vals[-1], "min": min(vals), "max": max(vals), "series": vals[::step]}
+                for v, vals in result.series.items() if vals
+            ],
+            "warnings": result.warnings, "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
+    elif json_output:
         payload = asdict(result)
         if recorded:
             payload["commit_sha"], payload["run_id"] = recorded
