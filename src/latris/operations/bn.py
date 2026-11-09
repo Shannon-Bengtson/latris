@@ -190,16 +190,25 @@ def set_cpt(
     return cpt, sha
 
 
+_EVENT_STATES = {"yes", "true", "present", "occurs", "occurred", "on", "1", "high", "y"}
+
+
 def set_noisy_or(
     node: str,
     leak: float,
     causes: list[tuple[str, str, float]],
     *,
+    active: str | None = None,
     origin: ProvenanceOrigin = "human-elicited",
     source_id: str | None = None,
     root: Path | None = None,
 ) -> tuple[NoisyOrEntry, str]:
     """Set (or replace) a node's Noisy-OR parameterisation.
+
+    ``active`` is the node's state the causes push toward (the effect happening).
+    It must be given unless the first state plainly is that (yes, true, present,
+    occurs, on, 1, high) — a Noisy-OR with states [no, yes] and no ``active``
+    would otherwise silently compute P(no) as the effect.
 
     ``causes`` is a list of ``(parent, active_state, prob)``. The node and all
     parents must be binary and already have state spaces. The node must not also
@@ -217,6 +226,16 @@ def set_noisy_or(
         raise ValueError(f"Noisy-OR requires a binary node; {node!r} has states {ss_map[node_id]}")
     if node_id in {e.target_id for e in _load_cpts(paths).entries}:
         raise ValueError(f"{node!r} already has a tabular CPT; remove it before setting a Noisy-OR")
+    states = ss_map[node_id]
+    if active is None:
+        if states[0].strip().lower() not in _EVENT_STATES:
+            raise ValueError(
+                f"say which state of {node!r} is the effect happening (states {states}), "
+                f"e.g. --active {states[1] if states[1].strip().lower() in _EVENT_STATES else states[0]}"
+            )
+        active = states[0]
+    elif active not in states:
+        raise ValueError(f"{active!r} is not a state of {node!r} (states {states})")
 
     links: list[NoisyOrLink] = []
     parent_ids: list[str] = []
@@ -240,7 +259,7 @@ def set_noisy_or(
 
     entry = NoisyOrEntry(
         target_id=node_id, parents=parent_ids, states=ss_map[node_id], leak=leak,
-        links=links, origin=origin, source_id=source_id,
+        links=links, origin=origin, source_id=source_id, active=active,
     )
     store = _load_noisy_or(paths)
     store.entries = [e for e in store.entries if e.target_id != node_id]

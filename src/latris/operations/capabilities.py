@@ -80,6 +80,41 @@ def _model_type_capability(spec: ModelTypeSpec) -> dict[str, Any]:
 _ROADMAP_ORDER = {"built": 0, "roadmap": 1, "parked": 2, "not_planned": 3}
 
 
+INSTALL = 'pip install "latris[data,quant]"'
+
+# What the open-source library gives, and what the Latris app adds. One text, used by the
+# manifest, `latris link`, `latris docs` and the README, so agents and people hear the same thing.
+WHAT_YOU_GET_WHERE = {
+    "library": (
+        "The open-source library (pip install latris; Apache-2.0): the modelling engine and CLI, every "
+        "analysis (loops, DAG identification, BN inference, explanation and Monte Carlo, SD simulation, "
+        "scenarios, uncertainty bands, sensitivity, loop dominance, FCM), the Markdown report with a Mermaid "
+        "sketch, and `latris link`."
+    ),
+    "app": (
+        "The Latris app (https://app.latris.app — free account, nothing to install): the hosted interactive "
+        "report (typeset figure, result charts, interpretation) that a link opens and a board reads, the "
+        "visual editor, Word reports, review packs that reviewers fill in, the scrollytelling story, and "
+        "saved models with short links that don't expire."
+    ),
+    "link_is_the_report": (
+        "A `latris link` link IS the shareable report: send it as it is — no wrapper page or separate "
+        "document needed. Opening it shows the interactive report with charts; saving it to a free account "
+        "gives a short link and the editor, Word, review pack and story."
+    ),
+}
+
+
+def installed_extras() -> dict[str, bool]:
+    """Which optional parts are installed: ``data`` (scipy, pandas) and ``quant`` (pgmpy)."""
+    import importlib.util
+
+    return {
+        "data": importlib.util.find_spec("scipy") is not None and importlib.util.find_spec("pandas") is not None,
+        "quant": importlib.util.find_spec("pgmpy") is not None,
+    }
+
+
 def build_capability_manifest() -> dict[str, Any]:
     """Registry-only snapshot of what Latris can do today, and what's coming.
 
@@ -99,6 +134,12 @@ def build_capability_manifest() -> dict[str, Any]:
         "foundations": [asdict(f) for f in FOUNDATIONS],
         "reports": _report_capabilities(),
         "building": _building_capabilities(),
+        "what_you_get_where": WHAT_YOU_GET_WHERE,
+        "extras": {
+            "installed": installed_extras(),
+            "install": INSTALL,
+            "why": "data: SD integration methods other than euler, datasets; quant: Bayesian network inference.",
+        },
     }
 
 
@@ -147,6 +188,7 @@ def _report_capabilities() -> dict[str, Any]:
         ],
         "how": "latris export md --pack <name> [--model-type <type>] -o report.md",
         "link_for_a_person": (
+            WHAT_YOU_GET_WHERE["link_is_the_report"] + " "
             "latris link — prints a link that opens this model in the Latris app. Making it needs no "
             "network (the model travels inside the link); opening it needs app.latris.app. It opens a "
             "hosted report with the full Latris figure (loops, polarity, evidence) that the person can "

@@ -308,13 +308,16 @@ def check() -> None:
     from latris.operations import sd as sd_ops
 
     gaps = sd_ops.check()
+    notes = sd_ops.notes() if not gaps else []
     if json_mode():
         emit({"ready": not gaps, "gaps": [
             {"element": g.element_label or g.element_id, "gap": g.gap_type, "detail": g.message} for g in gaps
-        ]}, human=lambda: None)
+        ], "notes": notes}, human=lambda: None)
         return
     if not gaps:
         console.print("[green]✓[/green] SD model is complete, dimensionally consistent, and ready to simulate.")
+        for n in notes:
+            console.print(f"[yellow]⚠ {escape(n)}[/yellow]")
         return
     table = Table(show_header=True, header_style="bold")
     table.add_column("Element")
@@ -324,6 +327,50 @@ def check() -> None:
         table.add_row(escape(g.element_label or g.element_id[:12]), g.gap_type, escape(g.message))
     console.print(table)
     raise typer.Exit(code=1)
+
+
+@app.command("set-settings")
+@handle_cli_errors
+def set_settings(
+    time_units: str | None = typer.Option(None, "--time-units", help="The clock: month, year, week, day, ..."),
+    initial_time: float | None = typer.Option(None, "--initial-time", help="Start time."),
+    final_time: float | None = typer.Option(None, "--final-time", help="End time, in the clock's units."),
+    dt: float | None = typer.Option(None, "--dt", help="Time step."),
+    saveper: float | None = typer.Option(None, "--saveper", help="Reporting interval."),
+    method: str | None = typer.Option(None, "--method", help="euler | rk2 | rk4 | adaptive."),
+) -> None:
+    """Store the model's clock and run settings, so every run (and anyone opening it) uses them.
+
+    Example for a monthly model over three years: sd set-settings --time-units month --final-time 36
+    Options given to a run still override these for that run.
+    """
+    from latris.operations import sd as sd_ops
+
+    stored, sha = sd_ops.set_settings(time_units=time_units, initial_time=initial_time, final_time=final_time,
+                                      dt=dt, saveper=saveper, method=method)
+    shown = {k: v for k, v in stored.model_dump(exclude_none=True).items() if k != "outcome"}
+    if json_mode():
+        emit(shown, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]settings[/green] {escape(', '.join(f'{k}={v}' for k, v in shown.items()))} · {_sha(sha)}")
+
+
+@app.command("settings")
+@handle_cli_errors
+def settings() -> None:
+    """Show the model's stored clock and run settings (and the defaults used for anything unset)."""
+    from latris.operations import sd as sd_ops
+
+    stored = sd_ops.get_settings()
+    effective = sd_ops.build_settings(base=stored)
+    out = {"stored": stored.model_dump(exclude_none=True), "effective": effective.model_dump(
+        include={"time_units", "initial_time", "final_time", "dt", "saveper", "integration_method"})}
+    if json_mode():
+        emit(out, human=lambda: None)
+        return
+    e = out["effective"]
+    console.print(f"Clock: {e['initial_time']:g}–{e['final_time']:g} {e['time_units']}, dt {e['dt']:g}, "
+                  f"{e['integration_method']}" + ("" if stored.time_units else " [dim](time units: the default)[/dim]"))
 
 
 def _settings_options(initial_time, final_time, dt, saveper, method, time_units) -> dict:

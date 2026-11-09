@@ -188,3 +188,20 @@ class SDScenario(_Base):
 
 class SDScenarioSet(_Base):
     scenarios: list[SDScenario] = Field(default_factory=list)
+
+
+class SDStoredSettings(_Base):
+    """The model's own run settings (``views/parameters/sd-settings.yaml``), so the clock travels with it.
+
+    Any field left out falls back to the default (years, 0–100, dt 0.25, rk4); options given
+    to a run override these for that run. ``outcome`` is the factor the model explains (SD
+    roles are one per factor, so a stock can't also carry the ``outcome`` role).
+    """
+
+    time_units: str | None = None
+    initial_time: float | None = None
+    final_time: float | None = None
+    dt: float | None = None
+    saveper: float | None = None
+    integration_method: Literal["euler", "rk2", "rk4", "adaptive"] | None = None
+    outcome: str | None = None

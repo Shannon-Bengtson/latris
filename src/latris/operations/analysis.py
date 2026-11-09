@@ -41,11 +41,13 @@ def _polarity_map(paths: ProjectPaths) -> dict[str, str]:
 
 
 def analyse_loops(root: Path | None = None) -> list[ga.Loop]:
-    """All feedback loops on the causal subgraph, R/B-classified."""
+    """All feedback loops — causal links plus stock-and-flow structure — R/B-classified."""
+    from latris.operations.feedback import feedback_edges, link_polarity
+
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
-    polarity = _polarity_map(paths)
-    raw = ga.find_all_loops(ga.causal_edges(substrate.edges))
+    polarity = {**link_polarity(substrate.edges, paths), **_polarity_map(paths)}
+    raw = ga.find_all_loops(feedback_edges(substrate.edges, paths))
     return [ga.classify_loop(loop, polarity) for loop in raw]
 
 

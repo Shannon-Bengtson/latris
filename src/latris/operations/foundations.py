@@ -78,9 +78,13 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         citation=(
             "Pearl (1988), *Probabilistic Reasoning in Intelligent Systems*; "
             "Fenton & Neil (2018), *Risk Assessment and Decision Analysis with "
-            "Bayesian Networks* (2nd ed.)"
+            "Bayesian Networks* (2nd ed.); Jeffrey (1965), *The Logic of Decision* "
+            "(soft evidence)"
         ),
-        used_for="per-node posterior marginals by variable elimination",
+        used_for=(
+            "per-node posterior marginals by variable elimination, soft "
+            "(likelihood) evidence per node, and MAP/MPE explanations"
+        ),
         limits="Variable elimination only — no junction tree or belief propagation; marginals, not joints.",
     ),
     Foundation(
@@ -152,6 +156,17 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "scores are zero whenever stocks stop changing, so the method explains "
             "change, not equilibrium."
         ),
+    ),
+    Foundation(
+        id="bn-psa",
+        applies_to=("bn",),
+        method="Probabilistic sensitivity analysis by Monte Carlo",
+        citation="sampling practice after McKay, Beckman & Conover (1979), *Technometrics* 21(2)",
+        used_for=(
+            "propagating uncertainty in CPT rows to the target's posterior — "
+            "`bn set-uncertainty --n` marks uncertain rows, `bn monte-carlo` samples them"
+        ),
+        limits="Monte Carlo over declared uncertain rows only; EVPI deferred.",
     ),
     Foundation(
         id="evidence-source-check",

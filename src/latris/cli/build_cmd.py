@@ -71,3 +71,6 @@ def build(
             + "".join(f"\n[yellow]note:[/yellow] {n}" for n in result.notes)
         ),
     )
+    if result.missing_extras:
+        # The model is built, but analyses it asked for didn't run: that must not look like success.
+        raise typer.Exit(code=1)

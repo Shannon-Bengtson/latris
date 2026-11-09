@@ -87,6 +87,8 @@ def set_noisy_or(
         help="A cause as '<parent>=<active_state>:<prob>' (repeatable).",
     ),
     leak: float = typer.Option(0.0, "--leak", help="P(node active | all causes inactive)."),
+    active: str | None = typer.Option(
+        None, "--active", help="The node's state the causes push toward (the effect happening), e.g. yes."),
     origin: str = typer.Option("human-elicited", "--origin", help="Provenance origin for the spec."),
     source: str | None = typer.Option(None, "--source", help="Source ID for the spec."),
 ) -> None:
@@ -95,7 +97,7 @@ def set_noisy_or(
     A compact alternative to a full CPT for high-fan-in nodes: each cause
     contributes independently. Stored as a spec and expanded to a full CPT at
     compute time. Example:
-    `bn set-noisy-or "Outage" -c "Storm=yes:0.6" -c "Maintenance=yes:0.3" --leak 0.02`
+    `bn set-noisy-or "Outage" -c "Storm=yes:0.6" -c "Maintenance=yes:0.3" --leak 0.02 --active yes`
     """
     from latris.operations import bn as bn_ops
 
@@ -111,13 +113,14 @@ def set_noisy_or(
             raise typer.BadParameter(f"probability in {raw!r} is not a number: {exc}") from exc
         causes.append((parent.strip(), active_state.strip(), prob))
 
-    entry, sha = bn_ops.set_noisy_or(node, leak, causes, origin=origin, source_id=source)
+    entry, sha = bn_ops.set_noisy_or(node, leak, causes, active=active, origin=origin, source_id=source)
     if json_mode():
         emit(entry, human=lambda: None, commit_sha=sha)
         return
     console.print(
         f"[green]set[/green] Noisy-OR on {entry.target_id[:15]}… "
-        f"({len(entry.links)} cause(s), leak {entry.leak}) · commit [cyan]{sha[:10]}[/cyan]"
+        f"({len(entry.links)} cause(s), leak {entry.leak}, effect = {entry.active_state}) · "
+        f"commit [cyan]{sha[:10]}[/cyan]"
     )
 
 

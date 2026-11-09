@@ -6,6 +6,7 @@ from rich.console import Console
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit
 from latris.operations import share_link as link_ops
+from latris.operations.capabilities import WHAT_YOU_GET_WHERE
 
 console = Console()
 
@@ -32,10 +33,11 @@ def link(
     def human() -> None:
         console.print(share.url, markup=False, highlight=False, soft_wrap=True)
         console.print(
-            f"\n[dim]{share.factors} factors, {share.links} links. Give the person this link: it opens the model "
-            "in the Latris app as a report with the full figure, which they can share or save to a free "
-            "account (editor, Word report). Nothing was uploaded — the model is inside the link; opening it "
-            "needs app.latris.app.\n"
+            f"\n[dim]{share.factors} factors, {share.links} links. This link is the shareable report: give it "
+            "to the person as it is — no wrapper page or separate document needed. It opens the interactive "
+            "report (figure, result charts, interpretation); saving it to a free account adds the editor, "
+            "Word, a review pack and the scrollytelling story. Nothing was uploaded — the model is inside the "
+            "link; opening it needs app.latris.app.\n"
             "Which link to share: this one keeps working. The report page it opens has a short address that "
             "lasts 30 days unless the model is saved; saving gives a short link that doesn't expire.[/dim]"
         )
@@ -47,6 +49,7 @@ def link(
             )
 
     emit(
-        {"url": share.url, "chars": share.chars, "factors": share.factors, "links": share.links, "long": share.long},
+        {"url": share.url, "chars": share.chars, "factors": share.factors, "links": share.links, "long": share.long,
+         "note": WHAT_YOU_GET_WHERE["link_is_the_report"]},
         human=human,
     )

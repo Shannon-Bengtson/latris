@@ -97,6 +97,7 @@ class SDModel:
     outflows: dict[str, list[str]]
     evaluator: Evaluator = field(default_factory=Evaluator)
     fast: Any = None  # compiled float functions (``_sd_fast``); shared across value-only copies
+    notes: list[str] = field(default_factory=list)  # advisories (e.g. the clock disagrees with the flows)
 
 
 @dataclass(frozen=True)
@@ -384,7 +385,40 @@ def analyse(
         outflows=outflows,
     )
     problems.extend(_trial(model))
+    if not problems:
+        model.notes.extend(clock_notes(model))
     return (None, problems) if problems else (model, [])
+
+
+_CLOCK_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
+
+
+def clock_notes(model: SDModel) -> list[str]:
+    """Warn when the flows' time unit isn't the clock's: '--final-time 36' would mean 36 of the wrong unit."""
+    per: dict[str, list[str]] = {}
+    for s in model.stocks:
+        for f in model.inflows.get(s, []) + model.outflows.get(s, []):
+            try:
+                span = Quantity(1.0, model.stock_units[s] / model.eq_units[f]).to(model.time_unit).magnitude
+            except Exception:  # noqa: BLE001 - units already checked; anything odd isn't a clock issue
+                continue
+            if abs(span - 1.0) <= 1e-9:
+                continue
+            name = next(
+                (u for u in _CLOCK_UNITS
+                 if abs(Quantity(1.0, model.stock_units[s] / model.eq_units[f]).to(u).magnitude - 1.0) < 1e-9),
+                None,
+            )
+            per.setdefault(name or f"{span:g} {model.settings.time_units}", []).append(model.labels[f])
+    out = []
+    clock = model.settings.time_units
+    for unit, flows in per.items():
+        shown = ", ".join(flows[:3]) + (f" and {len(flows) - 3} more" if len(flows) > 3 else "")
+        out.append(
+            f"Flows are per {unit} ({shown}) but the clock runs in {clock}: times like --final-time are in {clock}. "
+            f"If the model is in {unit}s, set the clock with `latris sd set-settings --time-units {unit}`."
+        )
+    return out
 
 
 def _base_names(model: SDModel, t: float, y: list[float]) -> dict[str, Any]:
@@ -566,7 +600,7 @@ def simulate(model: SDModel, *, fast: bool = True) -> SDSimulationResult:
     if any(not math.isfinite(x) for vals in series.values() for x in vals):
         success, message = False, "simulation produced non-finite values (overflow or instability); try a smaller dt"
 
-    warnings = []
+    warnings = list(model.notes)
     for s in sorted(model.non_negative, key=lambda i: model.labels[i]):
         low = min(series[s]) if series[s] else 0.0
         if low < -1e-9:

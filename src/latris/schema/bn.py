@@ -160,8 +160,9 @@ class NoisyOrLink(_Base):
 class NoisyOrEntry(_EntryBase):
     """A node's Noisy-OR parameterisation (binary node, binary causes).
 
-    ``states`` is the node's binary state space with ``states[0]`` the "active"
-    (occurs/positive) outcome the causes push toward. ``leak`` is
+    ``states`` is the node's binary state space; ``active`` names the state the
+    causes push toward (the effect happening). Entries written before ``active``
+    existed leave it unset, which means ``states[0]``. ``leak`` is
     ``P(active | all causes inactive)``. Expanding the spec gives, for each
     parent-state combination with active set S:
     ``P(active) = 1 - (1 - leak) · ∏_{i∈S} (1 - prob_i)``.
@@ -172,9 +173,16 @@ class NoisyOrEntry(_EntryBase):
     states: list[str]
     leak: float = 0.0
     links: list[NoisyOrLink] = Field(default_factory=list)
+    active: str | None = None  # the effect-happening state; None (older entries) = states[0]
+
+    @property
+    def active_state(self) -> str:
+        return self.active if self.active is not None else self.states[0]
 
     @model_validator(mode="after")
     def _check_spec(self) -> NoisyOrEntry:
+        if self.active is not None and self.active not in self.states:
+            raise ValueError(f"active state {self.active!r} is not one of {self.states!r}")
         if len(self.states) != 2:
             raise ValueError(f"Noisy-OR is binary: node {self.target_id!r} needs exactly 2 states")
         if len(self.states) != len(set(self.states)):

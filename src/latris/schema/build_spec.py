@@ -206,6 +206,8 @@ class SpecScenario(_Spec):
 
 
 class SpecSD(_Spec):
+    # The clock and run settings: time_units, initial_time, final_time, dt, saveper, integration_method.
+    settings: dict[str, float | str] = Field(default_factory=dict)
     roles: list[SpecSDRole] = Field(default_factory=list)
     stocks: list[SpecSDStock] = Field(default_factory=list)  # initial values
     constants: list[SpecSDValue] = Field(default_factory=list)
@@ -239,6 +241,7 @@ class SpecNoisyOr(_SpecParam):
     node: str
     causes: list[SpecNoisyOrCause] = Field(min_length=1)
     leak: float = Field(0.0, ge=0, le=1)
+    active: str | None = None  # the node's state the causes push toward (the effect happening)
 
 
 class SpecBNUncertainty(_SpecParam):

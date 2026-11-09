@@ -187,6 +187,11 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
          if r.value == "outcome" and r.target_id in labels),
         None,
     ) if role_path.exists() else None
+    if model_type == "sd":
+        from latris.operations import sd as sd_ops
+
+        sd_outcome = sd_ops.get_settings(root=paths.root).outcome
+        outcome = labels.get(sd_outcome) if sd_outcome else None
 
     context = SpecContext(
         background=foundation.background or None, audience=foundation.audience or None,
@@ -248,7 +253,8 @@ def _export_sd(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
         for s in sd_scenarios.load(paths).scenarios
         if any(named(o.target_id) for o in s.overrides)
     ]
-    return SpecSD(roles=roles, stocks=stocks, constants=constants, equations=equations, tables=tables,
+    stored = sd_ops.get_settings(root=paths.root).model_dump(exclude_none=True, exclude={"outcome"})
+    return SpecSD(settings=stored, roles=roles, stocks=stocks, constants=constants, equations=equations, tables=tables,
                   uncertainty=ranges, scenarios=scenarios)
 
 
@@ -290,7 +296,7 @@ def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
             ))
     noisy = [
         SpecNoisyOr(
-            node=labels[e.target_id], leak=e.leak, origin=e.origin, source=e.source_id,
+            node=labels[e.target_id], leak=e.leak, origin=e.origin, source=e.source_id, active=e.active_state,
             causes=[SpecNoisyOrCause(parent=labels[c.parent_id], active_state=c.active_state, probability=c.prob)
                     for c in e.links if c.parent_id in labels],
         )

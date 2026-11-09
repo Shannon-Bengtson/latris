@@ -351,8 +351,26 @@ def _contested(substrate, evidence) -> list[str]:
     return sorted(out)
 
 
+def _feedback(substrate, paths) -> list:
+    """Causal links plus stock-and-flow feedback (loops through stocks count; see operations/feedback.py)."""
+    from latris.operations.feedback import feedback_edges
+
+    return feedback_edges(substrate.edges, paths)
+
+
+def _sd_polarity(substrate, paths) -> dict[str, str]:
+    from latris.operations.feedback import link_polarity
+
+    return link_polarity(substrate.edges, paths)
+
+
 def _outcome_ids(paths, model_type: str) -> set[str]:
     """Factors given the ``outcome`` role in this view (``latris view role``)."""
+    if model_type == "sd":
+        from latris.operations import sd as sd_ops
+
+        outcome = sd_ops.get_settings(root=paths.root).outcome
+        return {outcome} if outcome else set()
     path = paths.role_path(model_type)
     if not path.exists():
         return set()
@@ -460,8 +478,9 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
 
             pol_set = load_model(PolaritySet, polarity_path)
             polarity_map = {e.target_id: e.value for e in pol_set.entries if e.attribute == "polarity"}
+        polarity_map = {**_sd_polarity(substrate, paths), **polarity_map}
 
-        loops = find_all_loops(causal)
+        loops = find_all_loops(_feedback(substrate, paths))
         if loops:
             classified = [classify_loop(loop, polarity_map) for loop in loops]
             n_mech = len(group_loop_mechanisms(classified))
@@ -550,7 +569,7 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
 
     # Loop participation
     if model_type in ("cld", "fcm") and causal:
-        loops = find_all_loops(causal)
+        loops = find_all_loops(_feedback(substrate, paths))
         if loops:
             from latris.operations.graph_analysis import compute_loop_participation
 
@@ -607,7 +626,7 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
         # not dynamic leverage. Capability-run reviewers correctly flagged
         # the "highest leverage" framing as overclaim on DAGs.
         # SD feedback runs through stocks (flow edges), so it never shows as a causal-edge cycle.
-        has_loops = bool(find_all_loops(causal)) or model_type == "sd"
+        has_loops = bool(find_all_loops(_feedback(substrate, paths))) or model_type == "sd"
 
         top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
         if top:
@@ -791,8 +810,9 @@ def _extract_answer(model_type: str, paths) -> list[str]:
 
             pol_set = load_model(PolaritySet, polarity_path)
             polarity_map = {e.target_id: e.value for e in pol_set.entries if e.attribute == "polarity"}
+        polarity_map = {**_sd_polarity(substrate, paths), **polarity_map}
 
-        loops = find_all_loops(causal)
+        loops = find_all_loops(_feedback(substrate, paths))
         if loops:
             classified = [classify_loop(loop, polarity_map) for loop in loops]
             groups = group_loop_mechanisms(classified)

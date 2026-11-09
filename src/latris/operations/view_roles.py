@@ -30,6 +30,11 @@ def set_role(
 
     Returns ``(target_id, commit_sha)``.
     """
+    if model_type == "sd" and role == "outcome":
+        # SD roles (stock, flow, ...) are one per factor, so the outcome is kept with the SD settings.
+        from latris.operations import sd as sd_ops
+
+        return sd_ops.set_outcome(target, root=root)
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:
         raise ValueError(f"{role!r} is not a valid role for {spec.display_name}. Valid: {spec.allowed_roles}")

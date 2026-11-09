@@ -103,9 +103,10 @@ def _check_loops_present(ctx: ValidationContext) -> list[ReadinessGap]:
     governance edges is policy structure, not feedback mechanism, and
     does not satisfy the CLD readiness gate.
     """
-    from latris.operations.graph_analysis import causal_edges, find_all_loops
+    from latris.operations.feedback import feedback_edges
+    from latris.operations.graph_analysis import find_all_loops
 
-    edges_in_view = causal_edges(e for e in ctx.substrate.edges if e.id in ctx.view_edge_ids)
+    edges_in_view = feedback_edges([e for e in ctx.substrate.edges if e.id in ctx.view_edge_ids], ctx.paths)
     loops = find_all_loops(edges_in_view)
     if not loops:
         return [

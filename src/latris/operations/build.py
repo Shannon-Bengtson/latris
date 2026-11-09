@@ -40,6 +40,7 @@ class BuildResult:
     analyses: list[str] = field(default_factory=list)  # run ids of the analyses replayed after building
     outcome: str | None = None
     notes: list[str] = field(default_factory=list)  # parts that couldn't be applied, and why
+    missing_extras: bool = False  # an analysis couldn't run because an optional part isn't installed
     commit_sha: str = ""
 
 
@@ -127,7 +128,7 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
         from latris.schema.model_types import get_model_type
 
         allowed = get_model_type(model_type).allowed_roles
-        if allowed and "outcome" not in allowed:
+        if allowed and "outcome" not in allowed and model_type != "sd":  # SD keeps it with its settings
             problems.append(f"outcome: {model_type} has no outcome role (cld, dag and fcm do)")
     for i, a in enumerate(_assumptions(spec.assumptions), 1):
         _target(f"assumption {i}", a.target)
@@ -279,7 +280,12 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     for a in spec.analyses:
         try:
             result.analyses.append(run_analysis(a, root=paths.root))
-        except (ValueError, RuntimeError) as exc:
+        except RuntimeError as exc:  # an optional dependency (pgmpy, scipy) isn't installed
+            from latris.operations.capabilities import INSTALL
+
+            result.missing_extras = True
+            result.notes.append(f"analysis {a.kind!r} not run: {exc} — install with: {INSTALL}")
+        except ValueError as exc:
             result.notes.append(f"analysis {a.kind!r} not run: {exc}")
     if result.analyses:
         result.commit_sha = git.head_sha(paths.root)
@@ -294,6 +300,10 @@ def _apply_sd(sd, default_origin: str, root: Path) -> int:
     n = 0
     for r in sd.roles:
         sd_ops.set_role(r.node, r.role, root=root)
+        n += 1
+    if sd.settings:
+        sd_ops.set_settings(**{("method" if k == "integration_method" else k): v
+                               for k, v in sd.settings.items()}, root=root)
         n += 1
     for s in sd.stocks:
         sd_ops.set_initial_value(s.node, s.value, s.units, non_negative=s.non_negative,
@@ -336,7 +346,8 @@ def _apply_bn(bn, default_origin: str, root: Path) -> int:
         n += 1
     for no in bn.noisy_or:
         bn_ops.set_noisy_or(no.node, no.leak, [(c.parent, c.active_state, c.probability) for c in no.causes],
-                            origin=no.origin or default_origin, source_id=no.source, root=root)  # type: ignore[arg-type]
+                            active=no.active, origin=no.origin or default_origin, source_id=no.source,
+                            root=root)  # type: ignore[arg-type]
         n += 1
     from latris.operations import uncertainty
 

@@ -57,16 +57,19 @@ def expand_noisy_or(entry: NoisyOrEntry, state_spaces: dict[str, list[str]]) -> 
         else [()]
     )
     rows: list[CPTRow] = []
+    active_index = list(entry.states).index(entry.active_state)
     for combo in combos:
         inactive_product = 1.0 - entry.leak
         for p, state in zip(entry.parents, combo, strict=True):
             if state == link_by_parent[p].active_state:
                 inactive_product *= 1.0 - link_by_parent[p].prob
         p_active = 1.0 - inactive_product
+        p = [1.0 - p_active, 1.0 - p_active]
+        p[active_index] = p_active
         rows.append(
             CPTRow(
-                parent_states={p: s for p, s in zip(entry.parents, combo, strict=True)},
-                p=[p_active, 1.0 - p_active],  # states[0] is the active outcome
+                parent_states={p_: s for p_, s in zip(entry.parents, combo, strict=True)},
+                p=p,
                 origin=entry.origin,
                 verification=entry.verification,
                 source_id=entry.source_id,

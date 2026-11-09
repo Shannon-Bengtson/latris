@@ -90,8 +90,8 @@ def loop_legend(paths: ProjectPaths, *, model_type: str | None = None) -> list[s
     ``graph_analysis.group_loop_mechanisms``); the extra routes are noted.
     Empty when the model has no classified loops.
     """
+    from latris.operations.feedback import feedback_edges, link_polarity
     from latris.operations.graph_analysis import (
-        causal_edges,
         classify_loop,
         find_all_loops,
         group_loop_mechanisms,
@@ -99,7 +99,8 @@ def loop_legend(paths: ProjectPaths, *, model_type: str | None = None) -> list[s
 
     entities, edges, polarity = _scoped(paths, model_type)
     labels = {e.id: e.label for e in entities}
-    loops = [classify_loop(loop, polarity) for loop in find_all_loops(causal_edges(edges))]
+    polarity = {**link_polarity(edges, paths), **polarity}
+    loops = [classify_loop(loop, polarity) for loop in find_all_loops(feedback_edges(edges, paths))]
     counters = {"R": 0, "B": 0}
     out = []
     for group in group_loop_mechanisms([loop for loop in loops if loop.classification in counters]):

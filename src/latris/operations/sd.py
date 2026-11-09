@@ -36,6 +36,7 @@ from latris.schema.sd import (
     SDEquationSet,
     SDStockEntry,
     SDStockSet,
+    SDStoredSettings,
     SDTableEntry,
     SDTableSet,
     TablePoint,
@@ -323,12 +324,72 @@ def build_settings(
     saveper: float | None = None,
     method: str | None = None,
     time_units: str | None = None,
+    base: SDStoredSettings | None = None,
 ) -> SDSettings:
+    """Run settings: the model's stored settings (``base``), then this run's options on top."""
+    stored = base.model_dump(exclude={"outcome"}, exclude_none=True) if base else {}
     overrides = {
         "initial_time": initial_time, "final_time": final_time, "dt": dt, "saveper": saveper,
         "integration_method": method, "time_units": time_units,
     }
-    return SDSettings(**{k: v for k, v in overrides.items() if v is not None})
+    return SDSettings(**{**stored, **{k: v for k, v in overrides.items() if v is not None}})
+
+
+def _settings_path(paths) -> Path:
+    return paths.view_attribute_path(_MODEL_TYPE, "settings")
+
+
+def get_settings(*, root: Path | None = None) -> SDStoredSettings:
+    p = _settings_path(require_project(root))
+    return load_model(SDStoredSettings, p) if p.exists() else SDStoredSettings()
+
+
+def set_settings(
+    *,
+    time_units: str | None = None,
+    initial_time: float | None = None,
+    final_time: float | None = None,
+    dt: float | None = None,
+    saveper: float | None = None,
+    method: str | None = None,
+    root: Path | None = None,
+) -> tuple[SDStoredSettings, str]:
+    """Store the model's clock and run settings (given fields change; the rest stay)."""
+    paths = require_project(root)
+    current = get_settings(root=paths.root)
+    given = {"time_units": time_units, "initial_time": initial_time, "final_time": final_time, "dt": dt,
+             "saveper": saveper, "integration_method": method}
+    if not any(v is not None for v in given.values()):
+        raise ValueError("give at least one setting, e.g. --time-units month --final-time 36")
+    updated = current.model_copy(update={k: v for k, v in given.items() if v is not None})
+    effective = build_settings(base=updated)
+    problems = sd_inference._settings_problems(effective)
+    if problems:
+        raise ValueError("; ".join(p.message for p in problems))
+    path = _settings_path(paths)
+    _dump(path, updated)
+    shown = ", ".join(f"{k}={v}" for k, v in given.items() if v is not None)
+    sha = auto_commit(paths.root, subject=f"Set SD settings: {shown}", paths=[path])
+    return updated, sha
+
+
+def set_outcome(target: str, *, root: Path | None = None) -> tuple[str, str]:
+    """Mark the factor the SD model explains (stored with the settings; SD roles are one per factor)."""
+    paths = require_project(root)
+    _, target_id, label = _resolve(paths, target)
+    current = get_settings(root=paths.root)
+    path = _settings_path(paths)
+    _dump(path, current.model_copy(update={"outcome": target_id}))
+    sha = auto_commit(paths.root, subject=f"Set SD outcome: {label}", paths=[path])
+    return target_id, sha
+
+
+def notes(*, root: Path | None = None) -> list[str]:
+    """Advisories about a model that compiles (e.g. the clock disagrees with the flows); [] if it doesn't."""
+    try:
+        return list(compile_project(root=root).notes)
+    except (ValueError, sd_inference.EquationError):
+        return []
 
 
 def compile_project(
@@ -345,7 +406,7 @@ def compile_project(
     paths = require_project(root)
     settings = build_settings(
         initial_time=initial_time, final_time=final_time, dt=dt, saveper=saveper,
-        method=method, time_units=time_units,
+        method=method, time_units=time_units, base=get_settings(root=paths.root),
     )
     return sd_inference.build_model(
         load_model(Substrate, paths.conceptual_yaml),
