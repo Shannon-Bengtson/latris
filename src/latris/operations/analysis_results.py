@@ -32,7 +32,8 @@ from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 
 # Order results appear in reports, and the most of each kind a client report shows.
 KIND_ORDER: tuple[str, ...] = (
-    "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops", "bn-query", "bn-sensitivity",
+    "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
+    "bn-query", "bn-explanation", "bn-monte-carlo", "bn-sensitivity",
 )
 REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
 _DEFAULT_LIMIT = 4
@@ -79,7 +80,12 @@ def fingerprint(
         defs = {s.name: s.model_dump(mode="json") for s in sd_scenarios.load(paths).scenarios}
         h.update(json.dumps({n: defs.get(n) for n in sorted(scenarios)}, sort_keys=True).encode())
     if uncertainty:
-        h.update(_file_text(paths.parameter_uncertainty_yaml).encode())
+        # Only this model type's ranges (cells "sd:..." / "bn:..."), so a BN range doesn't age an SD run.
+        from latris.operations import uncertainty as unc
+
+        own = [e.model_dump(mode="json") for e in unc.load(paths).entries
+               if (e.parameter_cell_id or "").startswith(f"{model_type}:")]
+        h.update(json.dumps(own, sort_keys=True).encode())
     return h.hexdigest()[:16]
 
 

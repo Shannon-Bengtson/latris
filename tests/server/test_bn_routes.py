@@ -146,3 +146,23 @@ def test_query_with_evidence(client: TestClient):
 
     bad = client.post("/api/bn/query", json={"evidence": {"Wet": "maybe"}})
     assert bad.status_code == 400
+
+
+def test_soft_evidence_explain_and_monte_carlo_routes(tmp_path, git_identity):
+    pytest.importorskip("pgmpy")
+    from fastapi.testclient import TestClient
+
+    from latris.server.app import create_app
+    from tests.operations.test_bn_results import _flood
+
+    client = TestClient(create_app(project_root=_flood(tmp_path / "flood")))
+    soft = client.post("/api/bn/query", json={"query": ["Heavy Rain"], "soft": {"Heavy Rain": {"yes": 0.8}}}).json()
+    rain = next(iter(soft["marginals"].values()))
+    assert rain["yes"] == pytest.approx(0.8) and "run_id" not in soft  # the GUI's query doesn't record
+    explained = client.post("/api/bn/explain", json={"evidence": {"Road Closed": "yes"}}).json()
+    assert explained["result"]["kind"] == "MPE" and explained["run_id"]
+    assert client.post("/api/bn/monte-carlo", json={"target": "Flood"}).status_code == 400  # no uncertainty yet
+    assert client.post("/api/bn/uncertainty", json={"node": "Flood", "n": 10}).status_code == 200
+    assert client.get("/api/bn/uncertainty").json()["count"] == 1
+    mc = client.post("/api/bn/monte-carlo", json={"target": "Flood", "runs": 40, "record": False}).json()
+    assert mc["result"]["runs"] == 40 and "run_id" not in mc

@@ -59,8 +59,22 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
         payload = sd_ops.run_loops(scenario=a.scenario, start=a.start, end=a.end, settings=s, root=paths.root)
         return sd_ops.record_loops(payload, root=paths.root)[1]
     if a.kind == "bn_query":
-        result = bn_ops.infer(query=a.query or None, evidence=a.evidence or None, root=paths.root)
+        result = bn_ops.infer(query=a.query or None, evidence=a.evidence or None, soft=a.soft or None,
+                              likelihood=a.likelihood or None, root=paths.root)
         return bn_ops.record_query(result, root=paths.root)[1]
+    if a.kind == "bn_explain":
+        out = bn_ops.explain(over=a.over or None, evidence=a.evidence or None, soft=a.soft or None,
+                             likelihood=a.likelihood or None, root=paths.root)
+        return bn_ops.record_explanation(out, root=paths.root)[1]
+    if a.kind == "bn_monte_carlo":
+        if not a.target:
+            raise ValueError("a BN Monte Carlo needs a target")
+        out = bn_ops.run_monte_carlo(
+            a.target, state=a.state, evidence=a.evidence or None, soft=a.soft or None,
+            likelihood=a.likelihood or None, runs=a.runs or 500, seed=a.seed if a.seed is not None else 1234,
+            root=paths.root,
+        )
+        return bn_ops.record_monte_carlo(out, root=paths.root)[1]
     if a.kind == "bn_sensitivity":
         if not a.target or not a.state:
             raise ValueError("a BN sensitivity analysis needs a target and a state")
@@ -112,7 +126,25 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
             out.append(SpecAnalysis(
                 kind="bn_query",
                 evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
+                soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
+                likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
                 query=[labels.get(n, n) for n in p["posteriors"]],
+            ))
+        elif kind == "bn-explanation":
+            out.append(SpecAnalysis(
+                kind="bn_explain",
+                evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
+                soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
+                likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
+                over=[labels.get(n, n) for n in p["over"]] if p["kind"] == "MAP" else [],
+            ))
+        elif kind == "bn-monte-carlo":
+            out.append(SpecAnalysis(
+                kind="bn_monte_carlo", target=labels.get(p["target"], p["target"]), state=p["focus_state"],
+                evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
+                soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
+                likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
+                runs=p["runs"], seed=p["seed"],
             ))
         elif kind == "bn-sensitivity":
             from latris.repo.yaml_io import load_model

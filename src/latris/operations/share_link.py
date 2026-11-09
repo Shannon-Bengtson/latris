@@ -257,7 +257,15 @@ def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
     import itertools
 
     from latris.operations import bn as bn_ops
-    from latris.schema.build_spec import SpecBN, SpecBNStates, SpecBNTable, SpecNoisyOr, SpecNoisyOrCause
+    from latris.operations import uncertainty
+    from latris.schema.build_spec import (
+        SpecBN,
+        SpecBNStates,
+        SpecBNTable,
+        SpecBNUncertainty,
+        SpecNoisyOr,
+        SpecNoisyOrCause,
+    )
 
     spaces = {e.target_id: e for e in bn_ops.get_state_spaces(root=paths.root).entries if e.target_id in labels}
     if not spaces:
@@ -288,7 +296,18 @@ def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
         )
         for e in bn_ops.get_noisy_or(root=paths.root).entries if e.target_id in labels and e.links
     ]
-    return SpecBN(states=states, tables=tables, noisy_or=noisy)
+    ranges = []
+    for node, cells in uncertainty.bn_specs(paths).items():
+        if node not in labels:
+            continue
+        for cell, e in cells.items():
+            row = None
+            if cell != uncertainty.BN_TABLE:
+                pairs = [part.split("=", 1) for part in cell.split(":", 2)[-1].split(",")]
+                row = ",".join(f"{labels.get(pid, pid)}={state}" for pid, state in pairs)
+            ranges.append(SpecBNUncertainty(node=labels[node], n=e.params["n"], row=row, reason=e.reason,
+                                            origin=e.origin, source=e.source_id))
+    return SpecBN(states=states, tables=tables, noisy_or=noisy, uncertainty=ranges)
 
 
 def _export_analyses(paths):  # noqa: ANN001, ANN202

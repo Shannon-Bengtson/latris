@@ -338,6 +338,12 @@ def _apply_bn(bn, default_origin: str, root: Path) -> int:
         bn_ops.set_noisy_or(no.node, no.leak, [(c.parent, c.active_state, c.probability) for c in no.causes],
                             origin=no.origin or default_origin, source_id=no.source, root=root)  # type: ignore[arg-type]
         n += 1
+    from latris.operations import uncertainty
+
+    for u in bn.uncertainty:
+        uncertainty.set_table_uncertainty(u.node, u.n, row=u.row, reason=u.reason, source_id=u.source,
+                                          origin=u.origin or default_origin, root=root)  # type: ignore[arg-type]
+        n += 1
     return n
 
 

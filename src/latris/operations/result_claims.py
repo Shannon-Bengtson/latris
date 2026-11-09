@@ -128,11 +128,30 @@ def _loops(p: dict[str, Any], out: dict[str, list[str]]) -> None:
             out["open_questions"].append(f"Loop {lp['id']} dominates for a period but rests on weak links: {links}.")
 
 
+def _given(p: dict[str, Any]) -> str:
+    from latris.operations.bn import evidence_description
+
+    return evidence_description(p.get("evidence", {}), p.get("soft"), p.get("likelihood"), p.get("labels", {}))
+
+
+def _soft_question(p: dict[str, Any], out: dict[str, list[str]]) -> None:
+    labels = p.get("labels", {})
+    for k, dist in sorted((p.get("soft") or {}).items()):
+        state = max(dist, key=dist.get)  # type: ignore[arg-type]
+        question = (
+            f"How sure are we that {labels.get(k, k)} is {state}? The analysis takes it as {dist[state]:.0%} — "
+            "an estimate entered by hand, not an observation."
+        )
+        if question not in out["open_questions"]:
+            out["open_questions"].append(question)
+
+
 def _bn_query(p: dict[str, Any], out: dict[str, list[str]]) -> None:
     labels = p["labels"]
-    if not p["evidence"]:
+    if not (p["evidence"] or p.get("soft") or p.get("likelihood")):
         return
-    given = ", ".join(f"{labels.get(k, k)} = {v}" for k, v in sorted(p["evidence"].items()))
+    _soft_question(p, out)
+    given = _given(p)
     for node in sorted(p["posteriors"], key=lambda n: labels.get(n, n))[:4]:
         dist = p["posteriors"][node]
         state = max(dist, key=dist.get)  # type: ignore[arg-type]
@@ -141,6 +160,48 @@ def _bn_query(p: dict[str, Any], out: dict[str, list[str]]) -> None:
         out["answer_to_question"].append(
             f"Given {given}, P({labels.get(node, node)} = {state}) = {dist[state] * 100:.0f}%{before}."
         )
+
+
+def _bn_explanation(p: dict[str, Any], out: dict[str, list[str]]) -> None:
+    from latris.operations.bn import describe_explanation
+
+    out["answer_to_question"].append(describe_explanation(p) + ".")
+    _soft_question(p, out)
+    labels = p["labels"]
+    weak = [r for r in p["rows"] if r.get("times_likelier") is not None and r["times_likelier"] < 1.5]
+    for r in weak:
+        out["confidence_assessment"].append(
+            f"In the most likely explanation, {labels.get(r['node'], r['node'])} = {r['state']} is only "
+            f"{r['times_likelier']:.2g}× likelier than {r['runner_up']} — close to a coin-flip."
+        )
+
+
+def _bn_monte_carlo(p: dict[str, Any], out: dict[str, list[str]]) -> None:
+    labels = p["labels"]
+    s = p["focus_state"]
+    b = p["by_state"][s]
+    given = _given(p)
+    cond = f" | {given}" if given else ""
+    claim = (
+        f"P({labels.get(p['target'], p['target'])} = {s}{cond}) is between {b['p2.5']:.0%} and {b['p97.5']:.0%} "
+        f"in 95% of {p['runs']} draws of the uncertain probability tables (point estimate {b['point']:.0%})."
+    )
+    out["sensitivity"].append(claim)
+    out["confidence_assessment"].append(claim)
+    _soft_question(p, out)
+    tables = {t["node"]: t for t in p["tables"]}
+    drivers = [d for d in p["drivers"] if d["rho"] is not None and abs(d["rho"]) >= 0.3]
+    if drivers:
+        top = drivers[0]
+        t = tables.get(top["node"], {})
+        unreviewed = t.get("verification") != _REVIEWED
+        note = f", and its uncertainty is {_who(t.get('origin'))} and not yet reviewed" if unreviewed else ""
+        out["sensitivity"].append(f"The spread comes mostly from {top['label']}'s probability table{note}.")
+        if unreviewed:
+            out["open_questions"].append(
+                f"How well is {top['label']}'s probability table known? It drives most of the uncertainty in "
+                f"P({labels.get(p['target'], p['target'])} = {s})."
+            )
 
 
 def _bn_sensitivity(p: dict[str, Any], out: dict[str, list[str]], labels: dict[str, str]) -> None:
@@ -187,6 +248,10 @@ def claims_by_section(model_type: str, paths: ProjectPaths) -> dict[str, list[st
                 _loops(p, out)
             elif kind == "bn-query":
                 _bn_query(p, out)
+            elif kind == "bn-explanation":
+                _bn_explanation(p, out)
+            elif kind == "bn-monte-carlo":
+                _bn_monte_carlo(p, out)
             elif kind == "bn-sensitivity":
                 _bn_sensitivity(p, out, labels)
         except (KeyError, TypeError, ValueError, IndexError):

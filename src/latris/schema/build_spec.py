@@ -241,10 +241,20 @@ class SpecNoisyOr(_SpecParam):
     leak: float = Field(0.0, ge=0, le=1)
 
 
+class SpecBNUncertainty(_SpecParam):
+    """How well a probability table is known: worth about ``n`` observations (``row``: one row only)."""
+
+    node: str
+    n: float = Field(gt=0)
+    row: str | None = None  # "Parent=state,Other=state"
+    reason: str = ""
+
+
 class SpecBN(_Spec):
     states: list[SpecBNStates] = Field(default_factory=list)
     tables: list[SpecBNTable] = Field(default_factory=list)
     noisy_or: list[SpecNoisyOr] = Field(default_factory=list)
+    uncertainty: list[SpecBNUncertainty] = Field(default_factory=list)
 
 
 class SpecAnalysis(_Spec):
@@ -252,11 +262,17 @@ class SpecAnalysis(_Spec):
 
     kind: simulate (scenarios, set) | monte_carlo (runs, seed, sampling, variables, scenario)
     | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
-    | bn_query (evidence, query) | bn_sensitivity (target, state, evidence).
+    | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
+    | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
+    | bn_sensitivity (target, state, evidence).
+    ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
-    kind: Literal["simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_sensitivity"]
+    kind: Literal[
+        "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
+        "bn_sensitivity",
+    ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
     set: list[str] = Field(default_factory=list)
@@ -271,7 +287,10 @@ class SpecAnalysis(_Spec):
     start: float | None = None
     end: float | None = None
     evidence: dict[str, str] = Field(default_factory=dict)
+    soft: dict[str, dict[str, float]] = Field(default_factory=dict)
+    likelihood: dict[str, dict[str, float]] = Field(default_factory=dict)
     query: list[str] = Field(default_factory=list)
+    over: list[str] = Field(default_factory=list)
     target: str | None = None
     state: str | None = None
 

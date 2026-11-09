@@ -214,15 +214,103 @@ def sensitivity(body: SensitivityRequest, root: Root) -> dict[str, Any]:
 class QueryRequest(BaseModel):
     query: list[str] | None = None
     evidence: dict[str, str] | None = None
+    soft: dict[str, dict[str, float]] | None = None  # certainty: {node: {state: probability}}
+    likelihood: dict[str, dict[str, float]] | None = None  # {node: {state: weight}}
+    record: bool = False  # the GUI queries on every click; record explicitly for reports
 
 
 @router.post("/query")
 def query(body: QueryRequest, root: Root) -> dict[str, Any]:
     try:
-        result = bn_ops.infer(query=body.query, evidence=body.evidence, root=root)
+        result = bn_ops.infer(query=body.query, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
+                              root=root)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"marginals": result.marginals, "evidence": result.evidence, "method": result.method}
+    out: dict[str, Any] = {"marginals": result.marginals, "evidence": result.evidence, "method": result.method,
+                           "soft": result.soft, "likelihood": result.likelihood}
+    if body.record and result.marginals:
+        out["commit_sha"], out["run_id"] = bn_ops.record_query(result, root=root)
+    return out
+
+
+class EvidenceRequest(BaseModel):
+    evidence: dict[str, str] | None = None
+    soft: dict[str, dict[str, float]] | None = None
+    likelihood: dict[str, dict[str, float]] | None = None
+    record: bool = True
+
+
+class ExplainRequest(EvidenceRequest):
+    over: list[str] | None = None
+
+
+class MonteCarloRequest(EvidenceRequest):
+    target: str
+    state: str | None = None
+    runs: int = 500
+    seed: int = 1234
+    max_seconds: float = 60.0
+
+
+class TableUncertaintyRequest(BaseModel):
+    node: str
+    n: float
+    row: str | None = None
+    reason: str = ""
+    source_id: str | None = None
+    origin: str = "human-direct"
+
+
+@router.post("/explain")
+def explain(body: ExplainRequest, root: Root) -> dict[str, Any]:
+    try:
+        out = bn_ops.explain(over=body.over, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
+                             root=root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    resp: dict[str, Any] = {"result": out}
+    if body.record:
+        resp["commit_sha"], resp["run_id"] = bn_ops.record_explanation(out, root=root)
+    return resp
+
+
+@router.post("/monte-carlo")
+def monte_carlo(body: MonteCarloRequest, root: Root) -> dict[str, Any]:
+    try:
+        out = bn_ops.run_monte_carlo(
+            body.target, state=body.state, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
+            runs=body.runs, seed=body.seed, max_seconds=body.max_seconds, root=root,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    resp: dict[str, Any] = {"result": out}
+    if body.record:
+        resp["commit_sha"], resp["run_id"] = bn_ops.record_monte_carlo(out, root=root)
+    return resp
+
+
+@router.get("/uncertainty")
+def list_uncertainty(root: Root) -> dict[str, Any]:
+    from latris.operations import uncertainty
+    from latris.repo.project import require_project
+
+    specs = uncertainty.bn_specs(require_project(root))
+    rows = [{"node": node, **e.model_dump(mode="json")} for node, cells in specs.items() for e in cells.values()]
+    return {"uncertainty": rows, "count": len(rows)}
+
+
+@router.post("/uncertainty")
+def set_uncertainty(body: TableUncertaintyRequest, root: Root) -> dict[str, Any]:
+    from latris.operations import uncertainty
+
+    try:
+        entry, sha = uncertainty.set_table_uncertainty(
+            body.node, body.n, row=body.row, reason=body.reason, source_id=body.source_id,
+            origin=body.origin, root=root,  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 
 @router.get("/marginals")

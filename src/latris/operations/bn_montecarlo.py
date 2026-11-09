@@ -51,6 +51,7 @@ def monte_carlo(
     specs: dict[str, dict[str, ParameterUncertainty]],
     target: str,
     *,
+    state: str | None = None,
     evidence: dict[str, str] | None = None,
     soft: dict[str, dict[str, float]] | None = None,
     likelihood: dict[str, dict[str, float]] | None = None,
@@ -132,7 +133,9 @@ def monte_carlo(
             "mean": _r(sum(values) / len(values)),
             **{f"p{p:g}": _r(percentile(values, p)) for p in PERCENTILES},
         }
-    focus = max(states, key=lambda s: point[s])
+    if state is not None and state not in states:
+        raise ValueError(f"{state!r} is not a state of {labels.get(target, target)} (states: {states})")
+    focus = state or states[0]  # the state asked about; by default the first (usually the event)
     drivers = []
     for node in order:
         rho = spearman(sampled[node], [a[focus] for a in answers])

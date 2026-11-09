@@ -499,6 +499,7 @@ def record_explanation(payload: dict, *, root: Path | None = None) -> tuple[str,
 def run_monte_carlo(
     target: str,
     *,
+    state: str | None = None,
     evidence: dict[str, str] | None = None,
     soft: dict[str, dict[str, float]] | None = None,
     likelihood: dict[str, dict[str, float]] | None = None,
@@ -517,7 +518,7 @@ def run_monte_carlo(
     noisy = {e.target_id: e for e in _load_noisy_or(paths).entries}
     return bn_montecarlo.monte_carlo(
         ss_map, _effective_cpt_map(paths), noisy, uncertainty.bn_specs(paths), resolve_target(target, substrate),
-        evidence=_resolve_block(evidence, substrate), soft=_resolve_block(soft, substrate),
+        state=state, evidence=_resolve_block(evidence, substrate), soft=_resolve_block(soft, substrate),
         likelihood=_resolve_block(likelihood, substrate), runs=runs, seed=seed, max_seconds=max_seconds,
         labels=labels,
     )
@@ -531,7 +532,7 @@ def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str,
 
     sha, run = record_result(
         kind="bn-monte-carlo",
-        key=f"bn-monte-carlo|{payload['target']}|"
+        key=f"bn-monte-carlo|{payload['target']}={payload['focus_state']}|"
             + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"]),
         payload=payload,
         purpose="sensitivity-analysis",
@@ -539,7 +540,8 @@ def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str,
         library_version=f"pgmpy {pgmpy.__version__}",
         summary=describe(payload),
         model_type=_MODEL_TYPE,
-        hyperparameters={"target": payload["target"], "evidence": payload["evidence"], "soft": payload["soft"],
+        hyperparameters={"target": payload["target"], "state": payload["focus_state"],
+                         "evidence": payload["evidence"], "soft": payload["soft"],
                          "likelihood": payload["likelihood"], "runs": payload["runs"]},
         uncertainty=True,
         seed=payload["seed"],

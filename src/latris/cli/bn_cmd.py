@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
@@ -292,24 +293,238 @@ def marginals(
 def query(
     evidence: list[str] | None = typer.Option(None, "--evidence", "-e", help="Observed node=state (repeatable)."),
     query_nodes: list[str] | None = typer.Option(None, "--query", "-q", help="Node to compute (repeatable)."),
+    soft: list[str] | None = typer.Option(
+        None, "--soft", "-s", help="Soft evidence 'Node=state:0.8' (80% sure) or 'Node=a:0.6,b:0.4' (repeatable)."),
+    likelihood: list[str] | None = typer.Option(
+        None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1' (the observation favours yes 4:1)."),
     record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
 ) -> None:
-    """Compute posterior marginals given evidence (recorded, so reports can show the posteriors)."""
+    """Compute posterior marginals given evidence (recorded, so reports can show the posteriors).
+
+    Hard evidence (-e Wet=yes) says a node is observed. Soft evidence (-s Wet=yes:0.8)
+    says how sure you are: afterwards P(Wet = yes) is 0.8, and the other states share
+    the rest. --likelihood gives how much an observation favours each state instead.
+    """
     from latris.operations import bn as bn_ops
 
-    ev: dict[str, str] = {}
-    for item in evidence or []:
-        if "=" not in item:
-            raise typer.BadParameter(f"Evidence must be 'node=state', got {item!r}")
-        name, state = item.rsplit("=", 1)
-        ev[name.strip()] = state.strip()
-
-    result = bn_ops.infer(query=query_nodes or None, evidence=ev or None)
+    ev = _evidence(evidence)
+    result = bn_ops.infer(query=query_nodes or None, evidence=ev or None, soft=_dists(soft) or None,
+                          likelihood=_dists(likelihood) or None)
     # result.evidence is keyed by resolved node ID, so labels resolve cleanly
     # in the header (the raw ``ev`` keys are user input — IDs, prefixes, or
     # labels — and wouldn't match the node-ID-keyed label map).
     recorded = bn_ops.record_query(result) if record and result.marginals else None
     _print_marginals(result, header="Posterior marginals", evidence=result.evidence, recorded=recorded)
+
+
+def _evidence(items: list[str] | None) -> dict[str, str]:
+    ev: dict[str, str] = {}
+    for item in items or []:
+        if "=" not in item:
+            raise typer.BadParameter(f"Evidence must be 'node=state', got {item!r}")
+        name, state = item.rsplit("=", 1)
+        ev[name.strip()] = state.strip()
+    return ev
+
+
+def _dists(items: list[str] | None) -> dict[str, dict[str, float]]:
+    from latris.operations import bn as bn_ops
+
+    out: dict[str, dict[str, float]] = {}
+    for item in items or []:
+        try:
+            node, dist = bn_ops.parse_distribution(item)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        out[node] = dist
+    return out
+
+
+@app.command("explain")
+@handle_cli_errors
+def explain(
+    evidence: list[str] | None = typer.Option(None, "--evidence", "-e", help="Observed node=state (repeatable)."),
+    soft: list[str] | None = typer.Option(None, "--soft", "-s", help="Soft evidence 'Node=state:0.8' (repeatable)."),
+    likelihood: list[str] | None = typer.Option(None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1'."),
+    over: list[str] | None = typer.Option(
+        None, "--over", help="Explain only these nodes (MAP); default every unobserved node (MPE)."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
+    """The single most likely combination of states, given the evidence.
+
+    "Given the flood, what's the likeliest combination of causes?" Shows the
+    combination, how probable it is, how many times likelier each state is than
+    its runner-up, and where a node's own favourite differs from the combination.
+    """
+    from latris.operations import bn as bn_ops
+
+    out = bn_ops.explain(over=over or None, evidence=_evidence(evidence) or None, soft=_dists(soft) or None,
+                         likelihood=_dists(likelihood) or None)
+    recorded = bn_ops.record_explanation(out) if record else None
+    labels = out["labels"]
+    if json_mode():
+        emit({
+            "summary": bn_ops.describe_explanation(out), "kind": out["kind"], "probability": out["probability"],
+            "explanation": [{
+                "node": labels.get(r["node"], r["node"]), "state": r["state"], "own_probability": r["marginal"],
+                "runner_up": r["runner_up"], "times_likelier": r["times_likelier"],
+                "alternatives_impossible": r["alternatives_impossible"],
+                "differs_from_own_favourite": r["differs_from_marginal"], "own_favourite": r["favourite"],
+            } for r in out["rows"]],
+            "note": out["note"], "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
+        return
+    console.print(f"[bold]{escape(bn_ops.describe_explanation(out))}[/bold]\n")
+    table = Table(show_header=True, header_style="bold")
+    for col in ("Node", "Most likely", "Its own probability", "vs runner-up"):
+        table.add_column(col)
+    for r in out["rows"]:
+        if r["alternatives_impossible"]:
+            vs = "the alternatives are impossible"
+        elif r["times_likelier"] is not None:
+            vs = f"{r['times_likelier']:.3g}× likelier than {r['runner_up']}"
+        else:
+            vs = ""
+        own = f"{r['marginal']:.1%}" if r["marginal"] is not None else ""
+        if r["differs_from_marginal"]:
+            own += f" [yellow](on its own, {r['favourite']} is likelier)[/yellow]"
+        table.add_row(escape(labels.get(r["node"], r["node"])), escape(r["state"]), own, vs)
+    console.print(table)
+    if out["note"]:
+        console.print(f"[dim]{escape(out['note'])}[/dim]")
+    if recorded:
+        sha, run_id = recorded
+        console.print(f"\n[green]recorded[/green] · run [cyan]{run_id[:18]}…[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
+
+
+@app.command("set-uncertainty")
+@handle_cli_errors
+def set_uncertainty(
+    node: str = typer.Argument(..., help="The node whose probability table is uncertain."),
+    n: float = typer.Option(..., "--n", help="How many observations the table is worth (small = a rough guess)."),
+    row: str | None = typer.Option(None, "--row", help="Just one row: 'Parent=state,Other=state'."),
+    reason: str = typer.Option("", "--reason", help="Why this much confidence (e.g. 'elicited from two experts')."),
+    source: str | None = typer.Option(None, "--source", help="Source ID backing it."),
+    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+) -> None:
+    """Say how well a probability table is known: "worth about n observations".
+
+    `bn monte-carlo` then samples each row around its current values (a Dirichlet):
+    n = 5 is a rough expert guess, n = 500 a table learned from plenty of data.
+    """
+    from latris.operations import uncertainty
+
+    entry, sha = uncertainty.set_table_uncertainty(node, n, row=row, reason=reason, source_id=source,
+                                                   origin=origin)  # type: ignore[arg-type]
+    label = _labels().get(entry.target_id, entry.target_id)
+    if json_mode():
+        emit({"node": label, "n": n, "row": row, "origin": entry.origin}, human=lambda: None, commit_sha=sha)
+        return
+    where = f" (row {escape(row)})" if row else ""
+    console.print(f"[green]uncertainty[/green] {escape(label)}{where}: worth {n:g} observations · "
+                  f"commit [cyan]{sha[:10]}[/cyan]")
+
+
+@app.command("uncertainty")
+@handle_cli_errors
+def list_uncertainty() -> None:
+    """List how well each probability table is known (tables not listed are held fixed)."""
+    from latris.operations import uncertainty
+    from latris.repo.project import require_project
+
+    specs = uncertainty.bn_specs(require_project(None))
+    labels = _labels()
+    rows = [{"node": labels.get(node, node), "cell": cell, "n": e.params["n"], "reason": e.reason,
+             "origin": e.origin, "verification": e.verification}
+            for node, cells in specs.items() for cell, e in cells.items()]
+    if json_mode():
+        emit(rows, human=lambda: None)
+        return
+    if not rows:
+        console.print("No table uncertainty yet. Add one with `latris bn set-uncertainty <node> --n 20`.")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for col in ("Node", "Applies to", "Worth n", "Origin", "Reason"):
+        table.add_column(col)
+    for r in rows:
+        where = "whole table" if r["cell"] == "bn:cpt" else r["cell"].split(":", 2)[-1]
+        table.add_row(escape(r["node"]), escape(where), f"{r['n']:g}", r["origin"], escape(r["reason"]))
+    console.print(table)
+
+
+@app.command("clear-uncertainty")
+@handle_cli_errors
+def clear_uncertainty(node: str = typer.Argument(..., help="Node ID, prefix or label.")) -> None:
+    """Hold a table fixed again in Monte Carlo runs."""
+    from latris.operations import uncertainty
+
+    sha = uncertainty.clear_uncertainty(node)
+    if json_mode():
+        emit({"cleared": node}, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]cleared[/green] uncertainty on {escape(node)} · commit [cyan]{sha[:10]}[/cyan]")
+
+
+@app.command("monte-carlo")
+@handle_cli_errors
+def monte_carlo(
+    target: str = typer.Argument(..., help="The node whose probability you want to stress-test."),
+    state: str | None = typer.Option(None, "--state", help="The state to report on (default: the first state)."),
+    evidence: list[str] | None = typer.Option(None, "--evidence", "-e", help="Observed node=state (repeatable)."),
+    soft: list[str] | None = typer.Option(None, "--soft", "-s", help="Soft evidence 'Node=state:0.8' (repeatable)."),
+    likelihood: list[str] | None = typer.Option(None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1'."),
+    runs: int = typer.Option(500, "--runs", "-n", help="Number of draws (2–2000)."),
+    seed: int = typer.Option(1234, "--seed", help="Random seed; the same seed gives the same draws."),
+    max_seconds: float = typer.Option(60.0, "--max-seconds", help="Stop early if the draws would take longer."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
+    """How sure is this probability? Re-asks the query while sampling the uncertain tables.
+
+    Tables given an uncertainty with `bn set-uncertainty` are sampled around their
+    values; the rest stay fixed. Shows the point estimate, the median and the range
+    95% of draws fall in, and which tables drive the spread.
+    """
+    from latris.operations import bn as bn_ops
+    from latris.operations.bn_montecarlo import describe
+
+    out = bn_ops.run_monte_carlo(target, state=state, evidence=_evidence(evidence) or None, soft=_dists(soft) or None,
+                                 likelihood=_dists(likelihood) or None, runs=runs, seed=seed,
+                                 max_seconds=max_seconds)
+    recorded = bn_ops.record_monte_carlo(out) if record else None
+    if json_mode():
+        emit({
+            "summary": describe(out), "runs": out["runs"], "seed": out["seed"],
+            "states": {s: out["by_state"][s] for s in out["states"]},
+            "tables": [{k: v for k, v in t.items() if k != "node"} for t in out["tables"]],
+            "drivers": [{"table": d["label"], "rank_correlation": d["rho"]} for d in out["drivers"]],
+            "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
+        return
+    console.print(f"[bold]{escape(describe(out))}[/bold]\n")
+    table = Table(show_header=True, header_style="bold")
+    for col, justify in (("State", "left"), ("Point", "right"), ("Median", "right"), ("50% of draws", "right"),
+                         ("95% of draws", "right")):
+        table.add_column(col, justify=justify)  # type: ignore[arg-type]
+    for st in out["states"]:
+        b = out["by_state"][st]
+        table.add_row(escape(st), f"{b['point']:.1%}", f"{b['p50']:.1%}", f"{b['p25']:.1%}–{b['p75']:.1%}",
+                      f"{b['p2.5']:.1%}–{b['p97.5']:.1%}")
+    console.print(table)
+    for t in out["tables"]:
+        if t["fixed"]:
+            continue
+        flag = "" if t["verification"] == "human-verified" else f" [yellow]({t['origin']}, unverified)[/yellow]"
+        n = f"worth {t['n']:g}" if t["n"] else "row overrides only"
+        console.print(f"  {escape(t['label'])}: {n}{flag}" + (f" — {escape(t['reason'])}" if t["reason"] else ""))
+    fixed = [t["label"] for t in out["tables"] if t["fixed"]]
+    if fixed:
+        console.print(f"  [dim]held fixed: {escape(', '.join(fixed))}[/dim]")
+    drivers = [d for d in out["drivers"] if d["rho"] is not None][:3]
+    if drivers:
+        console.print("  driven by: " + ", ".join(f"{escape(d['label'])} (ρ={d['rho']:+.2f})" for d in drivers))
+    if recorded:
+        sha, run_id = recorded
+        console.print(f"\n[green]recorded[/green] · run [cyan]{run_id[:18]}…[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
 
 
 @app.command("sensitivity")
@@ -393,6 +608,8 @@ def _print_marginals(
     if json_mode():
         emit({
             "given": {labels.get(k, k): v for k, v in (evidence or {}).items()},
+            "soft": {labels.get(k, k): v for k, v in result.soft.items()},
+            "likelihood": {labels.get(k, k): v for k, v in result.likelihood.items()},
             "marginals": {labels.get(nid, nid): {s: round(p, 4) for s, p in dist.items()}
                           for nid, dist in result.marginals.items()},
             "run_id": recorded[1] if recorded else None,

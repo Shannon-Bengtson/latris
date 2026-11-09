@@ -758,7 +758,7 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
         id="model-types-overview",
         title="Choosing a Model Type",
         category="model-types",
-        summary="How to choose between CLD, DAG, FCM, BN, SD, and planned formal views.",
+        summary="How to choose between CLD, DAG, FCM, BN, SD, and planned formal views — by the question each one answers.",
         body="""## Current stable model types
 
 - **CLD:** best for feedback systems and reinforcing or balancing loops.
@@ -777,9 +777,25 @@ Other registered types — decision trees, influence diagrams, Markov chains and
 
 Selected model types drive readiness checks, Configure suggestions, Analyse views, and report content. Choose the model types that match the question, not every possible view.
 
-## Rule of thumb
+## By the question they answer
 
-Use CLD when feedback is central. Use DAG when cycles would undermine the reasoning. Use FCM when the question needs directional influence strength but not a full quantitative simulation engine. Use SD when the question is about trajectories over time — how stocks build up or drain, and why. A CLD is the usual qualitative precursor to an SD model.
+- "How does this work — what feeds back on what?" → **CLD**. The cheapest
+  honest answer; start here unless the question says otherwise.
+- "Can this effect actually be estimated, and from what data?" → **DAG**.
+  Identification — adjustment sets and d-separation; no effect sizes.
+- "How likely is each outcome, and what would change my mind?" → **BN** —
+  discrete states and probabilities.
+- "Which forces dominate, roughly?" → **FCM** — semi-quantitative weights
+  and steady-state tendencies.
+- "How will it behave over time if we intervene?" → **SD** — the most
+  commitment; build the CLD first.
+
+One substrate carries across: factors, links, evidence and challenges all
+stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
+`latris project select-models` records the choice with its rationale.
+Triangulating (a CLD plus a DAG on the same substrate) is a strength, not a
+mistake. The fuller guide: https://latris.app/formalisms/ — and the methods
+behind each formalism, with limits, in docs/FOUNDATIONS.md.
 """,
     ),
     HelpTopic(
