@@ -802,7 +802,7 @@ behind each formalism, with limits, in docs/FOUNDATIONS.md.
         id="model-type-bn",
         title="Bayesian Networks (quantitative)",
         category="model-types",
-        summary="Discrete BN inference, canonical models, parameter learning, and sensitivity — with per-cell provenance.",
+        summary="Discrete BN inference with hard and soft evidence, the most likely explanation, Monte Carlo over the tables, learning and sensitivity — with per-cell provenance.",
         body="""## What a BN adds
 
 A Bayesian Network quantifies an acyclic causal subgraph: every node gets a discrete **state space** and a **conditional probability table (CPT)** giving P(node | parents). You can then compute marginals and posterior queries — reasoning forwards (predictive) and backwards (diagnostic).
@@ -820,10 +820,13 @@ Every CPT row carries its own provenance — `origin` (human-direct, human-elici
 - **`bn check`** — readiness: state spaces defined, CPTs complete + normalised, acyclic.
 - **`bn marginals` / `bn query --evidence … --query …`** — exact inference. Each query is recorded (`--no-record` to skip); reports show the latest one per evidence set, posterior against prior, with a chart.
 - **`bn sensitivity <target> --state …`** — rank the parameters that move a conclusion, flagging the ones that aren't human-verified.
+- **Soft evidence** — `bn query -s "Wet=yes:0.8"` when you're not certain: afterwards P(Wet = yes) is 80% (Jeffrey's rule) and the other states share the rest. `--likelihood "Wet=yes:4,no:1"` instead says how much an observation favours each state.
+- **`bn explain -e …`** — the single most likely combination of states given the evidence (MPE; `--over` limits it to chosen nodes, MAP), its probability, how many times likelier each state is than its runner-up, and where a node's own favourite differs from the combination.
+- **`bn set-uncertainty <node> --n 20`** — how well a probability table is known: "worth about n observations" (`--row "Parent=state,…"` for one row). **`bn monte-carlo <target> [--state s] -e …`** then re-asks the query under seeded draws of every such table and gives the point estimate, median and the range 50% / 95% of draws fall in, the tables held fixed, and which tables drive the spread.
 
 ## Not yet
 
-Interactive belief-bar GUI, continuous/hybrid nodes, structure learning, dynamic BNs, and incumbent-format import/export (which would strip provenance) are out of scope. See `docs/design/BN_QUANTITATIVE.md`.
+Decision and utility nodes (influence diagrams) and EVPI, ranked nodes / Noisy-MAX, continuous/hybrid nodes, structure learning, dynamic BNs, and incumbent-format import/export (which would strip provenance) are out of scope. See `docs/design/BN_QUANTITATIVE.md`.
 """,
     ),
     HelpTopic(

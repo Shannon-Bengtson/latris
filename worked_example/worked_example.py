@@ -1087,6 +1087,37 @@ def build_example(ex: WorkedExample) -> None:
             "-c", "Grid Failure=yes:0.8", "-c", "Cyber Attack=yes:0.6", "--leak", "0.01"])
     ex.run(["bn", "cpts"])
 
+    # ── 7.8b BN soft evidence, explanation, uncertainty ───────────────
+    ex.section(
+        "Bayesian Network — Soft Evidence, Explanation, Uncertainty",
+        "Three questions beyond a plain query. Soft evidence: a low-cost sensor "
+        "suggests poor air, but it isn't certain. The most likely explanation: "
+        "given poor respiratory health, which combination of causes is likeliest? "
+        "And how sure is a probability when the tables behind it are estimates?",
+    )
+    ex.note(
+        "Soft evidence sets how sure we are: afterwards P(Air Quality Index = poor) "
+        "is 70%, and the other states share the rest in proportion to their prior."
+    )
+    ex.run(["bn", "query", "--soft", "Air Quality Index=poor:0.7", "--query", "Respiratory Health",
+            "--query", "Air Quality Index"])
+    ex.note(
+        "The single most likely combination of states given poor respiratory health — "
+        "with how decisive each part is, and where a factor's own favourite differs."
+    )
+    ex.run(["bn", "explain", "--evidence", "Respiratory Health=poor"])
+    ex.note(
+        "Say how well each table is known: the respiratory table was elicited from "
+        "one clinician (worth about 10 observations); the air-quality table was "
+        "learned from 180 monitoring rows. The other tables stay fixed."
+    )
+    ex.run(["bn", "set-uncertainty", "Respiratory Health", "--n", "10",
+            "--reason", "Elicited from one clinician"])
+    ex.run(["bn", "set-uncertainty", "Air Quality Index", "--n", "180",
+            "--reason", "Learned from 180 monitoring rows"])
+    ex.run(["bn", "monte-carlo", "Respiratory Health", "--state", "poor",
+            "--evidence", "Transport Policy=strict", "--runs", "300"])
+
     # ── 7.9 System Dynamics ───────────────────────────────────────────
     ex.section(
         "System Dynamics",

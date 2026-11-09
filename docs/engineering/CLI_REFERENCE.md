@@ -253,7 +253,12 @@ latris bn state-spaces                         # list defined state spaces
 latris bn cpts                                 # list defined CPTs
 latris bn check                                # validate state-space / CPT completeness
 latris bn marginals                            # compute prior marginals (recorded; --no-record)
-latris bn query [-q node] [-e node=state]      # posterior query under evidence (recorded; --no-record)
+latris bn query [-q node] [-e node=state] [-s "node=state:0.8"] [--likelihood "node=a:4,b:1"]
+                                               # posterior query under hard / soft / likelihood evidence (recorded)
+latris bn explain [-e node=state] [-s ...] [--over node ...]   # most likely explanation (MPE / MAP), recorded
+latris bn set-uncertainty <node> --n 20 [--row "Parent=state,..."] [--reason] [--source]
+latris bn uncertainty | clear-uncertainty <node>
+latris bn monte-carlo <target> [--state s] [-e ...] [-s ...] [--runs 500] [--seed 1234] [--max-seconds 60]
 latris bn sensitivity <target>                 # provenance-aware sensitivity analysis
 ```
 

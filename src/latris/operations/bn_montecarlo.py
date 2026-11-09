@@ -86,7 +86,8 @@ def monte_carlo(
     rng = random.Random(seed)
     order = sorted(uncertain)  # fixed order: a seed fully determines the draws
     answers: list[dict[str, float]] = []
-    sampled: dict[str, list[float]] = {k: [] for k in order}  # per table: a summary value per draw
+    # Per table, per sampled row (or Noisy-OR parameter): its value in each draw.
+    sampled: dict[str, dict[str, list[float]]] = {k: {} for k in order}
     started = time.perf_counter()
     for i in range(runs):
         if i == 1:
@@ -108,19 +109,19 @@ def monte_carlo(
                     }
                 )
                 tables[node] = expand_noisy_or(drawn, state_spaces)
-                sampled[node].append(sum(lk.prob for lk in drawn.links) + drawn.leak)
+                sampled[node].setdefault("leak", []).append(drawn.leak)
+                for lk in drawn.links:
+                    sampled[node].setdefault(lk.parent_id, []).append(lk.prob)
                 continue
             entry = cpts[node]
             rows = []
-            first = None
-            for row in entry.rows:
+            for j, row in enumerate(entry.rows):
                 n = _row_n(node_specs, entry.parents, row.parent_states)
                 p = dirichlet(rng, row.p, n) if n else list(row.p)
                 rows.append(row.model_copy(update={"p": p}))
-                if first is None and n:
-                    first = p[0]
+                if n:
+                    sampled[node].setdefault(str(j), []).append(p[0])
             tables[node] = entry.model_copy(update={"rows": rows})
-            sampled[node].append(first if first is not None else 0.0)
         answers.append(query(tables))
     seconds = time.perf_counter() - started
 
@@ -136,9 +137,12 @@ def monte_carlo(
     if state is not None and state not in states:
         raise ValueError(f"{state!r} is not a state of {labels.get(target, target)} (states: {states})")
     focus = state or states[0]  # the state asked about; by default the first (usually the event)
+    # A table drives the spread as much as its most influential row (rank correlation with the answer).
+    focus_values = [a[focus] for a in answers]
     drivers = []
     for node in order:
-        rho = spearman(sampled[node], [a[focus] for a in answers])
+        rhos = [r for r in (spearman(v, focus_values) for v in sampled[node].values()) if r is not None]
+        rho = max(rhos, key=abs) if rhos else None
         drivers.append({"node": node, "label": labels.get(node, node), "rho": None if rho is None else _r(rho)})
     drivers.sort(key=lambda d: -abs(d["rho"] or 0.0))
 

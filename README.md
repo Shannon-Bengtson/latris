@@ -200,6 +200,31 @@ anything they share as sources. If they'd rather you just build, do, and
 record each unanswered point with `latris question add` or `latris
 assumption add`, so the gap shows in the report instead of disappearing.
 
+**Choosing a model type.** People rarely know which formalism fits their
+question — guide the choice by the kind of answer needed, and record the
+reasoning with `latris project select-models` so the report's modelling
+approach shows it:
+
+- "How does this work — what feeds back on what?" → `cld`. Start here by
+  default: the cheapest honest answer, and every other formalism builds
+  on it.
+- "Can this effect actually be estimated, and from what data?" → `dag`.
+  Identification only — adjustment sets and d-separation, no effect
+  sizes, no counterfactuals.
+- "How likely is each outcome, and what would change my mind?" → `bn`.
+  Discrete states and probabilities; CPTs elicited, learned, or mixed.
+- "Which forces dominate, roughly?" → `fcm`. Signed, weighted links and
+  steady-state tendencies — not year-three numbers.
+- "How will it behave over time if we intervene?" → `sd`. Stocks, flows,
+  units, scenarios — the most commitment; build the CLD first.
+
+The same substrate carries across: factors, links, evidence and
+challenges all stay, and quantifying a CLD as FCM/BN/SD later never means
+redrawing. More than one formalism can be right — triangulating (say, a
+CLD plus a DAG on the same substrate) is a strength, not a mistake. The
+human-facing version of this guide lives at
+<https://latris.app/formalisms/>.
+
 A causal loop diagram, end to end (works in a sandbox with no API key):
 
 ```bash
@@ -319,7 +344,11 @@ Tips for agents:
   and `latris interpret refresh-claims` turns them into claims the
   interpretation can use. `latris results list` / `results hide <run>`
   choose what the report shows. Values you set are AI-proposed under
-  `LATRIS_DEFAULT_ORIGIN=ai-proposed`; the report says so.
+  `LATRIS_DEFAULT_ORIGIN=ai-proposed`; the report says so. For Bayesian
+  networks: `bn query -s "Heavy Rain=yes:0.8"` (soft evidence: 80% sure),
+  `bn explain -e "Road Closed=yes"` (the most likely combination of causes),
+  and `bn set-uncertainty Flood --n 10` + `bn monte-carlo Flood` (how sure
+  the probability is when the tables are estimates) — all recorded.
 - **No API key?** Checks and drafting that use AI (e.g. the completeness check)
   can be answered by you: `latris ai task emit <PromptName> --inputs '<json>'`,
   then `latris ai task apply` (see "An agent can act as the model" above).

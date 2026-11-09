@@ -75,7 +75,8 @@ def explain(
                 "state": state,
                 "marginal": own.get(state),
                 "favourite": favourite,
-                "differs_from_marginal": favourite != state,
+                # A tie isn't a difference: only when the node's own favourite is strictly likelier.
+                "differs_from_marginal": own.get(favourite, 0.0) > own.get(state, 0.0) + 1e-9,
                 "runner_up": runner,
                 "times_likelier": margin,  # None when not computed, or when the alternatives are impossible
                 "alternatives_impossible": certain,

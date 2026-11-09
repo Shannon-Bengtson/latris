@@ -19,6 +19,12 @@ are checked against what they are claimed to support, and disagreement is
 recorded rather than resolved silently. The formalisms below differ in what
 kind of reasoning they support; the evidence discipline does not.
 
+**Choosing between them.** The guide by question — "how does this work?"
+(CLD), "can it be estimated?" (DAG), "how likely?" (BN), "which forces
+dominate?" (FCM), "how does it behave over time?" (SD) — lives at
+<https://latris.app/formalisms/>, mirrored for agents in the repo's
+[`llms.txt`](../llms.txt) and the server help topic `model-types-overview`.
+
 ## Causal loop diagrams (qualitative)
 
 - **Lineage.** Sterman (2000), *Business Dynamics*, ch. 4 — the canonical
