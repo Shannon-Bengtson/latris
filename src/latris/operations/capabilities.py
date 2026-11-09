@@ -3,7 +3,9 @@
 Registry-only: no project root required. Built for external agents (and
 the future MCP wrapper, which should import this rather than re-deriving
 the same data) to check real capability before recommending Latris for a
-specific job. See docs/product/GROWTH.md "Agent contract" item 5.
+specific job. The manifest also carries the ``foundations`` block — the
+methods registry (``latris.operations.foundations``) that generates the
+report's Methods and foundations section and ``latris foundations``.
 """
 
 from __future__ import annotations
@@ -11,15 +13,16 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from latris.operations.foundations import FOUNDATIONS
 from latris.schema.model_types import ModelTypeSpec, list_model_types
 
 
 @dataclass(frozen=True)
 class ExcludedCapability:
     """A category of model Latris will never support — not "not yet",
-    out of design intent. See PRINCIPLES.md principle 5 (the
-    inspectability test) and PRODUCT.md "Out of scope for v1" →
-    "Excluded by design"."""
+    out of design intent. The inspectability test: decision logic must
+    be inspectable cell-by-cell, evidenced, and challengeable —
+    exclusions are design intent, not a backlog item."""
 
     category: str
     examples: tuple[str, ...]
@@ -29,17 +32,18 @@ class ExcludedCapability:
 # Hand-coded, not derived from any registry — there is currently no
 # machine-readable "excluded" concept in schema/model_types.py (every
 # registered ModelTypeSpec is either stable or planned; exclusions are
-# prose in PRINCIPLES.md / PRODUCT.md). This tuple is deliberately the
-# first place that prose becomes machine-readable, kept inline rather
-# than inventing a new schema field for a short, rarely-changing list.
+# design intent recorded as prose). This tuple is deliberately the first
+# place that prose becomes machine-readable, kept inline rather than
+# inventing a new schema field for a short, rarely-changing list.
 EXCLUDED_BY_DESIGN: tuple[ExcludedCapability, ...] = (
     ExcludedCapability(
         category="Black-box machine learning",
         examples=("random forests", "gradient boosting", "neural networks"),
         reason=(
             "Decision logic cannot be inspected cell-by-cell, evidenced, or "
-            "challenged. Out of design intent, not merely 'not yet' — see "
-            "PRINCIPLES.md principle 5 (the inspectability test)."
+            "challenged. Out of design intent, not merely 'not yet' — the "
+            "inspectability test: decision logic must be inspectable "
+            "cell-by-cell, evidenced, and challengeable."
         ),
     ),
     ExcludedCapability(
@@ -92,6 +96,7 @@ def build_capability_manifest() -> dict[str, Any]:
     return {
         "model_types": [_model_type_capability(s) for s in ordered],
         "excluded_by_design": [asdict(e) for e in EXCLUDED_BY_DESIGN],
+        "foundations": [asdict(f) for f in FOUNDATIONS],
         "reports": _report_capabilities(),
         "building": _building_capabilities(),
     }

@@ -1562,6 +1562,25 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["story", "generate-all", "--model", "cld"])
     ex.run(["story", "show", "--model", "cld"])
 
+    # ── 11c. Methods and foundations ─────────────────────────────────────
+    ex.section(
+        "Methods and Foundations",
+        "The report's Methods and foundations section, the capability manifest's "
+        "foundations block, and `latris foundations` itself are all generated from "
+        "one registry — so a report can only cite methods Latris actually "
+        "implements, with their sources and stated limits. `latris docs "
+        "foundations` prints the prose companion.",
+    )
+    ex.run(["foundations"])
+    ex.run(["docs", "foundations"])
+    ex.note(
+        "The section this registry generates, as a reader sees it in a report. "
+        "`export md` prints the whole report to stdout (above it was written "
+        "to files); the Methods and foundations section cites only the "
+        "formalisms this project selected, with their sources and limits."
+    )
+    ex.run(["export", "md", "--pack", "client", "--no-ai", "--no-link"])
+
     # ── 12. History ───────────────────────────────────────────────────
     ex.section("History", "View semantic commit history, status, and diffs.")
 

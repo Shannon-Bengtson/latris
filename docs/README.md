@@ -43,6 +43,14 @@ this package from a separate private repository. Start at the repo-root
 
 ## Documentation structure
 
+### Methods and foundations
+
+[`FOUNDATIONS.md`](FOUNDATIONS.md) — the methods Latris implements, the
+literature behind each, and their stated limits. Read this before citing
+Latris's methods in a report or paper; the report's "Methods and
+foundations" section and `latris foundations` are generated from the same
+source of truth (`src/latris/operations/foundations.py`).
+
 ### Engineering (`engineering/`)
 
 How it's built. For developers working on the codebase — and for AI

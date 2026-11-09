@@ -30,6 +30,7 @@ from latris.cli import (  # noqa: E402
     export_cmd,
     fcm_cmd,
     findings_cmd,
+    foundations_cmd,
     history_cmd,
     interpret_cmd,
     lineage_cmd,
@@ -128,6 +129,7 @@ def main(
 
 
 app.command("capabilities")(capabilities_cmd.capabilities)
+app.command("foundations")(foundations_cmd.foundations)
 app.command("docs")(docs_cmd.docs)
 
 

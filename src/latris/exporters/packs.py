@@ -23,6 +23,7 @@ ALL_SECTIONS = [
     "diagram",
     "results",
     "modelling_approach",
+    "methods",
     "nodes",
     "edges",
     "evidence",
@@ -55,7 +56,7 @@ PACKS: dict[str, PackConfig] = {
             "then each link with its reasoning and evidence, and sources — without internal IDs or the change log"
         ),
         # Order is the reading order: a board reads the answer before the tables.
-        sections=["foundation", "interpretation", "diagram", "results", "structure", "findings", "contested", "edges", "nodes", "evidence", "assumptions", "exclusions", "decisions", "modelling_approach", "references"],  # noqa: E501
+        sections=["foundation", "interpretation", "diagram", "results", "structure", "findings", "contested", "edges", "nodes", "evidence", "assumptions", "exclusions", "decisions", "modelling_approach", "methods", "references"],  # noqa: E501
     ),
     "audit": PackConfig(
         name="audit",
@@ -67,7 +68,7 @@ PACKS: dict[str, PackConfig] = {
         name="review",
         audience="a reviewer checking the model",
         purpose="the model with its evidence, open challenges and questions, and findings",
-        sections=["foundation", "structure", "history", "diagram", "results", "modelling_approach", "nodes", "edges", "contested", "evidence", "challenges", "questions", "findings", "interpretation"],  # noqa: E501
+        sections=["foundation", "structure", "history", "diagram", "results", "modelling_approach", "methods", "nodes", "edges", "contested", "evidence", "challenges", "questions", "findings", "interpretation"],  # noqa: E501
     ),
     "workshop": PackConfig(
         name="workshop",
@@ -79,7 +80,7 @@ PACKS: dict[str, PackConfig] = {
         name="publication",
         audience="a paper or public write-up",
         purpose="the model, evidence, findings, interpretation and full references, without internal IDs",
-        sections=["foundation", "interpretation", "diagram", "results", "structure", "findings", "contested", "modelling_approach", "edges", "nodes", "evidence", "references"],  # noqa: E501
+        sections=["foundation", "interpretation", "diagram", "results", "structure", "findings", "contested", "modelling_approach", "methods", "edges", "nodes", "evidence", "references"],  # noqa: E501
     ),
 }
 

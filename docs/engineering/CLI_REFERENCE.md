@@ -18,7 +18,8 @@ latris --version
 latris --help
 latris doctor
 latris capabilities [--json]
-latris docs [agents|readme|llms]   # the guide, from the installed package
+latris foundations [--json]                      # the methods registry behind the report's Methods and foundations section
+latris docs [agents|readme|llms|foundations]     # the guide, from the installed package
 latris --json <group> <command> ...
 ```
 
@@ -33,6 +34,13 @@ not-found / git / sync errors, 2 for invalid input). Supported today:
 `bn` (setters, `state-spaces`, `cpts`, `check`, `marginals`, `query`, `sensitivity`), `sd` (setters, listings,
 `check`, `simulate` — a compact summary; its own `--json` still prints the full series) and `fcm`
 (`set-weight`, `weights`, `infer`). In JSON mode `bn check` and `sd check` report `ready` and exit 0.
+
+`latris foundations` prints the methods-and-foundations registry — the same
+registry that generates the report's Methods and foundations section and the
+capability manifest's `foundations` block, so the three cannot drift apart.
+Each entry names the method, its citation, what Latris uses it for, and its
+stated limits; `--json` emits the raw list. `latris docs foundations` prints
+the prose companion (docs/FOUNDATIONS.md, bundled in the wheel).
 
 ## Project
 

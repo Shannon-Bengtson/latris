@@ -34,6 +34,15 @@ def test_publication_pack_excludes_challenges():
     assert "challenges" not in pack.sections
 
 
+def test_methods_section_in_reader_and_review_packs_not_workshop():
+    assert "methods" in PACKS["audit"].sections
+    for name in ("client", "review", "publication"):
+        sections = PACKS[name].sections
+        assert "methods" in sections
+        assert sections.index("methods") == sections.index("modelling_approach") + 1
+    assert "methods" not in PACKS["workshop"].sections
+
+
 def test_md_render_with_client_pack(tmp_path: Path, git_identity, monkeypatch):
     root = tmp_path / "demo"
     init_project(root, statement="Does X cause Y?")

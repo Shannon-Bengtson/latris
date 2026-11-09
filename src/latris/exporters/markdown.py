@@ -338,6 +338,14 @@ def render(
     if _include("modelling_approach"):
         out.extend(_render_modelling_approach(paths))
 
+    # Methods and foundations — generated from the foundations registry so the
+    # methods cited here match what the scoped Results section actually shows.
+    _begin("methods")
+    if _include("methods"):
+        from latris.operations.foundations import render_methods_section
+
+        out.extend(render_methods_section(paths, model_type=model_type))
+
     labels = {n.id: n.label for n in substrate.entities}
     # Edges read as "A → B" wherever they're named (evidence, challenges).
     for e in substrate.edges:

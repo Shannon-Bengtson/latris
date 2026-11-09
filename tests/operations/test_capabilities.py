@@ -36,3 +36,15 @@ def test_manifest_roadmap_groups_and_order():
     order = [m["roadmap"] for m in manifest["model_types"]]
     rank = {"built": 0, "roadmap": 1, "parked": 2, "not_planned": 3}
     assert order == sorted(order, key=rank.__getitem__)
+
+
+def test_manifest_carries_the_foundations_registry():
+    manifest = build_capability_manifest()
+    foundations = manifest["foundations"]
+    ids = [f["id"] for f in foundations]
+    assert len(ids) == len(set(ids))
+    assert "evidence-source-check" in ids
+    assert "sd-loop-dominance" in ids
+    entry = next(f for f in foundations if f["id"] == "sd-simulation")
+    assert tuple(entry["applies_to"]) == ("sd",)
+    assert entry["method"] and entry["citation"] and entry["used_for"] and entry["limits"]

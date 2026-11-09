@@ -569,6 +569,7 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 - Challenges and findings.
 - Datasets and data actions.
 - Milestones.
+- Methods and foundations — the established methods the model relies on, each cited with its source and stated limits, generated from the foundations registry so it cites only methods the report actually used.
 - Interpret-generated prose sections.
 
 ## Export formats
