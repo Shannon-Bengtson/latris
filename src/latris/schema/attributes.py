@@ -98,7 +98,7 @@ class FloatSet(_Base):
     entries: list[FloatEntry] = Field(default_factory=list)
 
 
-Distribution = Literal["unknown", "uniform", "triangular", "normal", "lognormal", "beta", "gamma"]
+Distribution = Literal["unknown", "uniform", "triangular", "normal", "lognormal", "beta", "gamma", "dirichlet"]
 
 # Parameters each distribution needs, and the optional ones it accepts. Values
 # are in the annotated parameter's own units (e.g. a constant in tonne/year).
@@ -110,6 +110,8 @@ DISTRIBUTION_PARAMS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "lognormal": (("mean", "sd"), ("min", "max")),  # mean/sd of the value itself, not of its log
     "beta": (("alpha", "beta"), ("min", "max")),  # scaled to [min, max], default [0, 1]
     "gamma": (("shape", "scale"), ("min", "max")),
+    # A probability table "worth n observations": each row ~ Dirichlet(n · current row).
+    "dirichlet": (("n",), ()),
 }
 
 
@@ -122,7 +124,9 @@ class ParameterUncertainty(_EntryBase):
     why — recorded in ``origin``/``source_id``/``reason``.
 
     ``parameter_cell_id`` names what is annotated: ``sd:constant`` or
-    ``sd:initial_value`` for System Dynamics.
+    ``sd:initial_value`` for System Dynamics; ``bn:cpt`` (a whole probability
+    table, a Dirichlet "worth n observations") or ``bn:cpt:<parent=state,...>``
+    (one row of it, by node id) for Bayesian networks.
     """
 
     attribute: str = "uncertainty"
@@ -149,7 +153,7 @@ class ParameterUncertainty(_EntryBase):
             raise ValueError("min must be less than max")
         if self.distribution == "triangular" and not p["min"] <= p["mode"] <= p["max"]:
             raise ValueError("a triangular distribution needs min ≤ mode ≤ max")
-        for key in ("sd", "alpha", "beta", "shape", "scale"):
+        for key in ("sd", "alpha", "beta", "shape", "scale", "n"):
             if key in p and p[key] <= 0:
                 raise ValueError(f"{key} must be positive")
         if self.distribution == "lognormal" and p["mean"] <= 0:

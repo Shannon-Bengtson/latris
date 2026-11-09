@@ -190,3 +190,22 @@ def spearman(x: Sequence[float], y: Sequence[float]) -> float | None:
     if sxx == 0 or syy == 0:
         return None
     return sxy / math.sqrt(sxx * syy)
+
+
+def dirichlet(rng: random.Random, probs: Sequence[float], n: float) -> list[float]:
+    """One draw from Dirichlet(n · probs): a probability row "worth n observations" around ``probs``.
+
+    Zero cells stay exactly zero (a structural impossibility isn't made possible by sampling).
+    """
+    draws = [rng.gammavariate(n * p, 1.0) if p > 0 else 0.0 for p in probs]
+    total = sum(draws)
+    if total <= 0:  # every positive alpha drew ~0 (tiny n): fall back to the point
+        return list(probs)
+    return [d / total for d in draws]
+
+
+def beta_around(rng: random.Random, p: float, n: float) -> float:
+    """One draw from Beta(n·p, n·(1−p)): a single probability worth n observations; 0 and 1 stay put."""
+    if p <= 0 or p >= 1:
+        return p
+    return rng.betavariate(n * p, n * (1 - p))

@@ -318,13 +318,15 @@ def infer(
     *,
     query: list[str] | None = None,
     evidence: dict[str, str] | None = None,
+    soft: dict[str, dict[str, float]] | None = None,
+    likelihood: dict[str, dict[str, float]] | None = None,
     root: Path | None = None,
 ) -> BNInferenceResult:
     """Load the BN and compute exact posterior marginals.
 
-    ``query`` and the keys of ``evidence`` accept node IDs, ID prefixes, or
-    labels; they are resolved to IDs before inference. The result is keyed by
-    node ID.
+    ``query`` and the keys of ``evidence``, ``soft`` and ``likelihood`` accept
+    node IDs, ID prefixes, or labels; they are resolved to IDs before inference.
+    The result is keyed by node ID.
     """
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
@@ -332,11 +334,30 @@ def infer(
     ss_map = {e.target_id: e.states for e in _load_state_spaces(paths).entries}
     cpt_map = _effective_cpt_map(paths)
 
+    def ids(block):  # noqa: ANN001, ANN202
+        return {resolve_target(k, substrate): v for k, v in block.items()} if block else None
+
     query_ids = [resolve_target(q, substrate) for q in query] if query else None
-    evidence_ids = (
-        {resolve_target(k, substrate): v for k, v in evidence.items()} if evidence else None
+    return bn_infer(
+        ss_map, cpt_map, query=query_ids, evidence=ids(evidence), soft=ids(soft), likelihood=ids(likelihood)
     )
-    return bn_infer(ss_map, cpt_map, query=query_ids, evidence=evidence_ids)
+
+
+def parse_distribution(text: str) -> tuple[str, dict[str, float]]:
+    """``"Wet=yes:0.8"`` or ``"Wet=yes:0.6,no:0.4"`` → ("Wet", {"yes": 0.8, ...})."""
+    if "=" not in text:
+        raise ValueError(f"expected 'Node=state:value[,state:value]', got {text!r}")
+    node, rest = text.rsplit("=", 1)
+    out: dict[str, float] = {}
+    for part in rest.split(","):
+        if ":" not in part:
+            raise ValueError(f"expected 'state:value' in {text!r}, got {part!r}")
+        state, value = part.rsplit(":", 1)
+        try:
+            out[state.strip()] = float(value)
+        except ValueError as exc:
+            raise ValueError(f"{value.strip()!r} in {text!r} is not a number") from exc
+    return node.strip(), out
 
 
 def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tuple[str, str]:
@@ -351,10 +372,9 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
     paths = require_project(root)
     labels = {e.id: e.label for e in load_model(Substrate, paths.conceptual_yaml).entities}
     nodes = sorted(result.marginals)
-    priors = (
-        infer(query=nodes, root=paths.root).marginals if result.evidence else result.marginals
-    )
-    evidence_text = ", ".join(f"{labels.get(k, k)}={v}" for k, v in sorted(result.evidence.items()))
+    conditioned = bool(result.evidence or result.soft or result.likelihood)
+    priors = infer(query=nodes, root=paths.root).marginals if conditioned else result.marginals
+    evidence_text = evidence_description(result.evidence, result.soft, result.likelihood, labels)
 
     def top(node: str) -> str:
         dist = result.marginals[node]
@@ -363,19 +383,170 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
 
     sha, run = record_result(
         kind="bn-query",
-        key="bn-query|" + ",".join(nodes) + "|" + ",".join(f"{k}={v}" for k, v in sorted(result.evidence.items())),
+        key="bn-query|" + ",".join(nodes) + "|" + evidence_key(result.evidence, result.soft, result.likelihood),
         payload={
-            "evidence": result.evidence, "posteriors": result.marginals, "priors": priors,
-            "labels": {n: labels.get(n, n) for n in {*nodes, *result.evidence}}, "method": result.method,
+            "evidence": result.evidence, "soft": result.soft, "likelihood": result.likelihood,
+            "posteriors": result.marginals, "priors": priors,
+            "labels": {n: labels.get(n, n) for n in {*nodes, *result.evidence, *result.soft, *result.likelihood}},
+            "method": result.method,
         },
         purpose="inference",
         algorithm=result.method,
         library_version=f"pgmpy {pgmpy.__version__}",
         summary=f"P(· | {evidence_text or 'no evidence'}): " + "; ".join(top(n) for n in nodes[:8]),
         model_type=_MODEL_TYPE,
-        hyperparameters={"query": nodes, "evidence": result.evidence},
+        hyperparameters={"query": nodes, "evidence": result.evidence, "soft": result.soft,
+                         "likelihood": result.likelihood},
         affected_target_ids=nodes,
         commit_subject=f"BN query: {len(nodes)} node(s) given {evidence_text or 'no evidence'}"[:120],
         root=paths.root,
+    )
+    return sha, run.id
+
+
+# ── evidence descriptions (shared by queries, explanations and Monte Carlo) ──
+
+
+def evidence_key(evidence: dict, soft: dict | None = None, likelihood: dict | None = None) -> str:
+    """A stable text key for a combination of hard, soft and likelihood evidence."""
+    parts = [f"{k}={v}" for k, v in sorted(evidence.items())]
+    for tag, block in (("~", soft or {}), ("*", likelihood or {})):
+        for k, dist in sorted(block.items()):
+            parts.append(f"{k}{tag}" + "/".join(f"{st}:{q:.6g}" for st, q in dist.items()))
+    return ",".join(parts)
+
+
+def evidence_description(
+    evidence: dict, soft: dict | None, likelihood: dict | None, labels: dict[str, str]
+) -> str:
+    """'Wet = yes, Rain = heavy (80% sure)' — for summaries, reports and claims."""
+    parts = [f"{labels.get(k, k)} = {v}" for k, v in sorted(evidence.items())]
+    for k, dist in sorted((soft or {}).items()):
+        state = max(dist, key=dist.get)  # type: ignore[arg-type]
+        parts.append(f"{labels.get(k, k)} = {state} ({dist[state]:.0%} sure)")
+    for k, w in sorted((likelihood or {}).items()):
+        parts.append(f"{labels.get(k, k)}: an observation weighing " + " : ".join(f"{st} {v:g}" for st, v in w.items()))
+    return ", ".join(parts)
+
+
+def _resolve_block(block, substrate):  # noqa: ANN001, ANN202
+    return {resolve_target(k, substrate): v for k, v in block.items()} if block else {}
+
+
+# ── most likely explanation ──────────────────────────────────────────
+
+
+def explain(
+    *,
+    over: list[str] | None = None,
+    evidence: dict[str, str] | None = None,
+    soft: dict[str, dict[str, float]] | None = None,
+    likelihood: dict[str, dict[str, float]] | None = None,
+    root: Path | None = None,
+) -> dict:
+    """The most likely joint explanation (MPE, or MAP over ``over``) given the evidence; labels accepted."""
+    from latris.operations import bn_explain
+
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    ss_map = {e.target_id: e.states for e in _load_state_spaces(paths).entries}
+    out = bn_explain.explain(
+        ss_map, _effective_cpt_map(paths),
+        over=[resolve_target(n, substrate) for n in over] if over else None,
+        evidence=_resolve_block(evidence, substrate), soft=_resolve_block(soft, substrate),
+        likelihood=_resolve_block(likelihood, substrate),
+    )
+    labels = {e.id: e.label for e in substrate.entities}
+    out["labels"] = {n: labels.get(n, n) for n in {*out["over"], *out["evidence"], *out["soft"], *out["likelihood"]}}
+    return out
+
+
+def describe_explanation(p: dict) -> str:
+    labels = p["labels"]
+    cond = evidence_description(p["evidence"], p["soft"], p["likelihood"], labels) or "no evidence"
+    states = ", ".join(f"{labels.get(n, n)} = {p['assignment'][n]}" for n in p["over"])
+    prob = f" (P = {p['probability']:.0%})" if p.get("probability") is not None else ""
+    return f"Given {cond}, the most likely explanation is {states}{prob}"
+
+
+def record_explanation(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
+    import pgmpy
+
+    from latris.operations.analysis_results import record_result
+
+    sha, run = record_result(
+        kind="bn-explanation",
+        key="bn-explanation|" + ",".join(sorted(payload["over"])) + "|"
+            + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"]),
+        payload=payload,
+        purpose="inference",
+        algorithm=f"{payload['kind']}; {payload['method']}",
+        library_version=f"pgmpy {pgmpy.__version__}",
+        summary=describe_explanation(payload),
+        model_type=_MODEL_TYPE,
+        hyperparameters={"over": payload["over"] if payload["kind"] == "MAP" else None,
+                         "evidence": payload["evidence"], "soft": payload["soft"], "likelihood": payload["likelihood"]},
+        affected_target_ids=list(payload["over"]),
+        commit_subject=f"BN most likely explanation ({payload['kind']}, {len(payload['over'])} node(s))",
+        root=root,
+    )
+    return sha, run.id
+
+
+# ── probabilistic sensitivity (Monte Carlo over the tables) ──────────
+
+
+def run_monte_carlo(
+    target: str,
+    *,
+    evidence: dict[str, str] | None = None,
+    soft: dict[str, dict[str, float]] | None = None,
+    likelihood: dict[str, dict[str, float]] | None = None,
+    runs: int = 500,
+    seed: int = 1234,
+    max_seconds: float = 60.0,
+    root: Path | None = None,
+) -> dict:
+    """Re-ask P(target | evidence) under draws of every table that has an uncertainty ("worth n")."""
+    from latris.operations import bn_montecarlo, uncertainty
+
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    ss_map = {e.target_id: e.states for e in _load_state_spaces(paths).entries}
+    labels = {e.id: e.label for e in substrate.entities}
+    noisy = {e.target_id: e for e in _load_noisy_or(paths).entries}
+    return bn_montecarlo.monte_carlo(
+        ss_map, _effective_cpt_map(paths), noisy, uncertainty.bn_specs(paths), resolve_target(target, substrate),
+        evidence=_resolve_block(evidence, substrate), soft=_resolve_block(soft, substrate),
+        likelihood=_resolve_block(likelihood, substrate), runs=runs, seed=seed, max_seconds=max_seconds,
+        labels=labels,
+    )
+
+
+def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
+    import pgmpy
+
+    from latris.operations.analysis_results import record_result
+    from latris.operations.bn_montecarlo import describe
+
+    sha, run = record_result(
+        kind="bn-monte-carlo",
+        key=f"bn-monte-carlo|{payload['target']}|"
+            + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"]),
+        payload=payload,
+        purpose="sensitivity-analysis",
+        algorithm="monte-carlo[dirichlet]; variable_elimination",
+        library_version=f"pgmpy {pgmpy.__version__}",
+        summary=describe(payload),
+        model_type=_MODEL_TYPE,
+        hyperparameters={"target": payload["target"], "evidence": payload["evidence"], "soft": payload["soft"],
+                         "likelihood": payload["likelihood"], "runs": payload["runs"]},
+        uncertainty=True,
+        seed=payload["seed"],
+        metrics={"runs": payload["runs"], "seconds": payload["seconds"]},
+        affected_target_ids=[payload["target"]],
+        duration_seconds=payload["seconds"],
+        commit_subject=f"BN Monte Carlo: {payload['runs']} draws"[:120],
+        root=root,
     )
     return sha, run.id

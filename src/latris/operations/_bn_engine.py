@@ -104,22 +104,100 @@ def build_network(state_spaces: dict[str, list[str]], cpts: dict[str, CPTEntry])
     return network
 
 
+Likelihood = dict[str, dict[str, float]]  # node -> {state: weight}; virtual (likelihood) evidence
+
+
+def _virtual(network, likelihood: Likelihood | None) -> list | None:
+    """pgmpy virtual-evidence factors for likelihood evidence (weights need not sum to 1)."""
+    if not likelihood:
+        return None
+    _, TabularCPD, _ = _import_pgmpy()
+    out = []
+    for node, weights in likelihood.items():
+        states = network.get_cpds(node).state_names[node]
+        values = [float(weights.get(s, 0.0)) for s in states]
+        total = sum(values)
+        if total <= 0:
+            raise ValueError(f"likelihood evidence on {node!r} gives every state zero weight")
+        out.append(TabularCPD(node, len(states), [[v / total] for v in values], state_names={node: states}))
+    return out
+
+
 def query_marginals(
     network,
     targets: list[str],
     evidence: dict[str, str],
+    *,
+    likelihood: Likelihood | None = None,
 ) -> dict[str, dict[str, float]]:
     """Exact posterior marginal for each target node, given evidence.
 
     Returns ``node_id -> {state: probability}``. Each target is queried
     independently so the result is per-node marginals (not a joint).
+    ``likelihood`` adds virtual (likelihood) evidence: weights per state of a node.
     """
     _, _, VariableElimination = _import_pgmpy()
     infer = VariableElimination(network)
+    virtual = _virtual(network, likelihood)
 
     out: dict[str, dict[str, float]] = {}
     for node in targets:
-        factor = infer.query(variables=[node], evidence=evidence or None, show_progress=False)
+        factor = infer.query(
+            variables=[node], evidence=evidence or None, virtual_evidence=virtual, show_progress=False
+        )
         states = factor.state_names[node]
         out[node] = {state: float(factor.values[i]) for i, state in enumerate(states)}
+    return out
+
+
+def map_assignment(
+    network,
+    variables: list[str],
+    evidence: dict[str, str],
+    *,
+    likelihood: Likelihood | None = None,
+) -> dict[str, str]:
+    """The jointly most probable states of ``variables`` given the evidence (MAP; MPE when all).
+
+    ``variables`` must be explicit: pgmpy's ``map_query`` without them returns the
+    evidence nodes (with wrong values) and internal ``__``-prefixed keys.
+    """
+    if not variables:
+        return {}
+    _, _, VariableElimination = _import_pgmpy()
+    infer = VariableElimination(network)
+    result = infer.map_query(
+        variables=list(variables), evidence=evidence or None, virtual_evidence=_virtual(network, likelihood),
+        show_progress=False,
+    )
+    return {str(k): str(v) for k, v in result.items() if k in variables and not str(k).startswith("__")}
+
+
+def joint_posterior(
+    network,
+    variables: list[str],
+    evidence: dict[str, str],
+    *,
+    likelihood: Likelihood | None = None,
+    max_cells: int = 4096,
+) -> dict[tuple[str, ...], float] | None:
+    """P(assignment of ``variables`` | evidence) for every assignment, or None above ``max_cells``."""
+    cells = 1
+    for v in variables:
+        cells *= len(network.get_cpds(v).state_names[v])
+        if cells > max_cells:
+            return None
+    _, _, VariableElimination = _import_pgmpy()
+    infer = VariableElimination(network)
+    factor = infer.query(
+        variables=list(variables), evidence=evidence or None, virtual_evidence=_virtual(network, likelihood),
+        joint=True, show_progress=False,
+    )
+    order = list(factor.variables)
+    states = [factor.state_names[v] for v in order]
+    flat = factor.values.reshape(-1)
+    out: dict[tuple[str, ...], float] = {}
+    for i, combo in enumerate(itertools.product(*states)):
+        by_name = dict(zip(order, combo, strict=True))
+        out[tuple(by_name[v] for v in variables)] = float(flat[i])
     return out
