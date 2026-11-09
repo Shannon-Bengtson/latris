@@ -37,6 +37,8 @@ from latris.schema.sd import SDTableEntry
 TIME = "TIME"
 FUNCTIONS: tuple[str, ...] = (
     "MIN", "MAX", "ABS", "IF_THEN_ELSE", "STEP", "RAMP", "PULSE", "TABLE", "EXP", "LN", "SQRT",
+    # Expanded into hidden stocks before evaluation (operations/_sd_delays.py); never evaluated directly.
+    "SMOOTH", "SMOOTH3", "DELAY1", "DELAY3",
 )
 
 _MAX_EXPONENT = 100

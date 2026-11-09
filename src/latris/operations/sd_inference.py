@@ -98,6 +98,7 @@ class SDModel:
     evaluator: Evaluator = field(default_factory=Evaluator)
     fast: Any = None  # compiled float functions (``_sd_fast``); shared across value-only copies
     notes: list[str] = field(default_factory=list)  # advisories (e.g. the clock disagrees with the flows)
+    hidden: set[str] = field(default_factory=set)  # SMOOTH/DELAY structure: computed, not shown in results
 
 
 @dataclass(frozen=True)
@@ -155,7 +156,116 @@ def analyse(
     entity_ids: list[str] | None = None,
     edge_ids: list[str] | None = None,
 ) -> tuple[SDModel | None, list[SDProblem]]:
-    """Check an SD model end to end; return the compiled model (if sound) and every problem."""
+    """Check an SD model end to end; return the compiled model (if sound) and every problem.
+
+    SMOOTH / DELAY calls are expanded into hidden stocks and flows first (``_sd_delays``).
+    """
+    from latris.operations import _sd_delays
+
+    if _sd_delays.uses_delays([e.expression for e in equations.entries]):
+        return _analyse_with_delays(substrate, roles, equations, stocks, constants, tables, settings,
+                                    entity_ids=entity_ids, edge_ids=edge_ids)
+    return _analyse_core(substrate, roles, equations, stocks, constants, tables, settings,
+                         entity_ids=entity_ids, edge_ids=edge_ids)
+
+
+def _analyse_with_delays(
+    substrate: Substrate,
+    roles: RoleSet,
+    equations: SDEquationSet,
+    stocks: SDStockSet,
+    constants: SDConstantSet,
+    tables: SDTableSet,
+    settings: SDSettings | None,
+    *,
+    entity_ids: list[str] | None,
+    edge_ids: list[str] | None,
+) -> tuple[SDModel | None, list[SDProblem]]:
+    from latris.operations import _sd_delays
+
+    settings = settings or SDSettings()
+
+    def rewritten(mode: str, labels: dict[str, str] | None = None) -> tuple[SDEquationSet, list[_sd_delays.Call]]:
+        entries, calls = [], []
+        for e in equations.entries:
+            if _sd_delays.uses_delays([e.expression]):
+                text, found = _sd_delays.rewrite(e.expression, e.target_id, len(calls), mode,
+                                                 (labels or {}).get(e.target_id, ""))
+                calls.extend(found)
+                entries.append(e.model_copy(update={"expression": text}))
+            else:
+                entries.append(e)
+        return SDEquationSet(entries=entries), calls
+
+    try:
+        stand_in, calls = rewritten("stand-in")
+    except (ValueError, SyntaxError) as exc:
+        owner = next((e.target_id for e in equations.entries if _sd_delays.uses_delays([e.expression])), "")
+        return None, [SDProblem(owner, "equation_invalid", str(exc))]
+
+    first, problems = _analyse_core(substrate, roles, stand_in, stocks, constants, tables, settings,
+                                    entity_ids=entity_ids, edge_ids=edge_ids)
+    if first is None:
+        return None, problems
+
+    y0 = [first.initial[s] for s in first.stocks]
+    names = _base_names(first, settings.initial_time, y0)
+    for v, q in evaluate_step(first, settings.initial_time, y0).items():
+        names[first.slugs[v]] = q
+    by_slug = {slug: i for i, slug in first.slugs.items()}
+    for call in calls:
+        call.owner_label = first.labels.get(call.owner, call.owner)
+        px, pt = parse(call.x), parse(call.t)
+        call.x_reads = [by_slug[n] for n in sorted(px.names) if n in by_slug]
+        call.t_reads = [by_slug[n] for n in sorted(pt.names) if n in by_slug]
+        x = first.evaluator.evaluate(px, names)
+        t = first.evaluator.evaluate(pt, names)
+        if isinstance(x, Quantity):
+            call.x_units, call.x0 = describe(x.units), float(x.magnitude)
+        else:
+            call.x_units, call.x0 = "dimensionless", float(x)
+        if isinstance(t, Quantity):
+            if not is_compatible(t.units, first.time_unit):
+                return None, [SDProblem(call.owner, "units_mismatch",
+                                        f"the delay time in {call.fname}({call.x}, {call.t}) is in "
+                                        f"{describe(t.units)}; it must be a time")]
+            call.t0 = float(t.to(first.time_unit).magnitude)
+        else:
+            call.t_bare, call.t0 = True, float(t)
+        if call.t0 <= 0:
+            return None, [SDProblem(call.owner, "evaluation_error",
+                                    f"the delay time in {call.fname}({call.x}, {call.t}) must be positive")]
+
+    expanded_eqs, _ = rewritten("expanded", first.labels)
+    ex = _sd_delays.expand(calls, clock=settings.time_units)
+    model, problems = _analyse_core(
+        Substrate(entities=[*substrate.entities, *ex.entities], edges=[*substrate.edges, *ex.edges]),
+        RoleSet(entries=[*roles.entries, *ex.roles]),
+        SDEquationSet(entries=[*expanded_eqs.entries, *ex.equations]),
+        SDStockSet(entries=[*stocks.entries, *ex.stocks]),
+        SDConstantSet(entries=[*constants.entries, *ex.constants]),
+        tables,
+        settings,
+        entity_ids=None if entity_ids is None else [*entity_ids, *(e.id for e in ex.entities)],
+        edge_ids=None if edge_ids is None else [*edge_ids, *(e.id for e in ex.edges)],
+    )
+    if model is not None:
+        model.hidden = set(ex.hidden)
+    return model, problems
+
+
+def _analyse_core(
+    substrate: Substrate,
+    roles: RoleSet,
+    equations: SDEquationSet,
+    stocks: SDStockSet,
+    constants: SDConstantSet,
+    tables: SDTableSet,
+    settings: SDSettings | None = None,
+    *,
+    entity_ids: list[str] | None = None,
+    edge_ids: list[str] | None = None,
+) -> tuple[SDModel | None, list[SDProblem]]:
     settings = settings or SDSettings()
     labels = {e.id: e.label for e in substrate.entities}
     in_view = set(entity_ids) if entity_ids is not None else set(labels)
@@ -551,7 +661,7 @@ def fast_model(model: SDModel) -> Any:
     return model.fast or None
 
 
-def simulate(model: SDModel, *, fast: bool = True) -> SDSimulationResult:
+def simulate(model: SDModel, *, fast: bool = True, include_hidden: bool = False) -> SDSimulationResult:
     """Integrate the model over its settings' horizon; report stocks, flows and auxiliaries.
 
     ``fast`` uses the compiled float path when the model allows it (identical
@@ -609,7 +719,9 @@ def simulate(model: SDModel, *, fast: bool = True) -> SDSimulationResult:
                 f"although it is marked non-negative; limit its outflows."
             )
 
-    units = {i: model.unit_text[i] for i in (*model.stocks, *model.order)}
+    if not include_hidden and model.hidden:
+        series = {k: v for k, v in series.items() if k not in model.hidden}
+    units = {i: model.unit_text[i] for i in series}
     return SDSimulationResult(
         times=engine.times,
         series=series,

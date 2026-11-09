@@ -57,8 +57,12 @@ def sensitivity(
 ) -> SensitivityResult:
     """Rank CPT conditionals by their one-way influence on ``P(target=state|evidence)``.
 
-    Each row is swept over the full [0, 1] range of its most-influential cell.
+    Each row's most influential cell is swept across a range: the 5th–95th
+    percentile of its uncertainty when the table has one ("worth n observations",
+    ``bn set-uncertainty``), otherwise the whole of 0 to 1 — said so in
+    ``range_source``, because a 0-to-1 swing overstates what's plausible.
     """
+    from latris.operations import uncertainty as unc
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     target_id = resolve_target(target, substrate)
@@ -75,6 +79,22 @@ def sensitivity(
     base_net = build_network(ss_map, base_map)
     baseline = query_marginals(base_net, [target_id], evidence_ids)[target_id][target_state]
 
+    specs = unc.bn_specs(paths)
+
+    def cell_range(node_id: str, entry, row, p: float) -> tuple[float, float, str]:  # noqa: ANN001
+        node_specs = specs.get(node_id, {})
+        spec = node_specs.get(unc.row_cell(entry.parents, row.parent_states)) if entry.parents else None
+        spec = spec or node_specs.get(unc.BN_TABLE)
+        if spec is None or not 0 < p < 1:
+            return 0.0, 1.0, "any value from 0 to 1"
+        from latris.operations._sampling import Sampler
+        from latris.schema.attributes import ParameterUncertainty
+
+        n = spec.params["n"]
+        beta = Sampler(ParameterUncertainty(target_id=node_id, distribution="beta",
+                                            params={"alpha": n * p, "beta": n * (1 - p)}))
+        return beta.quantile(0.05), beta.quantile(0.95), f"5th–95th percentile, worth {n:g} observations"
+
     runs = 0
     findings: list[SensitivityFinding] = []
     for node_id, entry in base_map.items():
@@ -83,15 +103,17 @@ def sensitivity(
         for row_idx, row in enumerate(entry.rows):
             best_inf = -1.0
             best_cell = 0
+            best_range = (0.0, 1.0, "any value from 0 to 1")
             for cell_idx in range(len(row.p)):
-                lo = _row_posterior(base_map, ss_map, node_id, row_idx, cell_idx, 0.0,
+                low, high, source = cell_range(node_id, entry, row, row.p[cell_idx])
+                lo = _row_posterior(base_map, ss_map, node_id, row_idx, cell_idx, low,
                                     target_id, target_state, evidence_ids)
-                hi = _row_posterior(base_map, ss_map, node_id, row_idx, cell_idx, 1.0,
+                hi = _row_posterior(base_map, ss_map, node_id, row_idx, cell_idx, high,
                                     target_id, target_state, evidence_ids)
                 runs += 2
                 inf = abs(hi - lo)
                 if inf > best_inf:
-                    best_inf, best_cell = inf, cell_idx
+                    best_inf, best_cell, best_range = inf, cell_idx, (low, high, source)
             weak = (row.verification != "human-verified") or row.contested
             findings.append(
                 SensitivityFinding(
@@ -105,6 +127,9 @@ def sensitivity(
                     source_id=row.source_id,
                     contested=row.contested,
                     weak=weak,
+                    low=best_range[0],
+                    high=best_range[1],
+                    range_source=best_range[2],
                 )
             )
 

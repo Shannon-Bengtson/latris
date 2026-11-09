@@ -15,6 +15,7 @@ per variable the end value, peak and change against the baseline.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 from dataclasses import dataclass
@@ -211,7 +212,7 @@ def key(runs: list[ScenarioRun]) -> str:
             names.append(f"{WHAT_IF}-{digest}")
         else:
             names.append(r.name)
-    return "sd-simulation|" + ",".join(sorted(names))
+    return "sd-simulation|" + json.dumps(sorted(names), ensure_ascii=False)
 
 
 def _r(x: float) -> float:

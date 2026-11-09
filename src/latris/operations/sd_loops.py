@@ -40,6 +40,7 @@ from latris.operations.sd_scenarios import _r, _thin, apply_overrides
 from latris.schema.sd import SDScenario
 
 MAX_LOOPS = 500
+MAX_PERIODS_DESCRIBED = 4  # the summary names the longest dominant periods; the table and chart have them all
 DOMINANT_SHARE = 0.5
 
 
@@ -119,7 +120,7 @@ def loop_dominance(
         ) from exc
 
     fine = with_values(base, settings=base.settings.model_copy(update={"saveper": None}))
-    res = simulate(fine)
+    res = simulate(fine, include_hidden=True)  # SMOOTH/DELAY structure carries feedback too
     if not res.success:
         raise ValueError(f"the simulation failed, so its loops can't be scored: {res.message}")
     times = res.times
@@ -307,13 +308,23 @@ def describe(payload: dict[str, Any]) -> str:
     if not payload["loops"]:
         return "No feedback loops."
     by_id = {lp["id"]: lp for lp in payload["loops"]}
-    parts = []
-    for s in payload["sets"]:
-        for p in s["dominant_periods"]:
-            if not p["loops"]:
-                continue
-            names = " + ".join(f"{lid} ({' → '.join(by_id[lid]['members'])})" for lid in p["loops"])
-            parts.append(
-                f"{names} dominates {p['start']:g}–{p['end']:g} {payload['time_units']} ({p['share'] * 100:.0f}%)"
-            )
-    return "; then ".join(parts) or "No loop dominates (the stocks barely change)."
+
+    def name(lid: str) -> str:
+        members = by_id[lid]["members"]
+        shown = " → ".join(members[:3]) + (" → …" if len(members) > 3 else "")
+        return f"{lid} ({shown})"
+
+    periods = [p for s in payload["sets"] for p in s["dominant_periods"] if p["loops"]]
+    if not periods:
+        return "No loop dominates (the stocks barely change)."
+    shown = periods
+    if len(periods) > MAX_PERIODS_DESCRIBED:
+        longest = sorted(periods, key=lambda p: p["end"] - p["start"], reverse=True)[:MAX_PERIODS_DESCRIBED]
+        shown = sorted(longest, key=lambda p: p["start"])
+    parts = [
+        f"{' + '.join(name(lid) for lid in p['loops'])} dominates {p['start']:g}–{p['end']:g} "
+        f"{payload['time_units']} ({p['share'] * 100:.0f}%)"
+        for p in shown
+    ]
+    rest = len(periods) - len(shown)
+    return "; then ".join(parts) + (f" (+{rest} shorter switch{'es' if rest != 1 else ''})" if rest else "")

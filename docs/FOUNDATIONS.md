@@ -62,18 +62,25 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
 - **Lineage.** Pearl (1988), *Probabilistic Reasoning in Intelligent Systems*
   — the founding text. Fenton & Neil (2018), *Risk Assessment and Decision
   Analysis with Bayesian Networks* (2nd ed.) — the closest in spirit to
-  Latris: expert-elicited structure, defensible numbers, argued cases.
+  Latris: expert-elicited structure, defensible numbers, argued cases. Soft
+  (likelihood) evidence follows Jeffrey (1965), *The Logic of Decision*.
 - **Implemented.** Exact inference by variable elimination (pgmpy), per-node
-  posterior marginals; Noisy-OR canonical models (binary nodes); CPT parameter
+  posterior marginals; soft (likelihood) evidence per node — weights need not
+  sum to one (`--likelihood`); `bn explain` for the most probable joint
+  states (MAP, or MPE when all variables are queried) with margins; Noisy-OR
+  canonical models (binary nodes); CPT parameter
   learning from data (MLE / Bayesian-Dirichlet estimators) with
   human-elicited rows protected from overwrite and learned rows marked
   `data-derived`; one-way (tornado) sensitivity of a target node over CPT
-  cells, with a provenance overlay (`latris bn …`).
+  cells, with a provenance overlay; probabilistic sensitivity analysis by
+  Monte Carlo over uncertain CPT rows (`bn set-uncertainty --n` with
+  `bn monte-carlo`) (`latris bn …`).
 - **Limits.** Variable elimination only — no junction tree or belief
   propagation. Marginals, not joints. Noisy-OR requires binary nodes and
-  parents. Sensitivity is one-way; there is no multi-way or derivative-based
-  analysis, and no PSA/EVPI (deferred). Structure learning is excluded by
-  design — see `latris capabilities`, `excluded_by_design`.
+  parents. Tornado sensitivity is one-way; probabilistic sensitivity analysis
+  ships separately by Monte Carlo, as above; EVPI is deferred. Structure
+  learning is excluded by design — see `latris capabilities`,
+  `excluded_by_design`.
 
 ## Fuzzy cognitive maps
 
@@ -176,6 +183,7 @@ the code it describes win, and this page is wrong.
   of evidence and strength of recommendations." *BMJ*, 336, 924–926.
 - Hernán, M., & Robins, J. (2020). *Causal Inference: What If*. Chapman &
   Hall/CRC. <https://hsph.harvard.edu/causalinference/>
+- Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.
 - Kosko, B. (1986). "Fuzzy Cognitive Maps." *International Journal of

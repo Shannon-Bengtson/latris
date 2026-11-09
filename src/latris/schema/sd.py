@@ -181,8 +181,6 @@ class SDScenario(_Base):
         name = _non_blank(v, "a scenario name")
         if name.lower() == "baseline":
             raise ValueError("'baseline' is the unchanged model; give the scenario another name")
-        if "," in name or "|" in name:
-            raise ValueError("scenario names can't contain ',' or '|'")
         return name
 
 

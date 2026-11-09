@@ -94,7 +94,9 @@ def tornado(
         raise ValueError(f"the baseline run failed: {reference.message}")
     baseline_metric = measure(reference.times, reference.series[vid], kind, at)
 
-    params = sorted([*base.constants, *base.stocks], key=lambda k: base.labels.get(k, k))
+    params = sorted(
+        (k for k in (*base.constants, *base.stocks) if k not in base.hidden), key=lambda k: base.labels.get(k, k)
+    )
     rows: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
     runs = 1

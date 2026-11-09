@@ -18,16 +18,27 @@ the people who must weigh in on their models — lives at
 [app.latris.app](https://app.latris.app)). This repository is the open
 backend that powers it.
 
+| | Open-source library (`pip install "latris[data,quant]"`) | Latris app ([app.latris.app](https://app.latris.app) — free account, nothing to install) |
+|---|---|---|
+| What it is | The engine and CLI: every analysis, a Markdown report with a Mermaid sketch, `latris link` | The hosted **interactive report** (typeset figure, result charts, interpretation — what a board reads), the visual editor, Word reports, review packs reviewers fill in, the scrollytelling story, saved models with short links |
+
+A `latris link` link **is** the shareable report: it opens the interactive
+report in the app. Send it as it is — no wrapper page or separate document.
+
 - Every modelling project is a **git repo** — every change is an
   inspectable, reversible commit.
 - Evidence and provenance are **first-class data**, not annotations:
   citations, assumptions, decisions, challenges, sign-offs.
 - AI assistance returns **structured proposals**, never free-form
   mutations; a human approves before anything commits.
-- One substrate, many formalisms: qualitative CLD/DAG views today, a
-  built-in discrete **Bayesian Network engine** (state spaces, CPTs with
-  per-cell provenance, exact inference, parameter learning), and more
-  views on the architecture's path.
+- One substrate, many formalisms: causal loop diagrams and DAGs; fuzzy
+  cognitive maps; a discrete **Bayesian network** engine (per-cell
+  provenance, exact inference with hard and soft evidence, the most likely
+  explanation, learning from data, sensitivity and Monte Carlo over the
+  tables); and **system dynamics** (unit-checked equations, delays,
+  scenarios, Monte Carlo bands, sensitivity and loop dominance). A causal
+  loop diagram and an SD model can share one project: its loops include
+  feedback through stocks.
 
 Status: **alpha**. Apache-2.0 licensed.
 
@@ -152,6 +163,19 @@ section ships with the package: `latris docs` prints it with no network
 [`llms.txt`](llms.txt)), and `latris capabilities` lists what Latris can
 do. The engineering docs are in the repo:
 [`docs/README.md`](docs/README.md).
+
+**Install with the extras:** `pip install "latris[data,quant]"` (SD
+integration methods and Bayesian inference need them; `latris capabilities
+--json` shows what's installed).
+
+**What you get where** — so you hand a person the right thing:
+
+| | Open-source library (`pip install "latris[data,quant]"`) | Latris app ([app.latris.app](https://app.latris.app) — free account, nothing to install) |
+|---|---|---|
+| What it is | The engine and CLI: every analysis, a Markdown report with a Mermaid sketch, `latris link` | The hosted **interactive report** (typeset figure, result charts, interpretation — what a board reads), the visual editor, Word reports, review packs reviewers fill in, the scrollytelling story, saved models with short links |
+
+A `latris link` link **is** the shareable report: it opens the interactive
+report in the app. Send it as it is — no wrapper page or separate document.
 
 **An agent can act as the model.** The AI layer doesn't require its own
 API key: any of the 46 AI prompts can be delegated to whichever agent is

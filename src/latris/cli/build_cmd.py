@@ -6,6 +6,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit
@@ -68,7 +69,7 @@ def build(
             + (f", {result.parameters} parameters" if result.parameters else "")
             + (f", {len(result.analyses)} analyses run" if result.analyses else "")
             + f" · commit [cyan]{result.commit_sha[:10]}[/cyan]"
-            + "".join(f"\n[yellow]note:[/yellow] {n}" for n in result.notes)
+            + "".join(f"\n[yellow]note:[/yellow] {escape(n)}" for n in result.notes)
         ),
     )
     if result.missing_extras:

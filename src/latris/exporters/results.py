@@ -305,11 +305,13 @@ def _bn_sensitivity(p: dict[str, Any], labels: dict[str, str]) -> list[str]:
             [
                 cell,
                 _pct(f["baseline_prob"]),
+                f"{_pct(f.get('low', 0.0))}–{_pct(f.get('high', 1.0))} "
+                f"({f.get('range_source', 'any value from 0 to 1')})",
                 f"{f['influence'] * 100:.1f} points",
                 _grounding(f.get("origin"), f.get("verification")),
             ]
         )
-    out += _table(["Probability", "Value", "Target moves by up to", "Grounding"], rows)
+    out += _table(["Probability", "Value", "Range tried", "Target moves by up to", "Grounding"], rows)
     return out
 
 

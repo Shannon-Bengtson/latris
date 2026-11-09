@@ -224,6 +224,9 @@ class SensitivityFinding(_Base):
     source_id: str | None = None
     contested: bool = False
     weak: bool = False  # influential but not human-verified (or contested)
+    low: float = 0.0  # the range the cell was swept across
+    high: float = 1.0
+    range_source: str = "any value from 0 to 1"  # or "5th–95th percentile, worth n observations"
 
 
 class SensitivityResult(_Base):

@@ -197,7 +197,15 @@ class ReportResult:
 
 
 def _scope(run: AnalysisRun) -> frozenset[str]:
-    return frozenset(s for s in run.analysis_key.split("|", 1)[-1].split(",") if s)
+    """The scenarios a simulation compared: a JSON list since 0.9.1, comma-separated before."""
+    rest = run.analysis_key.split("|", 1)[-1]
+    try:
+        names = json.loads(rest)
+        if isinstance(names, list):
+            return frozenset(str(n) for n in names)
+    except ValueError:
+        pass
+    return frozenset(s for s in rest.split(",") if s)
 
 
 def report_results(

@@ -247,7 +247,7 @@ learning from data, and sensitivity analysis. Runs are logged as
 ```bash
 latris bn set-state-space <node> <states...>   # define a node's discrete states
 latris bn set-cpt <node> ...                   # set a conditional probability table cell/column
-latris bn set-noisy-or <node> ...              # define a Noisy-OR canonical CPT
+latris bn set-noisy-or <node> -c "Cause=yes:0.6" [--leak 0.02] [--active yes]   # Noisy-OR; --active = the effect state
 latris bn learn <dataset>                      # learn parameters from data (provenance-protecting merge)
 latris bn state-spaces                         # list defined state spaces
 latris bn cpts                                 # list defined CPTs
@@ -272,6 +272,8 @@ diagram/equation correspondence, and full dimensional consistency.
 Simulations are logged as `AnalysisRun` records (`purpose: simulation`).
 
 ```bash
+latris sd set-settings [--time-units month] [--final-time 36] [--initial-time] [--dt] [--saveper] [--method]
+latris sd settings                             # the stored clock and the defaults for anything unset
 latris sd set-role <node> <stock|flow|auxiliary|constant|source_sink>
 latris sd set-initial-value <stock> <value> --units <u> [--non-negative]
 latris sd set-constant <node> <value> --units <u>

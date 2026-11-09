@@ -820,6 +820,7 @@ Every CPT row carries its own provenance — `origin` (human-direct, human-elici
 - **`bn check`** — readiness: state spaces defined, CPTs complete + normalised, acyclic.
 - **`bn marginals` / `bn query --evidence … --query …`** — exact inference. Each query is recorded (`--no-record` to skip); reports show the latest one per evidence set, posterior against prior, with a chart.
 - **`bn sensitivity <target> --state …`** — rank the parameters that move a conclusion, flagging the ones that aren't human-verified.
+- **Noisy-OR** — `bn set-noisy-or <node> -c "Cause=yes:0.6" --leak 0.02 --active yes`: `--active` names the node's state the causes push toward; it's required unless the first state is plainly the event (yes, true, present…).
 - **Soft evidence** — `bn query -s "Wet=yes:0.8"` when you're not certain: afterwards P(Wet = yes) is 80% (Jeffrey's rule) and the other states share the rest. `--likelihood "Wet=yes:4,no:1"` instead says how much an observation favours each state.
 - **`bn explain -e …`** — the single most likely combination of states given the evidence (MPE; `--over` limits it to chosen nodes, MAP), its probability, how many times likelier each state is than its runner-up, and where a node's own favourite differs from the combination.
 - **`bn set-uncertainty <node> --n 20`** — how well a probability table is known: "worth about n observations" (`--row "Parent=state,…"` for one row). **`bn monte-carlo <target> [--state s] -e …`** then re-asks the query under seeded draws of every such table and gives the point estimate, median and the range 50% / 95% of draws fall in, the tables held fixed, and which tables drive the spread.
@@ -844,11 +845,12 @@ SD uses the same entities and edges as every other view. Each SD variable is an 
 
 ## Equations and units
 
-Equations reference variables by slugified label (`Birth Rate` → `birth_rate`) plus `TIME`, using arithmetic, comparisons, and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE(cond, a, b)`, `STEP(height, start)`, `RAMP(slope, start[, end])`, `PULSE(start, width)`, `TABLE(x)`, `EXP`, `LN`, `SQRT`. A bare start, end or width is in the model's time units. Every stock, constant and equation declares its **units** (pint syntax: `liter`, `person/year`, `1/year`, `dimensionless`; `person`, `dollar` and `item` are built in). Values are evaluated as unit-bearing quantities, so adding litres to people, or a flow whose units aren't its stock's units per time unit, is caught as an error rather than producing a wrong number. Equations have no unit literals — give a unit-bearing number its own named, sourced constant. An equation that is just a bare number (`3`) takes its declared units.
+Equations reference variables by slugified label (`Birth Rate` → `birth_rate`) plus `TIME`, using arithmetic, comparisons, and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE(cond, a, b)`, `STEP(height, start)`, `RAMP(slope, start[, end])`, `PULSE(start, width)`, `TABLE(x)`, `EXP`, `LN`, `SQRT`, and the delays `SMOOTH(x, T)` / `SMOOTH3` (a perceived value catching up with x) and `DELAY1(x, T)` / `DELAY3` (material arriving after a delay) — each becomes hidden stocks and flows, so units, Monte Carlo and loop dominance include them. A bare start, end, width or delay time is in the model's time units. Every stock, constant and equation declares its **units** (pint syntax: `liter`, `person/year`, `1/year`, `dimensionless`; `person`, `dollar` and `item` are built in). Values are evaluated as unit-bearing quantities, so adding litres to people, or a flow whose units aren't its stock's units per time unit, is caught as an error rather than producing a wrong number. Equations have no unit literals — give a unit-bearing number its own named, sourced constant. An equation that is just a bare number (`3`) takes its declared units.
 
 ## Working with SD (the `sd` commands)
 
 - **`sd set-role <node> <role>`** — stock, flow, auxiliary, constant, or source_sink.
+- **`sd set-settings --time-units month --final-time 36`** — the model's clock and run settings, stored with it (every run, and anyone opening a link, uses them; options on a run override). If the flows are per month but the clock runs in years, every run and `sd check` warn. **`latris view role sd <node> outcome`** marks what the model explains.
 - **`sd set-initial-value <stock> <value> --units …`** — a stock's starting value (`--non-negative` warns if a run drives it below zero).
 - **`sd set-constant <node> <value> --units …`** and **`sd set-equation <flow|aux> "<expr>" --units …`** — each with `--origin`/`--source` provenance.
 - **`sd set-table <node> -p x:y -p x:y … --x-units … --y-units …`** — a piecewise-linear lookup the node's equation calls as `TABLE(x)`; typically elicited from experts as a curve.
@@ -871,7 +873,7 @@ Once a model passes its unit check it runs on a compiled float path (identical r
 
 ## Not yet
 
-Calibration to data, delay functions (DELAY1/SMOOTH), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, the GUI stock-and-flow canvas, and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
+Calibration to data, arrays (subscripts), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, the GUI stock-and-flow canvas, and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
 """,
     ),
     HelpTopic(

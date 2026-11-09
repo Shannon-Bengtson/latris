@@ -34,9 +34,11 @@ _DEFAULT_VARIABLES = 6
 
 def resolve_variables(model: SDModel, names: list[str] | None) -> list[str]:
     """Variable ids from labels/ids; default: the stocks (at most six)."""
-    reportable = [*model.stocks, *model.order]
+    reportable = [v for v in (*model.stocks, *model.order) if v not in model.hidden]
     if not names:
-        return sorted(model.stocks, key=lambda s: model.labels[s])[:_DEFAULT_VARIABLES]
+        return sorted((s for s in model.stocks if s not in model.hidden), key=lambda s: model.labels[s])[
+            :_DEFAULT_VARIABLES
+        ]
     by_label = {model.labels[v].lower(): v for v in reportable}
     out = []
     for n in names:

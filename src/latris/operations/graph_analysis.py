@@ -330,7 +330,7 @@ def loop_mechanism_summary(loops: list[Loop]) -> str:
         n_loops = sum(1 for loop in loops if loop.classification == cls)
         if not n_groups:
             continue
-        cycles = f" ({n_loops} cycles)" if n_loops != n_groups else ""
+        cycles = f" ({n_loops} loops)" if n_loops != n_groups else ""
         parts.append(f"{n_groups} {word}{cycles}")
     return ", ".join(parts)
 

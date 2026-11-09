@@ -485,7 +485,7 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
             classified = [classify_loop(loop, polarity_map) for loop in loops]
             n_mech = len(group_loop_mechanisms(classified))
             counted = f"{n_mech} feedback mechanism(s)" + (
-                f" ({len(loops)} distinct cycles; cycles differing by one alternative step count once)"
+                f" ({len(loops)} loops; loops that share most of their factors count as one mechanism)"
                 if n_mech != len(loops)
                 else ""
             )

@@ -1084,7 +1084,7 @@ def build_example(ex: WorkedExample) -> None:
         "2-parent table."
     )
     ex.run(["bn", "set-noisy-or", "Service Outage",
-            "-c", "Grid Failure=yes:0.8", "-c", "Cyber Attack=yes:0.6", "--leak", "0.01"])
+            "-c", "Grid Failure=yes:0.8", "-c", "Cyber Attack=yes:0.6", "--leak", "0.01", "--active", "yes"])
     ex.run(["bn", "cpts"])
 
     # ── 7.8b BN soft evidence, explanation, uncertainty ───────────────
@@ -1252,6 +1252,29 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["sd", "loops", *_sd_run])
     ex.note("Reports show the latest result of each analysis; `results hide` leaves one out.")
     ex.run(["results", "list"])
+
+    # ── 7.15 SD clock and delays ──────────────────────────────────────
+    ex.section(
+        "System Dynamics — The Clock and Delays",
+        "The clock is part of the model: stored once, used by every run and by anyone "
+        "opening a link. And most real SD models need delays: here, people react to "
+        "perceived pollution, a smoothed version of the real load.",
+    )
+    ex.run(["sd", "set-settings", "--time-units", "year", "--final-time", "10", "--dt", "0.05"])
+    ex.run(["sd", "settings"])
+    ex.run(["node", "add", "Perceived Load", "--kind", "variable"])
+    ex.run(["node", "add", "Perception Delay", "--kind", "variable"])
+    ex.run(["edge", "add", "PM2.5 Load", "Perceived Load", "--kind", "causal"])
+    ex.run(["edge", "add", "Perception Delay", "Perceived Load", "--kind", "causal"])
+    ex.run(["sd", "set-role", "Perceived Load", "auxiliary"])
+    ex.run(["sd", "set-role", "Perception Delay", "constant"])
+    ex.run(["sd", "set-constant", "Perception Delay", "18", "--units", "month"])
+    ex.note("SMOOTH becomes a hidden stock, so the units are checked: an 18-month delay on a years clock is fine.")
+    ex.run(["sd", "set-equation", "Perceived Load", "SMOOTH(pm2_5_load, perception_delay)", "--units", "tonne"])
+    ex.run(["sd", "check"])
+    ex.run(["sd", "simulate", "--saveper", "1", "--no-record"])
+    ex.note("The diagram's own loop list now includes feedback through the stock.")
+    ex.run(["analyse", "loops"])
 
     # ── 8. AI prompts (mock mode) ─────────────────────────────────────
     ex.section("AI-Assisted Modelling (mock mode)",
