@@ -100,3 +100,29 @@ def test_link_output_says_it_is_the_report(sd_bathtub_root, monkeypatch):
     monkeypatch.chdir(sd_bathtub_root)
     out = CliRunner().invoke(app, ["link"]).stdout
     assert "This link is the shareable report" in " ".join(out.split())
+
+
+def test_a_stock_starting_at_zero_still_signs_its_drain_loop_once(tmp_path, git_identity):
+    from latris.operations import analysis, sd
+    from latris.operations import edges as edge_ops
+    from latris.operations import nodes as node_ops
+    from latris.operations.init import init_project
+    from latris.operations.project import update_selected_models
+
+    root = tmp_path / "tank"
+    init_project(root, statement="How full does the tank get?")
+    update_selected_models(["sd"], root=root)
+    ids = {n: node_ops.add_node(n, kind="variable", root=root)[0].id
+           for n in ("Water", "Inflow", "Outflow", "Drain Rate")}
+    edge_ops.add_edge(ids["Inflow"], ids["Water"], kind="flow", root=root)
+    edge_ops.add_edge(ids["Water"], ids["Outflow"], kind="flow", root=root)
+    edge_ops.add_edge(ids["Water"], ids["Outflow"], kind="causal", root=root)  # agents often draw both
+    edge_ops.add_edge(ids["Drain Rate"], ids["Outflow"], kind="causal", root=root)
+    for n, r in [("Water", "stock"), ("Inflow", "flow"), ("Outflow", "flow"), ("Drain Rate", "constant")]:
+        sd.set_role(n, r, root=root)
+    sd.set_initial_value("Water", 0, "liter", root=root)
+    sd.set_constant("Drain Rate", 0.1, "1/month", root=root)
+    sd.set_equation("Inflow", "10", "liter/month", root=root)
+    sd.set_equation("Outflow", "water * drain_rate", "liter/month", root=root)
+    (loop,) = analysis.analyse_loops(root=root)
+    assert loop.classification == "B"

@@ -145,7 +145,9 @@ def _signs_cached(root: str, _fingerprint: str) -> tuple[tuple[tuple[str, str], 
             x = by_slug.get(name)
             if x is None or name not in env:
                 continue
-            h = max(abs(env[name]) * 1e-6, 1e-12)
+            # A relative step, but never tiny: stocks often start at zero, and a 1e-12 nudge
+            # moves the result less than the noise threshold below.
+            h = max(abs(env[name]) * 1e-6, 1e-4)
             try:
                 bumped = eq(tb, {**env, name: env[name] + h})
             except Exception:  # noqa: BLE001

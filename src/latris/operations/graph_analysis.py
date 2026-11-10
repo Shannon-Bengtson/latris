@@ -188,7 +188,8 @@ def find_all_loops(edges: list[_HasDirection], *, max_loops: int | None = None) 
     # Build adjacency as node → [node, ...]
     adj: dict[str, list[str]] = defaultdict(list)
     for e in edges:
-        adj[e.from_id].append(e.to_id)
+        if e.to_id not in adj[e.from_id]:  # parallel links (a flow and a causal link) are one step
+            adj[e.from_id].append(e.to_id)
 
     edge_lookup = _build_edge_lookup(edges)
     nodes = sorted(_all_nodes(edges))
