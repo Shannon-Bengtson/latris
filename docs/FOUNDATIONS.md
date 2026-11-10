@@ -102,6 +102,8 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
 - **Implemented.** Stock-and-flow simulation with dimensional analysis (pint;
   custom base dimensions for person, dollar, item): fixed-step forward Euler,
   or adaptive RK23/RK45; STEP, RAMP, PULSE, TABLE and arithmetic builtins;
+  SMOOTH/SMOOTH3 information smoothing and DELAY1/DELAY3 material delays,
+  expanded into stock-and-flow structure (Sterman 2000, ch. 11);
   unit-checked scenario overrides with provenance (`latris sd …`); uncertainty
   by seeded Latin-hypercube sampling (McKay, Beckman & Conover 1979) with
   percentile bands and Spearman rank correlations; one-at-a-time sensitivity;

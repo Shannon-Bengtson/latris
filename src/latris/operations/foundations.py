@@ -113,10 +113,14 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         id="sd-simulation",
         applies_to=("sd",),
         method="Stock-and-flow simulation with dimensional analysis",
-        citation="Forrester (1961), *Industrial Dynamics*; Sterman (2000), *Business Dynamics*",
+        citation=(
+            "Forrester (1961), *Industrial Dynamics*; Sterman (2000), *Business Dynamics*, "
+            "ch. 11 (delays)"
+        ),
         used_for=(
             "unit-checked stock-flow integration (fixed-step Euler or adaptive RK23/RK45) "
-            "with STEP, RAMP, PULSE and TABLE functions and provenance-carrying scenarios"
+            "with STEP, RAMP, PULSE and TABLE functions, SMOOTH/SMOOTH3 and DELAY1/DELAY3 "
+            "delay structures, and provenance-carrying scenarios"
         ),
         limits=(
             "The adaptive RK option is RK45 under a step cap, not the classical "
