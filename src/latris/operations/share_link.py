@@ -195,7 +195,8 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
 
     context = SpecContext(
         background=foundation.background or None, audience=foundation.audience or None,
-        boundary=foundation.boundary or None, intuition=foundation.predictions or None,
+        boundary=foundation.boundary or None, exclusions=foundation.exclusions or None,
+        intuition=foundation.predictions or None,
     )
     spec = BuildSpec(
         model_type=model_type,

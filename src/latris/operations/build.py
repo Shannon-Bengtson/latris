@@ -193,7 +193,8 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             from latris.operations.project import set_foundation_field
 
             for field, value in (("background", spec.context.background), ("audience", spec.context.audience),
-                                 ("boundary", spec.context.boundary), ("predictions", spec.context.intuition)):
+                                 ("boundary", spec.context.boundary), ("exclusions", spec.context.exclusions),
+                                 ("predictions", spec.context.intuition)):
                 if value and value.strip():
                     set_foundation_field(field, value.strip(), root=paths.root)
         # A source read in another goes in after it.

@@ -142,6 +142,7 @@ class SpecContext(_Spec):
     background: str | None = None  # the situation behind the question
     audience: str | None = None  # who will read it ("Prepared for")
     boundary: str | None = None  # what's in and out of scope
+    exclusions: str | None = None  # what was left out and why
     intuition: str | None = None  # what the person expects the answer to be, in their words
 
 
