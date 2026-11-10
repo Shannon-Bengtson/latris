@@ -447,7 +447,7 @@ def test_parallel_routes_are_one_mechanism():
     # A separate balancing loop.
     c = Loop(node_ids=("X", "Y"), edge_ids=("6", "7"), classification="B")
     assert len(group_loop_mechanisms([a, b, c])) == 2
-    assert loop_mechanism_summary([a, b, c]) == "1 reinforcing (2 cycles), 1 balancing"
+    assert loop_mechanism_summary([a, b, c]) == "1 reinforcing (2 loops), 1 balancing"
 
 
 def test_loops_sharing_one_hub_stay_separate():

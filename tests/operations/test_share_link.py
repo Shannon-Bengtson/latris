@@ -134,7 +134,7 @@ def test_cli_prints_the_link_and_json(built: Path, monkeypatch) -> None:
     out = CliRunner().invoke(app, ["link"])
     assert out.exit_code == 0, out.output
     assert out.output.splitlines()[0].startswith("https://app.latris.app/open#")
-    assert "Nothing was uploaded" in out.output
+    assert "Nothing was uploaded" in " ".join(out.output.split())  # the console wraps long lines
     data = json.loads(CliRunner().invoke(app, ["--json", "link"]).stdout.strip().splitlines()[-1])["result"]
     assert data["factors"] == 3 and data["url"].startswith("https://app.latris.app/open#")
 
