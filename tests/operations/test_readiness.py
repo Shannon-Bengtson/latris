@@ -9,6 +9,7 @@ import pytest
 from latris.operations import edges as edge_ops
 from latris.operations import nodes as node_ops
 from latris.operations import view_attributes as view_attr_ops
+from latris.operations.findings import record_new_finding
 from latris.operations.init import init_project
 from latris.operations.interpret import save_interpretation
 from latris.operations.project import add_model_choice, update_selected_models
@@ -304,16 +305,32 @@ class TestFormaliseToAnalyse:
 
 
 class TestAnalyseToInterpret:
-    def test_green_soft_passthrough(self, project):
-        """Soft gate: green once earlier gates pass (full validation now lives
-        at Formalise→Analyse)."""
+    def test_yellow_when_nothing_recorded(self, project):
+        """Soft gate: never blocks, but nudges when no finding or analysis
+        result has been recorded."""
         root, _, _, _ = project
         update_selected_models(["dag"], root=root)
         t = assess_transition_readiness(root=root)
         gate = t.transitions[3]
         assert gate.from_phase == "analyse"
         assert gate.to_phase == "interpret"
-        assert gate.light == "green"
+        assert gate.light == "yellow"
+        assert any("finding add" in d for d in gate.details)
+        # Yellow does not block the next gate.
+        assert t.transitions[4].summary != "Blocked by an earlier phase."
+
+    def test_green_once_a_finding_is_recorded(self, project):
+        root, a, b, _ = project
+        update_selected_models(["dag"], root=root)
+        record_new_finding(
+            "Price affects Quantity only through Demand.",
+            "structure",
+            "dag",
+            target_ids=[a.id, b.id],
+            root=root,
+        )
+        t = assess_transition_readiness(root=root)
+        assert t.transitions[3].light == "green"
 
 
 # ---------------------------------------------------------------------------

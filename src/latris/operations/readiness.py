@@ -900,16 +900,33 @@ def _assess_formalise_to_analyse(paths) -> TransitionStatus:
 
 
 def _assess_analyse_to_interpret(paths) -> TransitionStatus:
-    """Analyse → Interpret: soft pass-through.
+    """Analyse → Interpret: soft gate.
 
-    Full structural + model-attribute validation now happens at the
+    Full structural + model-attribute validation happens at the
     Formalise → Analyse gate, so reaching Analyse already implies a
-    complete, parameterised model that Interpret can consume. There is no
-    separately persisted analysis artefact to require here.
-
-    TODO: nudge to yellow once the findings system exposes a
-    recorded-findings count we can gate on.
+    complete, parameterised model that Interpret can consume. This gate
+    never blocks; it nudges to yellow when nothing from the Analyse phase
+    has been kept — no recorded finding and no recorded analysis result
+    (BN and SD runs record results; CLD/DAG/FCM analyses are kept by
+    recording findings).
     """
+    from latris.operations.analysis_results import list_results
+    from latris.operations.findings import iter_findings
+
+    has_finding = next(iter(iter_findings(root=paths.root)), None) is not None
+    has_result = bool(list_results(root=paths.root))
+    if not (has_finding or has_result):
+        return TransitionStatus(
+            from_phase="analyse",
+            to_phase="interpret",
+            light="yellow",
+            summary="Nothing from the analysis has been recorded yet.",
+            details=[
+                "Record what the analysis showed (`latris finding add`), "
+                "or run a recorded analysis, so the interpretation has "
+                "something to stand on."
+            ],
+        )
     return TransitionStatus(
         from_phase="analyse",
         to_phase="interpret",

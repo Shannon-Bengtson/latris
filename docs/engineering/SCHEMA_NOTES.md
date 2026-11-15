@@ -221,8 +221,7 @@ the target log to look in is determined by `origin`. The future
 
 ## First-class data and analysis objects
 
-Two top-level concerns have their own files. **Datasets are fully built;
-AnalysisRun is schema-stubbed only.**
+Two top-level concerns have their own files. **Both are built.**
 
 - **`Dataset`** (in `data/datasets.yaml`) — **built.** Structured input
   that algorithms read. Includes `DatasetLibrary` (registration +
@@ -290,8 +289,8 @@ The "data-driven backlog" entries have progressed:
   attribute values, evidence links.
 - **`Dataset`** — **done.** Full data wrangling system (schema, 39 ops,
   versioning, audit trail).
-- **`AnalysisRun`** — **schema stubbed only.** Implementation deferred
-  to M17+.
+- **`AnalysisRun`** — **done.** `operations/analysis_runs.py` writes
+  `analysis/runs.jsonl`; `operations/analysis_results.py` keeps results.
 
 Open backlog items:
 
@@ -301,7 +300,7 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 4 stable (CLD, DAG, FCM, BN) + 16 planned model types. Registry-driven
+  (built) defines 5 stable (CLD, DAG, FCM, BN, SD) + 15 planned model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
   and settings in a single call. When planned types become stable,
@@ -374,9 +373,9 @@ model-specific attributes are wired into the readiness engine. The risk
 of building wrong without a real user in front of us is much higher
 than the cost of refactoring later — and the refactor is bounded
 because the relevant fields are deliberately Literal-typed for additive
-extension. Concrete next move flagged in `ROADMAP.md` deferred section:
-have a 30-minute conversation with a safety engineer (rail / aerospace
-/ medtech in AU/NZ) before building any of the safety formalisms.
+extension. Concrete next move before building any of the safety
+formalisms (GSN, fault tree, event tree, bow-tie): have a 30-minute
+conversation with a safety engineer (rail / aerospace / medtech in AU/NZ).
 
 ## Schema readiness for future capabilities
 

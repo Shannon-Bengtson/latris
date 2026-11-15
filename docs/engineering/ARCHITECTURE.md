@@ -199,7 +199,7 @@ src/latris/
 │   ├── project.py     # project.yaml (foundation: research_question | decision)
 │   ├── substrate.py   # conceptual.yaml (entities + edges), mappings.yaml
 │   ├── attributes.py  # descriptions / confidence / polarity / evidence-links / data-links
-│   ├── views.py       # cld.yaml, dag.yaml + 16 planned view stubs
+│   ├── views.py       # one View shape for every kind (kind checked against the registry)
 │   ├── provenance.py  # 8 provenance object types
 │   ├── ai.py          # challenges.yaml, interactions.jsonl record
 │   ├── references.py  # extended BibTeX entries
@@ -207,7 +207,7 @@ src/latris/
 │   ├── data_actions.py # DataAction, DataActionLog (audit trail)
 │   ├── data_versions.py # DatasetVersion, DatasetVersionLibrary
 │   ├── lineage.py     # LineageNode, Milestone, MilestoneLog
-│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN stable; 16 planned)
+│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD stable; 15 planned)
 │   ├── roles.py       # ViewRoleMap — formalism-specific entity classifications
 │   ├── settings.py    # Per-model-type settings (SDSettings, FCMSettings, MarkovSettings)
 │   ├── common.py      # HumanActor, AIActor, ExpertActor, provenance axes
@@ -348,23 +348,26 @@ been built:
 | `operations/view_attributes.py` | **built** | Model-type-scoped attribute queries and mutations |
 | `schema/interpretation.py` | **built** | InterpretSection, audience targeting, staleness tracking |
 | `exporters/narrative.py`, `packs.py`, `mermaid.py` | **built** | Report pipeline (prose, pack assembly, Mermaid sketch). Word, review-pack and story HTML exports moved to the Latris app (0.5.0), which adds them to the server through the `latris.server_plugins` hook |
+| `operations/analysis_runs.py` + `analysis_results.py` | **built** | AnalysisRun log (`analysis/runs.jsonl`) and recorded results the report reads |
 
 Still planned (not yet built):
 
 ```
 src/latris/
-├── analysis/           # AnalysisRun lifecycle + output management
 ├── compile/            # Validate parameter completeness; produce CompiledView
 └── (existing modules unchanged)
 ```
 
-When these land, the chokepoints list extends:
+When it lands, the chokepoints list extends:
 
 | File | Monopoly on |
 |---|---|
 | `compile/validator.py` | All parameter-completeness checks against views |
 | `compile/materialize.py` | Translation from on-disk parameter files to runtime backend objects (when the future `latris` library lands) |
-| `operations/analysis_runs.py` | All AnalysisRun creation; only place that writes `analysis/runs.jsonl` (results go through `operations/analysis_results.py`) |
+
+`operations/analysis_runs.py` already holds the AnalysisRun monopoly: it is
+the only place that writes `analysis/runs.jsonl` (results go through
+`operations/analysis_results.py`).
 
 ## GUI architecture (React app + Python backend)
 
