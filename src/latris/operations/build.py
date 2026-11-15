@@ -129,10 +129,10 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
 
         allowed = get_model_type(model_type).allowed_roles
         # SD keeps it with its settings; a theory of change's outcome is its impact.
-        if allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change", "fault_tree"):
-            problems.append(
-                f"outcome: {model_type} has no outcome role (cld, dag, fcm, sd, theory_of_change and fault_tree do)"
-            )
+        if allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change", "fault_tree",
+                                                                          "bow_tie"):
+            problems.append(f"outcome: {model_type} has no outcome role (cld, dag, fcm, sd, theory_of_change, "
+                            "fault_tree and bow_tie do)")
     if spec.toc:
         for lv in spec.toc.levels:
             if not _known(lv.node):
@@ -152,6 +152,16 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
         for e in spec.ft.events:
             if spec.outcome and e.node.casefold() == spec.outcome.casefold() and e.type != "top_event":
                 problems.append(f"ft event: {e.node!r} is the outcome, so it is the top event, not {e.type}")
+    if spec.bowtie:
+        for where, nodes in (("bowtie element", [x.node for x in spec.bowtie.elements]),
+                             ("bowtie barrier", [x.node for x in spec.bowtie.barriers]),
+                             ("bowtie frequency", [x.node for x in spec.bowtie.frequencies])):
+            for n in nodes:
+                if not _known(n):
+                    problems.append(f"{where}: no factor named {n!r}")
+        for e in spec.bowtie.elements:
+            if spec.outcome and e.node.casefold() == spec.outcome.casefold() and e.type != "top_event":
+                problems.append(f"bowtie element: {e.node!r} is the outcome, so it is the top event, not {e.type}")
     for i, a in enumerate(_assumptions(spec.assumptions), 1):
         _target(f"assumption {i}", a.target)
     for i, f in enumerate(spec.findings, 1):
@@ -278,9 +288,16 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
 
             ft_ops.set_event(spec.outcome, "top_event", root=paths.root)  # before any gate goes on it
             result.outcome = spec.outcome
+        if spec.outcome and model_type == "bow_tie":
+            from latris.operations import bow_tie as bt_ops
+
+            bt_ops.set_element(spec.outcome, "top_event", root=paths.root)
+            result.outcome = spec.outcome
         if spec.ft:
             result.parameters += _apply_ft(spec.ft, verified_by, paths.root)
-        if spec.outcome and model_type != "fault_tree":
+        if spec.bowtie:
+            result.parameters += _apply_bowtie(spec.bowtie, verified_by, paths.root)
+        if spec.outcome and model_type not in ("fault_tree", "bow_tie"):
             if model_type == "theory_of_change":
                 from latris.operations import toc as toc_ops
 
@@ -351,6 +368,32 @@ def _apply_ft(spec_ft, verified_by: str, root: Path) -> int:
             verification="human-verified" if p.verified and verified_by == "human" else "unverified",
             notes=p.notes, root=root,
         )
+        n += 1
+    return n
+
+
+def _apply_bowtie(spec_bt, verified_by: str, root: Path) -> int:
+    """Elements first (barrier values and frequencies need them), then barriers, then frequencies."""
+    from latris.operations import bow_tie as bt_ops
+
+    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+
+    def verification(v: bool) -> str:
+        return "human-verified" if v and verified_by == "human" else "unverified"
+
+    n = 0
+    for e in spec_bt.elements:
+        bt_ops.set_element(e.node, e.type, root=root)
+        n += 1
+    for b in spec_bt.barriers:
+        bt_ops.set_barrier(
+            b.node, barrier_type=b.type, status=b.status, owner=b.owner, pfd=b.pfd, notes=b.notes,
+            origin=b.origin or default_origin, source_id=b.source, verification=verification(b.verified), root=root,
+        )
+        n += 1
+    for f in spec_bt.frequencies:
+        bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
+                             verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
     return n
 

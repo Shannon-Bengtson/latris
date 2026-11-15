@@ -144,6 +144,30 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   (enter the probability for the period the tree is about). Cut sets are
   listed up to 20,000; past that, limit the order.
 
+## Bow-ties
+
+- **Lineage.** CCPS & Energy Institute (2018), *Bow Ties in Risk
+  Management: A Concept Book for Process Safety* — the elements, the barrier
+  types and the rules for drawing lines; the quantification is layer of
+  protection analysis, CCPS (2001).
+- **Implemented.** Hazard, top event, threats, consequences, barriers and
+  escalation factors as view roles; lines as ordinary links, checked against
+  the bow-tie pattern. Per barrier: CCPS type, status (in place, degraded,
+  not in place), owner and probability of failure on demand, with
+  provenance. The analysis lists every line with its effective barriers
+  (degraded or missing ones don't count) and flags lines with none or one,
+  barriers on more than one line, escalation factors with no control and
+  barriers with no owner. With every threat's frequency and every barrier's
+  PFD: the top-event frequency (Σ over threats of frequency × probability
+  that some route gets through), each consequence's frequency, and risk
+  achievement worth per barrier. A threat's routes are combined exactly with
+  the fault-tree decision diagram, so a barrier on two routes counts once.
+- **Limits.** Barriers are assumed to fail independently — shared barriers
+  are flagged, but common-cause failure isn't modelled; LOPA is an
+  order-of-magnitude method and the values are points. Escalation factors
+  are drawn and checked but not quantified, and there is no consequence
+  severity or risk matrix.
+
 ## Theory of change
 
 - **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
@@ -206,6 +230,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | SD | Quantitative mechanism simulation; scenario analysis intervenes *on the model* |
 | Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence; no estimation |
 | Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
+| Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
 | DAG / BN | Observational queries and identification — what to measure; no interventional estimation |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -235,6 +260,10 @@ the code it describes win, and this page is wrong.
   II*. Academic Press.
 - Bradford Hill, A. (1965). "The Environment and Disease: Association or
   Causation?" *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
+- CCPS — Center for Chemical Process Safety (2001). *Layer of Protection
+  Analysis: Simplified Process Risk Assessment*. AIChE.
+- CCPS & Energy Institute (2018). *Bow Ties in Risk Management: A Concept
+  Book for Process Safety*. AIChE / Wiley.
 - Fenton, N., & Neil, M. (2018). *Risk Assessment and Decision Analysis with
   Bayesian Networks* (2nd ed.). CRC Press.
 - Forrester, J. W. (1961). *Industrial Dynamics*. MIT Press.

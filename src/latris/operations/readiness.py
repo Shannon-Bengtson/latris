@@ -432,6 +432,40 @@ def _check_ft_tree_connected(ctx: ValidationContext) -> list[ReadinessGap]:
     return _ft_problems(ctx, ("ft_cycle", "ft_not_in_tree"))
 
 
+def _bt_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
+    """Bow-tie structure problems of the given types (one load per check)."""
+    if "bt_problems" not in ctx.cache:
+        from latris.operations import bow_tie
+
+        ctx.cache["bt_problems"] = bow_tie.structure_problems(root=ctx.paths.root)
+    labels = {e.id: e.label for e in ctx.substrate.entities}
+    labels.update(
+        {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
+    )
+    return [
+        ReadinessGap(element_id=p.target_id or "", element_label=labels.get(p.target_id or "", "(bow-tie)"),
+                     gap_type=p.gap_type, message=p.message)
+        for p in ctx.cache["bt_problems"]
+        if p.gap_type in gap_types
+    ]
+
+
+def _check_bt_elements_classified(ctx: ValidationContext) -> list[ReadinessGap]:
+    """One top event, at least one threat and one consequence, at most one hazard."""
+    return _bt_problems(ctx, ("bt_no_top", "bt_many_tops", "bt_many_hazards", "bt_no_threat", "bt_no_consequence"))
+
+
+def _check_bt_links_valid(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Lines run threat → barriers → top event → barriers → consequence, without loops."""
+    return _bt_problems(ctx, ("bt_bad_link", "bt_cycle", "bt_hazard_unlinked"))
+
+
+def _check_bt_lines_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Every threat and consequence is on a line, every barrier on a line, every escalation factor linked."""
+    return _bt_problems(ctx, ("bt_threat_unlinked", "bt_consequence_unlinked", "bt_barrier_off_line",
+                              "bt_escalation_unlinked"))
+
+
 SD_VALIDATORS: tuple[str, ...] = (
     "sd_classification_complete",
     "sd_flow_connects_stock",
@@ -461,6 +495,9 @@ _STRUCTURAL_VALIDATORS: dict[str, object] = {
     "ft_events_classified": _check_ft_events_classified,
     "ft_gates_complete": _check_ft_gates_complete,
     "ft_tree_connected": _check_ft_tree_connected,
+    "bt_elements_classified": _check_bt_elements_classified,
+    "bt_links_valid": _check_bt_links_valid,
+    "bt_lines_complete": _check_bt_lines_complete,
     # Future: "bipartite", etc.
 }
 

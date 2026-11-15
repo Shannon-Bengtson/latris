@@ -29,7 +29,7 @@ def test_capabilities_json_shape(tmp_path: Path, monkeypatch):
     assert "model_types" in data
     assert "excluded_by_design" in data
     stable_ids = {m["id"] for m in data["model_types"] if m["can_use_today"]}
-    assert stable_ids == {"cld", "dag", "bn", "fcm", "sd", "theory_of_change", "fault_tree"}
+    assert stable_ids == {"cld", "dag", "bn", "fcm", "sd", "theory_of_change", "fault_tree", "bow_tie"}
     et = next(m for m in data["model_types"] if m["id"] == "event_tree")
     assert et["can_use_today"] is False
     assert et["availability"] == "planned"

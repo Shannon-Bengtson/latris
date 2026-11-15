@@ -44,7 +44,7 @@ def build(
     - ``decisions``: statement, rationale, target
     - ``interpretation``: section, prose, by (ai | human)
     - ``outcome``: the factor the model explains (in a theory of change, the
-      impact; in a fault tree, the top event)
+      impact; in a fault tree or bow-tie, the top event)
     - ``sd``: roles, stocks, constants, equations, tables, uncertainty
       (node, distribution, params, reason), scenarios (name, set:
       ["Variable=value units"], description, reason)
@@ -54,9 +54,13 @@ def build(
     - ``ft``: events (node, type: top_event | intermediate_event |
       basic_event | undeveloped_event), gates (node, gate: and | or | vote,
       k), probabilities (node, probability, source, origin, verified, notes)
+    - ``bowtie``: elements (node, type: hazard | top_event | threat |
+      consequence | barrier | escalation_factor), barriers (node, type,
+      status, owner, pfd, source, origin, verified, notes), frequencies
+      (node, frequency per year, source, origin, verified, notes)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
-      ft_analyse)
+      ft_analyse | bowtie_analyse)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML

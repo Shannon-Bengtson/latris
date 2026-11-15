@@ -74,7 +74,7 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | Fuzzy Cognitive Map | CLD with edge weights in [−1, +1]; steady-state inference | v1 semi-quantitative |
 | Flowchart | Activity-decision-outcome process flow | not currently planned |
 | State Machine | States and guarded transitions | not currently planned |
-| Bow-Tie | Threat–barrier–consequence topology | on the roadmap |
+| Bow-Tie | Threat → prevention barriers → top event → mitigation barriers → consequence, escalation factors and their controls (view roles); barrier type/status/owner/PFD; line flags and LOPA frequencies | stable (built) |
 | Fault Tree | Top event → gates (AND / OR / k-of-n vote, stored on the event) → basic events (view roles); minimal cut sets, exact top-event probability (BDD), Birnbaum / Fussell–Vesely / RAW importance with provenance | stable (built) |
 | Petri Net | Bipartite places + transitions, token semantics | not currently planned |
 
@@ -207,7 +207,7 @@ src/latris/
 │   ├── data_actions.py # DataAction, DataActionLog (audit trail)
 │   ├── data_versions.py # DatasetVersion, DatasetVersionLibrary
 │   ├── lineage.py     # LineageNode, Milestone, MilestoneLog
-│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC, FT stable; 13 planned)
+│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC, FT, BT stable; 12 planned)
 │   ├── roles.py       # ViewRoleMap — formalism-specific entity classifications
 │   ├── settings.py    # Per-model-type settings (SDSettings, FCMSettings, MarkovSettings)
 │   ├── common.py      # HumanActor, AIActor, ExpertActor, provenance axes
@@ -315,9 +315,9 @@ classifications** (stock, chance, goal, gate, barrier, etc.) live in a
 separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
-own semantic roles to substrate entities. 13 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 7 stable ones
-(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree); the Layer-3 table above gives each one's
+own semantic roles to substrate entities. 12 planned model types are
+registered in the `ModelTypeSpec` registry alongside the 8 stable ones
+(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie); the Layer-3 table above gives each one's
 roadmap status. Each formalism lands as an **additive** extension — no
 schema migration. See `SCHEMA_NOTES.md` → "Extensibility hypothesis"
 for per-formalism fit notes and the open design question

@@ -379,6 +379,10 @@ def _outcome_ids(paths, model_type: str) -> set[str]:
         from latris.operations import fault_tree
 
         return {eid for eid, t in fault_tree.get_events(root=paths.root).items() if t == "top_event"}
+    if model_type == "bow_tie":
+        from latris.operations import bow_tie
+
+        return {eid for eid, t in bow_tie.get_elements(root=paths.root).items() if t == "top_event"}
     path = paths.role_path(model_type)
     if not path.exists():
         return set()
@@ -578,6 +582,70 @@ def _ft_claims(paths, section: str) -> list[str]:
     return claims
 
 
+def _bt_claims(paths, section: str) -> list[str]:
+    """Bow-tie claims for one section, from the live analysis."""
+    from latris.operations import bow_tie
+
+    p = bow_tie.analyse(root=paths.root)
+    if p["problems"]:
+        if section == "structure":
+            return [f"The bow-tie is incomplete: {len(p['problems'])} structure problem(s) "
+                    f"(e.g. {p['problems'][0]['label']}: {p['problems'][0]['message']})"]
+        return []
+    f = bow_tie.flags(p)
+    claims: list[str] = []
+    if section == "structure":
+        claims.append(bow_tie.describe(p) + ".")
+        if p["hazard"]:
+            claims.append(f"Hazard: {p['hazard']}; top event: {p['top']}.")
+        if p["outside_inputs"]:
+            claims.append(f"Left out of the bow-tie (no bow-tie role): {', '.join(p['outside_inputs'][:5])}.")
+    elif section == "answer":
+        if f["unprotected"]:
+            claims.append(f"Lines with no effective barrier: {', '.join(f['unprotected'])}.")
+        if f["single_barrier"]:
+            claims.append(f"Lines resting on a single effective barrier: {', '.join(f['single_barrier'])}.")
+        if not f["unprotected"] and not f["single_barrier"]:
+            claims.append("Every line has at least two effective barriers.")
+        if p["quantified"]:
+            fr = p["frequency"]
+            claims.append(f"Estimated frequency of {p['top']}: {fr['top']:.3g} per year (layer of protection; "
+                          "barriers assumed independent).")
+            claims.append("Consequences per year: " + "; ".join(f"{c} {v:.3g}" for c, v in fr["consequences"].items())
+                          + ".")
+    elif section == "sensitivity" and p["quantified"]:
+        ranked = [b for b in p["barriers"] if b["raw"] is not None][:5]
+        claims.append("Barriers by how much they buy (RAW: how many times more often their side's outcome would "
+                      "happen if the barrier always failed):")
+        claims += [f"  - {b['barrier']} ({b['side']}): {b['raw']:.3g}" + (" (value not verified)" if b["weak"] else "")
+                   for b in ranked]
+        weak = [b["barrier"] for b in ranked[:3] if b["weak"]]
+        if weak:
+            claims.append(f"The barriers that matter most whose failure probability nobody has verified: "
+                          f"{', '.join(weak)}.")
+    elif section == "implications":
+        if f["unprotected"] or f["single_barrier"]:
+            claims.append("Where another independent barrier would help most: "
+                          + ", ".join(f["unprotected"] + f["single_barrier"]) + ".")
+        if f["shared"]:
+            claims.append(f"Barriers on more than one line — one failure defeats every line they guard: "
+                          f"{', '.join(f['shared'])}.")
+        if f["uncontrolled_escalation"]:
+            claims.append(f"Escalation factors with no control: {', '.join(f['uncontrolled_escalation'])}.")
+        if f["not_in_place"]:
+            claims.append(f"Barriers degraded or not in place: {', '.join(f['not_in_place'])}.")
+        if f["no_owner"]:
+            claims.append(f"Barriers nobody owns: {', '.join(f['no_owner'])}.")
+    elif section == "gaps":
+        if p["missing"]:
+            claims.append(f"Not quantified — missing: {', '.join(p['missing'][:6])}"
+                          + (f" (+{len(p['missing']) - 6} more)." if len(p["missing"]) > 6 else "."))
+        unsourced = [b["barrier"] for b in p["barriers"] if b["pfd"] is not None and not b["source"]]
+        if unsourced:
+            claims.append(f"Failure probabilities with no stated source: {', '.join(unsourced[:5])}.")
+    return claims
+
+
 def _extract_structural_summary(model_type: str, paths) -> list[str]:
     """Claims from model structure — loops, topology, connectivity."""
     from latris.operations.graph_analysis import (
@@ -658,6 +726,8 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
         claims.extend(_toc_claims(paths, "structure"))
     if model_type == "fault_tree":
         claims.extend(_ft_claims(paths, "structure"))
+    if model_type == "bow_tie":
+        claims.extend(_bt_claims(paths, "structure"))
 
     # Add any recorded structural findings
     findings = _load_findings(paths, model_type)
@@ -757,6 +827,11 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
         claims = _ft_claims(paths, "sensitivity")
         claims.extend(f.statement for f in _load_findings(paths, model_type) if f.category == "sensitivity")
         return claims or ["Give every basic event a probability to rank the events by importance."]
+    if model_type == "bow_tie":
+        claims = _bt_claims(paths, "sensitivity")
+        claims.extend(f.statement for f in _load_findings(paths, model_type) if f.category == "sensitivity")
+        return claims or ["Give every threat a frequency and every barrier a failure probability to rank the "
+                          "barriers by how much they buy."]
 
     causal = causal_edges(substrate.edges)
     if substrate.entities and causal:
@@ -865,6 +940,8 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
         claims.extend(_toc_claims(paths, "gaps"))
     if model_type == "fault_tree":
         claims.extend(_ft_claims(paths, "gaps"))
+    if model_type == "bow_tie":
+        claims.extend(_bt_claims(paths, "gaps"))
     return claims
 
 
@@ -982,6 +1059,8 @@ def _extract_answer(model_type: str, paths) -> list[str]:
         claims.extend(_toc_claims(paths, "answer"))
     if model_type == "fault_tree":
         claims.extend(_ft_claims(paths, "answer"))
+    if model_type == "bow_tie":
+        claims.extend(_bt_claims(paths, "answer"))
 
     # Recorded inference findings
     findings = _load_findings(paths, model_type)
@@ -1009,6 +1088,8 @@ def _extract_implications(model_type: str, paths) -> list[str]:
         claims.extend(_toc_claims(paths, "implications"))
     elif model_type == "fault_tree":
         claims.extend(_ft_claims(paths, "implications"))
+    elif model_type == "bow_tie":
+        claims.extend(_bt_claims(paths, "implications"))
     # High-betweenness nodes are intervention leverage points
     elif substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)

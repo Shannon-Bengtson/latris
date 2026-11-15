@@ -262,6 +262,38 @@ def _ft_analysis(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _bt_analysis(p: dict[str, Any]) -> list[str]:
+    from latris.operations.bow_tie import describe, flags
+
+    out = [describe(p) + ".", ""]
+    if p.get("quantified"):
+        fr = p["frequency"]
+        cons = "; ".join(f"{c} {_f(v)}" for c, v in fr["consequences"].items())
+        out += [f"Top-event frequency: **{_f(fr['top'])} per year** (layer of protection, barriers assumed "
+                f"independent); consequences per year: {cons}.", ""]
+    rows = [[ln["side"], ln["from"] + " → " + ln["to"], " → ".join(ln["barriers"]) or "—", str(ln["effective"])]
+            for ln in sorted(p["lines"], key=lambda ln: (ln["effective"], ln["side"]))[: _MAX_ROWS * 2]]
+    if rows:
+        out += _table(["Side", "Line", "Barriers", "Effective"], rows)
+    f = flags(p)
+    notes = [(f["unprotected"], "No effective barrier"), (f["single_barrier"], "Resting on one barrier"),
+             (f["shared"], "Barriers on more than one line (one failure takes them all)"),
+             (f["uncontrolled_escalation"], "Escalation factors with no control"),
+             (f["not_in_place"], "Barriers degraded or not in place"), (f["no_owner"], "Barriers with no owner")]
+    out += [f"- **{title}:** {', '.join(items)}" for items, title in notes if items]
+    if any(items for items, _ in notes):
+        out.append("")
+    if p.get("quantified"):
+        rows = [[b["barrier"], b["side"], _f(b["pfd"]), _f(b["raw"]),
+                 (b["origin"] or "—") + (f" ({b['source']})" if b["source"] else "")
+                 + ("; not verified" if b["weak"] else "")]
+                for b in p["barriers"] if b["side"] != "escalation control"][:_MAX_ROWS]
+        out += ["*RAW*: how many times more often the top event (prevention) or its consequences (mitigation) "
+                "would happen if the barrier always failed.", ""]
+        out += _table(["Barrier", "Side", "Failure probability", "RAW", "Where it came from"], rows)
+    return out
+
+
 def _given(p: dict[str, Any]) -> str:
     from latris.operations.bn import evidence_description
 
@@ -389,6 +421,7 @@ _TITLES = {
     "bn-sensitivity": "Probability sensitivity",
     "toc-pathways": "Theory of change: pathways and their evidence",
     "ft-analysis": "Fault tree: cut sets, probability and importance",
+    "bt-analysis": "Bow-tie: lines, barriers and frequencies",
 }
 
 
@@ -467,6 +500,8 @@ def render_results(
                 out += _toc_pathways(p)
             elif kind == "ft-analysis":
                 out += _ft_analysis(p)
+            elif kind == "bt-analysis":
+                out += _bt_analysis(p)
         except (KeyError, TypeError, ValueError, IndexError):
             out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
     return out

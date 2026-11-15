@@ -36,12 +36,13 @@ KIND_ORDER: tuple[str, ...] = (
     "bn-query", "bn-explanation", "bn-monte-carlo", "bn-sensitivity",
     "toc-pathways",
     "ft-analysis",
+    "bt-analysis",
 )
 REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
 _DEFAULT_LIMIT = 4
 
 KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | {
-    "toc-pathways": "theory_of_change", "ft-analysis": "fault_tree",
+    "toc-pathways": "theory_of_change", "ft-analysis": "fault_tree", "bt-analysis": "bow_tie",
 }
 
 

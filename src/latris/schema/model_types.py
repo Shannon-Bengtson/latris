@@ -214,9 +214,17 @@ register_model_type(
         id="bow_tie",
         display_name="Bow-Tie Diagram",
         short_name="BT",
-        description="Threat\u2013barrier\u2013consequence topology for risk analysis.",
-        roadmap="roadmap",
-        availability="planned",
+        description=(
+            "Threats and consequences of one top event and the barriers between them: lines that rest on one "
+            "barrier or none, shared barriers, uncontrolled escalation factors, and layer-of-protection "
+            "frequencies with each value's provenance."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("bt_elements_classified", "bt_links_valid", "bt_lines_complete"),
+        # One per element; the top event is the outcome of interest, so there is no separate "outcome" role.
+        allowed_roles=("hazard", "top_event", "threat", "consequence", "barrier", "escalation_factor"),
+        required_roles=("top_event", "threat", "consequence"),
     )
 )
 

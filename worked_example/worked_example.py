@@ -1608,6 +1608,72 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "sensitivity", "--model-type", "fault_tree"])
     os.chdir(ex.root)
 
+    # ── 11d. Bow-tie ──────────────────────────────────────────────────
+    ex.section(
+        "Bow-Tie",
+        "A bow-tie centres on one top event — the moment control of a hazard is lost. Threats on the left "
+        "lead to it through prevention barriers; consequences on the right follow it through mitigation "
+        "barriers; an escalation factor degrades a barrier. Each factor gets its element and the lines are "
+        "ordinary links. Shown on a fourth, small project.",
+    )
+    bt_root = ex.root.parent / "gas"
+    ex.run(["init", str(bt_root), "--question", "How well protected are we against a loss of containment?"])
+    os.chdir(bt_root)
+    ex.run(["project", "select-models", "bow_tie"])
+    _bt = {
+        "Flammable gas under pressure": "hazard", "Loss of containment": "top_event",
+        "Corrosion": "threat", "Overpressure": "threat", "Impact damage": "threat",
+        "Inspection programme": "barrier", "Corrosion inhibitor": "barrier", "Pressure relief valve": "barrier",
+        "Gas detection": "barrier", "Emergency shutdown": "barrier", "Bypass permit": "barrier",
+        "Fire": "consequence", "Toxic exposure": "consequence",
+        "Detector bypassed for maintenance": "escalation_factor", "Relief valve not tested": "escalation_factor",
+    }
+    for _n in _bt:
+        ex.run(["node", "add", _n])
+    for _a, _b in (("Flammable gas under pressure", "Loss of containment"),
+                   ("Corrosion", "Inspection programme"), ("Inspection programme", "Corrosion inhibitor"),
+                   ("Corrosion inhibitor", "Loss of containment"),
+                   ("Overpressure", "Pressure relief valve"), ("Pressure relief valve", "Loss of containment"),
+                   ("Impact damage", "Loss of containment"),
+                   ("Loss of containment", "Gas detection"), ("Gas detection", "Emergency shutdown"),
+                   ("Emergency shutdown", "Fire"), ("Gas detection", "Toxic exposure"),
+                   ("Detector bypassed for maintenance", "Bypass permit"), ("Bypass permit", "Gas detection"),
+                   ("Relief valve not tested", "Pressure relief valve")):
+        ex.run(["edge", "add", _a, _b])
+    ex.run(["bowtie", "check"], expect_fail=True)
+    for _n, _el in _bt.items():
+        ex.run(["bowtie", "element", _n, _el])
+    ex.run(["bowtie", "check"])
+    ex.note("Barriers carry their CCPS type, status and owner. The corrosion inhibitor is degraded, so it no "
+            "longer counts as an effective barrier.")
+    for _n, _ty, _own in (("Inspection programme", "human", "Integrity engineer"),
+                          ("Corrosion inhibitor", "passive_hardware", "Chemicals supervisor"),
+                          ("Pressure relief valve", "passive_hardware", "Maintenance lead"),
+                          ("Gas detection", "active_hardware", "Instrument technician"),
+                          ("Emergency shutdown", "active_hardware_human", None),
+                          ("Bypass permit", "human", "Shift supervisor")):
+        ex.run(["bowtie", "barrier", _n, "--type", _ty] + (["--owner", _own] if _own else []))
+    ex.run(["bowtie", "barrier", "Corrosion inhibitor", "--status", "degraded",
+            "--notes", "Dosing pump out of service since March"])
+    ex.run(["bowtie", "show"])
+    ex.note("Before any numbers, the analysis already points at the thin places: a threat with no barrier, "
+            "lines resting on one, a barrier shared by both consequences, an escalation factor with no control, "
+            "and a barrier nobody owns.")
+    ex.run(["bowtie", "analyse", "--no-record"])
+    ex.note("With threat frequencies and barrier failure probabilities (each with its source), the analysis "
+            "adds a layer-of-protection estimate and how much each barrier buys.")
+    for _n, _f in (("Corrosion", "0.1"), ("Overpressure", "0.5"), ("Impact damage", "0.01")):
+        ex.run(["bowtie", "frequency", _n, _f, "--source", "site-incident-log", "--origin", "data-derived"])
+    for _n, _pfd in (("Inspection programme", "0.1"), ("Corrosion inhibitor", "0.5"),
+                     ("Pressure relief valve", "0.01"), ("Gas detection", "0.1"), ("Emergency shutdown", "0.05"),
+                     ("Bypass permit", "0.5")):
+        ex.run(["bowtie", "barrier", _n, "--pfd", _pfd, "--source", "lopa-generic-values"])
+    ex.run(["bowtie", "barrier", "Pressure relief valve", "--verified"])
+    ex.run(["bowtie", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "bow_tie"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

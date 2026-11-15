@@ -18,6 +18,7 @@ from latris.cli import (  # noqa: E402
     analyse_cmd,
     attr_cmd,
     bn_cmd,
+    bowtie_cmd,
     build_cmd,
     capabilities_cmd,
     challenge_cmd,
@@ -100,6 +101,7 @@ app.add_typer(bn_cmd.app, name="bn")
 app.add_typer(sd_cmd.app, name="sd")
 app.add_typer(toc_cmd.app, name="toc")
 app.add_typer(ft_cmd.app, name="ft")
+app.add_typer(bowtie_cmd.app, name="bowtie")
 app.add_typer(results_cmd.app, name="results")
 app.add_typer(lineage_cmd.app, name="version")
 

@@ -81,6 +81,38 @@ def _fault_tree(paths: ProjectPaths, entities, edges) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _bow_tie(paths: ProjectPaths, entities, edges) -> str:
+    """Threats on the left, the top event in the middle, consequences on the right; barriers as boxes."""
+    from latris.operations.bow_tie import EDGE_KINDS, get_barriers, get_elements
+
+    el = get_elements(root=paths.root)
+    members = [e for e in entities if e.id in el]
+    if not members:
+        return ""
+    barriers = {b.target_id: b for b in get_barriers(root=paths.root).entries}
+    alias = {e.id: f"n{i}" for i, e in enumerate(members)}
+    shapes = {"hazard": ('[/"', '"/]'), "top_event": ('(("', '"))'), "threat": ('(["', '"])'),
+              "consequence": ('(["', '"])'), "barrier": ('["', '"]'), "escalation_factor": ('>"', '"]')}
+    lines = ["flowchart LR"]
+    for e in members:
+        text = _mermaid_text(e.label)
+        b = barriers.get(e.id)
+        if b and b.status != "in_place":
+            text += f"<br/>{b.status.replace('_', ' ')}"
+        if b and b.pfd is not None:
+            text += f"<br/>pfd {b.pfd:g}"
+        a, z = shapes[el[e.id]]
+        lines.append(f"    {alias[e.id]}{a}{text}{z}")
+    for ed in edges:
+        if ed.kind in EDGE_KINDS and ed.from_id in alias and ed.to_id in alias:
+            arrow = "-.->" if el[ed.from_id] in ("escalation_factor", "hazard") else "-->"
+            lines.append(f"    {alias[ed.from_id]} {arrow} {alias[ed.to_id]}")
+    weak = [alias[e.id] for e in members if (b := barriers.get(e.id)) and b.status != "in_place"]
+    if weak:
+        lines.append(f"    style {','.join(weak)} stroke:#c0392b,stroke-dasharray:4 3")
+    return "\n".join(lines) + "\n"
+
+
 def _toc_levels(paths: ProjectPaths) -> dict[str, str]:
     from latris.operations.toc import get_levels
 
@@ -101,6 +133,10 @@ def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
         tree = _fault_tree(paths, entities, edges)
         if tree:
             return tree
+    if model_type == "bow_tie":
+        bow = _bow_tie(paths, entities, edges)
+        if bow:
+            return bow
     direction = "TB" if model_type == "dag" else "LR"
     alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
     lines = [f"flowchart {direction}"]

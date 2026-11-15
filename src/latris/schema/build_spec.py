@@ -260,6 +260,40 @@ class SpecFT(_Spec):
     probabilities: list[SpecFTProbability] = Field(default_factory=list)
 
 
+class SpecBTElement(_Spec):
+    node: str
+    type: Literal["hazard", "top_event", "threat", "consequence", "barrier", "escalation_factor"]
+
+
+class SpecBTBarrier(_Spec):
+    node: str
+    type: Literal["passive_hardware", "active_hardware", "active_hardware_human", "human"] | None = None
+    status: Literal["in_place", "degraded", "not_in_place"] = "in_place"
+    owner: str | None = None
+    pfd: float | None = Field(default=None, ge=0.0, le=1.0)  # probability of failure on demand
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecBTFrequency(_Spec):
+    node: str
+    frequency: float = Field(ge=0.0)  # per year
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecBowTie(_Spec):
+    """Bow-tie elements, barriers and threat frequencies. The spec's ``outcome`` becomes the top event."""
+
+    elements: list[SpecBTElement] = Field(default_factory=list)
+    barriers: list[SpecBTBarrier] = Field(default_factory=list)
+    frequencies: list[SpecBTFrequency] = Field(default_factory=list)
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -311,14 +345,15 @@ class SpecAnalysis(_Spec):
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
     | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
-    | ft_analyse (fault-tree cut sets, probability and importance; max_order).
+    | ft_analyse (fault-tree cut sets, probability and importance; max_order)
+    | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_sensitivity", "toc_check", "ft_analyse",
+        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -362,4 +397,5 @@ class BuildSpec(_Spec):
     bn: SpecBN | None = None  # Bayesian network states and probability tables
     toc: SpecToC | None = None  # Theory of Change levels (input … impact)
     ft: SpecFT | None = None  # Fault tree events, gates and probabilities
+    bowtie: SpecBowTie | None = None  # Bow-tie elements, barriers and threat frequencies
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

@@ -130,6 +130,28 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="bt-barriers",
+        applies_to=("bow_tie",),
+        method="Bow-tie barrier analysis with layer-of-protection estimates",
+        citation=(
+            "CCPS & Energy Institute (2018), *Bow Ties in Risk Management: A Concept Book for Process Safety*; "
+            "CCPS (2001), *Layer of Protection Analysis: Simplified Process Risk Assessment*"
+        ),
+        used_for=(
+            "threat and consequence lines through prevention and mitigation barriers, escalation factors and "
+            "their controls, the CCPS barrier types; flags for lines resting on one effective barrier or none, "
+            "barriers shared between lines, uncontrolled escalation and barriers with no owner; with threat "
+            "frequencies and barrier failure probabilities, the top-event and consequence frequencies and how "
+            "much each barrier buys"
+        ),
+        limits=(
+            "Barriers are assumed to fail independently (shared barriers are flagged, and counted once per "
+            "threat); frequencies and failure probabilities are point values at the order-of-magnitude "
+            "precision of LOPA; escalation factors are not quantified and there is no consequence severity "
+            "or risk matrix."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",

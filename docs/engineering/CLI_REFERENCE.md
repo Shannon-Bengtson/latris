@@ -330,6 +330,23 @@ latris ft check                                       # structure; exits 1 until
 latris ft analyse [--max-order N] [--no-record]       # cut sets, SPOFs, exact P(top), importance
 ```
 
+## Bow-tie
+
+Threats, barriers and consequences around one top event, on the shared
+substrate: each element is a view role, lines are ordinary links, and each
+barrier's type, status, owner and failure probability (PFD) are stored with
+provenance. `bowtie analyse` is recorded as an `AnalysisRun` (`bt-analysis`).
+
+```bash
+latris bowtie element <node> <hazard|top_event|threat|consequence|barrier|escalation_factor>
+latris bowtie barrier <barrier> [--type passive_hardware|active_hardware|active_hardware_human|human]
+                      [--status in_place|degraded|not_in_place] [--owner] [--pfd P] [--source] [--origin] [--verified]
+latris bowtie frequency <threat> <per_year> [--source] [--origin] [--verified] [--notes]
+latris bowtie show                                    # line by line
+latris bowtie check                                   # structure; exits 1 until complete
+latris bowtie analyse [--no-record]                   # lines, flags, LOPA frequencies, RAW per barrier
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

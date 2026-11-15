@@ -759,8 +759,8 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
         title="Choosing a Model Type",
         category="model-types",
         summary=(
-            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, and planned formal views "
-            "— by the question each one answers."
+            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, and planned "
+            "formal views — by the question each one answers."
         ),
         body="""## Current stable model types
 
@@ -771,10 +771,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **SD:** best for how a system with accumulation, delay, and feedback behaves over time — stocks, flows, unit-checked equations, and deterministic simulation. See the dedicated System Dynamics topic.
 - **Theory of Change:** best for programme and policy logic — how an intervention's activities are expected to lead, step by step, to its impact, and what evidence and assumptions hold each step up. See the dedicated Theory of Change topic.
 - **Fault Tree:** best for how an undesired event can happen — the combinations of failures that cause it, single points of failure, its probability and which failures matter most. See the dedicated Fault Trees topic.
+- **Bow-Tie:** best for showing, for one top event, what could cause it, what could follow, and the barriers in between — where the protection is thin, shared or uncontrolled, and (with frequencies and failure probabilities) how often each outcome is expected. See the dedicated Bow-Ties topic.
 
 ## Planned model types
 
-On the roadmap: event trees, bow-tie diagrams and Goal Structuring Notation (for risk and safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: event trees and Goal Structuring Notation (for risk and safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — decision trees, influence diagrams, Markov chains and MDPs, regression, argument maps, fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -800,6 +801,8 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "What combinations of failures cause this, and how likely is it?" →
   **Fault Tree** — gates down to basic events; cut sets, probability and
   importance.
+- "What stands between this hazard and harm, and where is it thin?" →
+  **Bow-Tie** — threats, barriers and consequences around one top event.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1022,6 +1025,40 @@ The tree is complete when it has one top event, every top and intermediate event
 ## Practical caution
 
 The analysis is static and assumes basic events are independent: it has no common-cause failure model, no NOT, priority-AND or sequence gates, and probabilities are point values. Methods: the NRC *Fault Tree Handbook* (Vesely et al. 1981), IEC 61025, Rauzy (1993) for the decision diagram, and Birnbaum (1969) and Fussell (1975) for importance.
+""",
+    ),
+    HelpTopic(
+        id="model-type-bowtie",
+        title="Bow-Ties",
+        category="model-types",
+        summary="Lay out the threats and consequences of one top event and the barriers between, and see where protection is thin.",
+        body="""## What a bow-tie represents
+
+A bow-tie centres on a **top event** — the moment control of a **hazard** is lost (e.g. *loss of containment* of *flammable gas under pressure*). On the left, the **threats** that could cause it, each on a line through the **prevention barriers** meant to stop it. On the right, the **consequences** that could follow, each through **mitigation barriers**. An **escalation factor** is a condition that degrades a barrier (a detector bypassed for maintenance); its own line runs through the barriers that control it.
+
+Give each factor its element (`latris bowtie element <factor> hazard|top_event|threat|consequence|barrier|escalation_factor`) and draw the lines with ordinary links: threat → barrier → … → top event → barrier → … → consequence, and escalation factor → control → … → the barrier it degrades. Only factors with a bow-tie element are in it; a link from anything else is listed and left out.
+
+## Barriers
+
+Each barrier can carry its **type** (passive hardware, active hardware, active hardware + human, human — the CCPS types), its **status** (in place, degraded, not in place), its **owner**, and its **probability of failure on demand**, with where that number came from (`latris bowtie barrier <barrier> --type … --status … --owner … --pfd … --source …`). Only what you give changes.
+
+## What the analysis shows
+
+`latris bowtie analyse` lists every line with its barriers and flags:
+
+- lines with **no effective barrier**, and lines resting on **one** (a degraded or missing barrier doesn't count);
+- barriers on **more than one line** — one failure takes them all;
+- escalation factors with **no control**, and barriers with **no owner**.
+
+Give every threat a frequency per year (`latris bowtie frequency <threat> <f> --source …`) and every barrier on a line a failure probability, and it adds a layer-of-protection estimate: the top event's frequency, each consequence's, and for each barrier how many times more often its side's outcome would happen if it always failed (RAW). A barrier on two routes from the same threat is counted once. The important values nobody has verified are flagged. The analysis is recorded for the report and goes out of date when the bow-tie or a value changes.
+
+## Readiness
+
+Complete when there is one top event, at most one hazard (linked to the top event), at least one threat and one consequence each on a line, every barrier on a line, every escalation factor linked to the barrier it degrades, and no link that breaks the pattern or loops.
+
+## Practical caution
+
+The quantification is LOPA's: order-of-magnitude, barriers assumed independent, point values. Escalation factors are not quantified, and there is no severity scale or risk matrix. The left side of a bow-tie is often a fault tree: a threat's frequency can cite a fault-tree analysis as its source. Methods: CCPS & Energy Institute (2018) *Bow Ties in Risk Management*, and CCPS (2001) *Layer of Protection Analysis*.
 """,
     ),
     HelpTopic(

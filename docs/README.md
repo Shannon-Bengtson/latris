@@ -36,6 +36,11 @@ repository. Start at the repo-root [README](../README.md).
   points of failure, the exact top-event probability (binary decision
   diagram) and Birnbaum / Fussell–Vesely / RAW importance, with each
   probability's provenance — via CLI `ft` + `/api/ft/*`.
+- Bow-ties: threats, prevention and mitigation barriers, consequences and
+  escalation factors around one top event; flags for thin, shared or
+  uncontrolled protection and barriers with no owner; layer-of-protection
+  frequencies with each value's provenance — via CLI `bowtie` +
+  `/api/bowtie/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked
