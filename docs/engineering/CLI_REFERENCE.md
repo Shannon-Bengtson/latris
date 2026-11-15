@@ -195,6 +195,10 @@ URL. Opening it creates a hosted copy with a report link and the full
 figure; the person can save it to their account. Everything arriving this
 way is recorded as AI-proposed, and findings arrive unapproved.
 
+**Known issue:** the link drops source checks, quotes, extracts and
+approvals but keeps the interpretation prose, so a copy can claim checks it
+doesn't hold. See [`SHARE_LINK.md`](SHARE_LINK.md).
+
 The library exports Markdown and DOT. Word reports, self-contained
 HTML review packs (and importing completed ones) and story HTML are part
 of the Latris app (`app.latris.app`) since 0.5.0. The Markdown report includes a

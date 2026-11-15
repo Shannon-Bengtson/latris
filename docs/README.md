@@ -71,6 +71,9 @@ agents: read these before changing code.
    hermetic contract, how to add tests.
 6. [`CLI_REFERENCE.md`](engineering/CLI_REFERENCE.md) — the `latris`
    command catalogue.
+7. [`SHARE_LINK.md`](engineering/SHARE_LINK.md) — open issue: `latris link`
+   copies drop the evidence trail but keep prose that describes it; the
+   planned fix.
 
 ### The worked example (`../worked_example/`)
 
