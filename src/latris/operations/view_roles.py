@@ -35,6 +35,11 @@ def set_role(
         from latris.operations import sd as sd_ops
 
         return sd_ops.set_outcome(target, root=root)
+    if model_type == "theory_of_change" and role == "outcome":
+        raise ValueError(
+            "A theory of change's outcome of interest is its impact: give the factor the level 'impact' "
+            "(latris toc level <factor> impact). Outcomes along the way are short_term_outcome or long_term_outcome."
+        )
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:
         raise ValueError(f"{role!r} is not a valid role for {spec.display_name}. Valid: {spec.allowed_roles}")

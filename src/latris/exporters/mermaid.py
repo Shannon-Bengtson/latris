@@ -53,6 +53,12 @@ def _scoped(paths: ProjectPaths, model_type: str | None):
     return entities, edges, polarity
 
 
+def _toc_levels(paths: ProjectPaths) -> dict[str, str]:
+    from latris.operations.toc import get_levels
+
+    return get_levels(root=paths.root)
+
+
 def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
     """Return Mermaid ``flowchart`` source for the (optionally scoped) model.
 
@@ -66,8 +72,21 @@ def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
     direction = "TB" if model_type == "dag" else "LR"
     alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
     lines = [f"flowchart {direction}"]
+    levels = _toc_levels(paths) if model_type == "theory_of_change" else {}
+    if levels:
+        # One column per results-chain level, inputs to impact.
+        from latris.operations.toc import LEVEL_NAMES, LEVELS
+
+        for i, level in enumerate(LEVELS):
+            members = [e for e in entities if levels.get(e.id) == level]
+            if not members:
+                continue
+            lines.append(f'    subgraph L{i}["{LEVEL_NAMES[level]}"]')
+            lines += [f'        {alias[e.id]}["{_mermaid_text(e.label)}"]' for e in members]
+            lines.append("    end")
     for e in entities:
-        lines.append(f'    {alias[e.id]}["{_mermaid_text(e.label)}"]')
+        if e.id not in levels:
+            lines.append(f'    {alias[e.id]}["{_mermaid_text(e.label)}"]')
     for e in edges:
         label = polarity.get(e.id) or ("" if e.kind == "causal" else e.kind)
         arrow = "-->" if e.kind in _SOLID_EDGE_KINDS else "-.->"

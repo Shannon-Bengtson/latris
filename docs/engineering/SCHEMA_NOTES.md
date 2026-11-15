@@ -300,7 +300,7 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 5 stable (CLD, DAG, FCM, BN, SD) + 15 planned model types. Registry-driven
+  (built) defines 6 stable (CLD, DAG, FCM, BN, SD, Theory of Change) + 14 planned model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
   and settings in a single call. When planned types become stable,
@@ -327,13 +327,12 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 5 stable types (CLD, DAG, FCM, BN, SD) and 15
-planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 6 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change) and 14 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, only fault tree, event tree, bow-tie, GSN and theory of change are
-currently on it. Decision tree, influence diagram and Markov/MDP are
+types, only fault tree, event tree, bow-tie and GSN are currently on it. Decision tree, influence diagram and Markov/MDP are
 parked; causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
@@ -350,7 +349,7 @@ planned (their fit notes are kept below for reference).
 | **Decision Tree** | Registered — parked | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
 | **Event Tree** | Registered — on the roadmap | Forward-logic complement to fault trees. Barrier success/failure branching. |
 | **Fishbone / Ishikawa** | Registered — not currently planned | Root cause analysis with categorised cause branches. Acyclic tree. |
-| **Theory of Change** | Registered — on the roadmap | Logic model: activities → outputs → outcomes → goals. Policy/evaluation standard. |
+| **Theory of Change** | Stable | Logic-model levels (input, activity, output, short_term_outcome, long_term_outcome, impact) as view roles — no EntityKind change; links stay `causal` edges. The impact is the outcome of interest, so ToC has no separate `outcome` role. Readiness: every factor levelled, no backward links, every impact reached from an activity, no dead ends. `toc check` records a `toc-pathways` result whose fingerprint also covers evidence, assumptions and confidence. |
 | **Argument Map** | Registered — not currently planned | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
 | **Fuzzy Cognitive Map** | Stable | CLD with continuous edge weights in [−1, +1]. Cycles allowed; weight storage and steady-state inference are built. |
 | **Flowchart** | Registered — not currently planned | Activity-decision-outcome process flow. Universal visual modelling tool. |

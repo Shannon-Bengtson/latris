@@ -207,7 +207,8 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         outcome=outcome, factors=factors, links=links, sources=sources,
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
-        sd=_export_sd(paths, labels), bn=_export_bn(paths, labels), analyses=_export_analyses(paths),
+        sd=_export_sd(paths, labels), bn=_export_bn(paths, labels), toc=_export_toc(paths, labels),
+        analyses=_export_analyses(paths),
     )
     return foundation, spec
 
@@ -260,6 +261,19 @@ def _export_sd(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
     stored = sd_ops.get_settings(root=paths.root).model_dump(exclude_none=True, exclude={"outcome"})
     return SpecSD(settings=stored, roles=roles, stocks=stocks, constants=constants, equations=equations, tables=tables,
                   uncertainty=ranges, scenarios=scenarios)
+
+
+def _export_toc(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
+    """Theory-of-change levels as spec entries, inputs first."""
+    from latris.operations import toc
+    from latris.schema.build_spec import SpecToC, SpecToCLevel
+
+    levels = toc.get_levels(root=paths.root)
+    entries = sorted(
+        (SpecToCLevel(node=labels[eid], level=lvl) for eid, lvl in levels.items() if eid in labels),
+        key=lambda e: (toc.LEVELS.index(e.level), e.node),
+    )
+    return SpecToC(levels=entries) if entries else None
 
 
 def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202

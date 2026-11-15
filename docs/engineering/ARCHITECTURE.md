@@ -69,7 +69,7 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | Decision Tree | Sequential decision/chance branching to outcomes | parked |
 | Event Tree | Initiating event → barrier branching → consequences | on the roadmap |
 | Fishbone / Ishikawa | Categorised cause branches converging on effect | not currently planned |
-| Theory of Change | Activities → outputs → outcomes → goals | on the roadmap |
+| Theory of Change | Input → activity → output → short/long-term outcome → impact levels (view roles); acyclic, forward-only results chain; pathway enumeration with per-link evidence status and assumptions | stable (built) |
 | Argument Map | Toulmin/IBIS claims, warrants, rebuttals | not currently planned |
 | Fuzzy Cognitive Map | CLD with edge weights in [−1, +1]; steady-state inference | v1 semi-quantitative |
 | Flowchart | Activity-decision-outcome process flow | not currently planned |
@@ -207,7 +207,7 @@ src/latris/
 │   ├── data_actions.py # DataAction, DataActionLog (audit trail)
 │   ├── data_versions.py # DatasetVersion, DatasetVersionLibrary
 │   ├── lineage.py     # LineageNode, Milestone, MilestoneLog
-│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD stable; 15 planned)
+│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC stable; 14 planned)
 │   ├── roles.py       # ViewRoleMap — formalism-specific entity classifications
 │   ├── settings.py    # Per-model-type settings (SDSettings, FCMSettings, MarkovSettings)
 │   ├── common.py      # HumanActor, AIActor, ExpertActor, provenance axes
@@ -315,9 +315,9 @@ classifications** (stock, chance, goal, gate, barrier, etc.) live in a
 separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
-own semantic roles to substrate entities. 15 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 5 stable ones
-(CLD, DAG, FCM, BN, SD); the Layer-3 table above gives each one's
+own semantic roles to substrate entities. 14 planned model types are
+registered in the `ModelTypeSpec` registry alongside the 6 stable ones
+(CLD, DAG, FCM, BN, SD, Theory of Change); the Layer-3 table above gives each one's
 roadmap status. Each formalism lands as an **additive** extension — no
 schema migration. See `SCHEMA_NOTES.md` → "Extensibility hypothesis"
 for per-formalism fit notes and the open design question

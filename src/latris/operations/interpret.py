@@ -371,6 +371,10 @@ def _outcome_ids(paths, model_type: str) -> set[str]:
 
         outcome = sd_ops.get_settings(root=paths.root).outcome
         return {outcome} if outcome else set()
+    if model_type == "theory_of_change":
+        from latris.operations import toc
+
+        return {eid for eid, lvl in toc.get_levels(root=paths.root).items() if lvl == "impact"}
     path = paths.role_path(model_type)
     if not path.exists():
         return set()
@@ -444,6 +448,68 @@ def hedge_mode_active(model_type: str, paths) -> bool:
     """
     _cited, _total, ratio = coverage_ratio(model_type, paths)
     return ratio < HEDGE_COVERAGE_THRESHOLD and accepted_findings_count(model_type, paths) == 0
+
+
+def _toc_claims(paths, section: str) -> list[str]:
+    """Theory-of-change claims for one section, from the live pathway analysis."""
+    from latris.operations import toc
+
+    payload, _ = toc.check(record=False, root=paths.root)
+    pws, on = payload["pathways"], [lk for lk in payload["links"] if lk["on_pathway"]]
+    by_status = {s: sum(1 for p in pws if p["status"] == s) for s in ("checked", "cited", "untested", "contested")}
+    claims: list[str] = []
+    if section == "structure":
+        counts = ", ".join(f"{n} {toc.LEVEL_NAMES[lvl].lower()}" for lvl, n in payload["counts"].items() if n)
+        if counts:
+            claims.append(f"Results chain by level: {counts}.")
+        claims.append(toc.describe(payload) + ".")
+        leaps = [lk["label"] for lk in on if lk["leap"]]
+        if leaps:
+            claims.append(f"Links that skip levels, leaving the steps between unstated: {', '.join(leaps[:5])}.")
+        if payload["problems"]:
+            claims.append(
+                f"The results chain is incomplete: {len(payload['problems'])} structure problem(s) "
+                f"(e.g. {payload['problems'][0]['label']}: {payload['problems'][0]['message']})"
+            )
+    elif section == "answer":
+        if not pws:
+            claims.append("No pathway yet runs from an activity to an impact, so the theory doesn't say how the "
+                          "intervention would reach its goal.")
+        else:
+            claims.append(
+                f"Of {len(pws)} pathway(s) from activity to impact, {by_status['checked']} rest entirely on links "
+                f"checked against a source; {by_status['cited']} have a link whose sources aren't checked yet, "
+                f"{by_status['untested']} a link with no source and {by_status['contested']} a contested link."
+            )
+            best = [p for p in pws if p["status"] == "checked"]
+            if best:
+                claims.append(f"Best-supported pathway: {' → '.join(best[0]['path'])}.")
+    elif section == "gaps":
+        untested = [lk["label"] for lk in on if lk["status"] == "untested"]
+        contested = [lk["label"] for lk in on if lk["status"] == "contested"]
+        no_assumption = [lk["label"] for lk in on if not lk["assumptions"]]
+        if untested:
+            claims.append(f"Links on a pathway with no source: {', '.join(untested[:5])}"
+                          + (f" (+{len(untested) - 5} more)." if len(untested) > 5 else "."))
+        if contested:
+            claims.append(f"Links on a pathway with a source against them: {', '.join(contested[:5])}.")
+        if no_assumption:
+            claims.append(f"{len(no_assumption)} of {len(on)} link(s) on a pathway have no stated assumption "
+                          "about why the step should happen.")
+    elif section == "implications":
+        weak = {}
+        for p in pws:
+            for name in p["weak_links"]:
+                weak[name] = weak.get(name, 0) + 1
+        status = {lk["label"]: lk["status"] for lk in on}
+        if weak:
+            rank = {"contested": 0, "untested": 1, "cited": 2}
+            top = sorted(weak.items(), key=lambda kv: (-kv[1], rank.get(status.get(kv[0], ""), 3), kv[0]))[:3]
+            claims.append("Links to test first — not yet checked, and on the most pathways:")
+            claims += [f"  - {name} ({status.get(name, '?')}; on {n} pathway(s))" for name, n in top]
+        elif pws:
+            claims.append("Every link on a pathway has been checked against a source.")
+    return claims
 
 
 def _extract_structural_summary(model_type: str, paths) -> list[str]:
@@ -521,6 +587,9 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
             )
         else:
             claims.append("DAG structure confirmed (acyclic by readiness gate).")
+
+    if model_type == "theory_of_change":
+        claims.extend(_toc_claims(paths, "structure"))
 
     # Add any recorded structural findings
     findings = _load_findings(paths, model_type)
@@ -718,6 +787,8 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
             f"{noun.capitalize()} without a source: {', '.join(names[:5])}"
             + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
         )
+    if model_type == "theory_of_change":
+        claims.extend(_toc_claims(paths, "gaps"))
     return claims
 
 
@@ -831,6 +902,9 @@ def _extract_answer(model_type: str, paths) -> list[str]:
             names = [entity_labels.get(c.entity_id, "") for c in top_3]
             claims.append(f"Key factors in the system: {', '.join(names)}.")
 
+    if model_type == "theory_of_change":
+        claims.extend(_toc_claims(paths, "answer"))
+
     # Recorded inference findings
     findings = _load_findings(paths, model_type)
     inference = [f for f in findings if f.category == "inference"]
@@ -852,8 +926,11 @@ def _extract_implications(model_type: str, paths) -> list[str]:
     # decision_rule / governance edges don't inflate betweenness.
     causal = causal_edges(substrate.edges)
 
+    # In a theory of change the intervention is its activities; what matters is which steps to test.
+    if model_type == "theory_of_change":
+        claims.extend(_toc_claims(paths, "implications"))
     # High-betweenness nodes are intervention leverage points
-    if substrate.entities and causal:
+    elif substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)
         entity_labels = {e.id: e.label for e in substrate.entities}
         top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]

@@ -110,6 +110,25 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         limits="Fixed-point only — non-convergence is flagged; limit cycles are not analysed.",
     ),
     Foundation(
+        id="toc-results-chain",
+        applies_to=("theory_of_change",),
+        method="Theory of change as a results chain",
+        citation=(
+            'Weiss (1995), "Nothing as Practical as Good Theory", in Connell et al. (eds), *New Approaches '
+            'to Evaluating Community Initiatives*; W.K. Kellogg Foundation (2004), *Logic Model Development '
+            'Guide*; Mayne (2012), "Contribution Analysis: Coming of Age?", *Evaluation* 18(3)'
+        ),
+        used_for=(
+            "logic-model levels (input, activity, output, short- and long-term outcome, impact), every "
+            "pathway from an activity to an impact, and for each link its sources for and against, whether "
+            "they were checked, and the assumptions stated for it"
+        ),
+        limits=(
+            "Structural and evidential only — it shows where a results chain is unsupported, not how large "
+            "an effect is or how much of an outcome the intervention caused; pathways are enumerated up to 200."
+        ),
+    ),
+    Foundation(
         id="sd-simulation",
         applies_to=("sd",),
         method="Stock-and-flow simulation with dimensional analysis",

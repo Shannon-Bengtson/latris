@@ -80,6 +80,10 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
             raise ValueError("a BN sensitivity analysis needs a target and a state")
         result = bn_sensitivity.sensitivity(a.target, a.state, evidence=a.evidence or None, root=paths.root)
         return bn_sensitivity.record_sensitivity(result, root=paths.root)[1]
+    if a.kind == "toc_check":
+        from latris.operations import toc
+
+        return toc.check(root=paths.root)[0]["run_id"]
     raise ValueError(f"unknown analysis kind {a.kind!r}")
 
 
@@ -155,4 +159,6 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
                 kind="bn_sensitivity", target=names.get(p["target_id"], p["target_id"]), state=p["target_state"],
                 evidence={names.get(k, k): v for k, v in (p.get("evidence") or {}).items()},
             ))
+        elif kind == "toc-pathways":
+            out.append(SpecAnalysis(kind="toc_check"))
     return out

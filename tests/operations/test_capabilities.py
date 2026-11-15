@@ -9,16 +9,19 @@ def test_manifest_counts_match_registry():
     manifest = build_capability_manifest()
     stable = [m for m in manifest["model_types"] if m["can_use_today"]]
     planned = [m for m in manifest["model_types"] if not m["can_use_today"]]
-    assert {m["id"] for m in stable} == {"cld", "dag", "bn", "fcm", "sd"}
-    assert len(planned) == 15
+    assert {m["id"] for m in stable} == {"cld", "dag", "bn", "fcm", "sd", "theory_of_change"}
+    assert len(planned) == 14
     assert manifest["excluded_by_design"]  # non-empty, hand-coded list present
 
 
-def test_theory_of_change_marked_not_usable_today():
+def test_theory_of_change_usable_today_fault_tree_not():
     manifest = build_capability_manifest()
     toc = next(m for m in manifest["model_types"] if m["id"] == "theory_of_change")
-    assert toc["availability"] == "planned"
-    assert toc["can_use_today"] is False
+    assert toc["availability"] == "stable"
+    assert toc["can_use_today"] is True
+    ft = next(m for m in manifest["model_types"] if m["id"] == "fault_tree")
+    assert ft["availability"] == "planned"
+    assert ft["can_use_today"] is False
 
 
 def test_manifest_roadmap_groups_and_order():
@@ -27,8 +30,8 @@ def test_manifest_roadmap_groups_and_order():
     for m in manifest["model_types"]:
         groups.setdefault(m["roadmap"], set()).add(m["id"])
         assert (m["roadmap"] == "built") == m["can_use_today"]
-    assert groups["built"] == {"cld", "dag", "fcm", "bn", "sd"}
-    assert groups["roadmap"] == {"fault_tree", "event_tree", "bow_tie", "gsn", "theory_of_change"}
+    assert groups["built"] == {"cld", "dag", "fcm", "bn", "sd", "theory_of_change"}
+    assert groups["roadmap"] == {"fault_tree", "event_tree", "bow_tie", "gsn"}
     assert groups["parked"] == {"decision_tree", "influence_diagram", "markov"}
     assert groups["not_planned"] == {
         "causal_dag", "regression", "argument_map", "fishbone", "flowchart", "state_machine", "petri_net",

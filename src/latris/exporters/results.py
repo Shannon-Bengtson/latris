@@ -199,6 +199,36 @@ def _loops(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _toc_pathways(p: dict[str, Any]) -> list[str]:
+    from latris.operations.toc import describe
+
+    out = [describe(p) + ".", ""]
+    if p.get("problems"):
+        out += [f"The results chain is incomplete ({len(p['problems'])} structure problem(s)):", ""]
+        out += [f"- {_esc(x['label'])}: {_esc(x['message'])}" for x in p["problems"][:_MAX_ROWS]]
+        out.append("")
+    order = {"contested": 0, "untested": 1, "cited": 2, "checked": 3}
+    pws = sorted(p["pathways"], key=lambda x: order.get(x["status"], 9))
+    if pws:
+        rows = [[" → ".join(x["path"]), x["status"], ", ".join(x["weak_links"]) or "—"]
+                for x in pws[:_MAX_ROWS]]
+        out += _table(["Pathway", "Weakest link", "Links not yet checked"], rows)
+        if len(pws) > _MAX_ROWS:
+            out += [f"_…and {len(pws) - _MAX_ROWS} more pathway(s)._", ""]
+    on = [lk for lk in p["links"] if lk["on_pathway"]]
+    if on:
+        rows = [
+            [lk["label"], lk["status"], str(lk["sources_for"]), str(lk["sources_for_checked"]),
+             str(lk["sources_against"]), str(lk["assumptions"]), "skips levels" if lk["leap"] else ""]
+            for lk in sorted(on, key=lambda lk: order.get(lk["status"], 9))[: _MAX_ROWS * 2]
+        ]
+        out += ["Each link on a pathway, weakest first. *Checked*: a source was read and found to support it; "
+                "*cited*: it has a source not yet checked; *untested*: no source; *contested*: a source argues "
+                "against it.", ""]
+        out += _table(["Link", "Evidence", "Sources for", "Checked", "Against", "Assumptions", "Note"], rows)
+    return out
+
+
 def _given(p: dict[str, Any]) -> str:
     from latris.operations.bn import evidence_description
 
@@ -324,6 +354,7 @@ _TITLES = {
     "bn-explanation": "Most likely explanation",
     "bn-monte-carlo": "How sure the probability is (Monte Carlo)",
     "bn-sensitivity": "Probability sensitivity",
+    "toc-pathways": "Theory of change: pathways and their evidence",
 }
 
 
@@ -398,6 +429,8 @@ def render_results(
                 out += _bn_monte_carlo(p)
             elif kind == "bn-sensitivity":
                 out += _bn_sensitivity(p, labels or {})
+            elif kind == "toc-pathways":
+                out += _toc_pathways(p)
         except (KeyError, TypeError, ValueError, IndexError):
             out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
     return out

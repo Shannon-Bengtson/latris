@@ -218,6 +218,17 @@ class SpecSD(_Spec):
     scenarios: list[SpecScenario] = Field(default_factory=list)
 
 
+class SpecToCLevel(_Spec):
+    node: str
+    level: Literal["input", "activity", "output", "short_term_outcome", "long_term_outcome", "impact"]
+
+
+class SpecToC(_Spec):
+    """Theory-of-change levels. The spec's ``outcome`` (if any) becomes an impact."""
+
+    levels: list[SpecToCLevel] = Field(default_factory=list)
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -268,14 +279,14 @@ class SpecAnalysis(_Spec):
     | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
-    | bn_sensitivity (target, state, evidence).
+    | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_sensitivity",
+        "bn_sensitivity", "toc_check",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -316,4 +327,5 @@ class BuildSpec(_Spec):
     interpretation: list[SpecInterpretation] = Field(default_factory=list)
     sd: SpecSD | None = None  # System Dynamics roles, values, equations, tables, uncertainty, scenarios
     bn: SpecBN | None = None  # Bayesian network states and probability tables
+    toc: SpecToC | None = None  # Theory of Change levels (input … impact)
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

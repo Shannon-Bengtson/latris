@@ -189,11 +189,11 @@ See [AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls".
 
 **What's available varies by model type.** `latris capabilities` (or
 `latris capabilities --json`) lists every registered model type with
-`can_use_today: true/false`. Only `cld`, `dag`, `bn`, `fcm`, and `sd` are
-stable/switchable today; the rest (`theory_of_change`, `gsn`, and
-13 others) are registered but not yet switchable. Each entry's `roadmap`
-field says where it stands: fault tree, event tree, bow-tie, GSN and
-theory of change are `roadmap`; a few are `parked`; the rest are
+`can_use_today: true/false`. Only `cld`, `dag`, `bn`, `fcm`, `sd` and
+`theory_of_change` are stable/switchable today; the rest (`gsn`,
+`fault_tree`, and 12 others) are registered but not yet switchable. Each
+entry's `roadmap` field says where it stands: fault tree, event tree,
+bow-tie and GSN are `roadmap`; a few are `parked`; the rest are
 `not_planned` — registered, but not something to describe as coming — `latris view project
 <kind>` raises a `ValueError` if `kind` isn't stable. A few categories
 (black-box ML) are excluded by design, not "not yet." Checking this

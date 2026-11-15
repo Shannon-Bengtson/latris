@@ -365,6 +365,43 @@ def _check_sd_dimensional_consistency(ctx: ValidationContext) -> list[ReadinessG
     return _sd_problems(ctx, UNIT_GAPS)
 
 
+def _toc_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
+    """Theory-of-change structure problems of the given types (one analysis per check)."""
+    if "toc_problems" not in ctx.cache:
+        from latris.operations import toc
+
+        ctx.cache["toc_problems"] = toc.structure_problems(root=ctx.paths.root)
+    labels = {e.id: e.label for e in ctx.substrate.entities}
+    labels.update(
+        {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
+    )
+    return [
+        ReadinessGap(
+            element_id=p.target_id or "",
+            element_label=labels.get(p.target_id or "", "(model)"),
+            gap_type=p.gap_type,
+            message=p.message,
+        )
+        for p in ctx.cache["toc_problems"]
+        if p.gap_type in gap_types
+    ]
+
+
+def _check_toc_levels_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Every factor has a theory-of-change level (input … impact)."""
+    return _toc_problems(ctx, ("toc_no_level",))
+
+
+def _check_toc_links_forward(ctx: ValidationContext) -> list[ReadinessGap]:
+    """No causal link runs back to an earlier level."""
+    return _toc_problems(ctx, ("toc_backward_link",))
+
+
+def _check_toc_pathways_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """There is an activity and an impact, every impact is reached from an activity, and nothing dead-ends."""
+    return _toc_problems(ctx, ("toc_no_activity", "toc_no_impact", "toc_dead_end", "toc_unreached_impact"))
+
+
 SD_VALIDATORS: tuple[str, ...] = (
     "sd_classification_complete",
     "sd_flow_connects_stock",
@@ -388,6 +425,9 @@ _STRUCTURAL_VALIDATORS: dict[str, object] = {
     "sd_values_complete": _check_sd_values_complete,
     "sd_tables_well_formed": _check_sd_tables_well_formed,
     "sd_dimensional_consistency": _check_sd_dimensional_consistency,
+    "toc_levels_complete": _check_toc_levels_complete,
+    "toc_links_forward": _check_toc_links_forward,
+    "toc_pathways_complete": _check_toc_pathways_complete,
     # Future: "bipartite", etc.
 }
 

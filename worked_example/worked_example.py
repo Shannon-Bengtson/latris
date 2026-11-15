@@ -1495,6 +1495,59 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["fcm", "infer"])
     ex.run(["fcm", "infer", "--clamp", "Transport Policy=1.0"])
 
+    # ── 11b. Theory of Change ─────────────────────────────────────────
+    ex.section(
+        "Theory of Change",
+        "A theory of change lays out how an intervention is meant to reach its impact: activities, the "
+        "outputs they produce, short- and long-term outcomes, and the impact. Each factor gets a level; "
+        "links are ordinary causal links. `toc check` lays out every pathway from an activity to the "
+        "impact and says, link by link, what holds it up. Shown on a second, small project.",
+    )
+    toc_root = ex.root.parent / "mentoring"
+    ex.run(["init", str(toc_root), "--question", "Does the mentoring programme raise school completion?"])
+    os.chdir(toc_root)
+    ex.run(["project", "select-models", "theory_of_change"])
+    for _n in ("Mentor training", "Weekly mentoring sessions", "Students mentored", "School attendance",
+               "Grades", "School completion"):
+        ex.run(["node", "add", _n])
+    for _a, _b in (("Mentor training", "Weekly mentoring sessions"),
+                   ("Weekly mentoring sessions", "Students mentored"),
+                   ("Students mentored", "School attendance"),
+                   ("School attendance", "Grades"),
+                   ("Grades", "School completion"),
+                   ("Students mentored", "School completion")):
+        ex.run(["edge", "add", _a, _b])
+    ex.note("Before levels are set, the check names what's missing.")
+    ex.run(["toc", "check", "--no-record"])
+    for _n, _lvl in (("Mentor training", "input"), ("Weekly mentoring sessions", "activity"),
+                     ("Students mentored", "output"), ("School attendance", "short_term_outcome"),
+                     ("Grades", "long_term_outcome"), ("School completion", "impact")):
+        ex.run(["toc", "level", _n, _lvl])
+    ex.note("The impact is the outcome of interest, so there is no separate outcome role; asking for one says so.")
+    ex.run(["view", "role", "theory_of_change", "School completion", "outcome"], expect_fail=True)
+    ex.run(["toc", "levels"])
+    ex.note("Say why each step should happen. An assumption can name its link as \"From -> To\".")
+    ex.run(["assumption", "add", "Students who feel someone expects them at school turn up more often.",
+            "--target", "Students mentored -> School attendance"])
+    ex.run(["assumption", "add", "Better grades keep students enrolled through the final years.",
+            "--target", "Grades -> School completion"])
+    ex.note("Cite and check a source for one step, and cite (without checking) another.")
+    ex.run(["ref", "add", "lee2020", "--title", "Mentoring and school attendance (illustrative)",
+            "--year", "2020"])
+    ex.run(["evidence", "add", "Students mentored -> School attendance", "description", "lee2020"])
+    ex.run(["evidence", "check", "Students mentored -> School attendance", "description", "lee2020",
+            "supports", "--rationale", "Mentored youth showed better school attendance."])
+    ex.run(["evidence", "add", "Grades -> School completion", "description", "lee2020"])
+    ex.note("Now every pathway is laid out with its weakest link. `Students mentored -> School completion` "
+            "skips two levels, so it is flagged as a leap. The result is recorded for the report.")
+    ex.run(["toc", "check"])
+    ex.run(["--json", "toc", "levels"])
+    ex.note("The interpretation's claims come from the same check: which pathways hold, and which links to "
+            "test first.")
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "theory_of_change"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

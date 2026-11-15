@@ -45,6 +45,7 @@ from latris.cli import (  # noqa: E402
     sd_cmd,
     story_cmd,
     sync_cmd,
+    toc_cmd,
     view_cmd,
 )
 from latris.cli._output import set_json_mode  # noqa: E402
@@ -96,6 +97,7 @@ app.add_typer(completeness_cmd.app, name="completeness")
 app.add_typer(fcm_cmd.app, name="fcm")
 app.add_typer(bn_cmd.app, name="bn")
 app.add_typer(sd_cmd.app, name="sd")
+app.add_typer(toc_cmd.app, name="toc")
 app.add_typer(results_cmd.app, name="results")
 app.add_typer(lineage_cmd.app, name="version")
 

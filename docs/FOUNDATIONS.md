@@ -117,6 +117,31 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   equilibrium. Monte Carlo is capped at 1000 runs and reports rank
   correlations only.
 
+## Theory of change
+
+- **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
+  of change states how an intervention is expected to work, step by step,
+  with its assumptions made explicit; the logic-model levels follow the W.K.
+  Kellogg Foundation (2004), *Logic Model Development Guide*; reading the
+  chain link by link against the evidence follows contribution analysis
+  (Mayne 2012, *Evaluation* 18(3)).
+- **Implemented.** Six levels as view roles — input, activity, output,
+  short-term outcome, long-term outcome, impact (the outcome of interest).
+  Readiness requires a level on every factor, no link back to an earlier
+  level, an activity and an impact, every impact reached from an activity and
+  no dead ends. `latris toc check` enumerates every simple pathway from an
+  activity to an impact (up to 200) and gives each link an evidence status —
+  *checked* (a source read and found to support it), *cited* (a source not yet
+  checked), *untested* (none) or *contested* (a source against it) — with its
+  count of stated assumptions; a pathway takes its weakest link's status.
+  Links that skip two or more levels are flagged as leaps. The result is
+  recorded and goes out of date when sources, checks or assumptions change.
+- **Limits.** Structural and evidential only: it shows where a results chain
+  rests on untested or contested steps, not how large an effect is, and it
+  does not attribute an outcome to the intervention (no counterfactual).
+  Feedback within a programme (a ToC is kept acyclic) belongs in a CLD on the
+  same substrate.
+
 ## The evidence discipline
 
 - **Lineage.** The substrate's vocabulary — claims, warrants, rebuttals — is
@@ -152,6 +177,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | CLD | Mechanism claims — qualitative structure only; arrows are argued, not estimated |
 | FCM | Semi-quantitative simulation of the claimed mechanism |
 | SD | Quantitative mechanism simulation; scenario analysis intervenes *on the model* |
+| Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence; no estimation |
 | DAG / BN | Observational queries and identification — what to measure; no interventional estimation |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -188,8 +214,12 @@ the code it describes win, and this page is wrong.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.
+- Kellogg Foundation, W.K. (2004). *Logic Model Development Guide*. W.K.
+  Kellogg Foundation.
 - Kosko, B. (1986). "Fuzzy Cognitive Maps." *International Journal of
   Man-Machine Studies*, 24(1), 65–75.
+- Mayne, J. (2012). "Contribution analysis: Coming of age?" *Evaluation*,
+  18(3), 270–280.
 - McKay, M. D., Beckman, R. J., & Conover, W. J. (1979). "A Comparison of
   Three Methods for Selecting Values of Input Variables in the Analysis of
   Output from a Computer Code." *Technometrics*, 21(2), 239–245.
@@ -211,5 +241,10 @@ the code it describes win, and this page is wrong.
 - Sterman, J. D. (2000). *Business Dynamics: Systems Thinking and Modeling
   for a Complex World*. Irwin/McGraw-Hill.
 - Toulmin, S. E. (1958). *The Uses of Argument*. Cambridge University Press.
+- Weiss, C. H. (1995). "Nothing as Practical as Good Theory: Exploring
+  Theory-Based Evaluation for Comprehensive Community Initiatives for
+  Children and Families." In J. P. Connell, A. C. Kubisch, L. B. Schorr & C.
+  H. Weiss (Eds.), *New Approaches to Evaluating Community Initiatives*.
+  Aspen Institute.
 - Wigmore, J. H. (1937). *The Science of Judicial Proof* (3rd ed.). Little,
   Brown.

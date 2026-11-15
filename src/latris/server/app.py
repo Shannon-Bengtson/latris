@@ -66,6 +66,7 @@ from latris.server.routes import (
     sd,
     story,
     sync,
+    toc,
     view_attributes,
     views,
 )
@@ -595,6 +596,7 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
     app.include_router(fcm.router)
     app.include_router(bn.router)
     app.include_router(sd.router)
+    app.include_router(toc.router)
     app.include_router(results.router)
     app.include_router(history.router)
     app.include_router(layout.router)

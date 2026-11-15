@@ -758,7 +758,10 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
         id="model-types-overview",
         title="Choosing a Model Type",
         category="model-types",
-        summary="How to choose between CLD, DAG, FCM, BN, SD, and planned formal views — by the question each one answers.",
+        summary=(
+            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, and planned formal views — by the "
+            "question each one answers."
+        ),
         body="""## Current stable model types
 
 - **CLD:** best for feedback systems and reinforcing or balancing loops.
@@ -766,10 +769,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **FCM:** best for semi-quantitative influence modelling with weights.
 - **BN:** best for quantitative probabilistic reasoning over an acyclic causal subgraph (discrete state spaces + CPTs with per-cell provenance). See the dedicated Bayesian Networks topic.
 - **SD:** best for how a system with accumulation, delay, and feedback behaves over time — stocks, flows, unit-checked equations, and deterministic simulation. See the dedicated System Dynamics topic.
+- **Theory of Change:** best for programme and policy logic — how an intervention's activities are expected to lead, step by step, to its impact, and what evidence and assumptions hold each step up. See the dedicated Theory of Change topic.
 
 ## Planned model types
 
-On the roadmap: fault trees, event trees, bow-tie diagrams and Goal Structuring Notation (for risk and safety cases), and theories of change (for programme and policy logic). Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: fault trees, event trees, bow-tie diagrams and Goal Structuring Notation (for risk and safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — decision trees, influence diagrams, Markov chains and MDPs, regression, argument maps, fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -789,6 +793,9 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
   and steady-state tendencies.
 - "How will it behave over time if we intervene?" → **SD** — the most
   commitment; build the CLD first.
+- "How is this programme supposed to work, and which steps are we taking
+  on trust?" → **Theory of Change** — a results chain from activities to
+  impact, link by link against the evidence.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -953,6 +960,35 @@ FCM analysis depends on edge weights and, for simulation, node activation settin
 ## Practical caution
 
 FCM weights are judgement-rich. Link weights to elicitation, evidence, or rationale so they are not mistaken for measured parameters.
+""",
+    ),
+    HelpTopic(
+        id="model-type-toc",
+        title="Theory of Change",
+        category="model-types",
+        summary="Lay out how an intervention is meant to reach its impact, and see which steps the evidence holds up.",
+        body="""## What a theory of change represents
+
+A theory of change is a results chain: what an intervention does (**activities**), what that directly produces (**outputs**), the changes that follow (**short-term** and **long-term outcomes**), and the long-term change it is for (**impact**). **Inputs** are the resources it uses. Every factor gets one of these levels (`latris toc level <factor> <level>`); links are ordinary causal links that run forward through the levels. The impact is the outcome of interest.
+
+## What the check shows
+
+`latris toc check` lays out every pathway from an activity to an impact and, for each link on one, what holds it up:
+
+- **checked** — a source was read and found to support it;
+- **cited** — it has a source nobody has checked yet;
+- **untested** — no source at all;
+- **contested** — a source argues against it.
+
+A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris provenance assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
+
+## Readiness
+
+The model is ready when every factor has a level, no link runs backwards (towards activities), there is at least one activity and one impact, every impact is reached from an activity, and nothing dead-ends before the impact.
+
+## Practical caution
+
+The check is structural and about evidence. It shows where a theory rests on untested or contested steps — where to look first in an evaluation — not how big an effect is or how much of an outcome the intervention caused. Methods behind it: Weiss (1995) on theory-based evaluation, the W.K. Kellogg Foundation (2004) logic model, and Mayne (2012) on contribution analysis.
 """,
     ),
     HelpTopic(

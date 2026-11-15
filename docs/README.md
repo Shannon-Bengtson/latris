@@ -28,6 +28,10 @@ repository. Start at the repo-root [README](../README.md).
   provenance, exact inference (pgmpy), Noisy-OR canonical models,
   parameter learning from data, provenance-aware sensitivity analysis —
   via CLI `bn` + `/api/bn/*`.
+- Theories of change: logic-model levels from activity to impact, with
+  every pathway laid out link by link against its evidence (checked,
+  cited, untested, contested) and stated assumptions — via CLI `toc` +
+  `/api/toc/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

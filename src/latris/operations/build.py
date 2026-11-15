@@ -128,8 +128,15 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
         from latris.schema.model_types import get_model_type
 
         allowed = get_model_type(model_type).allowed_roles
-        if allowed and "outcome" not in allowed and model_type != "sd":  # SD keeps it with its settings
-            problems.append(f"outcome: {model_type} has no outcome role (cld, dag and fcm do)")
+        # SD keeps it with its settings; a theory of change's outcome is its impact.
+        if allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change"):
+            problems.append(f"outcome: {model_type} has no outcome role (cld, dag, fcm, sd and theory_of_change do)")
+    if spec.toc:
+        for lv in spec.toc.levels:
+            if not _known(lv.node):
+                problems.append(f"toc level: no factor named {lv.node!r}")
+            if spec.outcome and lv.node.casefold() == spec.outcome.casefold() and lv.level != "impact":
+                problems.append(f"toc level: {lv.node!r} is the outcome, so its level is impact, not {lv.level}")
     for i, a in enumerate(_assumptions(spec.assumptions), 1):
         _target(f"assumption {i}", a.target)
     for i, f in enumerate(spec.findings, 1):
@@ -245,8 +252,19 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             _cite(edge.id, claim, link.contradicts, against=True)
             result.links.append({"id": edge.id, "from": link.from_, "to": link.to})
 
+        if spec.toc:
+            from latris.operations import toc as toc_ops
+
+            for lv in spec.toc.levels:
+                toc_ops.set_level(lv.node, lv.level, root=paths.root)
+                result.parameters += 1
         if spec.outcome:
-            set_role(spec.outcome, model_type, "outcome", root=paths.root)
+            if model_type == "theory_of_change":
+                from latris.operations import toc as toc_ops
+
+                toc_ops.set_level(spec.outcome, "impact", root=paths.root)
+            else:
+                set_role(spec.outcome, model_type, "outcome", root=paths.root)
             result.outcome = spec.outcome
         for a in _assumptions(spec.assumptions):
             add_assumption(a.text, a.rationale, target_id=_target_id(a.target), root=paths.root)

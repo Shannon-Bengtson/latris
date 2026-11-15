@@ -34,11 +34,12 @@ from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 KIND_ORDER: tuple[str, ...] = (
     "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
     "bn-query", "bn-explanation", "bn-monte-carlo", "bn-sensitivity",
+    "toc-pathways",
 )
 REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
 _DEFAULT_LIMIT = 4
 
-KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER}
+KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | {"toc-pathways": "theory_of_change"}
 
 
 # ── fingerprints ─────────────────────────────────────────────────────
@@ -69,6 +70,10 @@ def fingerprint(
         for e in sorted(sub.edges, key=lambda x: x.id):
             h.update(f"e|{e.id}|{e.from_id}|{e.to_id}|{e.kind}\n".encode())
     h.update(_file_text(paths.role_path(model_type)).encode())
+    if model_type == "theory_of_change":
+        # The pathway check reads each link's sources, checks, assumptions and confidence.
+        for f in (paths.evidence_links_yaml, paths.assumptions_yaml, paths.confidence_yaml):
+            h.update(_file_text(f).encode())
     scenario_file = paths.view_attribute_path(model_type, "scenarios")
     if paths.parameters_dir.exists():
         for f in sorted(paths.parameters_dir.glob(f"{model_type}-*.yaml")):

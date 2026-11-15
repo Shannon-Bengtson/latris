@@ -29,7 +29,9 @@ assumption_app = typer.Typer(help="Log modelling assumptions.", no_args_is_help=
 def assumption_add(
     statement: str = typer.Argument(..., help="The assumption being made."),
     rationale: str = typer.Option(None, "--rationale", "-r", help="Why this assumption holds."),
-    target: str = typer.Option(None, "--target", "-t", help="Node or edge ID this assumption is about."),
+    target: str = typer.Option(
+        None, "--target", "-t", help="What it's about: node or edge ID, prefix, label, or a link as 'From -> To'."
+    ),
 ) -> None:
     """Log a modelling assumption."""
     entry, sha = ops.add_assumption(statement, rationale, target_id=target)

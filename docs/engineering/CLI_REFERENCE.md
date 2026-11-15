@@ -299,6 +299,20 @@ Simulate, monte-carlo, sensitivity and loops take the run settings
 (`--final-time`, `--dt`, `--method`) and record their result
 (`--no-record` to skip).
 
+## ToC (Theory of Change)
+
+A results chain on the shared substrate: each factor gets a level (view
+role), links are ordinary causal links running forward through the levels,
+and the impact is the outcome of interest. The check is recorded as an
+`AnalysisRun` (`toc-pathways`) so reports show it.
+
+```bash
+latris toc level <node> <input|activity|output|short_term_outcome|long_term_outcome|impact>
+latris toc levels                              # factors by level, and any without one
+latris toc check [--no-record]                 # pathways activity → impact; per-link evidence status + assumptions
+latris assumption add "<why the step happens>" --target "From -> To"   # counted per link by the check
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

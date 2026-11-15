@@ -43,14 +43,16 @@ def build(
     - ``challenges``: argument, target
     - ``decisions``: statement, rationale, target
     - ``interpretation``: section, prose, by (ai | human)
-    - ``outcome``: the factor the model explains
+    - ``outcome``: the factor the model explains (in a theory of change, the impact)
     - ``sd``: roles, stocks, constants, equations, tables, uncertainty
       (node, distribution, params, reason), scenarios (name, set:
       ["Variable=value units"], description, reason)
     - ``bn``: states, tables (node, parents, probabilities), noisy_or
+    - ``toc``: levels (node, level: input | activity | output |
+      short_term_outcome | long_term_outcome | impact)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
-      bn_query | bn_sensitivity) + its options — run and recorded after
-      building, so the report shows them
+      bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check)
+      + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML
     values that contain a colon.

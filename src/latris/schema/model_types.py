@@ -312,10 +312,17 @@ register_model_type(
         id="theory_of_change",
         display_name="Theory of Change",
         short_name="ToC",
-        description="Logic model linking activities through outputs and outcomes to long-term goals.",
-        roadmap="roadmap",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Results chain from activities through outputs and outcomes to impact, with the evidence and "
+            "assumptions behind each step laid out pathway by pathway."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("acyclicity", "toc_levels_complete", "toc_links_forward", "toc_pathways_complete"),
+        # Logic-model levels (W.K. Kellogg Foundation 2004). One per factor; the
+        # outcome of interest is the impact, so there is no separate "outcome" role.
+        allowed_roles=("input", "activity", "output", "short_term_outcome", "long_term_outcome", "impact"),
+        required_roles=("activity", "impact"),
     )
 )
 
