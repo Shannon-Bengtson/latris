@@ -41,6 +41,10 @@ repository. Start at the repo-root [README](../README.md).
   uncontrolled protection and barriers with no owner; layer-of-protection
   frequencies with each value's provenance — via CLI `bowtie` +
   `/api/bowtie/*`.
+- Event trees: one initiating event through ordered yes/no headings to end
+  states, checked to be a complete tree; conditional branch probabilities,
+  sequence and end-state frequencies, the dominant sequences — via CLI `et`
+  + `/api/et/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

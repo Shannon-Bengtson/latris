@@ -347,6 +347,24 @@ latris bowtie check                                   # structure; exits 1 until
 latris bowtie analyse [--no-record]                   # lines, flags, LOPA frequencies, RAW per barrier
 ```
 
+## Event tree
+
+From one initiating event through ordered yes/no headings to end states.
+The tree is stored as data (heading order + sequences), not substrate
+links. `et analyse` is recorded as an `AnalysisRun` (`et-analysis`).
+
+```bash
+latris et element <node> <initiating_event|functional_event|end_state>
+latris et order <heading> <heading> ...               # left to right
+latris et sequence <end_state> "Heading=yes" "Heading=no" ...   # one path; same answers replace it
+latris et remove-sequence "Heading=yes" ...
+latris et probability <heading> <p_yes> [--given "Heading=no" ...] [--source] [--origin] [--verified]
+latris et frequency <initiating_event> <per_year> [--source] [--origin] [--verified]
+latris et show                                        # sequences table (· = not asked)
+latris et check                                       # complete tree? exits 1 until it is
+latris et analyse [--no-record]                       # sequence and end-state probabilities / frequencies
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

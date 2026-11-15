@@ -129,8 +129,10 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
 
         allowed = get_model_type(model_type).allowed_roles
         # SD keeps it with its settings; a theory of change's outcome is its impact.
-        if allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change", "fault_tree",
-                                                                          "bow_tie"):
+        if model_type == "event_tree":
+            problems.append("outcome: an event tree's outcomes are its end states (list them under event_tree)")
+        elif allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change", "fault_tree",
+                                                                            "bow_tie"):
             problems.append(f"outcome: {model_type} has no outcome role (cld, dag, fcm, sd, theory_of_change, "
                             "fault_tree and bow_tie do)")
     if spec.toc:
@@ -162,6 +164,17 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
         for e in spec.bowtie.elements:
             if spec.outcome and e.node.casefold() == spec.outcome.casefold() and e.type != "top_event":
                 problems.append(f"bowtie element: {e.node!r} is the outcome, so it is the top event, not {e.type}")
+    if spec.event_tree:
+        t = spec.event_tree
+        names = ([("event_tree element", x.node) for x in t.elements] + [("event_tree order", x) for x in t.order]
+                 + [("event_tree sequence", x.end_state) for x in t.sequences]
+                 + [("event_tree sequence", h) for x in t.sequences for h in x.answers]
+                 + [("event_tree probability", x.node) for x in t.probabilities]
+                 + [("event_tree probability", h) for x in t.probabilities for h in x.given]
+                 + ([("event_tree frequency", t.frequency.node)] if t.frequency else []))
+        for where, n in names:
+            if not _known(n):
+                problems.append(f"{where}: no factor named {n!r}")
     for i, a in enumerate(_assumptions(spec.assumptions), 1):
         _target(f"assumption {i}", a.target)
     for i, f in enumerate(spec.findings, 1):
@@ -297,6 +310,8 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             result.parameters += _apply_ft(spec.ft, verified_by, paths.root)
         if spec.bowtie:
             result.parameters += _apply_bowtie(spec.bowtie, verified_by, paths.root)
+        if spec.event_tree:
+            result.parameters += _apply_event_tree(spec.event_tree, verified_by, paths.root)
         if spec.outcome and model_type not in ("fault_tree", "bow_tie"):
             if model_type == "theory_of_change":
                 from latris.operations import toc as toc_ops
@@ -393,6 +408,37 @@ def _apply_bowtie(spec_bt, verified_by: str, root: Path) -> int:
         n += 1
     for f in spec_bt.frequencies:
         bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
+                             verification=verification(f.verified), notes=f.notes, root=root)
+        n += 1
+    return n
+
+
+def _apply_event_tree(spec_et, verified_by: str, root: Path) -> int:
+    """Elements, then the heading order, then sequences, probabilities and the initiating frequency."""
+    from latris.operations import event_tree as et_ops
+
+    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+
+    def verification(v: bool) -> str:
+        return "human-verified" if v and verified_by == "human" else "unverified"
+
+    n = 0
+    for e in spec_et.elements:
+        et_ops.set_element(e.node, e.type, root=root)
+        n += 1
+    if spec_et.order:
+        et_ops.set_order(spec_et.order, root=root)
+        n += 1
+    for s in spec_et.sequences:
+        et_ops.set_sequence(s.end_state, list(s.answers.items()), root=root)
+        n += 1
+    for p in spec_et.probabilities:
+        et_ops.set_probability(p.node, p.p_yes, given=list(p.given.items()), origin=p.origin or default_origin,
+                               source_id=p.source, verification=verification(p.verified), notes=p.notes, root=root)
+        n += 1
+    if spec_et.frequency:
+        f = spec_et.frequency
+        et_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
                              verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
     return n

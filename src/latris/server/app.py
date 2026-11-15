@@ -48,6 +48,7 @@ from latris.server.routes import (
     configure,
     datasets,
     edges,
+    et,
     evidence,
     export,
     fcm,
@@ -601,6 +602,7 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
     app.include_router(toc.router)
     app.include_router(ft.router)
     app.include_router(bowtie.router)
+    app.include_router(et.router)
     app.include_router(results.router)
     app.include_router(history.router)
     app.include_router(layout.router)

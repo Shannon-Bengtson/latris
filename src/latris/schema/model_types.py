@@ -303,10 +303,16 @@ register_model_type(
         id="event_tree",
         display_name="Event Tree",
         short_name="ET",
-        description="Forward-logic tree from initiating event through barriers to outcomes for safety analysis.",
-        roadmap="roadmap",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Forward from one initiating event through yes/no headings to end states: a complete-tree check, "
+            "sequence and end-state probabilities and frequencies, with each value's provenance."
+        ),
+        roadmap="built",
+        availability="stable",
+        # The tree is stored as data (heading order and sequences), not as substrate links.
+        structural_validators=("et_elements_classified", "et_headings_ordered", "et_sequences_complete"),
+        allowed_roles=("initiating_event", "functional_event", "end_state"),
+        required_roles=("initiating_event", "functional_event", "end_state"),
     )
 )
 

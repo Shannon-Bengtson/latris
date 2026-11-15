@@ -1672,6 +1672,45 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["bowtie", "analyse"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "bow_tie"])
+
+    # ── 11e. Event tree (same project: what happens after the top event) ──
+    ex.section(
+        "Event Tree",
+        "An event tree follows one initiating event forward through yes/no headings to end states. Here it "
+        "takes the bow-tie's top event and asks, in order: is the gas detected, does isolation succeed, does it "
+        "ignite? A branch need not ask every heading. The tree is stored as its sequences, not as links, "
+        "because one heading is asked on many branches.",
+    )
+    for _n in ("Isolation succeeds", "Ignition", "Contained release", "Jet fire", "Gas cloud dispersed"):
+        ex.run(["node", "add", _n])
+    ex.run(["node", "add", "Gas detected"])
+    for _n, _el in (("Loss of containment", "initiating_event"), ("Gas detected", "functional_event"),
+                    ("Isolation succeeds", "functional_event"), ("Ignition", "functional_event"),
+                    ("Contained release", "end_state"), ("Jet fire", "end_state"),
+                    ("Gas cloud dispersed", "end_state")):
+        ex.run(["et", "element", _n, _el])
+    ex.run(["et", "order", "Gas detected", "Isolation succeeds", "Ignition"])
+    ex.run(["et", "sequence", "Contained release", "Gas detected=yes", "Isolation succeeds=yes"])
+    ex.run(["et", "sequence", "Jet fire", "Gas detected=yes", "Isolation succeeds=no", "Ignition=yes"])
+    ex.run(["et", "sequence", "Gas cloud dispersed", "Gas detected=yes", "Isolation succeeds=no", "Ignition=no"])
+    ex.run(["et", "sequence", "Jet fire", "Gas detected=no", "Ignition=yes"])
+    ex.note("One branch is missing; the check names it and exits 1.")
+    ex.run(["et", "check"], expect_fail=True)
+    ex.run(["et", "sequence", "Gas cloud dispersed", "Gas detected=no", "Ignition=no"])
+    ex.run(["et", "check"])
+    ex.note("Branch probabilities carry their source. An undetected release grows larger, so ignition is likelier "
+            "on that branch: a conditional value. The initiating frequency cites the bow-tie analysis above.")
+    ex.run(["et", "probability", "Gas detected", "0.9", "--source", "lopa-generic-values", "--verified"])
+    ex.run(["et", "probability", "Isolation succeeds", "0.95", "--source", "lopa-generic-values"])
+    ex.run(["et", "probability", "Ignition", "0.1", "--origin", "human-elicited"])
+    ex.run(["et", "probability", "Ignition", "0.3", "--given", "Gas detected=no", "--origin", "human-elicited"])
+    ex.run(["et", "frequency", "Loss of containment", "0.02", "--source", "bow-tie analysis",
+            "--origin", "data-derived"])
+    ex.run(["et", "analyse"])
+    ex.note("The project now uses both views of the same event; selecting both gives each its interpretation.")
+    ex.run(["project", "select-models", "bow_tie", "event_tree"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "answer_to_question", "--model-type", "event_tree"])
     os.chdir(ex.root)
 
     # ── 12. Interpret phase ───────────────────────────────────────────

@@ -168,6 +168,26 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   are drawn and checked but not quantified, and there is no consequence
   severity or risk matrix.
 
+## Event trees
+
+- **Lineage.** IEC 62502:2010, *Event tree analysis*; the US NRC *PRA
+  Procedures Guide* (NUREG/CR-2300, 1983), descending from the *Reactor
+  Safety Study* (WASH-1400, 1975).
+- **Implemented.** Initiating event, headings (functional events) and end
+  states as view roles; the heading order and the sequences stored as data.
+  A check that the sequences form a complete tree: at every branch point all
+  sequences ask the same next heading, both answers are covered, and none
+  stops while a sibling continues. P(yes) per heading, in general or given
+  earlier answers (the most specific match applies; two equally specific
+  values that disagree are reported, not guessed). Each sequence's
+  probability is the product of its branch probabilities; with the
+  initiating frequency, its frequency per year; totals per end state with
+  the dominant sequence behind each. Every value keeps its provenance.
+- **Limits.** Binary branches only; dependence between headings exists only
+  as the conditional probabilities you state; point values, no uncertainty
+  propagation; heading probabilities are entered (they can cite a fault-tree
+  run) rather than computed from linked fault trees.
+
 ## Theory of change
 
 - **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
@@ -231,6 +251,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence; no estimation |
 | Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
 | Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
+| Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
 | DAG / BN | Observational queries and identification — what to measure; no interventional estimation |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -279,6 +300,8 @@ the code it describes win, and this page is wrong.
   Hall/CRC. <https://hsph.harvard.edu/causalinference/>
 - IEC 61025:2006. *Fault tree analysis (FTA)*. International
   Electrotechnical Commission.
+- IEC 62502:2010. *Analysis techniques for dependability — Event tree
+  analysis (ETA)*. International Electrotechnical Commission.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.
@@ -311,6 +334,10 @@ the code it describes win, and this page is wrong.
 - Sterman, J. D. (2000). *Business Dynamics: Systems Thinking and Modeling
   for a Complex World*. Irwin/McGraw-Hill.
 - Toulmin, S. E. (1958). *The Uses of Argument*. Cambridge University Press.
+- US Nuclear Regulatory Commission (1975). *Reactor Safety Study*
+  (WASH-1400, NUREG-75/014).
+- US Nuclear Regulatory Commission (1983). *PRA Procedures Guide*
+  (NUREG/CR-2300).
 - Vesely, W. E., Goldberg, F. F., Roberts, N. H., & Haasl, D. F. (1981).
   *Fault Tree Handbook* (NUREG-0492). U.S. Nuclear Regulatory Commission.
 - Weiss, C. H. (1995). "Nothing as Practical as Good Theory: Exploring

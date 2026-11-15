@@ -294,6 +294,45 @@ class SpecBowTie(_Spec):
     frequencies: list[SpecBTFrequency] = Field(default_factory=list)
 
 
+class SpecETElement(_Spec):
+    node: str
+    type: Literal["initiating_event", "functional_event", "end_state"]
+
+
+class SpecETSequence(_Spec):
+    answers: dict[str, Literal["yes", "no"]] = Field(default_factory=dict)  # heading label → answer
+    end_state: str
+
+
+class SpecETProbability(_Spec):
+    node: str  # a heading
+    p_yes: float = Field(ge=0.0, le=1.0)
+    given: dict[str, Literal["yes", "no"]] = Field(default_factory=dict)  # earlier answers it applies under
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecETFrequency(_Spec):
+    node: str  # the initiating event
+    frequency: float = Field(ge=0.0)  # per year
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecEventTree(_Spec):
+    """Event tree: elements, heading order, sequences, branch probabilities, initiating frequency."""
+
+    elements: list[SpecETElement] = Field(default_factory=list)
+    order: list[str] = Field(default_factory=list)  # heading labels, left to right
+    sequences: list[SpecETSequence] = Field(default_factory=list)
+    probabilities: list[SpecETProbability] = Field(default_factory=list)
+    frequency: SpecETFrequency | None = None
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -346,14 +385,15 @@ class SpecAnalysis(_Spec):
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
     | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
     | ft_analyse (fault-tree cut sets, probability and importance; max_order)
-    | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options).
+    | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options)
+    | et_analyse (event-tree sequences and end states; no options).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse",
+        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -398,4 +438,5 @@ class BuildSpec(_Spec):
     toc: SpecToC | None = None  # Theory of Change levels (input … impact)
     ft: SpecFT | None = None  # Fault tree events, gates and probabilities
     bowtie: SpecBowTie | None = None  # Bow-tie elements, barriers and threat frequencies
+    event_tree: SpecEventTree | None = None  # Event tree elements, order, sequences, probabilities
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

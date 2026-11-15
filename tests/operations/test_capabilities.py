@@ -9,21 +9,23 @@ def test_manifest_counts_match_registry():
     manifest = build_capability_manifest()
     stable = [m for m in manifest["model_types"] if m["can_use_today"]]
     planned = [m for m in manifest["model_types"] if not m["can_use_today"]]
-    assert {m["id"] for m in stable} == {"cld", "dag", "bn", "fcm", "sd", "theory_of_change", "fault_tree", "bow_tie"}
-    assert len(planned) == 12
+    assert {m["id"] for m in stable} == {
+        "cld", "dag", "bn", "fcm", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree",
+    }
+    assert len(planned) == 11
     assert manifest["excluded_by_design"]  # non-empty, hand-coded list present
 
 
-def test_toc_and_fault_tree_usable_today_event_tree_not():
+def test_toc_and_fault_tree_usable_today_gsn_not():
     manifest = build_capability_manifest()
     toc = next(m for m in manifest["model_types"] if m["id"] == "theory_of_change")
     assert toc["availability"] == "stable"
     assert toc["can_use_today"] is True
     ft = next(m for m in manifest["model_types"] if m["id"] == "fault_tree")
     assert ft["availability"] == "stable" and ft["can_use_today"] is True
-    et = next(m for m in manifest["model_types"] if m["id"] == "event_tree")
-    assert et["availability"] == "planned"
-    assert et["can_use_today"] is False
+    gsn = next(m for m in manifest["model_types"] if m["id"] == "gsn")
+    assert gsn["availability"] == "planned"
+    assert gsn["can_use_today"] is False
 
 
 def test_manifest_roadmap_groups_and_order():
@@ -32,8 +34,10 @@ def test_manifest_roadmap_groups_and_order():
     for m in manifest["model_types"]:
         groups.setdefault(m["roadmap"], set()).add(m["id"])
         assert (m["roadmap"] == "built") == m["can_use_today"]
-    assert groups["built"] == {"cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie"}
-    assert groups["roadmap"] == {"event_tree", "gsn"}
+    assert groups["built"] == {
+        "cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree",
+    }
+    assert groups["roadmap"] == {"gsn"}
     assert groups["parked"] == {"decision_tree", "influence_diagram", "markov"}
     assert groups["not_planned"] == {
         "causal_dag", "regression", "argument_map", "fishbone", "flowchart", "state_machine", "petri_net",

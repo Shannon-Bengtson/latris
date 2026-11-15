@@ -98,6 +98,13 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
         if payload["problems"]:
             raise ValueError(bow_tie.describe(payload))
         return bow_tie.record(payload, root=paths.root)[1]
+    if a.kind == "et_analyse":
+        from latris.operations import event_tree
+
+        payload = event_tree.analyse(root=paths.root)
+        if payload["problems"]:
+            raise ValueError(event_tree.describe(payload))
+        return event_tree.record(payload, root=paths.root)[1]
     raise ValueError(f"unknown analysis kind {a.kind!r}")
 
 
@@ -179,4 +186,6 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
             out.append(SpecAnalysis(kind="ft_analyse", max_order=p.get("max_order")))
         elif kind == "bt-analysis":
             out.append(SpecAnalysis(kind="bowtie_analyse"))
+        elif kind == "et-analysis":
+            out.append(SpecAnalysis(kind="et_analyse"))
     return out

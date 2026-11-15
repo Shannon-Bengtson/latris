@@ -759,8 +759,8 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
         title="Choosing a Model Type",
         category="model-types",
         summary=(
-            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, and planned "
-            "formal views — by the question each one answers."
+            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, "
+            "and planned formal views — by the question each one answers."
         ),
         body="""## Current stable model types
 
@@ -772,10 +772,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **Theory of Change:** best for programme and policy logic — how an intervention's activities are expected to lead, step by step, to its impact, and what evidence and assumptions hold each step up. See the dedicated Theory of Change topic.
 - **Fault Tree:** best for how an undesired event can happen — the combinations of failures that cause it, single points of failure, its probability and which failures matter most. See the dedicated Fault Trees topic.
 - **Bow-Tie:** best for showing, for one top event, what could cause it, what could follow, and the barriers in between — where the protection is thin, shared or uncontrolled, and (with frequencies and failure probabilities) how often each outcome is expected. See the dedicated Bow-Ties topic.
+- **Event Tree:** best for following one initiating event forward — which safety functions work or fail, in what order, and how often each end state results. See the dedicated Event Trees topic.
 
 ## Planned model types
 
-On the roadmap: event trees and Goal Structuring Notation (for risk and safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: Goal Structuring Notation (for safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — decision trees, influence diagrams, Markov chains and MDPs, regression, argument maps, fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -803,6 +804,9 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
   importance.
 - "What stands between this hazard and harm, and where is it thin?" →
   **Bow-Tie** — threats, barriers and consequences around one top event.
+- "Once this happens, how does it play out, and how often does it end
+  badly?" → **Event Tree** — yes/no headings from one initiating event to
+  end states.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1059,6 +1063,34 @@ Complete when there is one top event, at most one hazard (linked to the top even
 ## Practical caution
 
 The quantification is LOPA's: order-of-magnitude, barriers assumed independent, point values. Escalation factors are not quantified, and there is no severity scale or risk matrix. The left side of a bow-tie is often a fault tree: a threat's frequency can cite a fault-tree analysis as its source. Methods: CCPS & Energy Institute (2018) *Bow Ties in Risk Management*, and CCPS (2001) *Layer of Protection Analysis*.
+""",
+    ),
+    HelpTopic(
+        id="model-type-et",
+        title="Event Trees",
+        category="model-types",
+        summary="Follow one initiating event forward through yes/no headings to end states, with the probability of each.",
+        body="""## What an event tree represents
+
+An event tree starts from one **initiating event** (a gas release) and asks, in order, a series of yes/no questions — the **headings** or functional events (*Gas detected?*, *Isolation succeeds?*, *Ignition?*). Each complete path of answers is a **sequence**, and each sequence ends in an **end state** (*contained release*, *fire*, *gas cloud dispersed*). A branch need not ask every heading: once isolation succeeds, ignition may not matter.
+
+Give each factor its element (`latris et element <factor> initiating_event|functional_event|end_state`), set the heading order (`latris et order <heading> …`), then add each sequence with its answers and end state (`latris et sequence Fire "Gas detected=no" "Ignition=yes"`). The tree isn't drawn with links: one heading is asked on many branches, so the structure is stored as data.
+
+## Probabilities
+
+Each heading has P(yes) (`latris et probability <heading> <p>`), and can have different values on different branches (`--given "Gas detected=no"`): the most specific value that matches a branch applies. The initiating event can have a frequency per year (`latris et frequency`). Every value keeps where it came from; a heading's probability can cite a fault-tree analysis, and the initiating frequency a bow-tie's.
+
+## What the analysis shows
+
+`latris et analyse` gives each sequence's probability (the product of its branch probabilities) and, with the initiating frequency, how often it happens per year; the totals per end state; and the dominant sequence behind each end state. Values on the dominant sequences that nobody has verified are flagged. The result is recorded for the report and goes out of date when the tree or a value changes.
+
+## Readiness
+
+Complete when there is one initiating event and at least one end state, every heading is in the order, and the sequences form a complete tree: at each branch point every sequence asks the same next question, both answers are covered, no sequence stops while a sibling continues, and every heading and end state is used.
+
+## Practical caution
+
+Branches are binary, and dependence between headings is only what you state with conditional probabilities. Values are points, with no uncertainty propagation, and heading probabilities are entered rather than linked live to fault trees. Methods: IEC 62502 (event tree analysis) and the NRC *PRA Procedures Guide* (NUREG/CR-2300).
 """,
     ),
     HelpTopic(

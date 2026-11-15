@@ -50,6 +50,11 @@ def set_role(
             "A bow-tie's outcome of interest is its top event: give the factor the element 'top_event' "
             "(latris bowtie element <factor> top_event)."
         )
+    if model_type == "event_tree" and role == "outcome":
+        raise ValueError(
+            "An event tree's outcomes are its end states: give the factor the element 'end_state' "
+            "(latris et element <factor> end_state)."
+        )
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:
         raise ValueError(f"{role!r} is not a valid role for {spec.display_name}. Valid: {spec.allowed_roles}")

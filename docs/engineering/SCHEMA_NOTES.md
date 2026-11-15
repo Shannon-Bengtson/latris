@@ -138,6 +138,10 @@ the schema change.
 | Bow-tie barriers (type, status, owner, PFD) | `BTBarrierSet` | `views/parameters/bow_tie-barrier.yaml` | **built** |
 | Bow-tie threat frequencies | `BTFrequencySet` | `views/parameters/bow_tie-frequency.yaml` | **built** |
 | Bow-tie elements (hazard/top event/threat/consequence/barrier/escalation factor) | `RoleSet` | `views/roles/bow_tie-roles.yaml` | **built** |
+| Event-tree heading order and sequences | `ETStructure` | `views/parameters/event_tree-structure.yaml` | **built** |
+| Event-tree branch probabilities (P(yes), optionally conditional) | `ETProbabilitySet` | `views/parameters/event_tree-probability.yaml` | **built** |
+| Event-tree initiating frequency | `ETFrequencySet` | `views/parameters/event_tree-frequency.yaml` | **built** |
+| Event-tree elements (initiating event/heading/end state) | `RoleSet` | `views/roles/event_tree-roles.yaml` | **built** |
 | Node state spaces | `NodeStateSpacesFile` | `views/parameters/node-state-spaces.yaml` |
 
 **Parameterized views and the analysis layer.** The `views/parameters/*`
@@ -305,7 +309,8 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 8 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie) + 12 planned model types. Registry-driven
+  (built) defines 9 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree) + 11 planned
+  model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
   and settings in a single call. When planned types become stable,
@@ -332,12 +337,12 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 8 stable types (CLD, DAG, FCM, BN, SD, Theory
-of Change, Fault Tree, Bow-Tie) and 12 planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 9 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree, Bow-Tie, Event Tree) and 11 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, only event tree and GSN are currently on it. Decision tree, influence diagram and Markov/MDP are
+types, only GSN is currently on it. Decision tree, influence diagram and Markov/MDP are
 parked; causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
@@ -353,7 +358,7 @@ planned (their fit notes are kept below for reference).
 | **Markov chains / MDPs** | Registered — parked | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
 | **Influence Diagram** | Registered — parked | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
 | **Decision Tree** | Registered — parked | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
-| **Event Tree** | Registered — on the roadmap | Forward-logic complement to fault trees. Barrier success/failure branching. |
+| **Event Tree** | Stable | Initiating event, headings (functional events) and end states as view roles. The tree is *not* substrate edges — one heading is asked on many branches — so heading order and sequences (yes/no answers → end state) are stored as data (`event_tree-structure.yaml`) and checked to form a complete tree. P(yes) per heading, optionally conditional on earlier answers (most specific match wins), and the initiating frequency carry provenance. |
 | **Fishbone / Ishikawa** | Registered — not currently planned | Root cause analysis with categorised cause branches. Acyclic tree. |
 | **Theory of Change** | Stable | Logic-model levels (input, activity, output, short_term_outcome, long_term_outcome, impact) as view roles — no EntityKind change; links stay `causal` edges. The impact is the outcome of interest, so ToC has no separate `outcome` role. Readiness: every factor levelled, no backward links, every impact reached from an activity, no dead ends. `toc check` records a `toc-pathways` result whose fingerprint also covers evidence, assumptions and confidence. |
 | **Argument Map** | Registered — not currently planned | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
@@ -379,11 +384,12 @@ of building wrong without a real user in front of us is much higher
 than the cost of refactoring later — and the refactor is bounded
 because the relevant fields are deliberately Literal-typed for additive
 extension. Concrete next move before building any of the safety
-formalisms (GSN, event tree): have a 30-minute conversation with a safety
-engineer (rail / aerospace / medtech in AU/NZ). The fault tree and bow-tie
-were built from their textbook formalisms (NRC *Fault Tree Handbook*, IEC
-61025; the CCPS/EI bow-tie concept book and CCPS LOPA) without that
-conversation, so show them to one before leaning on them in a safety case.
+formalisms (GSN): have a 30-minute conversation with a safety engineer
+(rail / aerospace / medtech in AU/NZ). The fault tree, bow-tie and event
+tree were built from their textbook formalisms (NRC *Fault Tree Handbook*,
+IEC 61025; the CCPS/EI bow-tie concept book and CCPS LOPA; IEC 62502 and
+NUREG/CR-2300) without that conversation, so show them to one before
+leaning on them in a safety case.
 
 ## Schema readiness for future capabilities
 

@@ -152,6 +152,26 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="et-analysis",
+        applies_to=("event_tree",),
+        method="Event tree analysis",
+        citation=(
+            "IEC 62502:2010, *Event tree analysis (ETA)*; US NRC (1983), *PRA Procedures Guide* (NUREG/CR-2300); "
+            "US NRC (1975), *Reactor Safety Study* (WASH-1400)"
+        ),
+        used_for=(
+            "sequences from one initiating event through ordered yes/no headings to end states; a check that the "
+            "sequences cover every branch exactly once; sequence probabilities as products of branch "
+            "probabilities (conditional on earlier answers where given), end-state totals and, with the "
+            "initiating frequency, frequencies per year"
+        ),
+        limits=(
+            "Binary branches only; dependence between headings only as explicitly stated conditional "
+            "probabilities; point values with no uncertainty propagation; heading probabilities are entered, "
+            "not linked live to fault trees."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",

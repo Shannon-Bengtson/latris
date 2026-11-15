@@ -58,9 +58,14 @@ def build(
       consequence | barrier | escalation_factor), barriers (node, type,
       status, owner, pfd, source, origin, verified, notes), frequencies
       (node, frequency per year, source, origin, verified, notes)
+    - ``event_tree``: elements (node, type: initiating_event |
+      functional_event | end_state), order (heading labels, left to right),
+      sequences (answers: {heading: yes|no}, end_state), probabilities
+      (node, p_yes, given: {heading: yes|no}, source, origin, verified),
+      frequency (node, frequency per year, …)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
-      ft_analyse | bowtie_analyse)
+      ft_analyse | bowtie_analyse | et_analyse)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML

@@ -294,6 +294,32 @@ def _bt_analysis(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _et_analysis(p: dict[str, Any]) -> list[str]:
+    from latris.operations.event_tree import describe
+
+    out = [describe(p) + ".", ""]
+    fr = p.get("frequency")
+    if fr:
+        out += [f"Initiating event {p['initiator']}: {_f(fr['per_year'])} per year"
+                + (f" ({fr['source']})" if fr.get("source") else "") + ".", ""]
+    heads = p["headings"]
+    rows = []
+    for r in p["sequences"][: _MAX_ROWS * 3]:
+        ans = {a["heading"]: a["answer"] for a in r["answers"]}
+        rows.append([str(r["n"])] + [ans.get(h, "·") for h in heads] + [r["end_state"], _f(r["probability"])]
+                    + ([_f(r["frequency"])] if fr else []))
+    if rows:
+        out += _table(["#", *heads, "End state", "Probability"] + (["Per year"] if fr else []), rows)
+    if p.get("quantified"):
+        rows = [[d["end_state"], _f(d["probability"])] + ([_f(d["frequency"])] if fr else [])
+                + [f"#{d['dominant']['n']} ({d['dominant']['text']})"] for d in p["end_states"]]
+        out += _table(["End state", "Probability"] + (["Per year"] if fr else []) + ["Dominant sequence"], rows)
+        weak = sorted({v["heading"] for v in p["values"] if v["weak"]})
+        if weak:
+            out += [f"Branch probabilities nobody has verified: {', '.join(weak)}.", ""]
+    return out
+
+
 def _given(p: dict[str, Any]) -> str:
     from latris.operations.bn import evidence_description
 
@@ -422,6 +448,7 @@ _TITLES = {
     "toc-pathways": "Theory of change: pathways and their evidence",
     "ft-analysis": "Fault tree: cut sets, probability and importance",
     "bt-analysis": "Bow-tie: lines, barriers and frequencies",
+    "et-analysis": "Event tree: sequences and end states",
 }
 
 
@@ -502,6 +529,8 @@ def render_results(
                 out += _ft_analysis(p)
             elif kind == "bt-analysis":
                 out += _bt_analysis(p)
+            elif kind == "et-analysis":
+                out += _et_analysis(p)
         except (KeyError, TypeError, ValueError, IndexError):
             out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
     return out

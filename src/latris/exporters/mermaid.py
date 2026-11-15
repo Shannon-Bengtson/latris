@@ -113,6 +113,39 @@ def _bow_tie(paths: ProjectPaths, entities, edges) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _event_tree(paths: ProjectPaths) -> str:
+    """The tree drawn from its sequences: a question node per branch point, yes/no edges, end states as leaves."""
+    from latris.operations.event_tree import analyse
+
+    p = analyse(root=paths.root)
+    if p["problems"] or not p["sequences"]:
+        return ""
+    lines = ["flowchart LR", f'    s0(["{_mermaid_text(p["initiator"])}"])']
+    questions: dict[tuple, str] = {}  # answers so far → the question node asked there
+
+    def edge(src: str, answer: str | None, dst: str) -> None:
+        lines.append(f"    {src} -->|{answer}| {dst}" if answer else f"    {src} --> {dst}")
+
+    for r in p["sequences"]:
+        prefix: tuple = ()
+        src, via = "s0", None
+        for a in r["answers"]:
+            node = questions.get(prefix)
+            if node is None:
+                node = questions[prefix] = f"q{len(questions) + 1}"
+                lines.append(f'    {node}{{"{_mermaid_text(a["heading"])}?"}}')
+                edge(src, via, node)
+            src, via = node, a["answer"]
+            prefix = prefix + ((a["heading"], a["answer"]),)
+        text = _mermaid_text(r["end_state"])
+        if r["probability"] is not None:
+            text += f"<br/>p = {r['probability']:.3g}"
+        leaf = f"e{r['n']}"
+        lines.append(f'    {leaf}["{text}"]')
+        edge(src, via, leaf)
+    return "\n".join(lines) + "\n"
+
+
 def _toc_levels(paths: ProjectPaths) -> dict[str, str]:
     from latris.operations.toc import get_levels
 
@@ -137,6 +170,10 @@ def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
         bow = _bow_tie(paths, entities, edges)
         if bow:
             return bow
+    if model_type == "event_tree":
+        tree = _event_tree(paths)
+        if tree:
+            return tree
     direction = "TB" if model_type == "dag" else "LR"
     alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
     lines = [f"flowchart {direction}"]

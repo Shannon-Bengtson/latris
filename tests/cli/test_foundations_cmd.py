@@ -28,7 +28,7 @@ def test_foundations_json_shape(tmp_path: Path, monkeypatch):
     result = runner.invoke(app, ["foundations", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert len(data) == 14
+    assert len(data) == 15
     by_id = {f["id"]: f for f in data}
     assert set(by_id) >= {"cld-loop-analysis", "sd-loop-dominance", "evidence-source-check", "bn-psa"}
     assert by_id["evidence-source-check"]["applies_to"] == ["*"]

@@ -209,6 +209,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         decisions=decisions, interpretation=interpretation,
         sd=_export_sd(paths, labels), bn=_export_bn(paths, labels), toc=_export_toc(paths, labels),
         ft=_export_ft(paths, labels), bowtie=_export_bowtie(paths, labels),
+        event_tree=_export_event_tree(paths, labels),
         analyses=_export_analyses(paths),
     )
     return foundation, spec
@@ -323,6 +324,46 @@ def _export_bowtie(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
         for f in bt.get_frequencies(root=paths.root).entries if f.target_id in labels
     ]
     return SpecBowTie(elements=elements, barriers=barriers, frequencies=freqs)
+
+
+def _export_event_tree(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
+    """Event-tree elements, heading order, sequences, probabilities and frequency as spec entries."""
+    from latris.operations import event_tree as et
+    from latris.schema.build_spec import (
+        SpecETElement,
+        SpecETFrequency,
+        SpecETProbability,
+        SpecETSequence,
+        SpecEventTree,
+    )
+    from latris.schema.event_tree import ET_ELEMENTS
+
+    elements = sorted(
+        (SpecETElement(node=labels[eid], type=t) for eid, t in et.get_elements(root=paths.root).items()
+         if eid in labels),
+        key=lambda e: (ET_ELEMENTS.index(e.type), e.node),
+    )
+    if not elements:
+        return None
+    s = et.get_structure(root=paths.root)
+    ok = all(h in labels for h in s.headings)
+    seqs = [
+        SpecETSequence(answers={labels[x.heading]: x.answer for x in q.path}, end_state=labels[q.end_state])
+        for q in s.sequences
+        if q.end_state in labels and all(x.heading in labels for x in q.path)
+    ]
+    probs = [
+        SpecETProbability(node=labels[p.target_id], p_yes=p.p_yes, given={labels[c.heading]: c.answer for c in p.given},
+                          source=p.source_id, origin=p.origin, verified=p.verification == "human-verified",
+                          notes=p.notes)
+        for p in et.get_probabilities(root=paths.root).entries
+        if p.target_id in labels and all(c.heading in labels for c in p.given)
+    ]
+    f = next((x for x in et.get_frequencies(root=paths.root).entries if x.target_id in labels), None)
+    freq = SpecETFrequency(node=labels[f.target_id], frequency=f.frequency, source=f.source_id, origin=f.origin,
+                           verified=f.verification == "human-verified", notes=f.notes) if f else None
+    return SpecEventTree(elements=elements, order=[labels[h] for h in s.headings] if ok else [], sequences=seqs,
+                         probabilities=probs, frequency=freq)
 
 
 def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202

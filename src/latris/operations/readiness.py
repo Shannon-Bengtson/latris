@@ -466,6 +466,37 @@ def _check_bt_lines_complete(ctx: ValidationContext) -> list[ReadinessGap]:
                               "bt_escalation_unlinked"))
 
 
+def _et_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
+    """Event-tree structure problems of the given types (one load per check)."""
+    if "et_problems" not in ctx.cache:
+        from latris.operations import event_tree
+
+        ctx.cache["et_problems"] = event_tree.structure_problems(root=ctx.paths.root)
+    labels = {e.id: e.label for e in ctx.substrate.entities}
+    return [
+        ReadinessGap(element_id=p.target_id or "", element_label=labels.get(p.target_id or "", "(tree)"),
+                     gap_type=p.gap_type, message=p.message)
+        for p in ctx.cache["et_problems"]
+        if p.gap_type in gap_types
+    ]
+
+
+def _check_et_elements_classified(ctx: ValidationContext) -> list[ReadinessGap]:
+    """One initiating event and at least one end state."""
+    return _et_problems(ctx, ("et_no_initiator", "et_many_initiators", "et_no_end_state"))
+
+
+def _check_et_headings_ordered(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Every heading is in the heading order, and the order lists only headings."""
+    return _et_problems(ctx, ("et_heading_unordered", "et_bad_heading"))
+
+
+def _check_et_sequences_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """The sequences form a complete tree: every branch covered once, every heading and end state used."""
+    return _et_problems(ctx, ("et_no_sequences", "et_duplicate", "et_bad_sequence", "et_overlap",
+                              "et_inconsistent", "et_missing_branch", "et_heading_unused", "et_end_state_unused"))
+
+
 SD_VALIDATORS: tuple[str, ...] = (
     "sd_classification_complete",
     "sd_flow_connects_stock",
@@ -498,6 +529,9 @@ _STRUCTURAL_VALIDATORS: dict[str, object] = {
     "bt_elements_classified": _check_bt_elements_classified,
     "bt_links_valid": _check_bt_links_valid,
     "bt_lines_complete": _check_bt_lines_complete,
+    "et_elements_classified": _check_et_elements_classified,
+    "et_headings_ordered": _check_et_headings_ordered,
+    "et_sequences_complete": _check_et_sequences_complete,
     # Future: "bipartite", etc.
 }
 
