@@ -180,7 +180,7 @@ are disposable.
 
 ## The CLI ↔ GUI boundary contract
 
-The desktop app (developed in the private app repo) reuses this core
+The Latris app (developed in the private app repo) reuses this core
 through the Python API server. To keep that possible, the CLI remains
 deliberately thin:
 
@@ -188,8 +188,8 @@ deliberately thin:
 > No business logic in `cli/`.
 
 The GUI's Python API server imports `operations/` directly. Same invariants,
-same tests, same schema. See "GUI architecture" above for the React +
-Electron bridge design.
+same tests, same schema. See "GUI architecture" below for how the app
+talks to the server.
 
 ## Module layout
 
@@ -366,27 +366,27 @@ When these land, the chokepoints list extends:
 | `compile/materialize.py` | Translation from on-disk parameter files to runtime backend objects (when the future `latris` library lands) |
 | `operations/analysis_runs.py` | All AnalysisRun creation; only place that writes `analysis/runs.jsonl` (results go through `operations/analysis_results.py`) |
 
-## GUI architecture (React + Electron + Python backend)
+## GUI architecture (React app + Python backend)
 
-*Status: **built and shipping** as the Latris desktop app, which lives in a
-separate private repository. This repo is the backend that app embeds: the
-same `latris` package, same invariants, same schema. (Packaging and
-distribution details live with the app repo.)*
+*Status: **built and shipping** as the Latris app, a React app in the
+browser at `app.latris.app`, which lives in a separate private
+repository. This repo is the backend it runs on: the same `latris`
+package, same invariants, same schema. (Deployment details live with the
+app repo.)*
 
-The GUI is a **React frontend** inside an **Electron shell**, talking to
-a **Python API server** (FastAPI) that wraps `operations/` over localhost.
+The GUI is a **React frontend** talking to the **Python API server**
+(FastAPI, `src/latris/server/`) that wraps `operations/` over HTTP and
+WebSocket.
 
 ### Bridge layer
 
-The Electron app spawns a lightweight Python API server (FastAPI or
-similar) as a subprocess on startup. The server imports `operations/`
-directly — same invariants, same commit model, same schema, same tests.
-The React frontend is purely rendering + interaction. **No business
-logic leaves Python.**
+The server imports `operations/` directly: same invariants, same commit
+model, same schema, same tests. The React frontend is purely rendering +
+interaction. **No business logic leaves Python.**
 
 ```
-React (Electron renderer)
-     │ HTTP/WebSocket (localhost)
+React (browser)
+     │ HTTP/WebSocket
      ▼
 Python API server (FastAPI)
      │ direct import
@@ -456,7 +456,7 @@ auditable model state by default.
 
 The CLI era contract ("GUI imports `operations/` directly") holds — the
 FastAPI server does the importing. The React frontend adds a network
-hop over localhost, but the invariants are identical. The server is a
+hop, but the invariants are identical. The server is a
 thin adapter that translates HTTP/WebSocket calls into `operations/`
 function calls. In practice, the server also owns:
 

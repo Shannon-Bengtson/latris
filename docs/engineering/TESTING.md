@@ -5,8 +5,8 @@
 - **~1,850 Python tests** collected by `python -m pytest --collect-only -q`
 - CI matrix: `{ubuntu, macos, windows} × {3.11, 3.12}` on manual
   `workflow_dispatch`; slim single-job matrix on push/PR
-- The desktop GUI (React + Electron) is developed in the separate private
-  app repo and carries its own Vitest/Playwright suites there.
+- The Latris app (React, in the browser) is developed in the separate
+  private app repo and carries its own test suites there.
 
 ## Four test layers
 

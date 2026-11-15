@@ -6,8 +6,9 @@ Context for AI coding agents working in this repository.
 
 **Latris** — an evidence-native modelling workbench. This repo is the
 open-source core: the `latris` Python package (`src/latris/`), its CLI,
-and the FastAPI + WebSocket server backend. The Latris desktop app is
-built on this package from a separate private repository.
+and the FastAPI + WebSocket server backend. The Latris app (React, in the
+browser at app.latris.app) is built on this package from a separate
+private repository.
 
 Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
 

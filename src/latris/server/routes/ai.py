@@ -199,8 +199,8 @@ def ai_call(body: AICallRequest, root: Root) -> dict[str, Any]:
         # Let app-level handlers return proper 4xx status codes.
         raise
     except Exception as exc:
-        # Log the full traceback so it appears in server logs / Electron console,
-        # and return the message to the client so packaged-app users can diagnose.
+        # Log the full traceback so it appears in the server logs, and return
+        # the message to the client so app users can diagnose.
         logger = logging.getLogger(__name__)
         logger.exception("AI call failed")
         raise HTTPException(

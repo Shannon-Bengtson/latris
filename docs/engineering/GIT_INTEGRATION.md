@@ -127,7 +127,7 @@ No separate "AI author" in `git log` — that would lie about accountability.
 ## Remote collaboration
 
 Latris projects are git repos, so collaboration = push/pull to a shared
-remote. The Latris desktop app routes this through the **Latris-native
+remote. The Latris app routes this through the **Latris-native
 control plane** plus an **invisible Gitea** git engine (deployed at
 `https://sync.latris.app`), driven by the `sync` CLI group — not raw
 GitHub auth. The control-plane service itself is a separate,

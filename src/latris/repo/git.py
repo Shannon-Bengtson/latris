@@ -17,7 +17,7 @@ from pathlib import Path
 DEFAULT_BRANCH = "main"
 
 # Bound network git operations (clone/fetch/push/pull) so a dead connection
-# can't hang the desktop app forever. Local ops (commit/status/log) are fast
+# can't hang the server or CLI forever. Local ops (commit/status/log) are fast
 # and left unbounded. Generous enough for slow links on text-sized projects.
 NETWORK_TIMEOUT = 300.0
 
@@ -79,7 +79,7 @@ def run_git(
     Always uses a list argument (never ``shell=True``). Text mode, UTF-8.
 
     ``GIT_TERMINAL_PROMPT=0`` is forced so git fails fast instead of blocking
-    on an interactive credential/username prompt — in the desktop app there is
+    on an interactive credential/username prompt — under the server there is
     no terminal to answer one, so a prompt would hang forever. ``timeout``
     (seconds) bounds the call and surfaces as ``GitError`` on expiry; callers
     doing network I/O pass :data:`NETWORK_TIMEOUT`.

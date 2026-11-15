@@ -8,8 +8,11 @@ loads the model into the Latris app as a hosted report the person can share
 and save. Nothing is sent anywhere by this command; the fragment (after
 ``#``) also isn't sent to a server when the link is merely shared.
 
-The copy carries the model, its evidence, findings (as proposed), open
-challenges and interpretation prose — not the git history.
+The copy carries the model, its citations, findings (as proposed), open
+challenges and interpretation prose — not the git history, and not source
+checks, quotes, extracts or approvals. Known issue: prose that describes
+those checks still travels, so a copy can claim checks it doesn't hold.
+See docs/engineering/SHARE_LINK.md for the planned fix.
 
 Payload: JSON ``{"v": 1, "name", "question", "model_type", "spec"}``,
 raw-DEFLATE compressed, base64url without padding.

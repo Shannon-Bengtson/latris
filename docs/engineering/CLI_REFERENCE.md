@@ -195,6 +195,10 @@ URL. Opening it creates a hosted copy with a report link and the full
 figure; the person can save it to their account. Everything arriving this
 way is recorded as AI-proposed, and findings arrive unapproved.
 
+**Known issue:** the link drops source checks, quotes, extracts and
+approvals but keeps the interpretation prose, so a copy can claim checks it
+doesn't hold. See [`SHARE_LINK.md`](SHARE_LINK.md).
+
 The library exports Markdown and DOT. Word reports, self-contained
 HTML review packs (and importing completed ones) and story HTML are part
 of the Latris app (`app.latris.app`) since 0.5.0. The Markdown report includes a
@@ -383,8 +387,7 @@ latris sync status      # show local vs remote sync state
 ```
 
 `login`/`share` are the bridge from a local project to the hosted app
-(`https://app.latris.app`) — the only account/collaboration entry point
-that previously existed was the desktop GUI's sync panel. `share` prints
+(`https://app.latris.app`). `share` prints
 the hosted app's address (sign in there and pick the project from the
 list) and, when the control plane provides one, the project's report
 link. `link on` gives the shared project a public, unindexed report page
