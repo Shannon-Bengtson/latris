@@ -5,7 +5,7 @@ These are *transport* operations, not model mutations — they never call
 return the resulting local HEAD sha so callers can report it.
 
 The ``env`` parameter threads through to :mod:`latris.repo.git` so the
-desktop layer can inject credentials (``GIT_ASKPASS`` + a one-shot token) at
+calling layer can inject credentials (``GIT_ASKPASS`` + a one-shot token) at
 call time without persisting secrets in the remote URL or git config.
 """
 

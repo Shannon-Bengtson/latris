@@ -383,8 +383,7 @@ latris sync status      # show local vs remote sync state
 ```
 
 `login`/`share` are the bridge from a local project to the hosted app
-(`https://app.latris.app`) — the only account/collaboration entry point
-that previously existed was the desktop GUI's sync panel. `share` prints
+(`https://app.latris.app`). `share` prints
 the hosted app's address (sign in there and pick the project from the
 list) and, when the control plane provides one, the project's report
 link. `link on` gives the shared project a public, unindexed report page

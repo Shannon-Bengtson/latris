@@ -207,7 +207,7 @@ rather than reading terminal output, the path is: `latris sync login
 back, then re-run with `--code`), then
 `latris sync share "<project name>"`, which pushes the project and
 prints where to open it (the human signs in at that address and picks
-the project from their list). No desktop install needed.
+the project from their list). Nothing to install.
 
 Setup (one shot):
 

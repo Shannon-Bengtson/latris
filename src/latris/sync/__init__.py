@@ -1,4 +1,4 @@
-"""Desktop-side sync: control-plane client, credential storage, and the
+"""Client-side sync: control-plane client, credential storage, and the
 git credential bridge. Consumed by ``operations/sync.py`` and the server's
 sync routes."""
 

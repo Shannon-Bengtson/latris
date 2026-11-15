@@ -2,9 +2,9 @@
 
 Engineering reference for Latris — an evidence-native modelling
 workbench. This repository holds the open-source core (the `latris`
-Python package: CLI + API server). The Latris desktop app is built on
-this package from a separate private repository. Start at the repo-root
-[README](../README.md).
+Python package: CLI + API server). The Latris app (React, in the browser
+at app.latris.app) is built on this package from a separate private
+repository. Start at the repo-root [README](../README.md).
 
 ## What Latris is (and isn't)
 
@@ -32,8 +32,9 @@ this package from a separate private repository. Start at the repo-root
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked
   simulation, scenarios, Monte Carlo bands, sensitivity, loop dominance)
-  and the discrete BN engine above are built; regression fitting, model
-  calibration to data, and BN PSA/EVPI are deferred.
+  and the discrete BN engine above (including soft evidence, most likely
+  explanations, and Monte Carlo over the tables) are built; regression
+  fitting, model calibration to data, and BN EVPI are deferred.
 
 **Isn't ever (excluded by design — fails the inspectability test):**
 - Black-box predictors you can run but can't inspect or defend (random
@@ -93,8 +94,7 @@ latris --version
 latris doctor
 ```
 
-Plain `pip install "latris[server,data]"` works from PyPI once a release
-is published.
+Or from PyPI: `pip install "latris[server,data]"`.
 
 ## First run
 

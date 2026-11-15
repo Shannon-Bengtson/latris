@@ -73,7 +73,7 @@ server = [
     "pandas>=2.0",
     "scipy>=1.11",
     "python-multipart>=0.0.7",
-    # Quantitative inference must be available to the bundled desktop backend.
+    # Quantitative inference must be available wherever the server runs.
     "pgmpy>=1.1",
 ]
 dev = [
