@@ -51,6 +51,7 @@ from latris.server.routes import (
     export,
     fcm,
     findings,
+    ft,
     history,
     interpret,
     layout,
@@ -597,6 +598,7 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
     app.include_router(bn.router)
     app.include_router(sd.router)
     app.include_router(toc.router)
+    app.include_router(ft.router)
     app.include_router(results.router)
     app.include_router(history.router)
     app.include_router(layout.router)

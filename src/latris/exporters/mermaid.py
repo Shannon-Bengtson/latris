@@ -53,6 +53,34 @@ def _scoped(paths: ProjectPaths, model_type: str | None):
     return entities, edges, polarity
 
 
+def _fault_tree(paths: ProjectPaths, entities, edges) -> str:
+    """Top event at the top; each gated event names its gate; leaves show their probability."""
+    from latris.operations.fault_tree import EDGE_KINDS, get_events, get_gates, get_probabilities
+
+    events = get_events(root=paths.root)
+    members = [e for e in entities if e.id in events]
+    if not members:
+        return ""
+    gates = {g.target_id: g for g in get_gates(root=paths.root).entries}
+    probs = {p.target_id: p.probability for p in get_probabilities(root=paths.root).entries}
+    alias = {e.id: f"n{i}" for i, e in enumerate(members)}
+    lines = ["flowchart TB"]
+    for e in members:
+        text = _mermaid_text(e.label)
+        g = gates.get(e.id)
+        if g:
+            text += f"<br/>{'VOTE ' + str(g.k) if g.gate == 'vote' else g.gate.upper()}"
+        if e.id in probs:
+            text += f"<br/>p = {probs[e.id]:.3g}"
+        shape = ('(["', '"])') if events[e.id] == "basic_event" else (
+            ('{{"', '"}}') if events[e.id] == "undeveloped_event" else ('["', '"]'))
+        lines.append(f"    {alias[e.id]}{shape[0]}{text}{shape[1]}")
+    for ed in edges:
+        if ed.kind in EDGE_KINDS and ed.from_id in alias and ed.to_id in alias:
+            lines.append(f"    {alias[ed.to_id]} --- {alias[ed.from_id]}")
+    return "\n".join(lines) + "\n"
+
+
 def _toc_levels(paths: ProjectPaths) -> dict[str, str]:
     from latris.operations.toc import get_levels
 
@@ -69,6 +97,10 @@ def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
     if not entities:
         return ""
 
+    if model_type == "fault_tree":
+        tree = _fault_tree(paths, entities, edges)
+        if tree:
+            return tree
     direction = "TB" if model_type == "dag" else "LR"
     alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
     lines = [f"flowchart {direction}"]

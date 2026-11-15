@@ -84,6 +84,13 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
         from latris.operations import toc
 
         return toc.check(root=paths.root)[0]["run_id"]
+    if a.kind == "ft_analyse":
+        from latris.operations import fault_tree
+
+        payload = fault_tree.analyse(max_order=a.max_order, root=paths.root)
+        if payload["problems"] or payload["error"]:
+            raise ValueError(fault_tree.describe(payload))
+        return fault_tree.record(payload, root=paths.root)[1]
     raise ValueError(f"unknown analysis kind {a.kind!r}")
 
 
@@ -161,4 +168,6 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
             ))
         elif kind == "toc-pathways":
             out.append(SpecAnalysis(kind="toc_check"))
+        elif kind == "ft-analysis":
+            out.append(SpecAnalysis(kind="ft_analyse", max_order=p.get("max_order")))
     return out

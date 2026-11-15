@@ -402,6 +402,36 @@ def _check_toc_pathways_complete(ctx: ValidationContext) -> list[ReadinessGap]:
     return _toc_problems(ctx, ("toc_no_activity", "toc_no_impact", "toc_dead_end", "toc_unreached_impact"))
 
 
+def _ft_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
+    """Fault-tree structure problems of the given types (one load per check)."""
+    if "ft_problems" not in ctx.cache:
+        from latris.operations import fault_tree
+
+        ctx.cache["ft_problems"] = fault_tree.structure_problems(root=ctx.paths.root)
+    labels = {e.id: e.label for e in ctx.substrate.entities}
+    return [
+        ReadinessGap(element_id=p.target_id or "", element_label=labels.get(p.target_id or "", "(tree)"),
+                     gap_type=p.gap_type, message=p.message)
+        for p in ctx.cache["ft_problems"]
+        if p.gap_type in gap_types
+    ]
+
+
+def _check_ft_events_classified(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Exactly one top event."""
+    return _ft_problems(ctx, ("ft_no_top", "ft_many_tops"))
+
+
+def _check_ft_gates_complete(ctx: ValidationContext) -> list[ReadinessGap]:
+    """Every top or intermediate event has a gate and inputs; leaves have none; vote k fits."""
+    return _ft_problems(ctx, ("ft_no_gate", "ft_no_inputs", "ft_vote_k", "ft_leaf_has_inputs"))
+
+
+def _check_ft_tree_connected(ctx: ValidationContext) -> list[ReadinessGap]:
+    """No loop within the tree, and every event leads to the top event."""
+    return _ft_problems(ctx, ("ft_cycle", "ft_not_in_tree"))
+
+
 SD_VALIDATORS: tuple[str, ...] = (
     "sd_classification_complete",
     "sd_flow_connects_stock",
@@ -428,6 +458,9 @@ _STRUCTURAL_VALIDATORS: dict[str, object] = {
     "toc_levels_complete": _check_toc_levels_complete,
     "toc_links_forward": _check_toc_links_forward,
     "toc_pathways_complete": _check_toc_pathways_complete,
+    "ft_events_classified": _check_ft_events_classified,
+    "ft_gates_complete": _check_ft_gates_complete,
+    "ft_tree_connected": _check_ft_tree_connected,
     # Future: "bipartite", etc.
 }
 

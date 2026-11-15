@@ -132,7 +132,9 @@ the schema change.
 | SD classification (stock/flow/auxiliary/constant/source_sink) | `RoleSet` | `views/roles/sd-roles.yaml` |
 | Markov / MDP transitions | `MarkovTransitionsFile` | `views/parameters/markov-transitions.yaml` |
 | SCM coefficients | `DAGCoefficientsFile` | `views/parameters/dag-coefficients.yaml` |
-| Fault-tree event probs | `FTEventProbsFile` | `views/parameters/ft-event-probs.yaml` |
+| Fault-tree gates (and/or/vote k) | `FTGateSet` | `views/parameters/fault_tree-gate.yaml` | **built** |
+| Fault-tree basic-event probabilities | `FTProbabilitySet` | `views/parameters/fault_tree-probability.yaml` | **built** |
+| Fault-tree event types (top/intermediate/basic/undeveloped) | `RoleSet` | `views/roles/fault_tree-roles.yaml` | **built** |
 | Node state spaces | `NodeStateSpacesFile` | `views/parameters/node-state-spaces.yaml` |
 
 **Parameterized views and the analysis layer.** The `views/parameters/*`
@@ -247,7 +249,7 @@ Full design in the DATA_AND_ANALYSIS design spec (held in the private design doc
 
 Per-formalism parameter files live under `views/parameters/`:
 `bn-cpt.yaml`, `sd-equations.yaml`, `markov-transitions.yaml`,
-`dag-coefficients.yaml`, `ft-event-probs.yaml`, plus shared
+`dag-coefficients.yaml`, `fault_tree-probability.yaml`, plus shared
 `node-state-spaces.yaml`. Each parameter cell is keyed
 `(target_id, parameter_name, ...)` and carries the same `origin /
 verification / source_id / informants` machinery as attributes —
@@ -300,7 +302,7 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 6 stable (CLD, DAG, FCM, BN, SD, Theory of Change) + 14 planned model types. Registry-driven
+  (built) defines 7 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree) + 13 planned model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
   and settings in a single call. When planned types become stable,
@@ -327,12 +329,12 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 6 stable types (CLD, DAG, FCM, BN, SD, Theory
-of Change) and 14 planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 7 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree) and 13 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, only fault tree, event tree, bow-tie and GSN are currently on it. Decision tree, influence diagram and Markov/MDP are
+types, only event tree, bow-tie and GSN are currently on it. Decision tree, influence diagram and Markov/MDP are
 parked; causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
@@ -342,7 +344,8 @@ planned (their fit notes are kept below for reference).
 | **SD** | Stable | Stock-and-flow engine built: stock/flow/auxiliary/constant/source_sink as view roles (no EntityKind change); `flow` edges carry material, `causal` edges are information links; per-parameter provenance; equations evaluated on pint quantities so dimensional consistency is enforced by arithmetic; table functions; deterministic simulation via scipy `solve_ivp` (hand-rolled Euler). |
 | **Causal DAG** | Registered — merging into DAG | Quantitative extension of DAG; parameter schemas designed. |
 | **GSN / safety cases** | Registered — on the roadmap | Strong fit. Adds `goal`/`strategy`/`solution`/`context`/`justification` as view roles; `solved_by`/`in_context_of` to EdgeKind. Provenance layer lands as core, not nice-to-have. Surfaces the assumption-as-node design question (see below). Largest commercial upside. |
-| **Bow-Tie / Fault Tree** | Registered — on the roadmap | Risk/safety analysis. Fault tree uses `gate` view role + `logical` EdgeKind; bow-tie uses `barrier`/`hazard` view roles. |
+| **Fault Tree** | Stable | Event types (top_event, intermediate_event, basic_event, undeveloped_event) as view roles; inputs are `causal` or `logical` edges from input to output event. The gate (and / or / vote k) is stored on its event (`fault_tree-gate.yaml`), not drawn as a node, so the shared substrate keeps only real events. Basic-event probabilities carry per-value provenance. Only entities with an FT type are in the tree; other inputs are listed and left out. Acyclicity is checked within the tree, not over the whole substrate. Analysis: MOCUS cut sets, exact top-event probability by BDD, Birnbaum / Fussell–Vesely / RAW importance. |
+| **Bow-Tie** | Registered — on the roadmap | Risk/safety analysis; `barrier`/`hazard` view roles. Its left side is a fault tree, which is built. |
 | **Petri nets** | Registered — not currently planned | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |
 | **Markov chains / MDPs** | Registered — parked | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
 | **Influence Diagram** | Registered — parked | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
@@ -373,8 +376,11 @@ of building wrong without a real user in front of us is much higher
 than the cost of refactoring later — and the refactor is bounded
 because the relevant fields are deliberately Literal-typed for additive
 extension. Concrete next move before building any of the safety
-formalisms (GSN, fault tree, event tree, bow-tie): have a 30-minute
-conversation with a safety engineer (rail / aerospace / medtech in AU/NZ).
+formalisms (GSN, event tree, bow-tie): have a 30-minute conversation with a
+safety engineer (rail / aerospace / medtech in AU/NZ). The fault tree was
+built from the textbook formalism (NRC *Fault Tree Handbook*, IEC 61025)
+without that conversation, so show it to one before leaning on it in a
+safety case.
 
 ## Schema readiness for future capabilities
 

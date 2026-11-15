@@ -313,6 +313,23 @@ latris toc check [--no-record]                 # pathways activity → impact; p
 latris assumption add "<why the step happens>" --target "From -> To"   # counted per link by the check
 ```
 
+## FT (Fault Trees)
+
+A fault tree on the shared substrate: each event's type is a view role, an
+input links to the event it feeds (`logical` or `causal` edge), and every
+top or intermediate event has a gate stored on it. Only events with a type
+are in the tree. `ft analyse` is recorded as an `AnalysisRun`
+(`ft-analysis`).
+
+```bash
+latris ft event <node> <top_event|intermediate_event|basic_event|undeveloped_event>
+latris ft gate <event> <and|or|vote> [--k K]          # vote: at least K of the inputs
+latris ft probability <event> <p> [--source KEY] [--origin ORIGIN] [--verified] [--notes]
+latris ft show                                        # the tree from the top event down
+latris ft check                                       # structure; exits 1 until complete
+latris ft analyse [--max-order N] [--no-record]       # cut sets, SPOFs, exact P(top), importance
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

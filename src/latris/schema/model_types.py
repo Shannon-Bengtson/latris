@@ -225,10 +225,17 @@ register_model_type(
         id="fault_tree",
         display_name="Fault Tree",
         short_name="FT",
-        description="Top-down failure decomposition with AND/OR logic gates.",
-        roadmap="roadmap",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Top-down failure decomposition with AND, OR and k-out-of-n gates: minimal cut sets, single points "
+            "of failure, exact top-event probability and importance, with each probability's provenance."
+        ),
+        roadmap="built",
+        availability="stable",
+        # Acyclicity is checked within the tree (ft_tree_connected), not over the whole shared substrate.
+        structural_validators=("ft_events_classified", "ft_gates_complete", "ft_tree_connected"),
+        # One per event; the top event is the outcome of interest, so there is no separate "outcome" role.
+        allowed_roles=("top_event", "intermediate_event", "basic_event", "undeveloped_event"),
+        required_roles=("top_event", "basic_event"),
     )
 )
 

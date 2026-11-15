@@ -117,6 +117,33 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   equilibrium. Monte Carlo is capped at 1000 runs and reports rank
   correlations only.
 
+## Fault trees
+
+- **Lineage.** Vesely, Goldberg, Roberts & Haasl (1981), *Fault Tree
+  Handbook* (NUREG-0492, US Nuclear Regulatory Commission), and IEC
+  61025:2006. Minimal cut sets by MOCUS-style expansion (Fussell & Vesely
+  1972); the exact top-event probability from a binary decision diagram
+  (Rauzy 1993); importance after Birnbaum (1969) and Fussell (1975).
+- **Implemented.** Event types as view roles (top, intermediate, basic,
+  undeveloped); AND, OR and k-out-of-n (vote) gates stored on their events.
+  Minimal cut sets with superset elimination at every gate, so an event that
+  feeds several gates is handled correctly; single points of failure (cut
+  sets of one). When every leaf has a probability: the exact top-event
+  probability from a reduced ordered BDD, with the rare-event approximation
+  and the min-cut upper bound beside it; Birnbaum importance
+  (P(top | e) − P(top | not e)), Fussell–Vesely importance
+  ((P(top) − P(top | not e)) / P(top)) and risk achievement worth
+  (P(top | e) / P(top)), each computed exactly on the diagram. Every
+  probability keeps its origin, source and verification, and important
+  values nobody has verified are flagged (`latris ft …`).
+- **Limits.** Static, coherent trees only: no NOT, priority-AND, sequence or
+  other dynamic gates. Basic events are assumed independent — there is no
+  common-cause failure model (beta factor, MGL), so redundancy can look
+  stronger than it is. Probabilities are point values: no uncertainty
+  propagation, and no conversion from failure rates and exposure times
+  (enter the probability for the period the tree is about). Cut sets are
+  listed up to 20,000; past that, limit the order.
+
 ## Theory of change
 
 - **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
@@ -178,6 +205,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | FCM | Semi-quantitative simulation of the claimed mechanism |
 | SD | Quantitative mechanism simulation; scenario analysis intervenes *on the model* |
 | Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence; no estimation |
+| Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
 | DAG / BN | Observational queries and identification — what to measure; no interventional estimation |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -202,15 +230,26 @@ the code it describes win, and this page is wrong.
 
 ## References
 
+- Birnbaum, Z. W. (1969). "On the Importance of Different Components in a
+  Multicomponent System." In P. R. Krishnaiah (Ed.), *Multivariate Analysis
+  II*. Academic Press.
 - Bradford Hill, A. (1965). "The Environment and Disease: Association or
   Causation?" *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
 - Fenton, N., & Neil, M. (2018). *Risk Assessment and Decision Analysis with
   Bayesian Networks* (2nd ed.). CRC Press.
 - Forrester, J. W. (1961). *Industrial Dynamics*. MIT Press.
+- Fussell, J. B. (1975). "How to Hand-Calculate System Reliability and
+  Safety Characteristics." *IEEE Transactions on Reliability*, R-24(3),
+  169–174.
+- Fussell, J. B., & Vesely, W. E. (1972). "A New Methodology for Obtaining
+  Cut Sets for Fault Trees." *Transactions of the American Nuclear
+  Society*, 15, 262–263.
 - Guyatt, G., et al. (2008). "GRADE: an emerging consensus on rating quality
   of evidence and strength of recommendations." *BMJ*, 336, 924–926.
 - Hernán, M., & Robins, J. (2020). *Causal Inference: What If*. Chapman &
   Hall/CRC. <https://hsph.harvard.edu/causalinference/>
+- IEC 61025:2006. *Fault tree analysis (FTA)*. International
+  Electrotechnical Commission.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.
@@ -230,6 +269,8 @@ the code it describes win, and this page is wrong.
   Cambridge University Press.
 - Pearl, J., & Mackenzie, D. (2018). *The Book of Why: The New Science of
   Cause and Effect*. Basic Books.
+- Rauzy, A. (1993). "New Algorithms for Fault Trees Analysis."
+  *Reliability Engineering & System Safety*, 40(3), 203–211.
 - Schum, D. A. (1994). *Evidential Foundations of Probabilistic Reasoning*.
   Wiley.
 - Schoenberg, S., Davidsen, P., & Eberlein, R. (2020). "Loops That Matter."
@@ -241,6 +282,8 @@ the code it describes win, and this page is wrong.
 - Sterman, J. D. (2000). *Business Dynamics: Systems Thinking and Modeling
   for a Complex World*. Irwin/McGraw-Hill.
 - Toulmin, S. E. (1958). *The Uses of Argument*. Cambridge University Press.
+- Vesely, W. E., Goldberg, F. F., Roberts, N. H., & Haasl, D. F. (1981).
+  *Fault Tree Handbook* (NUREG-0492). U.S. Nuclear Regulatory Commission.
 - Weiss, C. H. (1995). "Nothing as Practical as Good Theory: Exploring
   Theory-Based Evaluation for Comprehensive Community Initiatives for
   Children and Families." In J. P. Connell, A. C. Kubisch, L. B. Schorr & C.

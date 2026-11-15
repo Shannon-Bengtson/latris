@@ -40,6 +40,11 @@ def set_role(
             "A theory of change's outcome of interest is its impact: give the factor the level 'impact' "
             "(latris toc level <factor> impact). Outcomes along the way are short_term_outcome or long_term_outcome."
         )
+    if model_type == "fault_tree" and role == "outcome":
+        raise ValueError(
+            "A fault tree's outcome of interest is its top event: give the factor the type 'top_event' "
+            "(latris ft event <factor> top_event)."
+        )
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:
         raise ValueError(f"{role!r} is not a valid role for {spec.display_name}. Valid: {spec.allowed_roles}")

@@ -375,6 +375,10 @@ def _outcome_ids(paths, model_type: str) -> set[str]:
         from latris.operations import toc
 
         return {eid for eid, lvl in toc.get_levels(root=paths.root).items() if lvl == "impact"}
+    if model_type == "fault_tree":
+        from latris.operations import fault_tree
+
+        return {eid for eid, t in fault_tree.get_events(root=paths.root).items() if t == "top_event"}
     path = paths.role_path(model_type)
     if not path.exists():
         return set()
@@ -512,6 +516,68 @@ def _toc_claims(paths, section: str) -> list[str]:
     return claims
 
 
+def _ft_claims(paths, section: str) -> list[str]:
+    """Fault-tree claims for one section, from the live analysis."""
+    from latris.operations import fault_tree
+
+    p = fault_tree.analyse(root=paths.root)
+    claims: list[str] = []
+    if p["problems"]:
+        if section == "structure":
+            claims.append(f"The fault tree is incomplete: {len(p['problems'])} structure problem(s) "
+                          f"(e.g. {p['problems'][0]['label']}: {p['problems'][0]['message']})")
+        return claims
+    if p["error"]:
+        return [p["error"]] if section == "structure" else []
+    imp = p["importance"]
+    if section == "structure":
+        c = p["counts"]
+        claims.append(f"Fault tree for {p['top']}: {c['intermediate_event']} intermediate event(s), "
+                      f"{c['basic_event']} basic and {c['undeveloped_event']} undeveloped event(s).")
+        claims.append(fault_tree.describe(p) + ".")
+        if p["outside_inputs"]:
+            claims.append(f"Left out of the tree (no fault-tree type): {', '.join(p['outside_inputs'][:5])}.")
+    elif section == "answer":
+        if p["quantified"]:
+            claims.append(f"Probability of {p['top']}: {p['probability']['exact']:.3g} (exact, assuming the basic "
+                          "events are independent).")
+            top = p["cut_sets"][:3]
+            if top:
+                claims.append("Most likely ways it happens: " + "; ".join(
+                    f"{' AND '.join(c['events'])} ({c['probability']:.3g})" for c in top) + ".")
+        else:
+            claims.append(f"{p['top']} can happen in {p['cut_sets_total']} minimal way(s); it isn't quantified "
+                          f"until every basic event has a probability.")
+        if p["single_points"]:
+            claims.append(f"Single points of failure — one event alone causes {p['top']}: "
+                          f"{', '.join(p['single_points'])}.")
+    elif section == "sensitivity" and imp:
+        claims.append("Basic events by importance (Fussell–Vesely: the share of the top-event probability that "
+                      "needs the event):")
+        claims += [f"  - {i['event']}: {i['fussell_vesely']:.2f}" + (" (value not verified)" if i["weak"] else "")
+                   for i in imp[:5]]
+        weak = [i["event"] for i in imp[:3] if i["weak"]]
+        if weak:
+            claims.append(f"The most important values nobody has verified yet: {', '.join(weak)} — check these first.")
+    elif section == "implications":
+        if p["single_points"]:
+            claims.append(f"Redundancy or a barrier at a single point of failure removes a whole way {p['top']} "
+                          f"happens: {', '.join(p['single_points'])}.")
+        if imp:
+            claims.append("Largest reductions in the top-event probability if these events could not happen "
+                          "(Fussell–Vesely):")
+            claims += [f"  - {i['event']} ({i['fussell_vesely']:.0%} of the probability)" for i in imp[:3]]
+    elif section == "gaps":
+        if p["missing_probabilities"]:
+            claims.append(f"Basic events without a probability: {', '.join(p['missing_probabilities'][:5])}"
+                          + (f" (+{len(p['missing_probabilities']) - 5} more)." if len(p["missing_probabilities"]) > 5
+                             else "."))
+        unsourced = [i["event"] for i in imp if not i["source"]]
+        if unsourced:
+            claims.append(f"Probabilities with no stated source: {', '.join(unsourced[:5])}.")
+    return claims
+
+
 def _extract_structural_summary(model_type: str, paths) -> list[str]:
     """Claims from model structure — loops, topology, connectivity."""
     from latris.operations.graph_analysis import (
@@ -590,6 +656,8 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
 
     if model_type == "theory_of_change":
         claims.extend(_toc_claims(paths, "structure"))
+    if model_type == "fault_tree":
+        claims.extend(_ft_claims(paths, "structure"))
 
     # Add any recorded structural findings
     findings = _load_findings(paths, model_type)
@@ -683,6 +751,12 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
 
     substrate = load_model(Substrate, paths.conceptual_yaml)
     claims: list[str] = []
+
+    if model_type == "fault_tree":
+        # Importance measures, not graph centrality: what matters is each event's share of the top event.
+        claims = _ft_claims(paths, "sensitivity")
+        claims.extend(f.statement for f in _load_findings(paths, model_type) if f.category == "sensitivity")
+        return claims or ["Give every basic event a probability to rank the events by importance."]
 
     causal = causal_edges(substrate.edges)
     if substrate.entities and causal:
@@ -789,6 +863,8 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
         )
     if model_type == "theory_of_change":
         claims.extend(_toc_claims(paths, "gaps"))
+    if model_type == "fault_tree":
+        claims.extend(_ft_claims(paths, "gaps"))
     return claims
 
 
@@ -904,6 +980,8 @@ def _extract_answer(model_type: str, paths) -> list[str]:
 
     if model_type == "theory_of_change":
         claims.extend(_toc_claims(paths, "answer"))
+    if model_type == "fault_tree":
+        claims.extend(_ft_claims(paths, "answer"))
 
     # Recorded inference findings
     findings = _load_findings(paths, model_type)
@@ -929,6 +1007,8 @@ def _extract_implications(model_type: str, paths) -> list[str]:
     # In a theory of change the intervention is its activities; what matters is which steps to test.
     if model_type == "theory_of_change":
         claims.extend(_toc_claims(paths, "implications"))
+    elif model_type == "fault_tree":
+        claims.extend(_ft_claims(paths, "implications"))
     # High-betweenness nodes are intervention leverage points
     elif substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)

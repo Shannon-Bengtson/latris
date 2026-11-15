@@ -110,6 +110,26 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         limits="Fixed-point only — non-convergence is flagged; limit cycles are not analysed.",
     ),
     Foundation(
+        id="ft-analysis",
+        applies_to=("fault_tree",),
+        method="Fault tree analysis",
+        citation=(
+            "Vesely, Goldberg, Roberts & Haasl (1981), *Fault Tree Handbook* (NUREG-0492); IEC 61025:2006; "
+            'Rauzy (1993), "New Algorithms for Fault Trees Analysis", *Reliability Engineering & System '
+            'Safety* 40(3); Birnbaum (1969); Fussell (1975)'
+        ),
+        used_for=(
+            "AND, OR and k-out-of-n gates; minimal cut sets and single points of failure; the exact "
+            "top-event probability from a binary decision diagram (with the rare-event approximation and "
+            "min-cut upper bound beside it); Birnbaum, Fussell–Vesely and risk-achievement-worth importance"
+        ),
+        limits=(
+            "Static and coherent: basic events are assumed independent (no common-cause model), there are "
+            "no NOT, priority-AND or sequence gates, and probabilities are point values with no "
+            "uncertainty propagation; cut sets are listed up to 20,000."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",

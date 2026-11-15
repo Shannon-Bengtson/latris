@@ -129,14 +129,29 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
 
         allowed = get_model_type(model_type).allowed_roles
         # SD keeps it with its settings; a theory of change's outcome is its impact.
-        if allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change"):
-            problems.append(f"outcome: {model_type} has no outcome role (cld, dag, fcm, sd and theory_of_change do)")
+        if allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change", "fault_tree"):
+            problems.append(
+                f"outcome: {model_type} has no outcome role (cld, dag, fcm, sd, theory_of_change and fault_tree do)"
+            )
     if spec.toc:
         for lv in spec.toc.levels:
             if not _known(lv.node):
                 problems.append(f"toc level: no factor named {lv.node!r}")
             if spec.outcome and lv.node.casefold() == spec.outcome.casefold() and lv.level != "impact":
                 problems.append(f"toc level: {lv.node!r} is the outcome, so its level is impact, not {lv.level}")
+    if spec.ft:
+        for where, nodes in (("ft event", [x.node for x in spec.ft.events]),
+                             ("ft gate", [x.node for x in spec.ft.gates]),
+                             ("ft probability", [x.node for x in spec.ft.probabilities])):
+            for n in nodes:
+                if not _known(n):
+                    problems.append(f"{where}: no factor named {n!r}")
+        for g in spec.ft.gates:
+            if (g.gate == "vote") != (g.k is not None):
+                problems.append(f"ft gate {g.node!r}: k goes with a vote gate, and only with one")
+        for e in spec.ft.events:
+            if spec.outcome and e.node.casefold() == spec.outcome.casefold() and e.type != "top_event":
+                problems.append(f"ft event: {e.node!r} is the outcome, so it is the top event, not {e.type}")
     for i, a in enumerate(_assumptions(spec.assumptions), 1):
         _target(f"assumption {i}", a.target)
     for i, f in enumerate(spec.findings, 1):
@@ -258,7 +273,14 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             for lv in spec.toc.levels:
                 toc_ops.set_level(lv.node, lv.level, root=paths.root)
                 result.parameters += 1
-        if spec.outcome:
+        if spec.outcome and model_type == "fault_tree":
+            from latris.operations import fault_tree as ft_ops
+
+            ft_ops.set_event(spec.outcome, "top_event", root=paths.root)  # before any gate goes on it
+            result.outcome = spec.outcome
+        if spec.ft:
+            result.parameters += _apply_ft(spec.ft, verified_by, paths.root)
+        if spec.outcome and model_type != "fault_tree":
             if model_type == "theory_of_change":
                 from latris.operations import toc as toc_ops
 
@@ -309,6 +331,28 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     if result.analyses:
         result.commit_sha = git.head_sha(paths.root)
     return result
+
+
+def _apply_ft(spec_ft, verified_by: str, root: Path) -> int:
+    """Event types first (gates and probabilities need them), then gates, then probabilities."""
+    from latris.operations import fault_tree as ft_ops
+
+    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+    n = 0
+    for e in spec_ft.events:
+        ft_ops.set_event(e.node, e.type, root=root)
+        n += 1
+    for g in spec_ft.gates:
+        ft_ops.set_gate(g.node, g.gate, k=g.k, root=root)
+        n += 1
+    for p in spec_ft.probabilities:
+        ft_ops.set_probability(
+            p.node, p.probability, origin=p.origin or default_origin, source_id=p.source,
+            verification="human-verified" if p.verified and verified_by == "human" else "unverified",
+            notes=p.notes, root=root,
+        )
+        n += 1
+    return n
 
 
 def _apply_sd(sd, default_origin: str, root: Path) -> int:

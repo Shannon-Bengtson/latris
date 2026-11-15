@@ -35,11 +35,14 @@ KIND_ORDER: tuple[str, ...] = (
     "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
     "bn-query", "bn-explanation", "bn-monte-carlo", "bn-sensitivity",
     "toc-pathways",
+    "ft-analysis",
 )
 REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
 _DEFAULT_LIMIT = 4
 
-KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | {"toc-pathways": "theory_of_change"}
+KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | {
+    "toc-pathways": "theory_of_change", "ft-analysis": "fault_tree",
+}
 
 
 # ── fingerprints ─────────────────────────────────────────────────────

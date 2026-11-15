@@ -59,7 +59,7 @@ def get_sections_for_model_types(
 # Built-in section definitions
 # ---------------------------------------------------------------------------
 
-_ALL_STABLE = ("cld", "dag", "fcm", "bn", "sd", "theory_of_change")
+_ALL_STABLE = ("cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree")
 
 # -- Technical sections (for the modeller) --
 

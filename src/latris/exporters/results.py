@@ -229,6 +229,39 @@ def _toc_pathways(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _ft_analysis(p: dict[str, Any]) -> list[str]:
+    from latris.operations.fault_tree import describe
+
+    out = [describe(p) + ".", ""]
+    if p.get("quantified"):
+        pr = p["probability"]
+        out += [f"Top-event probability: **{_f(pr['exact'])}** (exact, assuming independent basic events); "
+                f"rare-event approximation {_f(pr['rare_event'])}, min-cut upper bound "
+                f"{_f(pr['min_cut_upper_bound'])}.", ""]
+    if p.get("cut_sets"):
+        rows = [[" AND ".join(c["events"]), str(c["order"]),
+                 _f(c["probability"]) if c["probability"] is not None else "—"] for c in p["cut_sets"][:_MAX_ROWS]]
+        out += _table(["Minimal cut set", "Order", "Probability"], rows)
+        if p["cut_sets_total"] > _MAX_ROWS:
+            out += [f"_…and {p['cut_sets_total'] - _MAX_ROWS} more cut set(s)._", ""]
+    if p.get("importance"):
+        rows = [
+            [i["event"], _f(i["probability"]), f"{i['fussell_vesely']:.3f}", _f(i["birnbaum"]),
+             _f(i["raw"]) if i["raw"] is not None else "—",
+             i["origin"] + (f" ({i['source']})" if i["source"] else "") + ("; not verified" if i["weak"] else "")]
+            for i in p["importance"][:_MAX_ROWS]
+        ]
+        out += ["Importance, most first. *Fussell–Vesely*: the share of the top-event probability that needs the "
+                "event; *Birnbaum*: how far the top-event probability moves between the event surely happening "
+                "and surely not; *RAW*: how many times likelier the top event is if the event happens.", ""]
+        out += _table(["Basic event", "Probability", "Fussell–Vesely", "Birnbaum", "RAW", "Where it came from"],
+                      rows)
+    if p.get("outside_inputs"):
+        out += ["Left out of the tree (inputs from factors that have no fault-tree type): "
+                + "; ".join(p["outside_inputs"]) + ".", ""]
+    return out
+
+
 def _given(p: dict[str, Any]) -> str:
     from latris.operations.bn import evidence_description
 
@@ -355,6 +388,7 @@ _TITLES = {
     "bn-monte-carlo": "How sure the probability is (Monte Carlo)",
     "bn-sensitivity": "Probability sensitivity",
     "toc-pathways": "Theory of change: pathways and their evidence",
+    "ft-analysis": "Fault tree: cut sets, probability and importance",
 }
 
 
@@ -431,6 +465,8 @@ def render_results(
                 out += _bn_sensitivity(p, labels or {})
             elif kind == "toc-pathways":
                 out += _toc_pathways(p)
+            elif kind == "ft-analysis":
+                out += _ft_analysis(p)
         except (KeyError, TypeError, ValueError, IndexError):
             out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
     return out

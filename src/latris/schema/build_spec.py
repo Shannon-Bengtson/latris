@@ -229,6 +229,37 @@ class SpecToC(_Spec):
     levels: list[SpecToCLevel] = Field(default_factory=list)
 
 
+class SpecFTEvent(_Spec):
+    node: str
+    type: Literal["top_event", "intermediate_event", "basic_event", "undeveloped_event"]
+
+
+class SpecFTGate(_Spec):
+    node: str
+    gate: Literal["and", "or", "vote"]
+    k: int | None = Field(default=None, ge=1)
+
+
+class SpecFTProbability(_Spec):
+    node: str
+    probability: float = Field(ge=0.0, le=1.0)
+    source: str | None = None  # where it came from (a reference key, dataset, …)
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False  # a person has checked it against its source
+    notes: str | None = None
+
+
+class SpecFT(_Spec):
+    """Fault tree: event types, gates on top/intermediate events, basic-event probabilities.
+
+    The spec's ``outcome`` (if any) becomes the top event.
+    """
+
+    events: list[SpecFTEvent] = Field(default_factory=list)
+    gates: list[SpecFTGate] = Field(default_factory=list)
+    probabilities: list[SpecFTProbability] = Field(default_factory=list)
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -279,14 +310,15 @@ class SpecAnalysis(_Spec):
     | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
-    | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options).
+    | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
+    | ft_analyse (fault-tree cut sets, probability and importance; max_order).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_sensitivity", "toc_check",
+        "bn_sensitivity", "toc_check", "ft_analyse",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -308,6 +340,7 @@ class SpecAnalysis(_Spec):
     over: list[str] = Field(default_factory=list)
     target: str | None = None
     state: str | None = None
+    max_order: int | None = Field(default=None, ge=1)  # ft_analyse: list cut sets up to this order
 
 
 class BuildSpec(_Spec):
@@ -328,4 +361,5 @@ class BuildSpec(_Spec):
     sd: SpecSD | None = None  # System Dynamics roles, values, equations, tables, uncertainty, scenarios
     bn: SpecBN | None = None  # Bayesian network states and probability tables
     toc: SpecToC | None = None  # Theory of Change levels (input … impact)
+    ft: SpecFT | None = None  # Fault tree events, gates and probabilities
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

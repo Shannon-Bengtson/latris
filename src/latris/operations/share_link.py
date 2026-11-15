@@ -208,6 +208,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
         sd=_export_sd(paths, labels), bn=_export_bn(paths, labels), toc=_export_toc(paths, labels),
+        ft=_export_ft(paths, labels),
         analyses=_export_analyses(paths),
     )
     return foundation, spec
@@ -274,6 +275,28 @@ def _export_toc(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
         key=lambda e: (toc.LEVELS.index(e.level), e.node),
     )
     return SpecToC(levels=entries) if entries else None
+
+
+def _export_ft(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
+    """Fault-tree event types, gates and probabilities as spec entries."""
+    from latris.operations import fault_tree as ft
+    from latris.schema.build_spec import SpecFT, SpecFTEvent, SpecFTGate, SpecFTProbability
+    from latris.schema.fault_tree import FT_EVENT_TYPES
+
+    events = sorted(
+        (SpecFTEvent(node=labels[eid], type=t) for eid, t in ft.get_events(root=paths.root).items() if eid in labels),
+        key=lambda e: (FT_EVENT_TYPES.index(e.type), e.node),
+    )
+    if not events:
+        return None
+    gates = [SpecFTGate(node=labels[g.target_id], gate=g.gate, k=g.k)
+             for g in ft.get_gates(root=paths.root).entries if g.target_id in labels]
+    probs = [
+        SpecFTProbability(node=labels[p.target_id], probability=p.probability, source=p.source_id, origin=p.origin,
+                          verified=p.verification == "human-verified", notes=p.notes)
+        for p in ft.get_probabilities(root=paths.root).entries if p.target_id in labels
+    ]
+    return SpecFT(events=events, gates=gates, probabilities=probs)
 
 
 def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202

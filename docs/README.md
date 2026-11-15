@@ -32,6 +32,10 @@ repository. Start at the repo-root [README](../README.md).
   every pathway laid out link by link against its evidence (checked,
   cited, untested, contested) and stated assumptions — via CLI `toc` +
   `/api/toc/*`.
+- Fault trees: AND / OR / k-out-of-n gates, minimal cut sets and single
+  points of failure, the exact top-event probability (binary decision
+  diagram) and Birnbaum / Fussell–Vesely / RAW importance, with each
+  probability's provenance — via CLI `ft` + `/api/ft/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

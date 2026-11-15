@@ -1548,6 +1548,66 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "implications", "--model-type", "theory_of_change"])
     os.chdir(ex.root)
 
+    # ── 11c. Fault Tree ───────────────────────────────────────────────
+    ex.section(
+        "Fault Tree",
+        "A fault tree breaks one undesired top event down through gates to the basic events that cause it. "
+        "Each event gets a type; each input links to the event it feeds; each top or intermediate event has "
+        "a gate (and, or, or vote k-of-n). Here both pumps draw on the same power supply, so one event feeds "
+        "two gates. Shown on a third, small project.",
+    )
+    ft_root = ex.root.parent / "cooling"
+    ex.run(["init", str(ft_root), "--question", "How likely is a loss of cooling, and what drives it?"])
+    os.chdir(ft_root)
+    ex.run(["project", "select-models", "fault_tree"])
+    _ft_events = {
+        "Loss of cooling": "top_event", "Both pumps fail": "intermediate_event",
+        "Pump A fails": "intermediate_event", "Pump B fails": "intermediate_event",
+        "Power lost": "intermediate_event", "Pump A mechanical failure": "basic_event",
+        "Pump B mechanical failure": "basic_event", "Supply 1 fails": "basic_event",
+        "Supply 2 fails": "basic_event", "Supply 3 fails": "basic_event", "Control fault": "undeveloped_event",
+    }
+    for _n in _ft_events:
+        ex.run(["node", "add", _n, "--kind", "event"])
+    for _a, _b in (("Both pumps fail", "Loss of cooling"), ("Control fault", "Loss of cooling"),
+                   ("Pump A fails", "Both pumps fail"), ("Pump B fails", "Both pumps fail"),
+                   ("Pump A mechanical failure", "Pump A fails"), ("Power lost", "Pump A fails"),
+                   ("Pump B mechanical failure", "Pump B fails"), ("Power lost", "Pump B fails"),
+                   ("Supply 1 fails", "Power lost"), ("Supply 2 fails", "Power lost"),
+                   ("Supply 3 fails", "Power lost")):
+        ex.run(["edge", "add", _a, _b, "--kind", "logical"])
+    ex.note("Nothing has a fault-tree type yet; the check says what's missing and exits 1.")
+    ex.run(["ft", "check"], expect_fail=True)
+    for _n, _t in _ft_events.items():
+        ex.run(["ft", "event", _n, _t])
+    ex.run(["ft", "gate", "Loss of cooling", "or"])
+    ex.run(["ft", "gate", "Both pumps fail", "and"])
+    ex.run(["ft", "gate", "Pump A fails", "or"])
+    ex.run(["ft", "gate", "Pump B fails", "or"])
+    ex.run(["ft", "gate", "Power lost", "vote", "--k", "2"])
+    ex.run(["ft", "check"])
+    ex.run(["ft", "show"])
+    ex.note("Before any probabilities, the cut sets already answer the qualitative question. Power lost "
+            "feeds both pumps, so two supplies failing defeats the redundant pumps.")
+    ex.run(["ft", "analyse", "--no-record"])
+    ex.note("Probabilities carry where they came from. Only one has been checked by a person.")
+    ex.run(["ref", "add", "pumpdata", "--title", "Pump reliability data (illustrative)", "--year", "2015"])
+    ex.run(["ft", "probability", "Pump A mechanical failure", "0.02", "--source", "pumpdata",
+            "--origin", "data-derived", "--verified", "--notes", "per year of operation"])
+    ex.run(["ft", "probability", "Pump B mechanical failure", "0.02", "--source", "pumpdata",
+            "--origin", "data-derived"])
+    for _n in ("Supply 1 fails", "Supply 2 fails", "Supply 3 fails"):
+        ex.run(["ft", "probability", _n, "0.01", "--origin", "human-elicited",
+                "--notes", "site engineer's estimate"])
+    ex.run(["ft", "probability", "Control fault", "0.0005", "--origin", "ai-proposed"])
+    ex.note("Now the analysis adds the exact top-event probability and each event's importance. The control "
+            "fault, a single point of failure whose value an AI proposed and nobody has checked, carries the "
+            "largest share: the first number to verify.")
+    ex.run(["ft", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "sensitivity", "--model-type", "fault_tree"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

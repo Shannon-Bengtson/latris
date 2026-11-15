@@ -759,8 +759,8 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
         title="Choosing a Model Type",
         category="model-types",
         summary=(
-            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, and planned formal views — by the "
-            "question each one answers."
+            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, and planned formal views "
+            "— by the question each one answers."
         ),
         body="""## Current stable model types
 
@@ -770,10 +770,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **BN:** best for quantitative probabilistic reasoning over an acyclic causal subgraph (discrete state spaces + CPTs with per-cell provenance). See the dedicated Bayesian Networks topic.
 - **SD:** best for how a system with accumulation, delay, and feedback behaves over time — stocks, flows, unit-checked equations, and deterministic simulation. See the dedicated System Dynamics topic.
 - **Theory of Change:** best for programme and policy logic — how an intervention's activities are expected to lead, step by step, to its impact, and what evidence and assumptions hold each step up. See the dedicated Theory of Change topic.
+- **Fault Tree:** best for how an undesired event can happen — the combinations of failures that cause it, single points of failure, its probability and which failures matter most. See the dedicated Fault Trees topic.
 
 ## Planned model types
 
-On the roadmap: fault trees, event trees, bow-tie diagrams and Goal Structuring Notation (for risk and safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: event trees, bow-tie diagrams and Goal Structuring Notation (for risk and safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — decision trees, influence diagrams, Markov chains and MDPs, regression, argument maps, fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -796,6 +797,9 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "How is this programme supposed to work, and which steps are we taking
   on trust?" → **Theory of Change** — a results chain from activities to
   impact, link by link against the evidence.
+- "What combinations of failures cause this, and how likely is it?" →
+  **Fault Tree** — gates down to basic events; cut sets, probability and
+  importance.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -989,6 +993,35 @@ The model is ready when every factor has a level, no link runs backwards (toward
 ## Practical caution
 
 The check is structural and about evidence. It shows where a theory rests on untested or contested steps — where to look first in an evaluation — not how big an effect is or how much of an outcome the intervention caused. Methods behind it: Weiss (1995) on theory-based evaluation, the W.K. Kellogg Foundation (2004) logic model, and Mayne (2012) on contribution analysis.
+""",
+    ),
+    HelpTopic(
+        id="model-type-ft",
+        title="Fault Trees",
+        category="model-types",
+        summary="Break an undesired event down into the failures that cause it; find cut sets, its probability and what matters most.",
+        body="""## What a fault tree represents
+
+A fault tree starts from one undesired **top event** and works down through **gates** to the **basic events** that, in combination, cause it. Each factor gets a type (`latris ft event <factor> top_event|intermediate_event|basic_event|undeveloped_event`); link each input to the event it feeds (`latris edge add <input> <event> --kind logical`, or a causal link). Every top or intermediate event has a gate (`latris ft gate`): **and** (all inputs must occur), **or** (any one is enough) or **vote** with k (at least k of them, e.g. 2-out-of-3 redundant supplies). Undeveloped events are leaves you chose not to break down further.
+
+Only factors with a fault-tree type are in the tree, so a fault tree can share its events with a causal loop diagram. A link into the tree from an unclassified factor is left out and listed, never silently used.
+
+## What the analysis shows
+
+`latris ft analyse` lists the **minimal cut sets** — the smallest combinations of basic events that cause the top event — and the **single points of failure** (cut sets of one event). Give every basic event a probability (`latris ft probability <event> <p> --source <where>`) and it adds:
+
+- the **exact top-event probability**, from a binary decision diagram, so an event that feeds more than one gate isn't double-counted (the rare-event approximation and min-cut upper bound are shown beside it);
+- each event's **importance**: Fussell–Vesely (the share of the top-event probability that needs it), Birnbaum (how far the top-event probability moves between the event surely happening and surely not) and RAW (how many times likelier the top event is if it happens).
+
+Every probability keeps where it came from; the important ones nobody has verified are flagged, so you know which numbers to check first. The analysis is recorded for the report and goes out of date when the tree or a probability changes.
+
+## Readiness
+
+The tree is complete when it has one top event, every top and intermediate event has a gate and inputs (and a vote gate's k fits), basic and undeveloped events have no inputs, nothing loops, and every event leads to the top event. Probabilities aren't needed to be ready — the cut sets are useful on their own.
+
+## Practical caution
+
+The analysis is static and assumes basic events are independent: it has no common-cause failure model, no NOT, priority-AND or sequence gates, and probabilities are point values. Methods: the NRC *Fault Tree Handbook* (Vesely et al. 1981), IEC 61025, Rauzy (1993) for the decision diagram, and Birnbaum (1969) and Fussell (1975) for importance.
 """,
     ),
     HelpTopic(
