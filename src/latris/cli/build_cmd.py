@@ -8,6 +8,7 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
+from latris.cli._agent import CONFIRMED_BY_PERSON, default_by, require_person
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit
 from latris.operations import build as build_ops
@@ -19,8 +20,12 @@ console = Console()
 def build(
     spec: str = typer.Option(..., "--spec", help="YAML or JSON file describing the model; '-' reads stdin."),
     verified_by: str = typer.Option(
-        "human", "--verified-by", help="human | ai — who verified the citations in the spec apply."
+        None,
+        "--verified-by",
+        help="human | ai — who verified the citations in the spec apply (default: human; ai when an AI "
+        "agent runs this).",
     ),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Add a whole model from one spec, as one commit.
 
@@ -55,8 +60,11 @@ def build(
     Targets are factor labels or links written "From -> To". Quote YAML
     values that contain a colon.
     """
+    verified_by = default_by(verified_by)
     if verified_by not in {"human", "ai"}:
         raise ValueError("--verified-by must be 'human' or 'ai'.")
+    if verified_by == "human":
+        require_person(confirmed_by_person, "--verified-by human")
     text = sys.stdin.read() if spec == "-" else Path(spec).read_text(encoding="utf-8")
     result = build_ops.build_from_spec(build_ops.load_spec(text), verified_by=verified_by)
     emit(

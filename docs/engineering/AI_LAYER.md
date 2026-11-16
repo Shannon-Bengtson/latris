@@ -252,6 +252,39 @@ log/approval) is extracted into `call._finalize_call` so both the adapter
 path and the delegated path share one implementation. The adapter phase
 (credentials, model resolution, `adapter.chat`) stays in `run_call` only.
 
+## Agents driving the CLI
+
+An AI agent (Claude Code, Codex, a chat with a shell) can run `latris`
+directly. The commit is still the configured git identity — the
+responsible person; there are no AI-authored commits — so without help
+an agent's approval would look exactly like the person's.
+`cli/_agent.py` recognises the agent from its shell (`LATRIS_AGENT`,
+then the `AI_AGENT` convention, then Claude Code's `CLAUDECODE=1`) and,
+for that invocation:
+
+- sets `LATRIS_DEFAULT_ORIGIN=ai-proposed` unless already set, so what it
+  creates is AI-proposed;
+- defaults `--by` / `--verified-by` to `ai`;
+- requires `--confirmed-by-person` for acts that record a person's
+  judgement (`mature review|approve`, `signoff record`,
+  `mapping approve`, `challenge resolve`, `--by human`). The flag is the
+  agent stating that the person reviewed the item and asked for it to be
+  recorded — the normal path for people who build in a chat;
+- adds `Recorded-by-agent: <name>` (with "on the person's instruction"
+  for confirmed acts) to every commit via `operations/commit.py`, and
+  marks the agent's own commits `Provenance: ai-proposed`.
+
+Only the CLI does this; the server and `operations/` are unaffected.
+
+**What it does not do.** It catches the honest default — an agent
+following its docs or a casual "just approve these" — not deliberate
+impersonation: anything that can run a shell can unset the variables or
+edit the YAML. An approval that only the person could have made needs an
+identity check the agent can't pass: approving in the app while signed in
+(recorded by the sync service against the account), or commits signed
+with a key that needs the person present. That is the attestation work
+in the schema review backlog, not something a local CLI can provide.
+
 ## Proposal layer
 
 Three proposal kinds for the first cut:

@@ -14,7 +14,9 @@ from rich.table import Table
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit, json_mode
 
-app = typer.Typer(help="Checks: `handover` (ready for a board?) and `coherence`.", no_args_is_help=True)
+app = typer.Typer(
+    help="Checks: `handover` (ready for a board?), `coherence` and `integrity`.", no_args_is_help=True
+)
 console = Console()
 
 
@@ -93,4 +95,55 @@ def handover(
 
     emit(asdict(report), human=human)
     if not report.ready:
+        raise typer.Exit(code=1)
+
+
+_SEVERITY_STYLE = {"error": "red", "warning": "yellow", "info": "dim"}
+
+
+@app.command("integrity")
+@handle_cli_errors
+def integrity(
+    show_info: bool = typer.Option(
+        False, "--all", help="Also list history (challenges, findings, signoffs) about removed elements."
+    ),
+    fix: bool = typer.Option(
+        False, "--fix", help="First remove rows about nodes/links that no longer exist (one commit; history kept)."
+    ),
+) -> None:
+    """Does every reference between the project's files resolve?
+
+    Errors: a link to a missing node, a row about a missing node or link, a
+    citation of a source not in the library, a dataset that isn't
+    registered, two nodes with one label, duplicate links, malformed IDs.
+    Warnings: a source_id that doesn't match its origin or doesn't resolve,
+    an over-long stored extract. Exits 1 if there are errors.
+    """
+    from dataclasses import asdict
+
+    from latris.operations.integrity import check_integrity, remove_dangling_rows
+
+    if fix:
+        removed, sha = remove_dangling_rows()
+        if removed and not json_mode():
+            console.print(
+                f"[green]removed[/green] {removed} row(s) about deleted nodes/links · commit [cyan]{sha[:10]}[/cyan]"
+            )
+    report = check_integrity()
+
+    def human() -> None:
+        shown = [p for p in report.problems if show_info or p.severity != "info"]
+        hidden = len(report.problems) - len(shown)
+        if not shown:
+            console.print("[green]Every reference resolves.[/green]")
+        for p in shown:
+            style = _SEVERITY_STYLE[p.severity]
+            console.print(f"[{style}]{p.severity}[/{style}] {p.where}: {p.message}", highlight=False)
+            if p.ids and p.severity != "info":
+                console.print(f"   [dim]{', '.join(p.ids[:5])}{' …' if len(p.ids) > 5 else ''}[/dim]")
+        if hidden:
+            console.print(f"[dim]{hidden} note(s) about history on removed elements — `--all` lists them.[/dim]")
+
+    emit({"ok": report.ok, "problems": [asdict(p) for p in report.problems]}, human=human)
+    if not report.ok:
         raise typer.Exit(code=1)

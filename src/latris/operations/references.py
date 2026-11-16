@@ -16,6 +16,7 @@ from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import Reference, ReferenceLibrary, SourceSnapshot, SourceSnapshotKind
 from latris.schema.common import SourceAccess
+from latris.schema.references import SNAPSHOT_EXTRACT_MAX
 
 # ── Helpers ────���─────────────────────────────────────────────────────
 
@@ -203,6 +204,11 @@ def set_source_snapshot(
     exposes the manual setter so the schema slot is reachable from
     operations and CLI today.
     """
+    if len(extract) > SNAPSHOT_EXTRACT_MAX:
+        raise ValueError(
+            f"extract is {len(extract)} characters; the limit is {SNAPSHOT_EXTRACT_MAX}. "
+            "Keep the passage that bears on the claim (quotes are checked against it)."
+        )
     paths = require_project(root)
     library, library_path = load_library(paths)
     ref = _find_ref(library, bibkey)
@@ -292,7 +298,7 @@ def _resolve_fetch_url(ref: Reference) -> str:
     )
 
 
-_EXTRACT_CHARS = 2000
+_EXTRACT_CHARS = SNAPSHOT_EXTRACT_MAX
 
 
 def fetch_reference_source(

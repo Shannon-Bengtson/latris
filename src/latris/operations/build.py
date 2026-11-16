@@ -22,6 +22,7 @@ from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model, load_model_from_string
 from latris.schema import ProjectFoundation, ReferenceLibrary, Substrate
 from latris.schema.build_spec import LINK_ARROWS, BuildSpec, SpecAssumption, SpecCitation
+from latris.schema.references import SNAPSHOT_EXTRACT_MAX
 
 
 @dataclass
@@ -83,6 +84,11 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
     from latris.operations.references import _clean_doi
 
     for s in spec.sources:
+        if s.extract and len(s.extract) > SNAPSHOT_EXTRACT_MAX:
+            problems.append(
+                f"source {s.key!r}: extract is {len(s.extract)} characters (limit {SNAPSHOT_EXTRACT_MAX}); "
+                "keep the passage that bears on the claim"
+            )
         if s.extract and not (s.extract_url or s.url or s.doi):
             problems.append(f"source {s.key!r}: an extract needs extract_url (or the source's url or doi)")
         if s.cited_via and (s.cited_via == s.key or s.cited_via not in keys):
@@ -116,6 +122,12 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
                 problems.append(f"link {i}: no factor named {end!r}")
         if link.from_.casefold() == link.to.casefold():
             problems.append(f"link {i}: a factor can't link to itself")
+    seen_links = {(labels.get(e.from_id), labels.get(e.to_id), e.kind) for e in substrate.edges}
+    for i, link in enumerate(spec.links, 1):
+        key = (link.from_.casefold(), link.to.casefold(), link.kind)
+        if key in seen_links:
+            problems.append(f"link {i}: {link.from_} -> {link.to} ({link.kind}) is already a link")
+        seen_links.add(key)
     for where, items in [(f"factor {f.label!r}", f.sources + f.contradicts) for f in spec.factors] + [
         (f"link {i}", link.sources + link.contradicts) for i, link in enumerate(spec.links, 1)
     ]:

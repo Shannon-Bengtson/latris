@@ -3,6 +3,7 @@ from __future__ import annotations
 import typer
 from rich.console import Console
 
+from latris.cli._agent import CONFIRMED_BY_PERSON, default_by, require_person
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit
 from latris.operations import evidence as ops
@@ -22,10 +23,10 @@ def add(
     attribute: str = typer.Argument(..., help="Attribute name (e.g. description, polarity)."),
     bibkey: str = typer.Argument(..., help="Existing reference key."),
     verified_by: str = typer.Option(
-        "human",
+        None,
         "--verified-by",
-        help="human | ai — who attached the citation. Whether the source supports the claim is "
-        "recorded separately, with `latris evidence check`.",
+        help="human | ai — who attached the citation (default: human; ai when an AI agent runs this). "
+        "Whether the source supports the claim is recorded separately, with `latris evidence check`.",
     ),
     notes: str = typer.Option(None, "--notes", help="Free-text notes on the link."),
     contradicts: bool = typer.Option(
@@ -37,6 +38,7 @@ def add(
     Sources against a link go on the same link with ``--contradicts``;
     reports then show the evidence for and against it.
     """
+    verified_by = default_by(verified_by)
     if verified_by not in {"human", "ai"}:
         raise ValueError("--verified-by must be 'human' or 'ai'.")
     link, sha = ops.add_evidence(
@@ -82,7 +84,10 @@ def check(
         help="A passage copied from the source (20+ characters). It is looked up in the text Latris holds "
         "for the source (`ref snapshot`, `ref fetch`, the abstract); an AI's quote that isn't found is refused.",
     ),
-    by: str = typer.Option("human", "--by", help="human | ai — who read the source."),
+    by: str = typer.Option(
+        None, "--by", help="human | ai — who read the source (default: human; ai when an AI agent runs this)."
+    ),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Record whether a source actually supports the claim it's cited for.
 
@@ -97,8 +102,11 @@ def check(
     """
     if verdict not in _VERDICTS:
         raise ValueError(f"verdict must be one of: {', '.join(_VERDICTS)}")
+    by = default_by(by)
     if by not in {"human", "ai"}:
         raise ValueError("--by must be 'human' or 'ai'.")
+    if by == "human":
+        require_person(confirmed_by_person, "A check --by human")
     link, sha = ops.set_evidence_support_verdict(
         target,
         attribute,

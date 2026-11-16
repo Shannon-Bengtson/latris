@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from latris.operations.attributes import set_attribute
 from latris.operations.batch import batch, get_active_batch
 from latris.operations.challenges import add_turn, open_challenge
-from latris.operations.edges import add_edge, remove_edge, retype_edge
+from latris.operations.edges import DuplicateEdgeError, add_edge, remove_edge, retype_edge
 from latris.operations.evidence import (
     add_evidence,
     remove_evidence,
@@ -449,7 +449,10 @@ class DraftModelProposal(_Base):
                 if from_id is None or to_id is None:
                     continue  # skip edges referencing unknown labels
                 edge_kind, _ = coerce_edge_kind(edg.kind)
-                edge, _ = add_edge(from_id, to_id, kind=edge_kind, root=paths.root)
+                try:
+                    edge, _ = add_edge(from_id, to_id, kind=edge_kind, root=paths.root)
+                except DuplicateEdgeError:
+                    continue  # already in the model; never overwrite it with a parallel link
                 created_ids.append(edge.id)
                 if edg.description:
                     set_attribute(edge.id, "description", edg.description, root=paths.root)
@@ -516,7 +519,10 @@ class NewConnectionsProposal(_Base):
                 if i < 0 or i >= len(self.proposals):
                     continue
                 p = self.proposals[i]
-                edge, _ = add_edge(p.from_id, p.to_id, kind=p.kind, root=paths.root)
+                try:
+                    edge, _ = add_edge(p.from_id, p.to_id, kind=p.kind, root=paths.root)
+                except DuplicateEdgeError:
+                    continue  # already in the model; never overwrite it with a parallel link
                 created_ids.append(edge.id)
                 desc = p.description or p.rationale
                 if desc:

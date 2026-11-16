@@ -20,6 +20,15 @@ SourceSnapshotKind = Literal[
 ]
 
 
+SNAPSHOT_EXTRACT_MAX = 2000
+"""Longest ``SourceSnapshot.extract`` operations will store (characters).
+
+Enforced by the operations that write snapshots and reported by
+``latris check integrity``; not a schema constraint, so projects saved
+before the limit was enforced still load.
+"""
+
+
 class SourceSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

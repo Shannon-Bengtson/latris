@@ -29,7 +29,7 @@ mutations (the server routes' shape) and `{"result": [...]}` for listings.
 Errors print `{"error": ..., "type": ...}` with the usual exit codes (1 for
 not-found / git / sync errors, 2 for invalid input). Supported today:
 `node add|list|show|rename|remove`, `edge add|list|remove`, `attr set`,
-`view set|role`, `ref add|list`, `evidence add|check`, `check coherence|handover`, `build`, `init`, `docs`,
+`view set|role`, `ref add|list`, `evidence add|check`, `check coherence|handover|integrity`, `build`, `init`, `docs`,
 `analyse loops|propagate|paths|d-sep|blanket|adjustment-sets`, `interpret initialise|list|show|set-prose`,
 `bn` (setters, `state-spaces`, `cpts`, `check`, `marginals`, `query`, `sensitivity`), `sd` (setters, listings,
 `check`, `simulate` — a compact summary; its own `--json` still prints the full series) and `fcm`
@@ -71,13 +71,18 @@ fails to resolve. Field names match the hosted MCP server's
 latris node add <label> [--kind concept|variable|event|actor|state|decision|hazard]
 latris node list
 latris node show <id>
-latris node rename <id> <new-label>
-latris node remove <id>
+latris node rename <id> <new-label>      # labels are unique (case-insensitive)
+latris node remove <id>                  # also removes its links and every row about them
 
 latris edge add <from-id> <to-id> [--kind causal|temporal|decomposition|conditional|informational|flow|support|logical|association]
 latris edge list
 latris edge remove <id>
 ```
+
+`edge add` refuses a second link of the same kind between the same two
+nodes. Removal deletes descriptions, confidence, polarity, citations,
+parameters, roles and mappings for what was removed, in the same commit;
+challenges, findings, signoffs and other history are kept.
 
 ## Attributes, References, Evidence
 
@@ -119,6 +124,15 @@ latris mature propose <target-id>
 latris mature review <target-id>
 latris mature approve <target-id>
 ```
+
+**Run by an AI agent** (the shell sets `CLAUDECODE`, `AI_AGENT` or
+`LATRIS_AGENT`): new work is recorded `ai-proposed`, `--by` /
+`--verified-by` default to `ai`, and commits carry
+`Recorded-by-agent: <name>`. `mature review|approve`, `signoff record`,
+`mapping approve`, `challenge resolve` and a check, build or prose
+`--by human` then need `--confirmed-by-person`: the person reviewed it and
+asked the agent to record it (the commit says so).
+`LATRIS_AGENT=none` turns detection off.
 
 ## Provenance Logs
 
@@ -317,7 +331,11 @@ latris results unhide <run>
 ```bash
 latris check coherence    # cross-artefact coherence checks over the project
 latris check handover     # ready for a board? what's left, each with its fix (exit 1 until clear)
+latris check integrity    # does every reference between files resolve? (exit 1 on errors)
+latris check integrity --fix   # first remove rows left by deleted nodes/links; --all also lists history notes
 ```
+
+`check integrity` is listed in SCHEMA_NOTES.md § Invariants.
 
 ## Completeness
 

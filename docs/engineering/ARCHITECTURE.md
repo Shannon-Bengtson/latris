@@ -117,7 +117,8 @@ schema".
 project-name/
 ├── project.yaml                   # problem statement, schema version, config
 ├── research-base/
-│   ├── references.bib             # extended BibTeX (primary evidence store)
+│   ├── references.yaml            # reference library (primary evidence store)
+│   ├── references.bib             # reserved for BibTeX import/export (created empty)
 │   └── notes.md                   # user research notes
 ├── substrate/
 │   ├── conceptual.yaml            # Layer 2 lingua franca: entities + edges

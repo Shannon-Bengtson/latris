@@ -679,6 +679,10 @@ def build_example(ex: WorkedExample) -> None:
 
     ex.run(["edge", "list"])
     ex.run(["node", "show", "Vehicle Emissions"])
+    ex.note("Labels address nodes, so each is unique (ignoring case and spacing), and two nodes are joined "
+            "by at most one link of each kind. Both are refused rather than silently duplicated.")
+    ex.run(["node", "add", "vehicle  emissions"], expect_fail=True)
+    ex.run(["edge", "add", "Vehicle Emissions", "Air Quality Index"], expect_fail=True)
 
     from latris.operations.edges import list_edges
     edges = list_edges(ex.root)
@@ -894,6 +898,17 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["node", "add", "Recognition"])
     ex.run(["edge", "add", "Recognition", "Volunteer departures"])
     ex.run(["interpret", "refresh-claims"])
+    ex.note("Removing a factor removes its links and everything describing them — description, "
+            "confidence, polarity, citations, parameters, mappings — in one commit. Challenges, findings and "
+            "sign-offs about it stay as history.")
+    ex.run(["node", "add", "Seasonal events"])
+    ex.run(["edge", "add", "Seasonal events", "Volunteer burnout"])
+    ex.run(["attr", "set", "Seasonal events", "description", "Festivals and emergencies that spike demand."])
+    ex.run(["node", "remove", "Seasonal events"])
+    ex.note("Every reference between the project's files should resolve — no link to a missing factor, no "
+            "citation of a source that isn't in the library, no duplicate labels or links. The handover "
+            "check includes this; `--fix` clears rows left by older removals or hand edits.")
+    ex.run(["check", "integrity"])
     ex.note("Before handing the model to a board: what's left, and how to fix each (exits 1 until clear).")
     ex.run(["check", "handover"], expect_fail=True)
     ex.note("The context opens the report — who it's for, the situation, and the person's own expectation "
@@ -1641,6 +1656,29 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["log", "--limit", "10"])
     ex.run(["status"])
 
+    # ── 12b. AI agents at the command line ───────────────────────────
+    ex.section(
+        "AI Agents at the Command Line",
+        "Commits are always in the person's git name — they are responsible for the project. When an AI "
+        "agent runs the commands (Latris sees `CLAUDECODE`, `AI_AGENT` or `LATRIS_AGENT` in its shell), what "
+        "it adds is recorded as AI-proposed and each commit names the agent. Approvals, reviews, sign-offs "
+        "and resolved challenges are a person's judgement: the agent records one only with "
+        "`--confirmed-by-person`, meaning the person reviewed it and asked for it to be recorded — the usual "
+        "path for someone building in a chat. This catches the ordinary case, not an agent hiding itself.",
+    )
+    os.environ["LATRIS_AGENT"] = "demo-agent"
+    try:
+        ex.run(["node", "add", "Peer support"])
+        ex.run(["mature", "approve", "Peer support"], expect_fail=True)
+        ex.note("The person looks at it and says \"approve Peer support\":")
+        ex.run(["mature", "approve", "Peer support", "--confirmed-by-person"])
+        from latris.repo import git as _git
+
+        trailer = _git.run_git(["log", "-1", "--format=%B"], cwd=ex.root).stdout.strip().splitlines()[-2:]
+        ex.transcript.append("The commit message ends:\n\n```\n" + "\n".join(trailer) + "\n```\n")
+    finally:
+        _clear_agent_env()
+
     # ── 13. Versioning & Lineage ─────────────────────────────────────
     ex.section("Versioning and Lineage",
                "Create milestones, explore alternatives, switch between "
@@ -1752,8 +1790,19 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["version", "sync-status"])
 
 
+_AGENT_ENV = ("LATRIS_AGENT", "AI_AGENT", "CLAUDECODE", "LATRIS_RECORDED_BY_AGENT", "LATRIS_FOR_PERSON",
+              "LATRIS_DEFAULT_ORIGIN")
+
+
+def _clear_agent_env() -> None:
+    """Run as a person: the transcript mustn't depend on whether an AI agent ran the example."""
+    for var in _AGENT_ENV:
+        os.environ.pop(var, None)
+
+
 def run_worked_example(*, output_dir: Path | None = None) -> WorkedExample:
     """Run the full worked example. Returns the WorkedExample for assertions."""
+    _clear_agent_env()
     # Set up hermetic git identity
     os.environ["GIT_AUTHOR_NAME"] = "Demo Runner"
     os.environ["GIT_AUTHOR_EMAIL"] = "demo@example.invalid"

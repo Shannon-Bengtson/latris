@@ -9,6 +9,7 @@ from __future__ import annotations
 import typer
 from rich.console import Console
 
+from latris.cli._agent import CONFIRMED_BY_PERSON, require_person
 from latris.cli._errors import handle_cli_errors
 from latris.operations import maturity as ops
 
@@ -30,8 +31,10 @@ def propose_cmd(
 @handle_cli_errors
 def review_cmd(
     target: str = typer.Argument(..., help="Entity/edge/finding/mapping/milestone/lineage-node ID or label."),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Mark the target as ``reviewed``."""
+    require_person(confirmed_by_person, "Marking something reviewed")
     new_level, sha = ops.mark_reviewed(target)
     console.print(f"[blue]reviewed[/blue] [cyan]{target}[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
 
@@ -43,7 +46,9 @@ def approve_cmd(
     role: str = typer.Option("Reviewer", "--role", "-r", help="Reviewer role (defaults to 'Reviewer')."),
     scope: str = typer.Option("Model", "--scope", "-s", help="Approval scope (defaults to 'Model')."),
     notes: str = typer.Option(None, "--notes", "-n", help="Optional notes."),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Approve the target — sets maturity to ``approved`` and writes a Signoff row."""
+    require_person(confirmed_by_person, "Approving")
     new_level, sha = ops.approve(target, role=role, scope=scope, notes=notes)
     console.print(f"[green]approved[/green] [cyan]{target}[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
