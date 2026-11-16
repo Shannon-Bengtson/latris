@@ -199,127 +199,6 @@ def _loops(p: dict[str, Any]) -> list[str]:
     return out
 
 
-def _toc_pathways(p: dict[str, Any]) -> list[str]:
-    from latris.operations.toc import describe
-
-    out = [describe(p) + ".", ""]
-    if p.get("problems"):
-        out += [f"The results chain is incomplete ({len(p['problems'])} structure problem(s)):", ""]
-        out += [f"- {_esc(x['label'])}: {_esc(x['message'])}" for x in p["problems"][:_MAX_ROWS]]
-        out.append("")
-    order = {"contested": 0, "untested": 1, "cited": 2, "checked": 3}
-    pws = sorted(p["pathways"], key=lambda x: order.get(x["status"], 9))
-    if pws:
-        rows = [[" → ".join(x["path"]), x["status"], ", ".join(x["weak_links"]) or "—"]
-                for x in pws[:_MAX_ROWS]]
-        out += _table(["Pathway", "Weakest link", "Links not yet checked"], rows)
-        if len(pws) > _MAX_ROWS:
-            out += [f"_…and {len(pws) - _MAX_ROWS} more pathway(s)._", ""]
-    on = [lk for lk in p["links"] if lk["on_pathway"]]
-    if on:
-        rows = [
-            [lk["label"], lk["status"], str(lk["sources_for"]), str(lk["sources_for_checked"]),
-             str(lk["sources_against"]), str(lk["assumptions"]), "skips levels" if lk["leap"] else ""]
-            for lk in sorted(on, key=lambda lk: order.get(lk["status"], 9))[: _MAX_ROWS * 2]
-        ]
-        out += ["Each link on a pathway, weakest first. *Checked*: a source was read and found to support it; "
-                "*cited*: it has a source not yet checked; *untested*: no source; *contested*: a source argues "
-                "against it.", ""]
-        out += _table(["Link", "Evidence", "Sources for", "Checked", "Against", "Assumptions", "Note"], rows)
-    return out
-
-
-def _ft_analysis(p: dict[str, Any]) -> list[str]:
-    from latris.operations.fault_tree import describe
-
-    out = [describe(p) + ".", ""]
-    if p.get("quantified"):
-        pr = p["probability"]
-        out += [f"Top-event probability: **{_f(pr['exact'])}** (exact, assuming independent basic events); "
-                f"rare-event approximation {_f(pr['rare_event'])}, min-cut upper bound "
-                f"{_f(pr['min_cut_upper_bound'])}.", ""]
-    if p.get("cut_sets"):
-        rows = [[" AND ".join(c["events"]), str(c["order"]),
-                 _f(c["probability"]) if c["probability"] is not None else "—"] for c in p["cut_sets"][:_MAX_ROWS]]
-        out += _table(["Minimal cut set", "Order", "Probability"], rows)
-        if p["cut_sets_total"] > _MAX_ROWS:
-            out += [f"_…and {p['cut_sets_total'] - _MAX_ROWS} more cut set(s)._", ""]
-    if p.get("importance"):
-        rows = [
-            [i["event"], _f(i["probability"]), f"{i['fussell_vesely']:.3f}", _f(i["birnbaum"]),
-             _f(i["raw"]) if i["raw"] is not None else "—",
-             i["origin"] + (f" ({i['source']})" if i["source"] else "") + ("; not verified" if i["weak"] else "")]
-            for i in p["importance"][:_MAX_ROWS]
-        ]
-        out += ["Importance, most first. *Fussell–Vesely*: the share of the top-event probability that needs the "
-                "event; *Birnbaum*: how far the top-event probability moves between the event surely happening "
-                "and surely not; *RAW*: how many times likelier the top event is if the event happens.", ""]
-        out += _table(["Basic event", "Probability", "Fussell–Vesely", "Birnbaum", "RAW", "Where it came from"],
-                      rows)
-    if p.get("outside_inputs"):
-        out += ["Left out of the tree (inputs from factors that have no fault-tree type): "
-                + "; ".join(p["outside_inputs"]) + ".", ""]
-    return out
-
-
-def _bt_analysis(p: dict[str, Any]) -> list[str]:
-    from latris.operations.bow_tie import describe, flags
-
-    out = [describe(p) + ".", ""]
-    if p.get("quantified"):
-        fr = p["frequency"]
-        cons = "; ".join(f"{c} {_f(v)}" for c, v in fr["consequences"].items())
-        out += [f"Top-event frequency: **{_f(fr['top'])} per year** (layer of protection, barriers assumed "
-                f"independent); consequences per year: {cons}.", ""]
-    rows = [[ln["side"], ln["from"] + " → " + ln["to"], " → ".join(ln["barriers"]) or "—", str(ln["effective"])]
-            for ln in sorted(p["lines"], key=lambda ln: (ln["effective"], ln["side"]))[: _MAX_ROWS * 2]]
-    if rows:
-        out += _table(["Side", "Line", "Barriers", "Effective"], rows)
-    f = flags(p)
-    notes = [(f["unprotected"], "No effective barrier"), (f["single_barrier"], "Resting on one barrier"),
-             (f["shared"], "Barriers on more than one line (one failure takes them all)"),
-             (f["uncontrolled_escalation"], "Escalation factors with no control"),
-             (f["not_in_place"], "Barriers degraded or not in place"), (f["no_owner"], "Barriers with no owner")]
-    out += [f"- **{title}:** {', '.join(items)}" for items, title in notes if items]
-    if any(items for items, _ in notes):
-        out.append("")
-    if p.get("quantified"):
-        rows = [[b["barrier"], b["side"], _f(b["pfd"]), _f(b["raw"]),
-                 (b["origin"] or "—") + (f" ({b['source']})" if b["source"] else "")
-                 + ("; not verified" if b["weak"] else "")]
-                for b in p["barriers"] if b["side"] != "escalation control"][:_MAX_ROWS]
-        out += ["*RAW*: how many times more often the top event (prevention) or its consequences (mitigation) "
-                "would happen if the barrier always failed.", ""]
-        out += _table(["Barrier", "Side", "Failure probability", "RAW", "Where it came from"], rows)
-    return out
-
-
-def _et_analysis(p: dict[str, Any]) -> list[str]:
-    from latris.operations.event_tree import describe
-
-    out = [describe(p) + ".", ""]
-    fr = p.get("frequency")
-    if fr:
-        out += [f"Initiating event {p['initiator']}: {_f(fr['per_year'])} per year"
-                + (f" ({fr['source']})" if fr.get("source") else "") + ".", ""]
-    heads = p["headings"]
-    rows = []
-    for r in p["sequences"][: _MAX_ROWS * 3]:
-        ans = {a["heading"]: a["answer"] for a in r["answers"]}
-        rows.append([str(r["n"])] + [ans.get(h, "·") for h in heads] + [r["end_state"], _f(r["probability"])]
-                    + ([_f(r["frequency"])] if fr else []))
-    if rows:
-        out += _table(["#", *heads, "End state", "Probability"] + (["Per year"] if fr else []), rows)
-    if p.get("quantified"):
-        rows = [[d["end_state"], _f(d["probability"])] + ([_f(d["frequency"])] if fr else [])
-                + [f"#{d['dominant']['n']} ({d['dominant']['text']})"] for d in p["end_states"]]
-        out += _table(["End state", "Probability"] + (["Per year"] if fr else []) + ["Dominant sequence"], rows)
-        weak = sorted({v["heading"] for v in p["values"] if v["weak"]})
-        if weak:
-            out += [f"Branch probabilities nobody has verified: {', '.join(weak)}.", ""]
-    return out
-
-
 def _given(p: dict[str, Any]) -> str:
     from latris.operations.bn import evidence_description
 
@@ -445,10 +324,6 @@ _TITLES = {
     "bn-explanation": "Most likely explanation",
     "bn-monte-carlo": "How sure the probability is (Monte Carlo)",
     "bn-sensitivity": "Probability sensitivity",
-    "toc-pathways": "Theory of change: pathways and their evidence",
-    "ft-analysis": "Fault tree: cut sets, probability and importance",
-    "bt-analysis": "Bow-tie: lines, barriers and frequencies",
-    "et-analysis": "Event tree: sequences and end states",
 }
 
 
@@ -481,6 +356,7 @@ def render_results(
     labels: dict[str, str] | None = None,
 ) -> list[str]:
     """The Results section's lines, or ``[]`` when nothing has been recorded."""
+    from latris.operations import formalisms
     from latris.operations.analysis_results import report_results
 
     results = report_results(model_types=model_types, root=paths.root)
@@ -495,7 +371,9 @@ def render_results(
     ]
     for res in results:
         kind, p = res.run.result_kind, res.payload
-        title = _TITLES.get(kind, kind)
+        found = formalisms.result_kind(kind)
+        plugin_kind = found[1] if found else None
+        title = _TITLES.get(kind) or (plugin_kind.title if plugin_kind else kind)
         if kind == "sd-sensitivity":
             title = f"Sensitivity of {p['label']}"
         elif kind == "bn-sensitivity":
@@ -523,14 +401,8 @@ def render_results(
                 out += _bn_monte_carlo(p)
             elif kind == "bn-sensitivity":
                 out += _bn_sensitivity(p, labels or {})
-            elif kind == "toc-pathways":
-                out += _toc_pathways(p)
-            elif kind == "ft-analysis":
-                out += _ft_analysis(p)
-            elif kind == "bt-analysis":
-                out += _bt_analysis(p)
-            elif kind == "et-analysis":
-                out += _et_analysis(p)
+            elif plugin_kind:
+                out += plugin_kind.render(p)
         except (KeyError, TypeError, ValueError, IndexError):
             out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
     return out

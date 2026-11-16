@@ -48,7 +48,7 @@ appears. GSN waits for that, and for the argument map below.
 - **Ask what people actually bring.** Usage of app.latris.app and the
   connector outranks this list; revisit the order when we have it.
 
-## Step 0 — make a new type cheap
+## Step 0 — make a new type cheap (done)
 
 Each recent type touched the same dozen places (registry, readiness,
 outcome handling, result kinds, CLI, routes, build spec, share link,
@@ -102,7 +102,7 @@ black-box predictors.
 
 ## Order of work
 
-1. **Step 0** — one-module-per-formalism refactor.
+1. ~~**Step 0** — one-module-per-formalism refactor.~~ Done: `operations/formalisms/`.
 2. **Quick wins** — #1 effect estimation, #2 MCDA, #3 ACH (opens three
    families).
 3. **Decisions + HTA** — #4 decision tree + EVPI, #5 Markov.

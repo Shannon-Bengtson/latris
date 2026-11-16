@@ -18,7 +18,6 @@ from latris.cli import (  # noqa: E402
     analyse_cmd,
     attr_cmd,
     bn_cmd,
-    bowtie_cmd,
     build_cmd,
     capabilities_cmd,
     challenge_cmd,
@@ -27,13 +26,11 @@ from latris.cli import (  # noqa: E402
     docs_cmd,
     edge_cmd,
     elicit_cmd,
-    et_cmd,
     evidence_cmd,
     export_cmd,
     fcm_cmd,
     findings_cmd,
     foundations_cmd,
-    ft_cmd,
     history_cmd,
     interpret_cmd,
     lineage_cmd,
@@ -48,7 +45,6 @@ from latris.cli import (  # noqa: E402
     sd_cmd,
     story_cmd,
     sync_cmd,
-    toc_cmd,
     view_cmd,
 )
 from latris.cli._output import set_json_mode  # noqa: E402
@@ -97,13 +93,22 @@ app.add_typer(check_cmd.app, name="check")
 app.add_typer(findings_cmd.app, name="finding")
 app.add_typer(interpret_cmd.app, name="interpret")
 app.add_typer(completeness_cmd.app, name="completeness")
+def _add_formalism_commands(app: typer.Typer) -> None:
+    """Each registered formalism's command group (``operations/formalisms``), in registration order."""
+    import importlib
+
+    from latris.operations import formalisms
+
+    for f in formalisms.all_formalisms():
+        if f.cli:
+            module, name = f.cli
+            app.add_typer(importlib.import_module(module).app, name=name)
+
+
 app.add_typer(fcm_cmd.app, name="fcm")
 app.add_typer(bn_cmd.app, name="bn")
 app.add_typer(sd_cmd.app, name="sd")
-app.add_typer(toc_cmd.app, name="toc")
-app.add_typer(ft_cmd.app, name="ft")
-app.add_typer(bowtie_cmd.app, name="bowtie")
-app.add_typer(et_cmd.app, name="et")
+_add_formalism_commands(app)
 app.add_typer(results_cmd.app, name="results")
 app.add_typer(lineage_cmd.app, name="version")
 

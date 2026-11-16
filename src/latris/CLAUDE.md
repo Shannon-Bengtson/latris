@@ -33,6 +33,14 @@ All access to these concerns goes through exactly one file:
 5. Test in `tests/` — `tmp_path` + `git_identity` fixture
 6. Add to `worked_example/worked_example.py` (see root CLAUDE.md)
 
+## Adding a model type (formalism)
+
+One module in `operations/formalisms/` declaring a `Formalism`, plus
+four central entries: `ModelTypeSpec` (schema/model_types.py), the
+`BuildSpec` field and `SpecAnalysis.kind` (schema/build_spec.py), the
+foundations entry, and the help topic. `tests/operations/test_formalisms.py`
+names anything missing. Full list in ARCHITECTURE.md → "Adding a formalism".
+
 ## Entity resolution
 
 `operations/_resolve.py` resolves entities by: exact ID → label

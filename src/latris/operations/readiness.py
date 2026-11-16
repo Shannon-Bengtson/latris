@@ -365,138 +365,6 @@ def _check_sd_dimensional_consistency(ctx: ValidationContext) -> list[ReadinessG
     return _sd_problems(ctx, UNIT_GAPS)
 
 
-def _toc_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
-    """Theory-of-change structure problems of the given types (one analysis per check)."""
-    if "toc_problems" not in ctx.cache:
-        from latris.operations import toc
-
-        ctx.cache["toc_problems"] = toc.structure_problems(root=ctx.paths.root)
-    labels = {e.id: e.label for e in ctx.substrate.entities}
-    labels.update(
-        {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
-    )
-    return [
-        ReadinessGap(
-            element_id=p.target_id or "",
-            element_label=labels.get(p.target_id or "", "(model)"),
-            gap_type=p.gap_type,
-            message=p.message,
-        )
-        for p in ctx.cache["toc_problems"]
-        if p.gap_type in gap_types
-    ]
-
-
-def _check_toc_levels_complete(ctx: ValidationContext) -> list[ReadinessGap]:
-    """Every factor has a theory-of-change level (input … impact)."""
-    return _toc_problems(ctx, ("toc_no_level",))
-
-
-def _check_toc_links_forward(ctx: ValidationContext) -> list[ReadinessGap]:
-    """No causal link runs back to an earlier level."""
-    return _toc_problems(ctx, ("toc_backward_link",))
-
-
-def _check_toc_pathways_complete(ctx: ValidationContext) -> list[ReadinessGap]:
-    """There is an activity and an impact, every impact is reached from an activity, and nothing dead-ends."""
-    return _toc_problems(ctx, ("toc_no_activity", "toc_no_impact", "toc_dead_end", "toc_unreached_impact"))
-
-
-def _ft_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
-    """Fault-tree structure problems of the given types (one load per check)."""
-    if "ft_problems" not in ctx.cache:
-        from latris.operations import fault_tree
-
-        ctx.cache["ft_problems"] = fault_tree.structure_problems(root=ctx.paths.root)
-    labels = {e.id: e.label for e in ctx.substrate.entities}
-    return [
-        ReadinessGap(element_id=p.target_id or "", element_label=labels.get(p.target_id or "", "(tree)"),
-                     gap_type=p.gap_type, message=p.message)
-        for p in ctx.cache["ft_problems"]
-        if p.gap_type in gap_types
-    ]
-
-
-def _check_ft_events_classified(ctx: ValidationContext) -> list[ReadinessGap]:
-    """Exactly one top event."""
-    return _ft_problems(ctx, ("ft_no_top", "ft_many_tops"))
-
-
-def _check_ft_gates_complete(ctx: ValidationContext) -> list[ReadinessGap]:
-    """Every top or intermediate event has a gate and inputs; leaves have none; vote k fits."""
-    return _ft_problems(ctx, ("ft_no_gate", "ft_no_inputs", "ft_vote_k", "ft_leaf_has_inputs"))
-
-
-def _check_ft_tree_connected(ctx: ValidationContext) -> list[ReadinessGap]:
-    """No loop within the tree, and every event leads to the top event."""
-    return _ft_problems(ctx, ("ft_cycle", "ft_not_in_tree"))
-
-
-def _bt_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
-    """Bow-tie structure problems of the given types (one load per check)."""
-    if "bt_problems" not in ctx.cache:
-        from latris.operations import bow_tie
-
-        ctx.cache["bt_problems"] = bow_tie.structure_problems(root=ctx.paths.root)
-    labels = {e.id: e.label for e in ctx.substrate.entities}
-    labels.update(
-        {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
-    )
-    return [
-        ReadinessGap(element_id=p.target_id or "", element_label=labels.get(p.target_id or "", "(bow-tie)"),
-                     gap_type=p.gap_type, message=p.message)
-        for p in ctx.cache["bt_problems"]
-        if p.gap_type in gap_types
-    ]
-
-
-def _check_bt_elements_classified(ctx: ValidationContext) -> list[ReadinessGap]:
-    """One top event, at least one threat and one consequence, at most one hazard."""
-    return _bt_problems(ctx, ("bt_no_top", "bt_many_tops", "bt_many_hazards", "bt_no_threat", "bt_no_consequence"))
-
-
-def _check_bt_links_valid(ctx: ValidationContext) -> list[ReadinessGap]:
-    """Lines run threat → barriers → top event → barriers → consequence, without loops."""
-    return _bt_problems(ctx, ("bt_bad_link", "bt_cycle", "bt_hazard_unlinked"))
-
-
-def _check_bt_lines_complete(ctx: ValidationContext) -> list[ReadinessGap]:
-    """Every threat and consequence is on a line, every barrier on a line, every escalation factor linked."""
-    return _bt_problems(ctx, ("bt_threat_unlinked", "bt_consequence_unlinked", "bt_barrier_off_line",
-                              "bt_escalation_unlinked"))
-
-
-def _et_problems(ctx: ValidationContext, gap_types: tuple[str, ...]) -> list[ReadinessGap]:
-    """Event-tree structure problems of the given types (one load per check)."""
-    if "et_problems" not in ctx.cache:
-        from latris.operations import event_tree
-
-        ctx.cache["et_problems"] = event_tree.structure_problems(root=ctx.paths.root)
-    labels = {e.id: e.label for e in ctx.substrate.entities}
-    return [
-        ReadinessGap(element_id=p.target_id or "", element_label=labels.get(p.target_id or "", "(tree)"),
-                     gap_type=p.gap_type, message=p.message)
-        for p in ctx.cache["et_problems"]
-        if p.gap_type in gap_types
-    ]
-
-
-def _check_et_elements_classified(ctx: ValidationContext) -> list[ReadinessGap]:
-    """One initiating event and at least one end state."""
-    return _et_problems(ctx, ("et_no_initiator", "et_many_initiators", "et_no_end_state"))
-
-
-def _check_et_headings_ordered(ctx: ValidationContext) -> list[ReadinessGap]:
-    """Every heading is in the heading order, and the order lists only headings."""
-    return _et_problems(ctx, ("et_heading_unordered", "et_bad_heading"))
-
-
-def _check_et_sequences_complete(ctx: ValidationContext) -> list[ReadinessGap]:
-    """The sequences form a complete tree: every branch covered once, every heading and end state used."""
-    return _et_problems(ctx, ("et_no_sequences", "et_duplicate", "et_bad_sequence", "et_overlap",
-                              "et_inconsistent", "et_missing_branch", "et_heading_unused", "et_end_state_unused"))
-
-
 SD_VALIDATORS: tuple[str, ...] = (
     "sd_classification_complete",
     "sd_flow_connects_stock",
@@ -506,6 +374,41 @@ SD_VALIDATORS: tuple[str, ...] = (
     "sd_tables_well_formed",
     "sd_dimensional_consistency",
 )
+
+
+def _formalism_validator(model_type: str, gap_types: tuple[str, ...]):
+    """A structural validator for a registered formalism: its problems of these gap types.
+
+    The formalism's structure is analysed once per readiness check (ctx.cache) however many of its
+    validators run.
+    """
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+
+    def check(ctx: ValidationContext) -> list[ReadinessGap]:
+        key = f"{model_type}_problems"
+        if key not in ctx.cache:
+            ctx.cache[key] = plugin.structure_problems(ctx.paths.root)
+        labels = formalisms.problem_labels(ctx.substrate)
+        return [
+            ReadinessGap(element_id=p.target_id or "", element_label=labels.get(p.target_id or "", plugin.whole_label),
+                         gap_type=p.gap_type, message=p.message)
+            for p in ctx.cache[key]
+            if p.gap_type in gap_types
+        ]
+
+    return check
+
+
+def _formalism_validators() -> dict[str, object]:
+    from latris.operations import formalisms
+
+    return {
+        name: _formalism_validator(f.model_type, gaps)
+        for f in formalisms.all_formalisms()
+        for name, gaps in f.validators.items()
+    }
 
 
 _STRUCTURAL_VALIDATORS: dict[str, object] = {
@@ -520,20 +423,9 @@ _STRUCTURAL_VALIDATORS: dict[str, object] = {
     "sd_values_complete": _check_sd_values_complete,
     "sd_tables_well_formed": _check_sd_tables_well_formed,
     "sd_dimensional_consistency": _check_sd_dimensional_consistency,
-    "toc_levels_complete": _check_toc_levels_complete,
-    "toc_links_forward": _check_toc_links_forward,
-    "toc_pathways_complete": _check_toc_pathways_complete,
-    "ft_events_classified": _check_ft_events_classified,
-    "ft_gates_complete": _check_ft_gates_complete,
-    "ft_tree_connected": _check_ft_tree_connected,
-    "bt_elements_classified": _check_bt_elements_classified,
-    "bt_links_valid": _check_bt_links_valid,
-    "bt_lines_complete": _check_bt_lines_complete,
-    "et_elements_classified": _check_et_elements_classified,
-    "et_headings_ordered": _check_et_headings_ordered,
-    "et_sequences_complete": _check_et_sequences_complete,
     # Future: "bipartite", etc.
 }
+_STRUCTURAL_VALIDATORS.update(_formalism_validators())
 
 
 # ---------------------------------------------------------------------------

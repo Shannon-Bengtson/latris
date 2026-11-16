@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from latris.operations import formalisms
 from latris.operations.batch import batch
 from latris.repo import git
 from latris.repo.project import require_project
@@ -125,56 +126,20 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
     if spec.outcome and not _known(spec.outcome):
         problems.append(f"outcome: no factor named {spec.outcome!r}")
     if spec.outcome:
-        from latris.schema.model_types import get_model_type
+        from latris.schema.model_types import get_model_type, list_model_types
 
+        plugin = formalisms.get(model_type)
         allowed = get_model_type(model_type).allowed_roles
-        # SD keeps it with its settings; a theory of change's outcome is its impact.
-        if model_type == "event_tree":
-            problems.append("outcome: an event tree's outcomes are its end states (list them under event_tree)")
-        elif allowed and "outcome" not in allowed and model_type not in ("sd", "theory_of_change", "fault_tree",
-                                                                            "bow_tie"):
-            problems.append(f"outcome: {model_type} has no outcome role (cld, dag, fcm, sd, theory_of_change, "
-                            "fault_tree and bow_tie do)")
-    if spec.toc:
-        for lv in spec.toc.levels:
-            if not _known(lv.node):
-                problems.append(f"toc level: no factor named {lv.node!r}")
-            if spec.outcome and lv.node.casefold() == spec.outcome.casefold() and lv.level != "impact":
-                problems.append(f"toc level: {lv.node!r} is the outcome, so its level is impact, not {lv.level}")
-    if spec.ft:
-        for where, nodes in (("ft event", [x.node for x in spec.ft.events]),
-                             ("ft gate", [x.node for x in spec.ft.gates]),
-                             ("ft probability", [x.node for x in spec.ft.probabilities])):
-            for n in nodes:
-                if not _known(n):
-                    problems.append(f"{where}: no factor named {n!r}")
-        for g in spec.ft.gates:
-            if (g.gate == "vote") != (g.k is not None):
-                problems.append(f"ft gate {g.node!r}: k goes with a vote gate, and only with one")
-        for e in spec.ft.events:
-            if spec.outcome and e.node.casefold() == spec.outcome.casefold() and e.type != "top_event":
-                problems.append(f"ft event: {e.node!r} is the outcome, so it is the top event, not {e.type}")
-    if spec.bowtie:
-        for where, nodes in (("bowtie element", [x.node for x in spec.bowtie.elements]),
-                             ("bowtie barrier", [x.node for x in spec.bowtie.barriers]),
-                             ("bowtie frequency", [x.node for x in spec.bowtie.frequencies])):
-            for n in nodes:
-                if not _known(n):
-                    problems.append(f"{where}: no factor named {n!r}")
-        for e in spec.bowtie.elements:
-            if spec.outcome and e.node.casefold() == spec.outcome.casefold() and e.type != "top_event":
-                problems.append(f"bowtie element: {e.node!r} is the outcome, so it is the top event, not {e.type}")
-    if spec.event_tree:
-        t = spec.event_tree
-        names = ([("event_tree element", x.node) for x in t.elements] + [("event_tree order", x) for x in t.order]
-                 + [("event_tree sequence", x.end_state) for x in t.sequences]
-                 + [("event_tree sequence", h) for x in t.sequences for h in x.answers]
-                 + [("event_tree probability", x.node) for x in t.probabilities]
-                 + [("event_tree probability", h) for x in t.probabilities for h in x.given]
-                 + ([("event_tree frequency", t.frequency.node)] if t.frequency else []))
-        for where, n in names:
-            if not _known(n):
-                problems.append(f"{where}: no factor named {n!r}")
+        if plugin and plugin.outcome_role is None:
+            problems.append(f"outcome: {plugin.outcome_refusal}")
+        elif not plugin and allowed and "outcome" not in allowed and model_type != "sd":  # SD: kept in settings
+            takes = sorted({"sd"} | {f.model_type for f in formalisms.all_formalisms() if f.outcome_role}
+                           | {m.id for m in list_model_types() if "outcome" in m.allowed_roles})
+            problems.append(f"outcome: {model_type} has no outcome role ({', '.join(takes)} do)")
+    for plugin in formalisms.all_formalisms():
+        block = getattr(spec, plugin.spec_field) if plugin.spec_field else None
+        if block is not None:
+            problems += plugin.spec_check(block, _known, spec.outcome)
     for i, a in enumerate(_assumptions(spec.assumptions), 1):
         _target(f"assumption {i}", a.target)
     for i, f in enumerate(spec.findings, 1):
@@ -290,35 +255,16 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             _cite(edge.id, claim, link.contradicts, against=True)
             result.links.append({"id": edge.id, "from": link.from_, "to": link.to})
 
-        if spec.toc:
-            from latris.operations import toc as toc_ops
-
-            for lv in spec.toc.levels:
-                toc_ops.set_level(lv.node, lv.level, root=paths.root)
-                result.parameters += 1
-        if spec.outcome and model_type == "fault_tree":
-            from latris.operations import fault_tree as ft_ops
-
-            ft_ops.set_event(spec.outcome, "top_event", root=paths.root)  # before any gate goes on it
+        plugin = formalisms.get(model_type)
+        if spec.outcome and plugin and plugin.set_outcome:
+            plugin.set_outcome(spec.outcome, paths.root)  # before its block, which may set values on it
             result.outcome = spec.outcome
-        if spec.outcome and model_type == "bow_tie":
-            from latris.operations import bow_tie as bt_ops
-
-            bt_ops.set_element(spec.outcome, "top_event", root=paths.root)
-            result.outcome = spec.outcome
-        if spec.ft:
-            result.parameters += _apply_ft(spec.ft, verified_by, paths.root)
-        if spec.bowtie:
-            result.parameters += _apply_bowtie(spec.bowtie, verified_by, paths.root)
-        if spec.event_tree:
-            result.parameters += _apply_event_tree(spec.event_tree, verified_by, paths.root)
-        if spec.outcome and model_type not in ("fault_tree", "bow_tie"):
-            if model_type == "theory_of_change":
-                from latris.operations import toc as toc_ops
-
-                toc_ops.set_level(spec.outcome, "impact", root=paths.root)
-            else:
-                set_role(spec.outcome, model_type, "outcome", root=paths.root)
+        for f in formalisms.all_formalisms():
+            block = getattr(spec, f.spec_field) if f.spec_field else None
+            if block is not None:
+                result.parameters += f.spec_apply(block, verified_by, paths.root)
+        if spec.outcome and not plugin:
+            set_role(spec.outcome, model_type, "outcome", root=paths.root)
             result.outcome = spec.outcome
         for a in _assumptions(spec.assumptions):
             add_assumption(a.text, a.rationale, target_id=_target_id(a.target), root=paths.root)
@@ -363,85 +309,6 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     if result.analyses:
         result.commit_sha = git.head_sha(paths.root)
     return result
-
-
-def _apply_ft(spec_ft, verified_by: str, root: Path) -> int:
-    """Event types first (gates and probabilities need them), then gates, then probabilities."""
-    from latris.operations import fault_tree as ft_ops
-
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
-    n = 0
-    for e in spec_ft.events:
-        ft_ops.set_event(e.node, e.type, root=root)
-        n += 1
-    for g in spec_ft.gates:
-        ft_ops.set_gate(g.node, g.gate, k=g.k, root=root)
-        n += 1
-    for p in spec_ft.probabilities:
-        ft_ops.set_probability(
-            p.node, p.probability, origin=p.origin or default_origin, source_id=p.source,
-            verification="human-verified" if p.verified and verified_by == "human" else "unverified",
-            notes=p.notes, root=root,
-        )
-        n += 1
-    return n
-
-
-def _apply_bowtie(spec_bt, verified_by: str, root: Path) -> int:
-    """Elements first (barrier values and frequencies need them), then barriers, then frequencies."""
-    from latris.operations import bow_tie as bt_ops
-
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
-
-    def verification(v: bool) -> str:
-        return "human-verified" if v and verified_by == "human" else "unverified"
-
-    n = 0
-    for e in spec_bt.elements:
-        bt_ops.set_element(e.node, e.type, root=root)
-        n += 1
-    for b in spec_bt.barriers:
-        bt_ops.set_barrier(
-            b.node, barrier_type=b.type, status=b.status, owner=b.owner, pfd=b.pfd, notes=b.notes,
-            origin=b.origin or default_origin, source_id=b.source, verification=verification(b.verified), root=root,
-        )
-        n += 1
-    for f in spec_bt.frequencies:
-        bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
-                             verification=verification(f.verified), notes=f.notes, root=root)
-        n += 1
-    return n
-
-
-def _apply_event_tree(spec_et, verified_by: str, root: Path) -> int:
-    """Elements, then the heading order, then sequences, probabilities and the initiating frequency."""
-    from latris.operations import event_tree as et_ops
-
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
-
-    def verification(v: bool) -> str:
-        return "human-verified" if v and verified_by == "human" else "unverified"
-
-    n = 0
-    for e in spec_et.elements:
-        et_ops.set_element(e.node, e.type, root=root)
-        n += 1
-    if spec_et.order:
-        et_ops.set_order(spec_et.order, root=root)
-        n += 1
-    for s in spec_et.sequences:
-        et_ops.set_sequence(s.end_state, list(s.answers.items()), root=root)
-        n += 1
-    for p in spec_et.probabilities:
-        et_ops.set_probability(p.node, p.p_yes, given=list(p.given.items()), origin=p.origin or default_origin,
-                               source_id=p.source, verification=verification(p.verified), notes=p.notes, root=root)
-        n += 1
-    if spec_et.frequency:
-        f = spec_et.frequency
-        et_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
-                             verification=verification(f.verified), notes=f.notes, root=root)
-        n += 1
-    return n
 
 
 def _apply_sd(sd, default_origin: str, root: Path) -> int:

@@ -35,26 +35,11 @@ def set_role(
         from latris.operations import sd as sd_ops
 
         return sd_ops.set_outcome(target, root=root)
-    if model_type == "theory_of_change" and role == "outcome":
-        raise ValueError(
-            "A theory of change's outcome of interest is its impact: give the factor the level 'impact' "
-            "(latris toc level <factor> impact). Outcomes along the way are short_term_outcome or long_term_outcome."
-        )
-    if model_type == "fault_tree" and role == "outcome":
-        raise ValueError(
-            "A fault tree's outcome of interest is its top event: give the factor the type 'top_event' "
-            "(latris ft event <factor> top_event)."
-        )
-    if model_type == "bow_tie" and role == "outcome":
-        raise ValueError(
-            "A bow-tie's outcome of interest is its top event: give the factor the element 'top_event' "
-            "(latris bowtie element <factor> top_event)."
-        )
-    if model_type == "event_tree" and role == "outcome":
-        raise ValueError(
-            "An event tree's outcomes are its end states: give the factor the element 'end_state' "
-            "(latris et element <factor> end_state)."
-        )
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+    if plugin and role == "outcome":
+        raise ValueError(plugin.outcome_refusal)
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:
         raise ValueError(f"{role!r} is not a valid role for {spec.display_name}. Valid: {spec.allowed_roles}")

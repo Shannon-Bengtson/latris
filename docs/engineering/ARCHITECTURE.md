@@ -232,6 +232,7 @@ src/latris/
 │   ├── graph_analysis.py # pure CLD loop / DAG structural analysis algorithms
 │   ├── activation.py  # registry-driven model type dispatch
 │   ├── _activations.py # model type registrations (CLD, DAG)
+│   ├── formalisms/    # one plugin module per newer model type (ToC, FT, bow-tie, ET) — see "Adding a formalism"
 │   ├── view_roles.py  # formalism-specific entity role operations
 │   ├── _data_engine.py # pandas engine: 39 operations, stats, preview
 │   ├── _resolve.py, batch.py
@@ -267,6 +268,43 @@ src/latris/
     ├── app.py         # root + --version + doctor
     └── *_cmd.py       # one module per command group
 ```
+
+## Adding a formalism
+
+Each newer model type (Theory of Change, fault tree, bow-tie, event tree)
+plugs in through **one module** in `src/latris/operations/formalisms/`. It
+declares a `Formalism` with the hooks the shared code calls:
+
+| Hook | Used by |
+|---|---|
+| `structure_problems`, `validators` (name → gap types), `whole_label` | readiness (`_STRUCTURAL_VALIDATORS`) |
+| `outcome_role`, `outcome_refusal`, `outcome_ids`, `set_outcome` | `view_roles.set_role`, interpretation, `build --spec` `outcome:` |
+| `claims(paths, section)`, `centrality`, `own_implications`, `sensitivity_fallback` | interpretation claims |
+| `results` (`ResultKind`: kind, title, `render`, analysis, `run`, `definition`), `fingerprint_files` | `analysis_results` (report order, staleness), the report's Results section, `analysis_replay` (build-spec analyses and share links) |
+| `spec_field`, `spec_check`, `spec_apply`, `spec_export` | `build --spec` and share links |
+| `mermaid` (full diagram) or `mermaid_groups` (columns) | the report's diagram |
+| `cli` (module, command), `routes` (module) | `cli/app.py`, `server/app.py` |
+
+Four things stay central on purpose, because each is a single registry or a
+static schema:
+
+1. the `ModelTypeSpec` in `schema/model_types.py` (availability, roles,
+   validator names);
+2. its build-spec block — a pydantic field on `BuildSpec`
+   (`schema/build_spec.py`), and its analysis kind in `SpecAnalysis.kind`;
+3. its entry in the foundations registry (`operations/foundations.py`);
+4. its help topic (`server/help.py`), and its keys in `latris build --help`.
+
+The steps for a new type: schema for its parameters (with round-trip tests)
+→ its operations module (setters, structure check, analysis, `record`) →
+CLI and routes modules → the plugin module, added to `_MODULES` in
+`formalisms/__init__.py` (registration order = the order commands, routes
+and report sections appear in) → the four central entries → tests and the
+worked example. `tests/operations/test_formalisms.py` fails, naming what is
+missing, if a stable type is half-wired.
+
+The older types (CLD, DAG, FCM, BN, SD) predate the registry and keep their
+own wiring.
 
 ## The five chokepoint files
 
@@ -337,6 +375,7 @@ been built:
 | `operations/readiness.py` | **built** | Per-model-type readiness with structural validators |
 | `operations/graph_analysis.py` | **built** | CLD loop analysis + DAG structural analysis (pure algorithms) |
 | `operations/activation.py` + `_activations.py` | **built** | Registry-driven model type dispatch; single-call registration |
+| `operations/formalisms/` | **built** | Formalism plugins: everything a newer model type adds (readiness, outcome, claims, results, build spec, share link, diagram, CLI and routes) in one module each |
 | `operations/view_roles.py` + `schema/roles.py` | **built** | Formalism-specific entity role assignments |
 | `schema/settings.py` | **built** | Per-model-type settings schemas (SD, FCM, Markov) |
 | `operations/compose.py` | **built** | Gather→Build bridge: node/edge suggestions from data, refs, AI |

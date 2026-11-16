@@ -80,31 +80,11 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
             raise ValueError("a BN sensitivity analysis needs a target and a state")
         result = bn_sensitivity.sensitivity(a.target, a.state, evidence=a.evidence or None, root=paths.root)
         return bn_sensitivity.record_sensitivity(result, root=paths.root)[1]
-    if a.kind == "toc_check":
-        from latris.operations import toc
+    from latris.operations import formalisms
 
-        return toc.check(root=paths.root)[0]["run_id"]
-    if a.kind == "ft_analyse":
-        from latris.operations import fault_tree
-
-        payload = fault_tree.analyse(max_order=a.max_order, root=paths.root)
-        if payload["problems"] or payload["error"]:
-            raise ValueError(fault_tree.describe(payload))
-        return fault_tree.record(payload, root=paths.root)[1]
-    if a.kind == "bowtie_analyse":
-        from latris.operations import bow_tie
-
-        payload = bow_tie.analyse(root=paths.root)
-        if payload["problems"]:
-            raise ValueError(bow_tie.describe(payload))
-        return bow_tie.record(payload, root=paths.root)[1]
-    if a.kind == "et_analyse":
-        from latris.operations import event_tree
-
-        payload = event_tree.analyse(root=paths.root)
-        if payload["problems"]:
-            raise ValueError(event_tree.describe(payload))
-        return event_tree.record(payload, root=paths.root)[1]
+    rk = formalisms.for_analysis(a.kind)
+    if rk:
+        return rk.run(a, paths.root)
     raise ValueError(f"unknown analysis kind {a.kind!r}")
 
 
@@ -180,12 +160,10 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
                 kind="bn_sensitivity", target=names.get(p["target_id"], p["target_id"]), state=p["target_state"],
                 evidence={names.get(k, k): v for k, v in (p.get("evidence") or {}).items()},
             ))
-        elif kind == "toc-pathways":
-            out.append(SpecAnalysis(kind="toc_check"))
-        elif kind == "ft-analysis":
-            out.append(SpecAnalysis(kind="ft_analyse", max_order=p.get("max_order")))
-        elif kind == "bt-analysis":
-            out.append(SpecAnalysis(kind="bowtie_analyse"))
-        elif kind == "et-analysis":
-            out.append(SpecAnalysis(kind="et_analyse"))
+        else:
+            from latris.operations import formalisms
+
+            found = formalisms.result_kind(kind)
+            if found:
+                out.append(found[1].definition(p))
     return out

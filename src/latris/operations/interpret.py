@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from latris.operations import formalisms
 from latris.operations.commit import auto_commit
 from latris.operations.interpret_registry import (
     get_sections_for_model_types,
@@ -371,22 +372,9 @@ def _outcome_ids(paths, model_type: str) -> set[str]:
 
         outcome = sd_ops.get_settings(root=paths.root).outcome
         return {outcome} if outcome else set()
-    if model_type == "theory_of_change":
-        from latris.operations import toc
-
-        return {eid for eid, lvl in toc.get_levels(root=paths.root).items() if lvl == "impact"}
-    if model_type == "fault_tree":
-        from latris.operations import fault_tree
-
-        return {eid for eid, t in fault_tree.get_events(root=paths.root).items() if t == "top_event"}
-    if model_type == "bow_tie":
-        from latris.operations import bow_tie
-
-        return {eid for eid, t in bow_tie.get_elements(root=paths.root).items() if t == "top_event"}
-    if model_type == "event_tree":
-        from latris.operations import event_tree
-
-        return {eid for eid, t in event_tree.get_elements(root=paths.root).items() if t == "end_state"}
+    plugin = formalisms.get(model_type)
+    if plugin:
+        return plugin.outcome_ids(paths)
     path = paths.role_path(model_type)
     if not path.exists():
         return set()
@@ -462,247 +450,10 @@ def hedge_mode_active(model_type: str, paths) -> bool:
     return ratio < HEDGE_COVERAGE_THRESHOLD and accepted_findings_count(model_type, paths) == 0
 
 
-# Risk formalisms whose links are logic or barrier lines, not mechanisms: graph centrality over them
-# ("factors many causal paths run through") means nothing, so their claims come from their own analyses.
-_NO_CENTRALITY = frozenset({"fault_tree", "bow_tie", "event_tree"})
-
-
-def _toc_claims(paths, section: str) -> list[str]:
-    """Theory-of-change claims for one section, from the live pathway analysis."""
-    from latris.operations import toc
-
-    payload, _ = toc.check(record=False, root=paths.root)
-    pws, on = payload["pathways"], [lk for lk in payload["links"] if lk["on_pathway"]]
-    by_status = {s: sum(1 for p in pws if p["status"] == s) for s in ("checked", "cited", "untested", "contested")}
-    claims: list[str] = []
-    if section == "structure":
-        counts = ", ".join(f"{n} {toc.LEVEL_NAMES[lvl].lower()}" for lvl, n in payload["counts"].items() if n)
-        if counts:
-            claims.append(f"Results chain by level: {counts}.")
-        claims.append(toc.describe(payload) + ".")
-        leaps = [lk["label"] for lk in on if lk["leap"]]
-        if leaps:
-            claims.append(f"Links that skip levels, leaving the steps between unstated: {', '.join(leaps[:5])}.")
-        if payload["problems"]:
-            claims.append(
-                f"The results chain is incomplete: {len(payload['problems'])} structure problem(s) "
-                f"(e.g. {payload['problems'][0]['label']}: {payload['problems'][0]['message']})"
-            )
-    elif section == "answer":
-        if not pws:
-            claims.append("No pathway yet runs from an activity to an impact, so the theory doesn't say how the "
-                          "intervention would reach its goal.")
-        else:
-            claims.append(
-                f"Of {len(pws)} pathway(s) from activity to impact, {by_status['checked']} rest entirely on links "
-                f"checked against a source; {by_status['cited']} have a link whose sources aren't checked yet, "
-                f"{by_status['untested']} a link with no source and {by_status['contested']} a contested link."
-            )
-            best = [p for p in pws if p["status"] == "checked"]
-            if best:
-                claims.append(f"Best-supported pathway: {' → '.join(best[0]['path'])}.")
-    elif section == "gaps":
-        untested = [lk["label"] for lk in on if lk["status"] == "untested"]
-        contested = [lk["label"] for lk in on if lk["status"] == "contested"]
-        no_assumption = [lk["label"] for lk in on if not lk["assumptions"]]
-        if untested:
-            claims.append(f"Links on a pathway with no source: {', '.join(untested[:5])}"
-                          + (f" (+{len(untested) - 5} more)." if len(untested) > 5 else "."))
-        if contested:
-            claims.append(f"Links on a pathway with a source against them: {', '.join(contested[:5])}.")
-        if no_assumption:
-            claims.append(f"{len(no_assumption)} of {len(on)} link(s) on a pathway have no stated assumption "
-                          "about why the step should happen.")
-    elif section == "implications":
-        weak = {}
-        for p in pws:
-            for name in p["weak_links"]:
-                weak[name] = weak.get(name, 0) + 1
-        status = {lk["label"]: lk["status"] for lk in on}
-        if weak:
-            rank = {"contested": 0, "untested": 1, "cited": 2}
-            top = sorted(weak.items(), key=lambda kv: (-kv[1], rank.get(status.get(kv[0], ""), 3), kv[0]))[:3]
-            claims.append("Links to test first — not yet checked, and on the most pathways:")
-            claims += [f"  - {name} ({status.get(name, '?')}; on {n} pathway(s))" for name, n in top]
-        elif pws:
-            claims.append("Every link on a pathway has been checked against a source.")
-    return claims
-
-
-def _ft_claims(paths, section: str) -> list[str]:
-    """Fault-tree claims for one section, from the live analysis."""
-    from latris.operations import fault_tree
-
-    p = fault_tree.analyse(root=paths.root)
-    claims: list[str] = []
-    if p["problems"]:
-        if section == "structure":
-            claims.append(f"The fault tree is incomplete: {len(p['problems'])} structure problem(s) "
-                          f"(e.g. {p['problems'][0]['label']}: {p['problems'][0]['message']})")
-        return claims
-    if p["error"]:
-        return [p["error"]] if section == "structure" else []
-    imp = p["importance"]
-    if section == "structure":
-        c = p["counts"]
-        claims.append(f"Fault tree for {p['top']}: {c['intermediate_event']} intermediate event(s), "
-                      f"{c['basic_event']} basic and {c['undeveloped_event']} undeveloped event(s).")
-        claims.append(fault_tree.describe(p) + ".")
-        if p["outside_inputs"]:
-            claims.append(f"Left out of the tree (no fault-tree type): {', '.join(p['outside_inputs'][:5])}.")
-    elif section == "answer":
-        if p["quantified"]:
-            claims.append(f"Probability of {p['top']}: {p['probability']['exact']:.3g} (exact, assuming the basic "
-                          "events are independent).")
-            top = p["cut_sets"][:3]
-            if top:
-                claims.append("Most likely ways it happens: " + "; ".join(
-                    f"{' AND '.join(c['events'])} ({c['probability']:.3g})" for c in top) + ".")
-        else:
-            claims.append(f"{p['top']} can happen in {p['cut_sets_total']} minimal way(s); it isn't quantified "
-                          f"until every basic event has a probability.")
-        if p["single_points"]:
-            claims.append(f"Single points of failure — one event alone causes {p['top']}: "
-                          f"{', '.join(p['single_points'])}.")
-    elif section == "sensitivity" and imp:
-        claims.append("Basic events by importance (Fussell–Vesely: the share of the top-event probability that "
-                      "needs the event):")
-        claims += [f"  - {i['event']}: {i['fussell_vesely']:.2f}" + (" (value not verified)" if i["weak"] else "")
-                   for i in imp[:5]]
-        weak = [i["event"] for i in imp[:3] if i["weak"]]
-        if weak:
-            claims.append(f"The most important values nobody has verified yet: {', '.join(weak)} — check these first.")
-    elif section == "implications":
-        if p["single_points"]:
-            claims.append(f"Redundancy or a barrier at a single point of failure removes a whole way {p['top']} "
-                          f"happens: {', '.join(p['single_points'])}.")
-        if imp:
-            claims.append("Largest reductions in the top-event probability if these events could not happen "
-                          "(Fussell–Vesely):")
-            claims += [f"  - {i['event']} ({i['fussell_vesely']:.0%} of the probability)" for i in imp[:3]]
-    elif section == "gaps":
-        if p["missing_probabilities"]:
-            claims.append(f"Basic events without a probability: {', '.join(p['missing_probabilities'][:5])}"
-                          + (f" (+{len(p['missing_probabilities']) - 5} more)." if len(p["missing_probabilities"]) > 5
-                             else "."))
-        unsourced = [i["event"] for i in imp if not i["source"]]
-        if unsourced:
-            claims.append(f"Probabilities with no stated source: {', '.join(unsourced[:5])}.")
-    return claims
-
-
-def _bt_claims(paths, section: str) -> list[str]:
-    """Bow-tie claims for one section, from the live analysis."""
-    from latris.operations import bow_tie
-
-    p = bow_tie.analyse(root=paths.root)
-    if p["problems"]:
-        if section == "structure":
-            return [f"The bow-tie is incomplete: {len(p['problems'])} structure problem(s) "
-                    f"(e.g. {p['problems'][0]['label']}: {p['problems'][0]['message']})"]
-        return []
-    f = bow_tie.flags(p)
-    claims: list[str] = []
-    if section == "structure":
-        claims.append(bow_tie.describe(p) + ".")
-        if p["hazard"]:
-            claims.append(f"Hazard: {p['hazard']}; top event: {p['top']}.")
-        if p["outside_inputs"]:
-            claims.append(f"Left out of the bow-tie (no bow-tie role): {', '.join(p['outside_inputs'][:5])}.")
-    elif section == "answer":
-        if f["unprotected"]:
-            claims.append(f"Lines with no effective barrier: {', '.join(f['unprotected'])}.")
-        if f["single_barrier"]:
-            claims.append(f"Lines resting on a single effective barrier: {', '.join(f['single_barrier'])}.")
-        if not f["unprotected"] and not f["single_barrier"]:
-            claims.append("Every line has at least two effective barriers.")
-        if p["quantified"]:
-            fr = p["frequency"]
-            claims.append(f"Estimated frequency of {p['top']}: {fr['top']:.3g} per year (layer of protection; "
-                          "barriers assumed independent).")
-            claims.append("Consequences per year: " + "; ".join(f"{c} {v:.3g}" for c, v in fr["consequences"].items())
-                          + ".")
-    elif section == "sensitivity" and p["quantified"]:
-        ranked = [b for b in p["barriers"] if b["raw"] is not None][:5]
-        claims.append("Barriers by how much they buy (RAW: how many times more often their side's outcome would "
-                      "happen if the barrier always failed):")
-        claims += [f"  - {b['barrier']} ({b['side']}): {b['raw']:.3g}" + (" (value not verified)" if b["weak"] else "")
-                   for b in ranked]
-        weak = [b["barrier"] for b in ranked[:3] if b["weak"]]
-        if weak:
-            claims.append(f"The barriers that matter most whose failure probability nobody has verified: "
-                          f"{', '.join(weak)}.")
-    elif section == "implications":
-        if f["unprotected"] or f["single_barrier"]:
-            claims.append("Where another independent barrier would help most: "
-                          + ", ".join(f["unprotected"] + f["single_barrier"]) + ".")
-        if f["shared"]:
-            claims.append(f"Barriers on more than one line — one failure defeats every line they guard: "
-                          f"{', '.join(f['shared'])}.")
-        if f["uncontrolled_escalation"]:
-            claims.append(f"Escalation factors with no control: {', '.join(f['uncontrolled_escalation'])}.")
-        if f["not_in_place"]:
-            claims.append(f"Barriers degraded or not in place: {', '.join(f['not_in_place'])}.")
-        if f["no_owner"]:
-            claims.append(f"Barriers nobody owns: {', '.join(f['no_owner'])}.")
-    elif section == "gaps":
-        if p["missing"]:
-            claims.append(f"Not quantified — missing: {', '.join(p['missing'][:6])}"
-                          + (f" (+{len(p['missing']) - 6} more)." if len(p["missing"]) > 6 else "."))
-        unsourced = [b["barrier"] for b in p["barriers"] if b["pfd"] is not None and not b["source"]]
-        if unsourced:
-            claims.append(f"Failure probabilities with no stated source: {', '.join(unsourced[:5])}.")
-    return claims
-
-
-def _et_claims(paths, section: str) -> list[str]:
-    """Event-tree claims for one section, from the live analysis."""
-    from latris.operations import event_tree
-
-    p = event_tree.analyse(root=paths.root)
-    if p["problems"]:
-        if section == "structure":
-            return [f"The event tree is incomplete: {len(p['problems'])} structure problem(s) "
-                    f"(e.g. {p['problems'][0]['label']}: {p['problems'][0]['message']})"]
-        return []
-    fr = p["frequency"]
-    claims: list[str] = []
-    if section == "structure":
-        claims.append(event_tree.describe(p) + ".")
-        claims.append("Headings, in order: " + " → ".join(p["headings"]) + ".")
-    elif section == "answer" and p["quantified"]:
-        for d in p["end_states"]:
-            amount = f"{d['frequency']:.3g} per year" if fr else f"probability {d['probability']:.3g}"
-            claims.append(f"{d['end_state']}: {amount}, mostly through {d['dominant']['text']} "
-                          f"({d['dominant']['share']:.0%}).")
-        if not fr:
-            claims.append(f"These are probabilities given that {p['initiator']} happens; give it a frequency for "
-                          "rates per year.")
-    elif section == "sensitivity" and p["quantified"]:
-        weak = sorted({v["heading"] for v in p["values"] if v["weak"]})
-        on_top = sorted({h for d in p["end_states"] for r in p["sequences"] if r["n"] == d["dominant"]["n"]
-                         for h in r["unverified"]})
-        if on_top:
-            claims.append(f"Branch probabilities on the dominant sequences that nobody has verified: "
-                          f"{', '.join(on_top)} — these move the answer most directly.")
-        elif weak:
-            claims.append(f"Branch probabilities nobody has verified: {', '.join(weak)}.")
-        if fr and fr["weak"]:
-            claims.append(f"The frequency of {p['initiator']} scales every result and hasn't been verified.")
-    elif section == "implications" and p["quantified"]:
-        for d in p["end_states"]:
-            claims.append(f"To make {d['end_state']} rarer, look first at sequence #{d['dominant']['n']}: "
-                          f"{d['dominant']['text']}.")
-    elif section == "gaps":
-        if p["missing"]:
-            claims.append("Not quantified — missing: " + "; ".join(p["missing"][:5])
-                          + (f" (+{len(p['missing']) - 5} more)." if len(p["missing"]) > 5 else "."))
-        if not fr:
-            claims.append(f"No frequency for {p['initiator']}, so results are conditional probabilities.")
-        unsourced = sorted({v["heading"] for v in p["values"] if not v["source"]})
-        if unsourced:
-            claims.append(f"Branch probabilities with no stated source: {', '.join(unsourced)}.")
-    return claims
+def _centrality_applies(model_type: str) -> bool:
+    """Graph-centrality claims mean nothing where links are logic or barrier lines (fault trees, bow-ties, …)."""
+    plugin = formalisms.get(model_type)
+    return plugin.centrality if plugin else True
 
 
 def _extract_structural_summary(model_type: str, paths) -> list[str]:
@@ -781,14 +532,7 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
         else:
             claims.append("DAG structure confirmed (acyclic by readiness gate).")
 
-    if model_type == "theory_of_change":
-        claims.extend(_toc_claims(paths, "structure"))
-    if model_type == "fault_tree":
-        claims.extend(_ft_claims(paths, "structure"))
-    if model_type == "bow_tie":
-        claims.extend(_bt_claims(paths, "structure"))
-    if model_type == "event_tree":
-        claims.extend(_et_claims(paths, "structure"))
+    claims.extend(formalisms.claims(model_type, paths, "structure"))
 
     # Add any recorded structural findings
     findings = _load_findings(paths, model_type)
@@ -814,7 +558,7 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
     # Centrality and loop participation read causal edges only —
     # non-causal kinds inflate degrees and create phantom loops.
     causal = causal_edges(substrate.edges)
-    if substrate.entities and causal and model_type not in _NO_CENTRALITY:
+    if substrate.entities and causal and _centrality_applies(model_type):
         centrality = compute_centrality(substrate.entities, causal)
         # Top 3 by betweenness, outcomes excluded — same ranking as
         # Sensitivity and Implications, so the sections don't disagree.
@@ -883,20 +627,12 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
     substrate = load_model(Substrate, paths.conceptual_yaml)
     claims: list[str] = []
 
-    if model_type == "fault_tree":
-        # Importance measures, not graph centrality: what matters is each event's share of the top event.
-        claims = _ft_claims(paths, "sensitivity")
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.sensitivity_fallback is not None:
+        # The formalism's own measures (importance, RAW, …), not graph centrality.
+        claims = formalisms.claims(model_type, paths, "sensitivity")
         claims.extend(f.statement for f in _load_findings(paths, model_type) if f.category == "sensitivity")
-        return claims or ["Give every basic event a probability to rank the events by importance."]
-    if model_type == "bow_tie":
-        claims = _bt_claims(paths, "sensitivity")
-        claims.extend(f.statement for f in _load_findings(paths, model_type) if f.category == "sensitivity")
-        return claims or ["Give every threat a frequency and every barrier a failure probability to rank the "
-                          "barriers by how much they buy."]
-    if model_type == "event_tree":
-        claims = _et_claims(paths, "sensitivity")
-        claims.extend(f.statement for f in _load_findings(paths, model_type) if f.category == "sensitivity")
-        return claims or ["Give every heading its probability to see which values move the result."]
+        return claims or [plugin.sensitivity_fallback]
 
     causal = causal_edges(substrate.edges)
     if substrate.entities and causal:
@@ -1001,14 +737,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
             f"{noun.capitalize()} without a source: {', '.join(names[:5])}"
             + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
         )
-    if model_type == "theory_of_change":
-        claims.extend(_toc_claims(paths, "gaps"))
-    if model_type == "fault_tree":
-        claims.extend(_ft_claims(paths, "gaps"))
-    if model_type == "bow_tie":
-        claims.extend(_bt_claims(paths, "gaps"))
-    if model_type == "event_tree":
-        claims.extend(_et_claims(paths, "gaps"))
+    claims.extend(formalisms.claims(model_type, paths, "gaps"))
     return claims
 
 
@@ -1115,21 +844,14 @@ def _extract_answer(model_type: str, paths) -> list[str]:
                 claims.append(f"{b_groups} balancing feedback mechanism(s) provide natural stabilisation.")
 
     # Most central nodes as key factors
-    if substrate.entities and causal and model_type not in _NO_CENTRALITY:
+    if substrate.entities and causal and _centrality_applies(model_type):
         centrality = compute_centrality(substrate.entities, causal)
         top_3 = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
         if top_3:
             names = [entity_labels.get(c.entity_id, "") for c in top_3]
             claims.append(f"Key factors in the system: {', '.join(names)}.")
 
-    if model_type == "theory_of_change":
-        claims.extend(_toc_claims(paths, "answer"))
-    if model_type == "fault_tree":
-        claims.extend(_ft_claims(paths, "answer"))
-    if model_type == "bow_tie":
-        claims.extend(_bt_claims(paths, "answer"))
-    if model_type == "event_tree":
-        claims.extend(_et_claims(paths, "answer"))
+    claims.extend(formalisms.claims(model_type, paths, "answer"))
 
     # Recorded inference findings
     findings = _load_findings(paths, model_type)
@@ -1153,14 +875,9 @@ def _extract_implications(model_type: str, paths) -> list[str]:
     causal = causal_edges(substrate.edges)
 
     # In a theory of change the intervention is its activities; what matters is which steps to test.
-    if model_type == "theory_of_change":
-        claims.extend(_toc_claims(paths, "implications"))
-    elif model_type == "fault_tree":
-        claims.extend(_ft_claims(paths, "implications"))
-    elif model_type == "bow_tie":
-        claims.extend(_bt_claims(paths, "implications"))
-    elif model_type == "event_tree":
-        claims.extend(_et_claims(paths, "implications"))
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.own_implications:
+        claims.extend(formalisms.claims(model_type, paths, "implications"))
     # High-betweenness nodes are intervention leverage points
     elif substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)

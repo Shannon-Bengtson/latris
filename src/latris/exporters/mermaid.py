@@ -53,105 +53,6 @@ def _scoped(paths: ProjectPaths, model_type: str | None):
     return entities, edges, polarity
 
 
-def _fault_tree(paths: ProjectPaths, entities, edges) -> str:
-    """Top event at the top; each gated event names its gate; leaves show their probability."""
-    from latris.operations.fault_tree import EDGE_KINDS, get_events, get_gates, get_probabilities
-
-    events = get_events(root=paths.root)
-    members = [e for e in entities if e.id in events]
-    if not members:
-        return ""
-    gates = {g.target_id: g for g in get_gates(root=paths.root).entries}
-    probs = {p.target_id: p.probability for p in get_probabilities(root=paths.root).entries}
-    alias = {e.id: f"n{i}" for i, e in enumerate(members)}
-    lines = ["flowchart TB"]
-    for e in members:
-        text = _mermaid_text(e.label)
-        g = gates.get(e.id)
-        if g:
-            text += f"<br/>{'VOTE ' + str(g.k) if g.gate == 'vote' else g.gate.upper()}"
-        if e.id in probs:
-            text += f"<br/>p = {probs[e.id]:.3g}"
-        shape = ('(["', '"])') if events[e.id] == "basic_event" else (
-            ('{{"', '"}}') if events[e.id] == "undeveloped_event" else ('["', '"]'))
-        lines.append(f"    {alias[e.id]}{shape[0]}{text}{shape[1]}")
-    for ed in edges:
-        if ed.kind in EDGE_KINDS and ed.from_id in alias and ed.to_id in alias:
-            lines.append(f"    {alias[ed.to_id]} --- {alias[ed.from_id]}")
-    return "\n".join(lines) + "\n"
-
-
-def _bow_tie(paths: ProjectPaths, entities, edges) -> str:
-    """Threats on the left, the top event in the middle, consequences on the right; barriers as boxes."""
-    from latris.operations.bow_tie import EDGE_KINDS, get_barriers, get_elements
-
-    el = get_elements(root=paths.root)
-    members = [e for e in entities if e.id in el]
-    if not members:
-        return ""
-    barriers = {b.target_id: b for b in get_barriers(root=paths.root).entries}
-    alias = {e.id: f"n{i}" for i, e in enumerate(members)}
-    shapes = {"hazard": ('[/"', '"/]'), "top_event": ('(("', '"))'), "threat": ('(["', '"])'),
-              "consequence": ('(["', '"])'), "barrier": ('["', '"]'), "escalation_factor": ('>"', '"]')}
-    lines = ["flowchart LR"]
-    for e in members:
-        text = _mermaid_text(e.label)
-        b = barriers.get(e.id)
-        if b and b.status != "in_place":
-            text += f"<br/>{b.status.replace('_', ' ')}"
-        if b and b.pfd is not None:
-            text += f"<br/>pfd {b.pfd:g}"
-        a, z = shapes[el[e.id]]
-        lines.append(f"    {alias[e.id]}{a}{text}{z}")
-    for ed in edges:
-        if ed.kind in EDGE_KINDS and ed.from_id in alias and ed.to_id in alias:
-            arrow = "-.->" if el[ed.from_id] in ("escalation_factor", "hazard") else "-->"
-            lines.append(f"    {alias[ed.from_id]} {arrow} {alias[ed.to_id]}")
-    weak = [alias[e.id] for e in members if (b := barriers.get(e.id)) and b.status != "in_place"]
-    if weak:
-        lines.append(f"    style {','.join(weak)} stroke:#c0392b,stroke-dasharray:4 3")
-    return "\n".join(lines) + "\n"
-
-
-def _event_tree(paths: ProjectPaths) -> str:
-    """The tree drawn from its sequences: a question node per branch point, yes/no edges, end states as leaves."""
-    from latris.operations.event_tree import analyse
-
-    p = analyse(root=paths.root)
-    if p["problems"] or not p["sequences"]:
-        return ""
-    lines = ["flowchart LR", f'    s0(["{_mermaid_text(p["initiator"])}"])']
-    questions: dict[tuple, str] = {}  # answers so far → the question node asked there
-
-    def edge(src: str, answer: str | None, dst: str) -> None:
-        lines.append(f"    {src} -->|{answer}| {dst}" if answer else f"    {src} --> {dst}")
-
-    for r in p["sequences"]:
-        prefix: tuple = ()
-        src, via = "s0", None
-        for a in r["answers"]:
-            node = questions.get(prefix)
-            if node is None:
-                node = questions[prefix] = f"q{len(questions) + 1}"
-                lines.append(f'    {node}{{"{_mermaid_text(a["heading"])}?"}}')
-                edge(src, via, node)
-            src, via = node, a["answer"]
-            prefix = prefix + ((a["heading"], a["answer"]),)
-        text = _mermaid_text(r["end_state"])
-        if r["probability"] is not None:
-            text += f"<br/>p = {r['probability']:.3g}"
-        leaf = f"e{r['n']}"
-        lines.append(f'    {leaf}["{text}"]')
-        edge(src, via, leaf)
-    return "\n".join(lines) + "\n"
-
-
-def _toc_levels(paths: ProjectPaths) -> dict[str, str]:
-    from latris.operations.toc import get_levels
-
-    return get_levels(root=paths.root)
-
-
 def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
     """Return Mermaid ``flowchart`` source for the (optionally scoped) model.
 
@@ -162,31 +63,25 @@ def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
     if not entities:
         return ""
 
-    if model_type == "fault_tree":
-        tree = _fault_tree(paths, entities, edges)
-        if tree:
-            return tree
-    if model_type == "bow_tie":
-        bow = _bow_tie(paths, entities, edges)
-        if bow:
-            return bow
-    if model_type == "event_tree":
-        tree = _event_tree(paths)
-        if tree:
-            return tree
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.mermaid:
+        own = plugin.mermaid(paths, entities, edges)
+        if own:
+            return own
     direction = "TB" if model_type == "dag" else "LR"
     alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
     lines = [f"flowchart {direction}"]
-    levels = _toc_levels(paths) if model_type == "theory_of_change" else {}
-    if levels:
-        # One column per results-chain level, inputs to impact.
-        from latris.operations.toc import LEVEL_NAMES, LEVELS
-
-        for i, level in enumerate(LEVELS):
-            members = [e for e in entities if levels.get(e.id) == level]
+    levels: dict[str, str] = {}
+    if plugin and plugin.mermaid_groups:
+        # One column per group (e.g. results-chain level, inputs to impact).
+        order, names, levels = plugin.mermaid_groups(paths)
+        for i, group in enumerate(order):
+            members = [e for e in entities if levels.get(e.id) == group]
             if not members:
                 continue
-            lines.append(f'    subgraph L{i}["{LEVEL_NAMES[level]}"]')
+            lines.append(f'    subgraph L{i}["{names[group]}"]')
             lines += [f'        {alias[e.id]}["{_mermaid_text(e.label)}"]' for e in members]
             lines.append("    end")
     for e in entities:

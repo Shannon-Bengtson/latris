@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from latris.operations import formalisms
 from latris.operations.analysis_runs import RunPurpose, iter_runs, record_run
 from latris.operations.commit import auto_commit
 from latris.repo.layout import ProjectPaths
@@ -30,21 +31,18 @@ from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 
-# Order results appear in reports, and the most of each kind a client report shows.
+# Order results appear in reports (registered formalisms' kinds last), and the most of each kind a client
+# report shows.
 KIND_ORDER: tuple[str, ...] = (
     "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
     "bn-query", "bn-explanation", "bn-monte-carlo", "bn-sensitivity",
-    "toc-pathways",
-    "ft-analysis",
-    "bt-analysis",
-    "et-analysis",
+    *(r.kind for r in formalisms.result_kinds()),
 )
 REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
 _DEFAULT_LIMIT = 4
 
 KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | {
-    "toc-pathways": "theory_of_change", "ft-analysis": "fault_tree", "bt-analysis": "bow_tie",
-    "et-analysis": "event_tree",
+    r.kind: f.model_type for f in formalisms.all_formalisms() for r in f.results
 }
 
 
@@ -76,9 +74,10 @@ def fingerprint(
         for e in sorted(sub.edges, key=lambda x: x.id):
             h.update(f"e|{e.id}|{e.from_id}|{e.to_id}|{e.kind}\n".encode())
     h.update(_file_text(paths.role_path(model_type)).encode())
-    if model_type == "theory_of_change":
-        # The pathway check reads each link's sources, checks, assumptions and confidence.
-        for f in (paths.evidence_links_yaml, paths.assumptions_yaml, paths.confidence_yaml):
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.fingerprint_files:
+        # Inputs beyond structure, roles and parameters that this formalism's results read.
+        for f in plugin.fingerprint_files(paths):
             h.update(_file_text(f).encode())
     scenario_file = paths.view_attribute_path(model_type, "scenarios")
     if paths.parameters_dir.exists():

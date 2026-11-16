@@ -20,6 +20,11 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
   sketch, DOT), `server/` (FastAPI + WebSocket backend), `sync/` (client for
   the collaboration control plane — the service itself is separate and
   proprietary; `sync.latris.app` is its public URL).
+- [`src/latris/operations/formalisms/`](./src/latris/operations/formalisms/)
+  — one plugin module per newer model type; adding a formalism is one
+  module plus four central entries (ARCHITECTURE.md → "Adding a
+  formalism"). What comes next is in
+  [`docs/engineering/ROADMAP.md`](./docs/engineering/ROADMAP.md).
 - [`tests/`](./tests/) — pytest suite mirroring the package layout.
   Hermetic — env-var git identity and `LATRIS_AI_MOCK=1`; no network or
   real keys required.

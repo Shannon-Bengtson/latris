@@ -39,7 +39,6 @@ from latris.server.routes import (
     annotations,
     attributes,
     bn,
-    bowtie,
     build,
     challenges,
     checks,
@@ -48,12 +47,10 @@ from latris.server.routes import (
     configure,
     datasets,
     edges,
-    et,
     evidence,
     export,
     fcm,
     findings,
-    ft,
     history,
     interpret,
     layout,
@@ -69,7 +66,6 @@ from latris.server.routes import (
     sd,
     story,
     sync,
-    toc,
     view_attributes,
     views,
 )
@@ -475,6 +471,17 @@ def _register_plugins(app: FastAPI) -> None:
         loaded.add(spec)
 
 
+def _include_formalism_routers(app: FastAPI) -> None:
+    """Each registered formalism's routes (``operations/formalisms``), in registration order."""
+    import importlib
+
+    from latris.operations import formalisms
+
+    for f in formalisms.all_formalisms():
+        if f.routes:
+            app.include_router(importlib.import_module(f.routes).router)
+
+
 def create_app(*, project_root: Path | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -599,10 +606,7 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
     app.include_router(fcm.router)
     app.include_router(bn.router)
     app.include_router(sd.router)
-    app.include_router(toc.router)
-    app.include_router(ft.router)
-    app.include_router(bowtie.router)
-    app.include_router(et.router)
+    _include_formalism_routers(app)
     app.include_router(results.router)
     app.include_router(history.router)
     app.include_router(layout.router)
