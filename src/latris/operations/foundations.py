@@ -293,6 +293,31 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="toc-impact",
+        applies_to=("theory_of_change",),
+        method="Impact estimation: interrupted time series and difference-in-differences",
+        citation=(
+            "Wagner, Soumerai, Zhang & Ross-Degnan (2002), \"Segmented regression analysis of interrupted time "
+            "series studies\", *J Clin Pharm Ther* 27(4); Bernal, Cummins & Gasparrini (2017), \"Interrupted time "
+            "series regression for the evaluation of public health interventions\", *Int J Epidemiol* 46(1); "
+            "Angrist & Pischke (2009), *Mostly Harmless Econometrics*, ch. 5; Bertrand, Duflo & Mullainathan "
+            "(2004), \"How Much Should We Trust Differences-in-Differences Estimates?\", *QJE* 119(1); Prais & "
+            "Winsten (1954), AR(1) errors; Seabold & Perktold (2010), statsmodels"
+        ),
+        used_for=(
+            "the change in a theory-of-change outcome when the intervention started: with no comparison group, "
+            "segmented regression (step and change of slope, AR(1) errors, the effect by the last period "
+            "against the projected pre-period trend); with one, difference-in-differences (cluster-robust errors "
+            "with 20 or more groups) after comparing the groups' pre-period trends"
+        ),
+        limits=(
+            "Impact only under the design's assumptions — no other change at the same time (ITS), parallel trends "
+            "(DiD) — which the data can test only in part; no seasonal terms, covariates, staggered starts or "
+            "synthetic controls; rows are averaged to one value per period (per group). Each failed or "
+            "impossible check is reported as a caution with the result."
+        ),
+    ),
+    Foundation(
         id="toc-process-tracing",
         applies_to=("theory_of_change",),
         method="Bayesian process tracing",
@@ -408,6 +433,7 @@ _ANALYSIS_KIND_TO_ID = {
     "sd-loops": "sd-loop-dominance",
     "dag-estimate": "dag-estimation",
     "toc-process-trace": "toc-process-tracing",
+    "toc-impact": "toc-impact",
 }
 
 

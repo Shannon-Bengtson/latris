@@ -331,9 +331,13 @@ latris toc prior "From -> To" <p> [--source ID] [--origin …] [--verified] [--n
 latris toc test "From -> To" <name> --if-true <P(E|holds)> --if-false <P(E|doesn't)> [--found|--not-found]
                [--description …] [--source ID] [--verified] [--notes …] [--remove]     # add / update / remove a test
 latris toc trace [--no-record]                 # posterior per link, pathway confidence, most informative next test
+latris toc impact <outcome> --dataset D --time COL --at T [--column C] [--no-record]   # interrupted time series
+latris toc impact <outcome> --dataset D --time COL --at T --group COL --treated V…     # difference-in-differences
 ```
 
-Process tracing is recorded as `toc-process-trace`; tests are classified as
+Impact estimates are recorded as `toc-impact` (one per outcome, dataset and
+design) and list a caution for each validity check that fails or can't be
+made. Process tracing is recorded as `toc-process-trace`; tests are classified as
 hoop, smoking gun, doubly decisive or straw in the wind from their two
 probabilities.
 

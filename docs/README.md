@@ -33,7 +33,8 @@ repository. Start at the repo-root [README](../README.md).
   every pathway laid out link by link against its evidence (checked,
   cited, untested, contested) and stated assumptions, and Bayesian
   process tracing (hoop / smoking-gun tests, posterior per link, pathway
-  confidence) — via CLI `toc` +
+  confidence), and impact estimates from data (interrupted time series,
+  difference-in-differences, with validity checks) — via CLI `toc` +
   `/api/toc/*`.
 - Fault trees: AND / OR / k-out-of-n gates, minimal cut sets and single
   points of failure, the exact top-event probability (binary decision

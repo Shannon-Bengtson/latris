@@ -1567,6 +1567,36 @@ def build_example(ex: WorkedExample) -> None:
             "link in the confidence assessment, and the test to run next in the open questions.")
     ex.run(["interpret", "refresh-claims"])
     ex.run(["interpret", "show", "open_questions", "--model-type", "theory_of_change"])
+    ex.note("With data, estimate the impact itself. Here, monthly attendance from the school's registers "
+            "(synthetic), with mentoring starting in January 2024: an interrupted time series compares what "
+            "happened with the pre-mentoring trend carried forward.")
+    import numpy as _np
+    import pandas as _pd
+
+    _rng = _np.random.default_rng(12)
+    _k = _np.arange(36)
+    _att = 82 + 0.05 * _k + 2.5 * (_k >= 24) + 0.15 * _np.where(_k >= 24, _k - 24, 0) + _rng.normal(0, 0.6, 36)
+    _months = _pd.date_range("2022-01-01", periods=36, freq="MS").strftime("%Y-%m-%d")
+    _registers = Path(tempfile.gettempdir()) / "latris_demo_attendance.csv"
+    _pd.DataFrame({"month": _months, "attendance_pct": _att.round(2)}).to_csv(_registers, index=False)
+    ex.run(["data", "add", str(_registers), "--name", "registers", "--description",
+            "Monthly attendance (synthetic)."])
+    ex.run(["toc", "impact", "School attendance", "--dataset", "registers", "--time", "month",
+            "--at", "2024-01-01", "--column", "attendance_pct"])
+    ex.note("With a comparison group the design is difference-in-differences. Two schools, one mentored, "
+            "observed for three years before and after: the estimate comes with cautions — two groups are too "
+            "few to cluster the errors, and the pre-period trends are checked for divergence.")
+    _rows = []
+    for _school, _treated in (("Northfield", True), ("Southgate", False)):
+        for _year in range(2018, 2024):
+            _y = 85 + (2 if _treated else 0) + 0.4 * (_year - 2018) + (3 if _treated and _year >= 2021 else 0)
+            _rows.append({"school": _school, "year": _year, "attendance_pct": round(_y + _rng.normal(0, 0.4), 2)})
+    _schools = Path(tempfile.gettempdir()) / "latris_demo_schools.csv"
+    _pd.DataFrame(_rows).to_csv(_schools, index=False)
+    ex.run(["data", "add", str(_schools), "--name", "schools", "--description",
+            "Yearly attendance in two schools (synthetic)."])
+    ex.run(["toc", "impact", "School attendance", "--dataset", "schools", "--time", "year", "--at", "2021",
+            "--group", "school", "--treated", "Northfield", "--column", "attendance_pct"])
     os.chdir(ex.root)
 
     # ── 11c. Fault Tree ───────────────────────────────────────────────

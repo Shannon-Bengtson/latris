@@ -201,7 +201,7 @@ def default_origin(verified_by: str) -> str:
 # (not as import statements, which formatters re-sort).
 _MODULES = (
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov",
+    "markov", "toc_impact",
 )
 
 

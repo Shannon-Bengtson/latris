@@ -317,9 +317,25 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   posteriors, and ranks tests still to run by how far they could move their
   link. Probabilities are kept open (strictly between 0 and 1), so no single
   test settles a link outright.
-- **Limits.** Structural and evidential only: it shows where a results chain
-  rests on untested or contested steps, not how large an effect is, and it
-  does not attribute an outcome to the intervention (no counterfactual).
+- **Impact.** `latris toc impact` estimates the change in an outcome from a
+  registered dataset. Without a comparison group it is an interrupted time
+  series: segmented regression (Wagner et al. 2002; Bernal, Cummins &
+  Gasparrini 2017) with a step and change of slope at the start, AR(1) errors
+  by iterated GLS (Prais & Winsten 1954) — in simulation, Newey–West errors
+  covered well under 95% on series this short — and the effect by the last period
+  against the projected pre-period trend. With one it is
+  difference-in-differences (Angrist & Pischke 2009): the interaction of group
+  and period, cluster-robust by group when there are 20 or more groups
+  (Bertrand, Duflo & Mullainathan 2004), after a test of whether the groups'
+  pre-period trends differ. Each check that fails or can't be made — fewer
+  than 8 periods a side, strong autocorrelation in a short series, diverging pre-trends, too few groups
+  to cluster, uneven spacing — is reported as a caution.
+- **Limits.** The check and process tracing are structural and evidential:
+  they show where a results chain rests on untested or contested steps, not
+  how large an effect is. The impact estimate attributes a change to the
+  intervention only under its design's assumptions (no other change at the
+  same time; parallel trends), which the data test only in part; it has no
+  seasonal terms, covariates, staggered starts or synthetic controls.
   Process tracing is only as good as its probability judgements; it treats
   tests on a link as independent given the link, and links on a pathway as
   independent of each other. Feedback within a programme (a ToC is kept
@@ -360,7 +376,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | CLD | Mechanism claims — qualitative structure only; arrows are argued, not estimated |
 | FCM | Semi-quantitative simulation of the claimed mechanism |
 | SD | Quantitative mechanism simulation; scenario analysis intervenes *on the model* |
-| Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence — with process tracing, weighed by Bayes' rule; no effect estimation |
+| Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence — with process tracing, weighed by Bayes' rule; with data, an interrupted-time-series or difference-in-differences impact estimate, valid only under that design's assumptions |
 | Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
 | Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
 | Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
@@ -380,7 +396,9 @@ Latris reports say it themselves in the Methods section.
 Black-box machine learning and opaque structure learning (they fail the
 inspectability test — `latris capabilities`, `excluded_by_design`);
 counterfactual estimation, and interventional estimation beyond back-door
-adjusted regression; XMILE/Vensim import
+adjusted regression on a DAG and the two quasi-experimental impact designs on
+a theory of change (interrupted time series, difference-in-differences);
+XMILE/Vensim import
 (off the roadmap). See the capability manifest for the living list.
 
 ## Machine-readable source of truth
@@ -393,6 +411,8 @@ the code it describes win, and this page is wrong.
 
 ## References
 
+- Angrist, J. D., & Pischke, J.-S. (2009). *Mostly Harmless Econometrics:
+  An Empiricist's Companion*. Princeton University Press.
 - Befani, B., & Mayne, J. (2014). "Process Tracing and Contribution
   Analysis: A Combined Approach to Generative Causal Inference for Impact
   Evaluation." *IDS Bulletin*, 45(6), 17–36.
@@ -402,6 +422,12 @@ the code it describes win, and this page is wrong.
   Tracing with Bayesian Analysis." In A. Bennett & J. T. Checkel (Eds.),
   *Process Tracing: From Metaphor to Analytic Tool*. Cambridge University
   Press.
+- Bernal, J. L., Cummins, S., & Gasparrini, A. (2017). "Interrupted time
+  series regression for the evaluation of public health interventions: a
+  tutorial." *International Journal of Epidemiology*, 46(1), 348–355.
+- Bertrand, M., Duflo, E., & Mullainathan, S. (2004). "How Much Should We
+  Trust Differences-in-Differences Estimates?" *Quarterly Journal of
+  Economics*, 119(1), 249–275.
 - Birnbaum, Z. W. (1969). "On the Importance of Different Components in a
   Multicomponent System." In P. R. Krishnaiah (Ed.), *Multivariate Analysis
   II*. Academic Press.
@@ -470,6 +496,8 @@ the code it describes win, and this page is wrong.
   Cambridge University Press.
 - Pearl, J., & Mackenzie, D. (2018). *The Book of Why: The New Science of
   Cause and Effect*. Basic Books.
+- Prais, S. J., & Winsten, C. B. (1954). *Trend Estimators and Serial
+  Correlation*. Cowles Commission Discussion Paper No. 383.
 - Raiffa, H. (1968). *Decision Analysis: Introductory Lectures on Choices
   under Uncertainty*. Addison-Wesley.
 - Rauzy, A. (1993). "New Algorithms for Fault Trees Analysis."
@@ -499,6 +527,10 @@ the code it describes win, and this page is wrong.
   Science*. Cornell University Press.
 - Vesely, W. E., Goldberg, F. F., Roberts, N. H., & Haasl, D. F. (1981).
   *Fault Tree Handbook* (NUREG-0492). U.S. Nuclear Regulatory Commission.
+- Wagner, A. K., Soumerai, S. B., Zhang, F., & Ross-Degnan, D. (2002).
+  "Segmented regression analysis of interrupted time series studies in
+  medication use research." *Journal of Clinical Pharmacy and Therapeutics*,
+  27(4), 299–309.
 - Weiss, C. H. (1995). "Nothing as Practical as Good Theory: Exploring
   Theory-Based Evaluation for Comprehensive Community Initiatives for
   Children and Families." In J. P. Connell, A. C. Kubisch, L. B. Schorr & C.

@@ -578,6 +578,8 @@ class SpecAnalysis(_Spec):
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
     | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
     | toc_trace (process tracing: each link's posterior from its tests, pathway confidence; no options)
+    | toc_impact (interrupted time series, or difference-in-differences with group and treated: outcome,
+      dataset, time, at, group, treated, columns)
     | ft_analyse (fault-tree cut sets, probability and importance; max_order)
     | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options)
     | et_analyse (event-tree sequences and end states; no options)
@@ -593,7 +595,7 @@ class SpecAnalysis(_Spec):
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
         "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
-        "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace",
+        "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace", "toc_impact",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -623,6 +625,11 @@ class SpecAnalysis(_Spec):
     adjust: list[str] = Field(default_factory=list)  # empty: the smallest valid set of measured factors
     columns: dict[str, str] = Field(default_factory=dict)  # factor label → dataset column, where names differ
     estimator: Literal["auto", "linear", "logistic"] | None = None
+    # toc_impact: interrupted time series (no group) or difference-in-differences, for outcome from dataset
+    time: str | None = None  # the dataset's time column (numbers or dates)
+    at: str | float | None = None  # the first period the intervention could affect
+    group: str | None = None  # difference-in-differences: the column saying which group a row is in
+    treated: list[str] = Field(default_factory=list)  # … and the group value(s) that received it
 
 
 class BuildSpec(_Spec):

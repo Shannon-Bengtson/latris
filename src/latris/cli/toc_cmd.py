@@ -277,3 +277,71 @@ def trace(
             console.print(f"\nrecorded · commit [cyan]{sha[:10]}[/cyan]")
 
     emit(payload, human=human, commit_sha=sha)
+
+
+@app.command("impact")
+@handle_cli_errors
+def impact(
+    outcome: str = typer.Argument(..., help="The outcome or impact factor whose change to estimate."),
+    dataset: str = typer.Option(..., "--dataset", help="Registered dataset (`latris data add`)."),
+    time: str = typer.Option(..., "--time", help="The dataset's time column (numbers or dates)."),
+    at: str = typer.Option(..., "--at", help="The first period the intervention could affect (a number or date)."),
+    group: str | None = typer.Option(
+        None, "--group", help="Difference-in-differences: the column saying which group each row is in."
+    ),
+    treated: list[str] = typer.Option(
+        [], "--treated", help="Group value(s) that received the intervention (repeat for several)."
+    ),
+    column: str | None = typer.Option(None, "--column", help="The outcome's column, if not the factor's label."),
+    no_record: bool = typer.Option(False, "--no-record", help="Show the result without recording it for reports."),
+) -> None:
+    """Estimate the intervention's impact on an outcome from data.
+
+    Without --group: an interrupted time series — the step and change of
+    slope at --at, and the effect by the last period against the
+    pre-period trend projected forward. With --group and --treated:
+    difference-in-differences against the comparison group, after checking
+    whether the groups were on parallel trends before. Every check that
+    fails or can't be made is listed as a caution. Recorded unless --no-record.
+    """
+    from latris.operations import impact as ops
+
+    payload = ops.estimate(outcome, dataset, time=time, at=at, group=group, treated=treated or None,
+                           column=column)
+    sha = None
+    if not no_record:
+        sha, payload["run_id"] = ops.record(payload)
+
+    def g(x: float) -> str:
+        return f"{x:.4g}"
+
+    def human() -> None:
+        console.print(escape(ops.describe(payload)) + ".\n")
+        table = Table(show_header=True, header_style="bold")
+        for col in ("", "Estimate", "95% CI", "p"):
+            table.add_column(col)
+        if payload["method"] == "its":
+            parts = (("Trend before (per period)", payload["pre_trend"]),
+                     ("Step at the start", payload["level_change"]),
+                     ("Change of slope (per period)", payload["slope_change"]),
+                     ("Effect by the last period", payload["effect"]))
+        else:
+            parts = (("Difference-in-differences", payload["effect"]),)
+            pt = payload["pre_trend_difference"]
+            if pt.get("testable"):
+                parts += (("Pre-period trend difference", pt),)
+        for name, c in parts:
+            table.add_row(name, g(c["estimate"]), f"{g(c['ci_low'])} to {g(c['ci_high'])}", g(c["p"]))
+        console.print(table)
+        if payload["method"] == "did":
+            m = payload["means"]
+            console.print(f"Means — treated {g(m['treated_before'])} → {g(m['treated_after'])}, comparison "
+                          f"{g(m['comparison_before'])} → {g(m['comparison_after'])}.")
+        console.print(f"Standard errors: {payload['se_type']}.")
+        for w in payload["warnings"]:
+            console.print(f"[yellow]caution:[/yellow] {escape(w)}")
+        console.print("[dim]Assumes: " + escape(" ".join(payload["assumptions"])) + "[/dim]")
+        if sha:
+            console.print(f"\nrecorded · commit [cyan]{sha[:10]}[/cyan]")
+
+    emit(payload, human=human, commit_sha=sha)
