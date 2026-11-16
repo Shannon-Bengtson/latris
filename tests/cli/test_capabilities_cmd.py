@@ -38,7 +38,7 @@ def test_capabilities_json_shape(tmp_path: Path, monkeypatch):
 def test_capabilities_table_shows_roadmap_status(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     out = runner.invoke(app, ["capabilities"]).stdout.lower()
-    assert "on the roadmap" in out and "parked" in out and "not planned" in out
+    assert "on the roadmap" in out and "not planned" in out
 
 
 def test_capabilities_json_includes_roadmap(tmp_path: Path, monkeypatch):

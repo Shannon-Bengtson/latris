@@ -342,8 +342,8 @@ of Change, Fault Tree, Bow-Tie, Event Tree) and 11 planned types are declared in
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, only GSN is currently on it. Decision tree, influence diagram and Markov/MDP are
-parked; causal DAG is being folded into DAG; the rest are not currently
+types, decision tree, influence diagram, Markov/MDP, argument map and GSN are on it
+(order in [ROADMAP.md](ROADMAP.md)); causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
 | Class | Registry status | Notes on fit |
@@ -355,13 +355,13 @@ planned (their fit notes are kept below for reference).
 | **Fault Tree** | Stable | Event types (top_event, intermediate_event, basic_event, undeveloped_event) as view roles; inputs are `causal` or `logical` edges from input to output event. The gate (and / or / vote k) is stored on its event (`fault_tree-gate.yaml`), not drawn as a node, so the shared substrate keeps only real events. Basic-event probabilities carry per-value provenance. Only entities with an FT type are in the tree; other inputs are listed and left out. Acyclicity is checked within the tree, not over the whole substrate. Analysis: MOCUS cut sets, exact top-event probability by BDD, Birnbaum / Fussell–Vesely / RAW importance. |
 | **Bow-Tie** | Stable | Elements (hazard, top_event, threat, consequence, barrier, escalation_factor) as view roles; lines are `causal`/`logical` edges (threat → barriers → top event → barriers → consequence; escalation factor → controls → barrier). Barrier type (CCPS), status, owner and PFD per barrier, and threat frequencies, each with provenance. Only entities with a bow-tie role are in it. Analysis: lines and effective barrier counts, flags (unprotected, single barrier, shared, uncontrolled escalation, no owner), LOPA frequencies with each threat's routes combined exactly by the fault-tree BDD. |
 | **Petri nets** | Registered — not currently planned | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |
-| **Markov chains / MDPs** | Registered — parked | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
-| **Influence Diagram** | Registered — parked | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
-| **Decision Tree** | Registered — parked | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
+| **Markov chains / MDPs** | Registered — on the roadmap | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
+| **Influence Diagram** | Registered — on the roadmap | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
+| **Decision Tree** | Registered — on the roadmap | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
 | **Event Tree** | Stable | Initiating event, headings (functional events) and end states as view roles. The tree is *not* substrate edges — one heading is asked on many branches — so heading order and sequences (yes/no answers → end state) are stored as data (`event_tree-structure.yaml`) and checked to form a complete tree. P(yes) per heading, optionally conditional on earlier answers (most specific match wins), and the initiating frequency carry provenance. |
 | **Fishbone / Ishikawa** | Registered — not currently planned | Root cause analysis with categorised cause branches. Acyclic tree. |
 | **Theory of Change** | Stable | Logic-model levels (input, activity, output, short_term_outcome, long_term_outcome, impact) as view roles — no EntityKind change; links stay `causal` edges. The impact is the outcome of interest, so ToC has no separate `outcome` role. Readiness: every factor levelled, no backward links, every impact reached from an activity, no dead ends. `toc check` records a `toc-pathways` result whose fingerprint also covers evidence, assumptions and confidence. |
-| **Argument Map** | Registered — not currently planned | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
+| **Argument Map** | Registered — on the roadmap (before GSN) | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
 | **Fuzzy Cognitive Map** | Stable | CLD with continuous edge weights in [−1, +1]. Cycles allowed; weight storage and steady-state inference are built. |
 | **Flowchart** | Registered — not currently planned | Activity-decision-outcome process flow. Universal visual modelling tool. |
 | **State Machine** | Registered — not currently planned | States and guarded transitions. Qualitative sibling of Markov. |

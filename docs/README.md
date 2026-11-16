@@ -88,7 +88,9 @@ agents: read these before changing code.
    hermetic contract, how to add tests.
 6. [`CLI_REFERENCE.md`](engineering/CLI_REFERENCE.md) — the `latris`
    command catalogue.
-7. [`SHARE_LINK.md`](engineering/SHARE_LINK.md) — open issue: `latris link`
+7. [`ROADMAP.md`](engineering/ROADMAP.md) — which model types and
+   analysis layers come next, in what order, and why.
+8. [`SHARE_LINK.md`](engineering/SHARE_LINK.md) — open issue: `latris link`
    copies drop the evidence trail but keep prose that describes it; the
    planned fix.
 

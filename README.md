@@ -193,7 +193,9 @@ See [AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls".
 `theory_of_change`, `fault_tree`, `bow_tie` and `event_tree` are
 stable/switchable today; the rest (`gsn`, `markov`, and 9 others) are
 registered but not yet switchable. Each entry's `roadmap` field says where
-it stands: GSN is `roadmap`; a few are `parked`; the rest are
+it stands: decision tree, Markov, influence diagram, argument map and GSN
+are `roadmap` (order and reasoning in
+[ROADMAP.md](docs/engineering/ROADMAP.md)); the rest are
 `not_planned` — registered, but not something to describe as coming — `latris view project
 <kind>` raises a `ValueError` if `kind` isn't stable. A few categories
 (black-box ML) are excluded by design, not "not yet." Checking this

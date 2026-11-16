@@ -776,9 +776,9 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 
 ## Planned model types
 
-On the roadmap: Goal Structuring Notation (for safety cases). Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: decision trees, influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: multi-criteria decision analysis, analysis of competing hypotheses, and process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
-Other registered types — decision trees, influence diagrams, Markov chains and MDPs, regression, argument maps, fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
+Other registered types — regression (effect estimation is coming as an analysis on DAGs instead), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
 ## How selection affects the app
 

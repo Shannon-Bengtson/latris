@@ -267,7 +267,7 @@ register_model_type(
         display_name="Markov Chain / MDP",
         short_name="MC",
         description="State-transition graph with transition probabilities and optional rewards.",
-        roadmap="parked",
+        roadmap="roadmap",
         availability="planned",
     )
 )
@@ -278,7 +278,7 @@ register_model_type(
         display_name="Influence Diagram",
         short_name="ID",
         description="Extension of Bayesian network with decision and utility nodes for decision analysis.",
-        roadmap="parked",
+        roadmap="roadmap",
         availability="planned",
         structural_validators=("acyclicity",),
         required_roles=("chance", "utility"),
@@ -292,7 +292,7 @@ register_model_type(
         display_name="Decision Tree",
         short_name="DT",
         description="Sequential decision model with chance and decision nodes branching to outcomes.",
-        roadmap="parked",
+        roadmap="roadmap",
         availability="planned",
         structural_validators=("acyclicity",),
     )
@@ -355,7 +355,7 @@ register_model_type(
         display_name="Argument Map",
         short_name="AM",
         description="Toulmin/IBIS-style argumentation: claims, warrants, evidence, rebuttals.",
-        roadmap="not_planned",
+        roadmap="roadmap",
         availability="planned",
     )
 )

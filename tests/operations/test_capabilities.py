@@ -37,10 +37,10 @@ def test_manifest_roadmap_groups_and_order():
     assert groups["built"] == {
         "cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree",
     }
-    assert groups["roadmap"] == {"gsn"}
-    assert groups["parked"] == {"decision_tree", "influence_diagram", "markov"}
+    assert groups["roadmap"] == {"gsn", "decision_tree", "influence_diagram", "markov", "argument_map"}
+    assert "parked" not in groups  # see docs/engineering/ROADMAP.md
     assert groups["not_planned"] == {
-        "causal_dag", "regression", "argument_map", "fishbone", "flowchart", "state_machine", "petri_net",
+        "causal_dag", "regression", "fishbone", "flowchart", "state_machine", "petri_net",
     }
     order = [m["roadmap"] for m in manifest["model_types"]]
     rank = {"built": 0, "roadmap": 1, "parked": 2, "not_planned": 3}

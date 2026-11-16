@@ -64,13 +64,13 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | SD quantitative | Stocks, flows, auxiliaries, constants (view roles); unit-checked equations (pint); table functions; deterministic ODE simulation (scipy) | stable (built) |
 | Causal DAG with identification | Observed/unobserved, adjustment sets | merging into DAG |
 | Regression (linear/logistic/GLM) | DAG with fitted/elicited edge coefficients; quantifies DAG edges | not currently planned |
-| Markov Chain / MDP | State-transition graph, transition probabilities, rewards | parked |
-| Influence Diagram | Decision + chance + utility nodes, informational arcs | parked |
-| Decision Tree | Sequential decision/chance branching to outcomes | parked |
+| Markov Chain / MDP | State-transition graph, transition probabilities, rewards | on the roadmap |
+| Influence Diagram | Decision + chance + utility nodes, informational arcs | on the roadmap |
+| Decision Tree | Sequential decision/chance branching to outcomes | on the roadmap |
 | Event Tree | Initiating event → ordered yes/no headings → end states (roles; tree stored as data and checked complete); conditional branch probabilities, sequence and end-state frequencies | stable (built) |
 | Fishbone / Ishikawa | Categorised cause branches converging on effect | not currently planned |
 | Theory of Change | Input → activity → output → short/long-term outcome → impact levels (view roles); acyclic, forward-only results chain; pathway enumeration with per-link evidence status and assumptions | stable (built) |
-| Argument Map | Toulmin/IBIS claims, warrants, rebuttals | not currently planned |
+| Argument Map | Toulmin/IBIS claims, warrants, rebuttals | on the roadmap |
 | Fuzzy Cognitive Map | CLD with edge weights in [−1, +1]; steady-state inference | v1 semi-quantitative |
 | Flowchart | Activity-decision-outcome process flow | not currently planned |
 | State Machine | States and guarded transitions | not currently planned |
