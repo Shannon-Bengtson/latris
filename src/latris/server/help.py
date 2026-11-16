@@ -1067,13 +1067,17 @@ Only factors with a fault-tree type are in the tree, so a fault tree can share i
 
 Every probability keeps where it came from; the important ones nobody has verified are flagged, so you know which numbers to check first. The analysis is recorded for the report and goes out of date when the tree or a probability changes.
 
+## How sure is it? (Monte Carlo)
+
+Basic-event probabilities are rarely known exactly. Give them a range — `latris ft uncertainty "Pump A fails" --median 0.01 --error-factor 3` is a lognormal whose 95th percentile is three times its median, the usual way probabilistic risk assessments state it; `uniform --min --max`, `triangular`, `beta` and others also work — then `latris ft monte-carlo`. It recomputes the exact top-event probability for each sample and gives its 5th–95th percentile, median and mean beside the point estimate (with skewed ranges the mean is higher: the point estimate is not the expected value), and ranks the uncertain events by how strongly they drive the spread. Events without a range stay fixed and are listed. Ranges are judgements too: say why with `--reason` and cite with `--source`.
+
 ## Readiness
 
 The tree is complete when it has one top event, every top and intermediate event has a gate and inputs (and a vote gate's k fits), basic and undeveloped events have no inputs, nothing loops, and every event leads to the top event. Probabilities aren't needed to be ready — the cut sets are useful on their own.
 
 ## Practical caution
 
-The analysis is static and assumes basic events are independent: it has no common-cause failure model, no NOT, priority-AND or sequence gates, and probabilities are point values. Methods: the NRC *Fault Tree Handbook* (Vesely et al. 1981), IEC 61025, Rauzy (1993) for the decision diagram, and Birnbaum (1969) and Fussell (1975) for importance.
+The analysis is static and assumes basic events are independent: it has no common-cause failure model, no NOT, priority-AND or sequence gates, and different events' uncertainties are sampled as independent. Methods: the NRC *Fault Tree Handbook* (Vesely et al. 1981), IEC 61025, Rauzy (1993) for the decision diagram, and Birnbaum (1969) and Fussell (1975) for importance.
 """,
     ),
     HelpTopic(
@@ -1101,13 +1105,17 @@ Each barrier can carry its **type** (passive hardware, active hardware, active h
 
 Give every threat a frequency per year (`latris bowtie frequency <threat> <f> --source …`) and every barrier on a line a failure probability, and it adds a layer-of-protection estimate: the top event's frequency, each consequence's, and for each barrier how many times more often its side's outcome would happen if it always failed (RAW). A barrier on two routes from the same threat is counted once. The important values nobody has verified are flagged. The analysis is recorded for the report and goes out of date when the bow-tie or a value changes.
 
+## How sure is it? (Monte Carlo)
+
+Give barrier failure probabilities and threat frequencies a range (`latris bowtie uncertainty "Pressure relief valve" --median 0.01 --error-factor 10`, or `uniform --min --max` and other distributions), then `latris bowtie monte-carlo`: the top event's and each consequence's frequency as a 5th–95th percentile range, median and mean beside the point estimate, and which ranges drive the spread. A barrier on several lines takes one value per run everywhere it appears, as it should.
+
 ## Readiness
 
 Complete when there is one top event, at most one hazard (linked to the top event), at least one threat and one consequence each on a line, every barrier on a line, every escalation factor linked to the barrier it degrades, and no link that breaks the pattern or loops.
 
 ## Practical caution
 
-The quantification is LOPA's: order-of-magnitude, barriers assumed independent, point values. Escalation factors are not quantified, and there is no severity scale or risk matrix. The left side of a bow-tie is often a fault tree: a threat's frequency can cite a fault-tree analysis as its source. Methods: CCPS & Energy Institute (2018) *Bow Ties in Risk Management*, and CCPS (2001) *Layer of Protection Analysis*.
+The quantification is LOPA's: order-of-magnitude and barriers assumed independent; values are points unless given a range for Monte Carlo. Escalation factors are not quantified, and there is no severity scale or risk matrix. The left side of a bow-tie is often a fault tree: a threat's frequency can cite a fault-tree analysis as its source. Methods: CCPS & Energy Institute (2018) *Bow Ties in Risk Management*, and CCPS (2001) *Layer of Protection Analysis*.
 """,
     ),
     HelpTopic(
@@ -1129,13 +1137,17 @@ Each heading has P(yes) (`latris et probability <heading> <p>`), and can have di
 
 `latris et analyse` gives each sequence's probability (the product of its branch probabilities) and, with the initiating frequency, how often it happens per year; the totals per end state; and the dominant sequence behind each end state. Values on the dominant sequences that nobody has verified are flagged. The result is recorded for the report and goes out of date when the tree or a value changes.
 
+## How sure is it? (Monte Carlo)
+
+Give the uncertain numbers a range and sample them: `latris et uncertainty "Gas release" --median 0.02 --error-factor 3` (a lognormal whose 95th percentile is three times its median — the usual way risk assessments state it), or a branch probability, conditional ones with `--given "Gas detected=no"`; other distributions take `uniform --min --max`, `triangular`, `beta` and so on. `latris et monte-carlo` reruns the tree for each sample and gives every end state's 5th–95th percentile, median and mean beside the point estimate, and ranks the uncertain inputs by how strongly they drive the headline end state (`--output` picks it; by default the rarest). Values without a range stay fixed and are listed, so the spread is a lower bound.
+
 ## Readiness
 
 Complete when there is one initiating event and at least one end state, every heading is in the order, and the sequences form a complete tree: at each branch point every sequence asks the same next question, both answers are covered, no sequence stops while a sibling continues, and every heading and end state is used.
 
 ## Practical caution
 
-Branches are binary, and dependence between headings is only what you state with conditional probabilities. Values are points, with no uncertainty propagation, and heading probabilities are entered rather than linked live to fault trees. Methods: IEC 62502 (event tree analysis) and the NRC *PRA Procedures Guide* (NUREG/CR-2300).
+Branches are binary, and dependence between headings is only what you state with conditional probabilities. Uncertainty comes only from the ranges you give for Monte Carlo, and heading probabilities are entered rather than linked live to fault trees. Methods: IEC 62502 (event tree analysis) and the NRC *PRA Procedures Guide* (NUREG/CR-2300).
 """,
     ),
     HelpTopic(

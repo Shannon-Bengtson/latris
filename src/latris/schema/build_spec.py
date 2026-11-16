@@ -280,6 +280,22 @@ class SpecFTProbability(_Spec):
     notes: str | None = None
 
 
+class SpecRiskUncertainty(_SpecParam):
+    """How uncertain a risk model's number is, for Monte Carlo: a fault-tree event's probability, a bow-tie
+    barrier's PFD or threat's frequency, an event-tree heading's P(yes) (``given`` its condition, as in the
+    probability entry) or initiating frequency.
+
+    ``params`` as for the distribution, or ``{median, error_factor}`` for a lognormal.
+    """
+
+    node: str
+    distribution: Literal["uniform", "triangular", "normal", "lognormal", "beta", "gamma"]
+    params: dict[str, float]
+    given: dict[str, Literal["yes", "no"]] = Field(default_factory=dict)  # event trees only
+    reason: str = ""
+    verified: bool = False
+
+
 class SpecFT(_Spec):
     """Fault tree: event types, gates on top/intermediate events, basic-event probabilities.
 
@@ -289,6 +305,7 @@ class SpecFT(_Spec):
     events: list[SpecFTEvent] = Field(default_factory=list)
     gates: list[SpecFTGate] = Field(default_factory=list)
     probabilities: list[SpecFTProbability] = Field(default_factory=list)
+    uncertainty: list[SpecRiskUncertainty] = Field(default_factory=list)
 
 
 class SpecBTElement(_Spec):
@@ -323,6 +340,7 @@ class SpecBowTie(_Spec):
     elements: list[SpecBTElement] = Field(default_factory=list)
     barriers: list[SpecBTBarrier] = Field(default_factory=list)
     frequencies: list[SpecBTFrequency] = Field(default_factory=list)
+    uncertainty: list[SpecRiskUncertainty] = Field(default_factory=list)
 
 
 class SpecETElement(_Spec):
@@ -362,6 +380,7 @@ class SpecEventTree(_Spec):
     sequences: list[SpecETSequence] = Field(default_factory=list)
     probabilities: list[SpecETProbability] = Field(default_factory=list)
     frequency: SpecETFrequency | None = None
+    uncertainty: list[SpecRiskUncertainty] = Field(default_factory=list)
 
 
 class SpecMCDAElement(_Spec):
@@ -578,6 +597,8 @@ class SpecAnalysis(_Spec):
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
     | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
     | toc_trace (process tracing: each link's posterior from its tests, pathway confidence; no options)
+    | ft_monte_carlo / bowtie_monte_carlo / et_monte_carlo (uncertainty in the top-event probability or the
+      frequencies: runs, seed, sampling; target: the output to headline)
     | toc_impact (interrupted time series, or difference-in-differences with group and treated: outcome,
       dataset, time, at, group, treated, columns)
     | ft_analyse (fault-tree cut sets, probability and importance; max_order)
@@ -596,6 +617,7 @@ class SpecAnalysis(_Spec):
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
         "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
         "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace", "toc_impact",
+        "ft_monte_carlo", "bowtie_monte_carlo", "et_monte_carlo",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)

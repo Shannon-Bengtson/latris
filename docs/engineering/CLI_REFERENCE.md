@@ -356,6 +356,8 @@ latris ft probability <event> <p> [--source KEY] [--origin ORIGIN] [--verified] 
 latris ft show                                        # the tree from the top event down
 latris ft check                                       # structure; exits 1 until complete
 latris ft analyse [--max-order N] [--no-record]       # cut sets, SPOFs, exact P(top), importance
+latris ft uncertainty <target> [lognormal --median M --error-factor EF | uniform --min --max | …] [--reason] [--source] [--clear]
+latris ft monte-carlo [--runs N] [--seed S] [--sampling lhs|random] [--output R] [--no-record]   # percentiles, mean vs point, drivers
 ```
 
 ## Bow-tie
@@ -373,6 +375,8 @@ latris bowtie frequency <threat> <per_year> [--source] [--origin] [--verified] [
 latris bowtie show                                    # line by line
 latris bowtie check                                   # structure; exits 1 until complete
 latris bowtie analyse [--no-record]                   # lines, flags, LOPA frequencies, RAW per barrier
+latris bowtie uncertainty <target> [lognormal --median M --error-factor EF | uniform --min --max | …] [--reason] [--source] [--clear]
+latris bowtie monte-carlo [--runs N] [--seed S] [--sampling lhs|random] [--output R] [--no-record]   # percentiles, mean vs point, drivers
 ```
 
 ## Event tree
@@ -391,6 +395,8 @@ latris et frequency <initiating_event> <per_year> [--source] [--origin] [--verif
 latris et show                                        # sequences table (· = not asked)
 latris et check                                       # complete tree? exits 1 until it is
 latris et analyse [--no-record]                       # sequence and end-state probabilities / frequencies
+latris et uncertainty <target> [lognormal --median M --error-factor EF | uniform --min --max | …] [--reason] [--source] [--clear] [--given "Heading=no"]
+latris et monte-carlo [--runs N] [--seed S] [--sampling lhs|random] [--output R] [--no-record]   # percentiles, mean vs point, drivers
 ```
 
 ## MCDA (multi-criteria decision analysis)

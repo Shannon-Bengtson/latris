@@ -111,7 +111,8 @@ black-box predictors.
    acceptability curves still to come).
 4. **Evaluation ladder** — #6 process tracing (done: `latris toc prior|test|trace`, an analysis on
    the theory of change), #9 ITS / DiD (done: `latris toc impact`).
-5. **Analysis layers** — #7 Monte Carlo on the risk types, #8 SALib.
+5. **Analysis layers** — #7 Monte Carlo on the risk types (done: `latris ft|bowtie|et uncertainty`
+   and `monte-carlo`), #8 SALib.
 6. **Argument map** (#12), then GSN on top of it — when a safety user appears.
 
 Registry statuses follow this plan: influence diagram and argument map are

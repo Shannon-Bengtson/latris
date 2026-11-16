@@ -49,6 +49,11 @@ repository. Start at the repo-root [README](../README.md).
   states, checked to be a complete tree; conditional branch probabilities,
   sequence and end-state frequencies, the dominant sequences — via CLI `et`
   + `/api/et/*`.
+- Uncertainty in all three risk types: ranges on probabilities, PFDs and
+  frequencies (lognormal median and error factor, or any distribution) and
+  Monte Carlo through each model's own calculation — percentiles, mean
+  against the point estimate, what drives the spread — via `ft|bowtie|et
+  uncertainty` and `monte-carlo`.
 - Multi-criteria decision analysis: options scored against swing-weighted
   criteria, the ranking with each criterion's contribution, dominated
   options, and how far each weight would have to move to change the

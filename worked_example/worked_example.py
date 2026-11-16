@@ -1655,6 +1655,19 @@ def build_example(ex: WorkedExample) -> None:
             "fault, a single point of failure whose value an AI proposed and nobody has checked, carries the "
             "largest share: the first number to verify.")
     ex.run(["ft", "analyse"])
+    ex.note("How sure is that probability? Give the uncertain values a range. Risk assessments usually state a "
+            "lognormal by its median and error factor (95th percentile ÷ median): the AI-proposed control fault "
+            "is known only to within a factor of ten.")
+    ex.run(["ft", "uncertainty", "Control fault", "--median", "0.0005", "--error-factor", "10",
+            "--reason", "AI-proposed point value; no data yet"])
+    ex.run(["ft", "uncertainty", "Pump A mechanical failure", "--median", "0.02", "--error-factor", "3",
+            "--source", "pumpdata", "--reason", "generic pump data, site not specific"])
+    ex.run(["ft", "uncertainty", "Pump B mechanical failure", "--median", "0.02", "--error-factor", "3",
+            "--source", "pumpdata", "--reason", "generic pump data, site not specific"])
+    ex.note("The Monte Carlo reruns the exact calculation for each sample. The mean sits above the point "
+            "estimate — skewed ranges pull it up — and the control fault's wide range drives most of the spread. "
+            "The supplies have no range, so they are held fixed and listed.")
+    ex.run(["ft", "monte-carlo", "--runs", "5000"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "sensitivity", "--model-type", "fault_tree"])
     os.chdir(ex.root)
@@ -1721,6 +1734,14 @@ def build_example(ex: WorkedExample) -> None:
         ex.run(["bowtie", "barrier", _n, "--pfd", _pfd, "--source", "lopa-generic-values"])
     ex.run(["bowtie", "barrier", "Pressure relief valve", "--verified"])
     ex.run(["bowtie", "analyse"])
+    ex.note("Generic LOPA values are order-of-magnitude: give the barriers and threats ranges and see how wide the "
+            "frequencies really are. The relief valve sits on one line but carries the overpressure threat alone.")
+    ex.run(["bowtie", "uncertainty", "Pressure relief valve", "--median", "0.01", "--error-factor", "10",
+            "--reason", "generic LOPA value; site test records not reviewed"])
+    ex.run(["bowtie", "uncertainty", "Overpressure", "triangular", "--min", "0.2", "--mode", "0.5", "--max", "1",
+            "--source", "site-incident-log", "--verified"])
+    ex.run(["bowtie", "uncertainty", "Gas detection", "--median", "0.1", "--error-factor", "3"])
+    ex.run(["bowtie", "monte-carlo", "--runs", "5000"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "bow_tie"])
 
@@ -1758,6 +1779,12 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["et", "frequency", "Loss of containment", "0.02", "--source", "bow-tie analysis",
             "--origin", "data-derived"])
     ex.run(["et", "analyse"])
+    ex.note("Uncertainty on a conditional branch and on the initiating frequency; the Monte Carlo headlines the "
+            "jet fire.")
+    ex.run(["et", "uncertainty", "Ignition", "beta", "--alpha", "3", "--beta", "7", "--given", "Gas detected=no",
+            "--reason", "elicited: 'about 30%, could be 10–60%'"])
+    ex.run(["et", "uncertainty", "Loss of containment", "--median", "0.02", "--error-factor", "5"])
+    ex.run(["et", "monte-carlo", "--runs", "5000", "--output", "Jet fire"])
     ex.note("The project now uses both views of the same event; selecting both gives each its interpretation.")
     ex.run(["project", "select-models", "bow_tie", "event_tree"])
     ex.run(["interpret", "initialise"])

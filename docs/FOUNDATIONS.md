@@ -152,8 +152,8 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
 - **Limits.** Static, coherent trees only: no NOT, priority-AND, sequence or
   other dynamic gates. Basic events are assumed independent — there is no
   common-cause failure model (beta factor, MGL), so redundancy can look
-  stronger than it is. Probabilities are point values: no uncertainty
-  propagation, and no conversion from failure rates and exposure times
+  stronger than it is. Uncertainty is propagated by Monte Carlo (below),
+  but there is no conversion from failure rates and exposure times
   (enter the probability for the period the tree is about). Cut sets are
   listed up to 20,000; past that, limit the order.
 
@@ -177,7 +177,8 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   the fault-tree decision diagram, so a barrier on two routes counts once.
 - **Limits.** Barriers are assumed to fail independently — shared barriers
   are flagged, but common-cause failure isn't modelled; LOPA is an
-  order-of-magnitude method and the values are points. Escalation factors
+  order-of-magnitude method; its values are points unless given ranges for
+  Monte Carlo (below). Escalation factors
   are drawn and checked but not quantified, and there is no consequence
   severity or risk matrix.
 
@@ -197,9 +198,37 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   initiating frequency, its frequency per year; totals per end state with
   the dominant sequence behind each. Every value keeps its provenance.
 - **Limits.** Binary branches only; dependence between headings exists only
-  as the conditional probabilities you state; point values, no uncertainty
-  propagation; heading probabilities are entered (they can cite a fault-tree
+  as the conditional probabilities you state; uncertainty only by Monte
+  Carlo over stated ranges (below); heading probabilities are entered (they can cite a fault-tree
   run) rather than computed from linked fault trees.
+
+## Uncertainty in the risk models (Monte Carlo)
+
+- **Lineage.** Probabilistic risk assessment propagates parameter
+  uncertainty by sampling (NUREG/CR-2300, ch. 12), with each input's
+  state-of-knowledge distribution usually a lognormal stated by its median
+  and *error factor* (95th percentile over the median); the epistemic
+  reading of those distributions is Apostolakis (1990). Latin hypercube
+  sampling follows McKay, Beckman & Conover (1979) and Helton & Davis
+  (2003).
+- **Implemented.** `latris ft|bowtie|et uncertainty` gives a basic event's
+  probability, a barrier's PFD, a threat's or initiator's frequency, or a
+  heading's (conditional) P(yes) a distribution — lognormal by median and
+  error factor, or uniform, triangular, normal, beta, gamma — kept within
+  [0, 1] for probabilities, with provenance and a reason; the range must
+  include the current value. `monte-carlo` samples them (seeded Latin
+  hypercube by default) through the type's own calculation — the fault
+  tree's exact decision diagram, the bow-tie's line combination, the event
+  tree's sequence products — and reports each result's 5th, 50th and 95th
+  percentiles and mean beside the point estimate, and Spearman rank
+  correlations for what drives the spread. Each input takes one value per
+  run wherever it appears, so a barrier on two lines or an event under two
+  gates is not treated as two independent copies.
+- **Limits.** Different inputs are sampled independently: no correlation
+  between, say, two pumps' failure probabilities beyond what a shared event
+  expresses. Inputs without a range are held exact, so the spread is a lower
+  bound. Rank correlation captures monotone influence only; global
+  sensitivity indices are not computed.
 
 ## Multi-criteria decision analysis
 
@@ -377,7 +406,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | FCM | Semi-quantitative simulation of the claimed mechanism |
 | SD | Quantitative mechanism simulation; scenario analysis intervenes *on the model* |
 | Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence — with process tracing, weighed by Bayes' rule; with data, an interrupted-time-series or difference-in-differences impact estimate, valid only under that design's assumptions |
-| Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
+| Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events, optionally with Monte Carlo over their uncertainty — no causal estimation |
 | Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
 | Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
 | MCDA | Not causal: a structured comparison of options under stated weights |
@@ -413,6 +442,8 @@ the code it describes win, and this page is wrong.
 
 - Angrist, J. D., & Pischke, J.-S. (2009). *Mostly Harmless Econometrics:
   An Empiricist's Companion*. Princeton University Press.
+- Apostolakis, G. (1990). "The Concept of Probability in Safety Assessments
+  of Technological Systems." *Science*, 250(4986), 1359–1364.
 - Befani, B., & Mayne, J. (2014). "Process Tracing and Contribution
   Analysis: A Combined Approach to Generative Causal Inference for Impact
   Evaluation." *IDS Bulletin*, 45(6), 17–36.
@@ -462,6 +493,9 @@ the code it describes win, and this page is wrong.
   of evidence and strength of recommendations." *BMJ*, 336, 924–926.
 - Hernán, M., & Robins, J. (2020). *Causal Inference: What If*. Chapman &
   Hall/CRC. <https://hsph.harvard.edu/causalinference/>
+- Helton, J. C., & Davis, F. J. (2003). "Latin hypercube sampling and the
+  propagation of uncertainty in analyses of complex systems." *Reliability
+  Engineering & System Safety*, 81(1), 23–69.
 - Heuer, R. J. (1999). *Psychology of Intelligence Analysis*. Center for the
   Study of Intelligence, Central Intelligence Agency.
 - Heuer, R. J., & Pherson, R. H. (2015). *Structured Analytic Techniques for

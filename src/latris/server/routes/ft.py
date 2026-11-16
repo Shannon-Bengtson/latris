@@ -110,3 +110,8 @@ def analyse(root: Root, body: AnalyseRequest | None = None) -> dict[str, Any]:
     if body.record and not payload["problems"] and not payload["error"]:
         sha, payload["run_id"] = ft.record(payload, root=root)
     return {"result": payload, "commit_sha": sha}
+
+
+from latris.server.routes import _risk_mc  # noqa: E402
+
+_risk_mc.add_routes(router, "fault_tree")

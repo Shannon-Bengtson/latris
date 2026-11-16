@@ -115,7 +115,7 @@ the schema change.
 | Per-session elicitation | `ElicitationSession` | `provenance/elicitations/<YYYY-MM-DD>-<slug>.yaml` |
 | View roles | `ViewRoleMap` | `views/roles/{view_kind}-roles.yaml` | **built** |
 | Model settings | `SDSettings` / `FCMSettings` / `MarkovSettings` | per run (CLI options); not stored | **built** (schema) |
-| Parameter uncertainty | `ParameterUncertaintySet` (`parameter_cell_id` `sd:constant` / `sd:initial_value`) | `substrate/attributes/parameter-uncertainty.yaml` | **built** (SD) |
+| Parameter uncertainty | `ParameterUncertaintySet` (`parameter_cell_id` `sd:constant` / `sd:initial_value`) | `substrate/attributes/parameter-uncertainty.yaml` | **built** (SD, BN, fault tree, bow-tie, event tree) |
 | Datasets | `DatasetLibrary` | `data/datasets.yaml` | **built** |
 | Committed dataset files | *(arbitrary content)* | `data/files/<name>` | **built** |
 | Dataset action log | `DataActionLog` | `data/actions/{dataset_id}.yaml` | **built** |
@@ -170,7 +170,9 @@ annotates any such cell with a distribution; **Monte Carlo / PSA / EVPI**
 is a cross-cutting *analysis layer* that propagates those uncertainties
 over any parameterized model (BN, regression, SD, …) — it is not itself a
 model type or a parameter file. Built for SD (`sd monte-carlo`,
-`sd sensitivity`); BN PSA/EVPI would reuse the same store. See the PARAMETERS design spec (held in the private design docs).
+`sd sensitivity`), BN tables (`bn monte-carlo`) and the risk types (`ft`/`bowtie`/`et
+monte-carlo`, cells `fault_tree:probability`, `bow_tie:pfd`, `bow_tie:frequency`,
+`event_tree:probability[:<heading>=<answer>,…]`, `event_tree:frequency`). See the PARAMETERS design spec (held in the private design docs).
 
 ## Maturity ladder
 

@@ -293,6 +293,30 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="risk-monte-carlo",
+        applies_to=("fault_tree", "bow_tie", "event_tree"),
+        method="Monte Carlo propagation of parameter uncertainty in risk models",
+        citation=(
+            "US Nuclear Regulatory Commission (1983), *PRA Procedures Guide* (NUREG/CR-2300), ch. 12 (uncertainty, "
+            "lognormal error factors); Apostolakis (1990), \"The Concept of Probability in Safety Assessments of "
+            "Technological Systems\", *Science* 250; McKay, Beckman & Conover (1979), Latin hypercube sampling; "
+            "Helton & Davis (2003), \"Latin hypercube sampling and the propagation of uncertainty in analyses of "
+            "complex systems\", *Reliability Engineering & System Safety* 81"
+        ),
+        used_for=(
+            "how sure a fault tree's top-event probability, a bow-tie's frequencies or an event tree's end-state "
+            "frequencies are: a distribution (or a lognormal median and error factor) on each uncertain input, "
+            "seeded Latin hypercube sampling through the model's own calculation, percentiles and the mean against "
+            "the point estimate, and Spearman rank correlation for what drives the spread"
+        ),
+        limits=(
+            "Inputs are sampled independently, except that each input takes one value per run wherever it appears "
+            "(state-of-knowledge dependence within a model); no correlation between different inputs. Inputs "
+            "without a range are treated as exact, so the spread is a lower bound. Rank correlation measures "
+            "monotone influence only."
+        ),
+    ),
+    Foundation(
         id="toc-impact",
         applies_to=("theory_of_change",),
         method="Impact estimation: interrupted time series and difference-in-differences",
@@ -434,6 +458,9 @@ _ANALYSIS_KIND_TO_ID = {
     "dag-estimate": "dag-estimation",
     "toc-process-trace": "toc-process-tracing",
     "toc-impact": "toc-impact",
+    "ft-monte-carlo": "risk-monte-carlo",
+    "bt-monte-carlo": "risk-monte-carlo",
+    "et-monte-carlo": "risk-monte-carlo",
 }
 
 

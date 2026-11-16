@@ -8,6 +8,7 @@ from typing import Any
 from latris.operations.formalisms import (
     Formalism,
     ResultKind,
+    _risk_mc,
     register,
 )
 
@@ -165,7 +166,8 @@ def _export(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
                         verified=f.verification == "human-verified", notes=f.notes)
         for f in bt.get_frequencies(root=paths.root).entries if f.target_id in labels
     ]
-    return SpecBowTie(elements=elements, barriers=barriers, frequencies=freqs)
+    return SpecBowTie(elements=elements, barriers=barriers, frequencies=freqs,
+                      uncertainty=_risk_mc.spec_export("bow_tie", paths, labels))
 
 
 def _apply(spec_bt, verified_by: str, root: Path) -> int:
@@ -191,7 +193,7 @@ def _apply(spec_bt, verified_by: str, root: Path) -> int:
         bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
                              verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
-    return n
+    return n + _risk_mc.spec_apply("bow_tie", spec_bt.uncertainty, verified_by, root)
 
 
 def _outcome_ids(paths) -> set[str]:
@@ -223,7 +225,7 @@ def _check(block, known, outcome: str | None) -> list[str]:
     for e in block.elements:
         if outcome and e.node.casefold() == outcome.casefold() and e.type != "top_event":
             problems.append(f"bowtie element: {e.node!r} is the outcome, so it is the top event, not {e.type}")
-    return problems
+    return problems + _risk_mc.spec_check("bowtie", block.uncertainty, known)
 
 
 def _run(a, root: Path) -> str:
@@ -265,7 +267,8 @@ register(Formalism(
     sensitivity_fallback=("Give every threat a frequency and every barrier a failure probability to rank the "
                           "barriers by how much they buy."),
     results=(ResultKind(kind="bt-analysis", title="Bow-tie: lines, barriers and frequencies", render=_render,
-                        analysis="bowtie_analyse", run=_run, definition=_definition),),
+                        analysis="bowtie_analyse", run=_run, definition=_definition),
+             _risk_mc.result_kind("bow_tie")),
     spec_field="bowtie",
     spec_check=_check,
     spec_apply=_apply,

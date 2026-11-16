@@ -8,6 +8,7 @@ from typing import Any
 from latris.operations.formalisms import (
     Formalism,
     ResultKind,
+    _risk_mc,
     register,
 )
 
@@ -156,7 +157,8 @@ def _export(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
                           verified=p.verification == "human-verified", notes=p.notes)
         for p in ft.get_probabilities(root=paths.root).entries if p.target_id in labels
     ]
-    return SpecFT(events=events, gates=gates, probabilities=probs)
+    return SpecFT(events=events, gates=gates, probabilities=probs,
+                  uncertainty=_risk_mc.spec_export("fault_tree", paths, labels))
 
 
 def _apply(spec_ft, verified_by: str, root: Path) -> int:
@@ -178,7 +180,7 @@ def _apply(spec_ft, verified_by: str, root: Path) -> int:
             notes=p.notes, root=root,
         )
         n += 1
-    return n
+    return n + _risk_mc.spec_apply("fault_tree", spec_ft.uncertainty, verified_by, root)
 
 
 def _outcome_ids(paths) -> set[str]:
@@ -213,7 +215,7 @@ def _check(block, known, outcome: str | None) -> list[str]:
     for e in block.events:
         if outcome and e.node.casefold() == outcome.casefold() and e.type != "top_event":
             problems.append(f"ft event: {e.node!r} is the outcome, so it is the top event, not {e.type}")
-    return problems
+    return problems + _risk_mc.spec_check("ft", block.uncertainty, known)
 
 
 def _run(a, root: Path) -> str:
@@ -252,7 +254,8 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Give every basic event a probability to rank the events by importance.",
     results=(ResultKind(kind="ft-analysis", title="Fault tree: cut sets, probability and importance", render=_render,
-                        analysis="ft_analyse", run=_run, definition=_definition),),
+                        analysis="ft_analyse", run=_run, definition=_definition),
+             _risk_mc.result_kind("fault_tree")),
     spec_field="ft",
     spec_check=_check,
     spec_apply=_apply,

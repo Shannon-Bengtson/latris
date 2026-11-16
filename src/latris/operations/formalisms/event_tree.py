@@ -8,6 +8,7 @@ from typing import Any
 from latris.operations.formalisms import (
     Formalism,
     ResultKind,
+    _risk_mc,
     register,
 )
 
@@ -160,7 +161,8 @@ def _export(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
     freq = SpecETFrequency(node=labels[f.target_id], frequency=f.frequency, source=f.source_id, origin=f.origin,
                            verified=f.verification == "human-verified", notes=f.notes) if f else None
     return SpecEventTree(elements=elements, order=[labels[h] for h in s.headings] if ok else [], sequences=seqs,
-                         probabilities=probs, frequency=freq)
+                         probabilities=probs, frequency=freq,
+                         uncertainty=_risk_mc.spec_export("event_tree", paths, labels))
 
 
 def _apply(spec_et, verified_by: str, root: Path) -> int:
@@ -191,7 +193,7 @@ def _apply(spec_et, verified_by: str, root: Path) -> int:
         et_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
                              verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
-    return n
+    return n + _risk_mc.spec_apply("event_tree", spec_et.uncertainty, verified_by, root)
 
 
 def _outcome_ids(paths) -> set[str]:
@@ -214,7 +216,8 @@ def _check(block, known, outcome: str | None) -> list[str]:
              + [("event_tree probability", x.node) for x in block.probabilities]
              + [("event_tree probability", h) for x in block.probabilities for h in x.given]
              + ([("event_tree frequency", block.frequency.node)] if block.frequency else []))
-    return [f"{where}: no factor named {n!r}" for where, n in names if not known(n)]
+    return ([f"{where}: no factor named {n!r}" for where, n in names if not known(n)]
+            + _risk_mc.spec_check("event_tree", block.uncertainty, known))
 
 
 def _run(a, root: Path) -> str:
@@ -254,7 +257,8 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Give every heading its probability to see which values move the result.",
     results=(ResultKind(kind="et-analysis", title="Event tree: sequences and end states", render=_render,
-                        analysis="et_analyse", run=_run, definition=_definition),),
+                        analysis="et_analyse", run=_run, definition=_definition),
+             _risk_mc.result_kind("event_tree")),
     spec_field="event_tree",
     spec_check=_check,
     spec_apply=_apply,

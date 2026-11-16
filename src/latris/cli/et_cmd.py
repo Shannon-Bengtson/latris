@@ -245,3 +245,8 @@ def analyse(
             console.print(f"\nrecorded · {_sha(sha)}")
 
     emit(payload, human=human, commit_sha=sha)
+
+
+from latris.cli import _risk_mc as _risk_mc_cmds  # noqa: E402
+
+_risk_mc_cmds.register(app, "event_tree")
