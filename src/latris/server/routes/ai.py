@@ -107,10 +107,8 @@ def list_prompts() -> list[dict[str, str | bool]]:
 
 @router.post("/call")
 def ai_call(body: AICallRequest, root: Root) -> dict[str, Any]:
-    import logging
-    import traceback
-
     from latris.ai.credentials import CredentialError
+    from latris.server.deps import log_unhandled
 
     try:
         approver = _get_approver(root)
@@ -199,13 +197,12 @@ def ai_call(body: AICallRequest, root: Root) -> dict[str, Any]:
         # Let app-level handlers return proper 4xx status codes.
         raise
     except Exception as exc:
-        # Log the full traceback so it appears in the server logs, and return
-        # the message to the client so app users can diagnose.
-        logger = logging.getLogger(__name__)
-        logger.exception("AI call failed")
+        # Full traceback to the server log only; the client gets the message
+        # and an id to quote.
+        error_id = log_unhandled(exc, "AI call failed")
         raise HTTPException(
             status_code=500,
-            detail=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}",
+            detail=f"{type(exc).__name__}: {exc} (error id {error_id})",
         ) from exc
 
 

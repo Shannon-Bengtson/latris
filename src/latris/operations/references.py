@@ -9,6 +9,7 @@ import hashlib
 import re
 from contextlib import suppress
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from latris.operations.commit import auto_commit
 from latris.repo.layout import ProjectPaths
@@ -16,7 +17,7 @@ from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import Reference, ReferenceLibrary, SourceSnapshot, SourceSnapshotKind
 from latris.schema.common import SourceAccess
-from latris.schema.references import SNAPSHOT_EXTRACT_MAX
+from latris.schema.references import SNAPSHOT_EXTRACT_MAX, validate_bibkey
 
 # ── Helpers ────���─────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ def add_reference(
     paths = require_project(root)
     library, library_path = load_library(paths)
 
+    validate_bibkey(bibkey)
     if any(r.bibkey == bibkey for r in library.entries):
         raise ValueError(f"reference with bibkey {bibkey!r} already exists")
     doi = _clean_doi(doi)
@@ -254,6 +256,9 @@ def _strip_html(html: str) -> str:
     return _HTML_WHITESPACE_RE.sub(" ", no_tags).strip()
 
 
+_MAX_PDF_PAGES = 300
+
+
 def _extract_pdf_text(content: bytes) -> str:
     """Extract text from a PDF byte payload. Optional pypdf dep.
 
@@ -275,7 +280,9 @@ def _extract_pdf_text(content: bytes) -> str:
 
     reader = pypdf.PdfReader(io.BytesIO(content))
     pages: list[str] = []
-    for page in reader.pages:
+    for index, page in enumerate(reader.pages):
+        if index >= _MAX_PDF_PAGES:
+            break
         try:
             pages.append(page.extract_text() or "")
         except Exception:  # noqa: BLE001 — extraction is best-effort per page
@@ -305,7 +312,7 @@ def fetch_reference_source(
     bibkey: str,
     *,
     url: str | None = None,
-    http_get=None,  # injection seam for tests; defaults to httpx.get
+    http_get=None,  # injection seam for tests; defaults to _net_guard.safe_get
     root: Path | None = None,
 ) -> tuple[Reference, str]:
     """Fetch a reference's full text and store it as a per-bibkey artefact.
@@ -321,10 +328,10 @@ def fetch_reference_source(
     same git-native principle that drove Phase 3.
 
     The ``http_get`` parameter is an injection seam for tests; default
-    uses ``httpx.get``. Tests pass a stub to stay hermetic.
+    uses :func:`latris._net_guard.safe_get` (http(s) only, public
+    addresses only on every redirect hop, size-capped). Tests pass a stub to stay hermetic.
     """
-    import httpx
-
+    from latris._net_guard import safe_get
     from latris.schema.common import now_utc
 
     paths = require_project(root)
@@ -332,12 +339,15 @@ def fetch_reference_source(
     ref = _find_ref(library, bibkey)
 
     target_url = url or _resolve_fetch_url(ref)
-    fetch = http_get if http_get is not None else httpx.get
+    # Every fetched URL — even through the test seam — must be http(s);
+    # the real fetcher also refuses non-public addresses on every hop.
+    if urlsplit(target_url).scheme.lower() not in {"http", "https"}:
+        raise ValueError(f"only http(s) URLs can be fetched, not {target_url!r}")
+    fetch = http_get if http_get is not None else safe_get
 
     response = fetch(
         target_url,
         timeout=20,
-        follow_redirects=True,
         headers={"User-Agent": "Latris/0.1 (source verification)"},
     )
     response.raise_for_status()
@@ -539,6 +549,10 @@ def import_bibtex(
         key = entry.get("ID", "")
         if not key or key in existing_keys:
             continue
+        try:
+            validate_bibkey(key)
+        except ValueError:
+            continue  # unsafe key (path separators, '..', ...) — skip like a duplicate
 
         # Map BibTeX fields → Reference fields.
         raw_author = entry.get("author", "")
@@ -626,6 +640,8 @@ def _openalex_paper_to_reference(paper: dict) -> Reference:
     url = loc.get("landing_page_url") or doi_url or None
 
     first_surname = author_names[0].split()[-1].lower() if author_names else "unknown"
+    # Remote data: keep only letters/digits so the key is always path-safe.
+    first_surname = "".join(ch for ch in first_surname if ch.isalnum())[:60] or "unknown"
     year = paper.get("publication_year")
     bibkey = f"{first_surname}{year or 'nd'}"
 

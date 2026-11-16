@@ -420,6 +420,31 @@ disposable — on reconnect, the frontend reloads from backend.
 - **WebSocket** for real-time push (file-change notifications,
   operation progress, AI streaming responses)
 
+### Trust boundary
+
+The server has no user accounts. It is safe to run where only its owner
+can reach it, and must be gated anywhere else (the hosted app runs one
+server per user session, in containers that share a host):
+
+- **`LATRIS_SERVER_TOKEN`** — when set, every HTTP and WebSocket request
+  except `/api/health` and CORS preflights must send
+  `X-Latris-Token: <token>` (or `Authorization: Bearer <token>`); see
+  `server/access.py`. The server warns at startup if it binds beyond
+  loopback without one.
+- **CORS** allows the localhost dev origins only — never `"null"`, which
+  any web page can send from a sandboxed iframe.
+- **Errors** return a message and an `error_id`; tracebacks go to the
+  server log only.
+- **User input never reaches code or arbitrary paths.** Dataset
+  derived-column expressions are evaluated by a whitelisting AST walker
+  (`operations/_safe_expr.py`), never `DataFrame.eval`. Dataset names,
+  bibkeys and stored dataset locations are contained to their directories
+  (`repo/layout.py`: `safe_filename_stem`, `contained_path`).
+- **Outbound fetches of user/AI-supplied URLs** go through `_net_guard.py`:
+  http(s) only, public addresses only (checked on every redirect hop),
+  size-capped. `LATRIS_ALLOW_PRIVATE_FETCH=1` lifts the address check for
+  a local install that needs an intranet source.
+
 ### File watching and CLI+GUI coexistence
 
 Both the CLI and GUI operate on the same project files. The Python

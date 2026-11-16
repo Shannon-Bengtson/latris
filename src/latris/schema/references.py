@@ -8,6 +8,30 @@ from pydantic import BaseModel, ConfigDict, Field
 from latris.schema.common import now_utc
 from latris.schema.ids import new_id
 
+MAX_BIBKEY_LENGTH = 200
+
+
+def validate_bibkey(bibkey: str) -> str:
+    """Reject bibkeys that are unsafe to use anywhere near a file path.
+
+    Applied when a key is created (add, BibTeX/DOI import). It is not a
+    model validator, so projects that already hold an odd key still load;
+    ``ProjectPaths.references_extract_path`` contains those separately.
+    """
+    if not isinstance(bibkey, str) or not bibkey.strip():
+        raise ValueError("bibkey must be a non-empty string")
+    if len(bibkey) > MAX_BIBKEY_LENGTH:
+        raise ValueError(f"bibkey is too long (max {MAX_BIBKEY_LENGTH} characters)")
+    if bibkey != bibkey.strip() or any(ch.isspace() for ch in bibkey):
+        raise ValueError(f"bibkey {bibkey!r} must not contain whitespace")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in bibkey):
+        raise ValueError(f"bibkey {bibkey!r} must not contain control characters")
+    if "/" in bibkey or "\\" in bibkey or ".." in bibkey or bibkey.startswith((".", "-")):
+        raise ValueError(
+            f"bibkey {bibkey!r} must not contain '/', '\\\\' or '..', or start with '.' or '-'"
+        )
+    return bibkey
+
 # AI interrogation Phase 2: a record of what the system actually
 # fetched from a publisher. Distinct from `Reference.notes`, which is
 # user-authored. The kind discriminator lets verification logic

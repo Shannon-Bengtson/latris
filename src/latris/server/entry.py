@@ -15,6 +15,7 @@ from pathlib import Path
 def _run_server(args: argparse.Namespace) -> None:
     import uvicorn
 
+    from latris.server.access import warn_if_exposed
     from latris.server.app import create_app
     from latris.server.config import ServerConfig
 
@@ -24,6 +25,7 @@ def _run_server(args: argparse.Namespace) -> None:
         port=args.port,
         reload=False,
     )
+    warn_if_exposed(cfg.host)
     app = create_app(project_root=cfg.project_root)
     uvicorn.run(app, host=cfg.host, port=cfg.port)
 
