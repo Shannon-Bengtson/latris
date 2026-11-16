@@ -333,6 +333,42 @@ class SpecEventTree(_Spec):
     frequency: SpecETFrequency | None = None
 
 
+class SpecMCDAElement(_Spec):
+    node: str
+    type: Literal["option", "criterion"]
+
+
+class SpecMCDACriterion(_Spec):
+    node: str
+    weight: float | None = Field(default=None, gt=0)  # swing weight; normalised over the criteria
+    direction: Literal["higher", "lower"] | None = None  # which way is better
+    worst: float | None = None  # the scale; omit both to use the options' range
+    best: float | None = None
+    units: str | None = None
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMCDAScore(_Spec):
+    option: str
+    criterion: str
+    value: float
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMCDA(_Spec):
+    """Multi-criteria decision analysis: options, criteria (weight, direction, scale) and scores."""
+
+    elements: list[SpecMCDAElement] = Field(default_factory=list)
+    criteria: list[SpecMCDACriterion] = Field(default_factory=list)
+    scores: list[SpecMCDAScore] = Field(default_factory=list)
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -388,14 +424,14 @@ class SpecAnalysis(_Spec):
     | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options)
     | et_analyse (event-tree sequences and end states; no options)
     | dag_estimate (effect of treatment on outcome from a dataset: treatment, outcome, dataset, adjust,
-      columns, estimator).
+      columns, estimator) | mcda_analyse (ranking and weight sensitivity; no options).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
+        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate", "mcda_analyse",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -448,4 +484,5 @@ class BuildSpec(_Spec):
     ft: SpecFT | None = None  # Fault tree events, gates and probabilities
     bowtie: SpecBowTie | None = None  # Bow-tie elements, barriers and threat frequencies
     event_tree: SpecEventTree | None = None  # Event tree elements, order, sequences, probabilities
+    mcda: SpecMCDA | None = None  # MCDA options, criteria and scores
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

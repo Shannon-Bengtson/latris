@@ -77,6 +77,7 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | Bow-Tie | Threat → prevention barriers → top event → mitigation barriers → consequence, escalation factors and their controls (view roles); barrier type/status/owner/PFD; line flags and LOPA frequencies | stable (built) |
 | Fault Tree | Top event → gates (AND / OR / k-of-n vote, stored on the event) → basic events (view roles); minimal cut sets, exact top-event probability (BDD), Birnbaum / Fussell–Vesely / RAW importance with provenance | stable (built) |
 | Petri Net | Bipartite places + transitions, token semantics | not currently planned |
+| MCDA | Options × criteria (roles); swing weights, directions and scales; additive value ranking, dominance, weight rank-reversal thresholds | stable (built) |
 
 ### Mapping registry
 
@@ -207,7 +208,7 @@ src/latris/
 │   ├── data_actions.py # DataAction, DataActionLog (audit trail)
 │   ├── data_versions.py # DatasetVersion, DatasetVersionLibrary
 │   ├── lineage.py     # LineageNode, Milestone, MilestoneLog
-│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC, FT, BT, ET stable; 11 planned)
+│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC, FT, BT, ET, MCDA stable; 11 planned)
 │   ├── roles.py       # ViewRoleMap — formalism-specific entity classifications
 │   ├── settings.py    # Per-model-type settings (SDSettings, FCMSettings, MarkovSettings)
 │   ├── common.py      # HumanActor, AIActor, ExpertActor, provenance axes
@@ -271,7 +272,7 @@ src/latris/
 
 ## Adding a formalism
 
-Each newer model type (Theory of Change, fault tree, bow-tie, event tree)
+Each newer model type (Theory of Change, fault tree, bow-tie, event tree, MCDA)
 plugs in through **one module** in `src/latris/operations/formalisms/`. It
 declares a `Formalism` with the hooks the shared code calls:
 
@@ -354,8 +355,9 @@ separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
 own semantic roles to substrate entities. 11 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 9 stable ones
-(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree); the Layer-3 table above gives each one's
+registered in the `ModelTypeSpec` registry alongside the 10 stable ones
+(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA); the Layer-3 table above gives
+each one's
 roadmap status. Each formalism lands as an **additive** extension — no
 schema migration. See `SCHEMA_NOTES.md` → "Extensibility hypothesis"
 for per-formalism fit notes and the open design question

@@ -347,6 +347,23 @@ register_model_type(
     )
 )
 
+register_model_type(
+    ModelTypeSpec(
+        id="mcda",
+        display_name="Multi-Criteria Decision Analysis",
+        short_name="MCDA",
+        description=(
+            "Options scored against weighted criteria: the ranking, each criterion's contribution, dominated "
+            "options, and how far each weight would have to move to change the choice."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("mcda_elements_present", "mcda_criteria_complete", "mcda_scores_complete"),
+        allowed_roles=("option", "criterion"),
+        required_roles=("option", "criterion"),
+    )
+)
+
 # -- Tier 2: systems thinking, process, and state-based formalisms ---------
 
 register_model_type(

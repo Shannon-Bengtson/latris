@@ -193,6 +193,26 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="mcda-additive-value",
+        applies_to=("mcda",),
+        method="Multi-criteria decision analysis (additive value model)",
+        citation=(
+            "Keeney & Raiffa (1976), *Decisions with Multiple Objectives*; Belton & Stewart (2002), "
+            "*Multiple Criteria Decision Analysis*; UK DCLG (2009), *Multi-criteria analysis: a manual*"
+        ),
+        used_for=(
+            "options' scores turned into 0–1 values on linear scales, combined by normalised swing weights; the "
+            "ranking with each criterion's contribution, dominated options, and for each weight the nearest "
+            "values (others keeping their proportions) at which the top choice changes"
+        ),
+        limits=(
+            "Additive and linear: assumes the criteria are preferentially independent and value is linear "
+            "between worst and best; weights are judgements and mean nothing apart from their scales; scales "
+            "taken from the options' range change when an option is added; one-way weight sensitivity only, "
+            "no probabilistic weights or scores, and no AHP or outranking methods."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",

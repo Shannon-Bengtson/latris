@@ -1762,6 +1762,41 @@ def build_example(ex: WorkedExample) -> None:
             "--column", "Exercise=exercise_hours"], expect_fail=True)
     os.chdir(ex.root)
 
+    # ── 11g. Multi-criteria decision analysis ─────────────────────────
+    ex.section(
+        "Multi-Criteria Decision Analysis",
+        "Choosing between options judged on several criteria. Each criterion has a swing weight (how much "
+        "moving from its worst to its best matters, against the other criteria's swings), a direction and a "
+        "scale; each option a score on each criterion, with its source. Shown on a sixth, small project.",
+    )
+    mcda_root = ex.root.parent / "hospital-site"
+    ex.run(["init", str(mcda_root), "--question", "Which site should the new hospital go on?"])
+    os.chdir(mcda_root)
+    ex.run(["project", "select-models", "mcda"])
+    for _n, _el in (("Riverside", "option"), ("North Park", "option"), ("Old Depot", "option"),
+                    ("Build cost", "criterion"), ("Travel time", "criterion"), ("Bed capacity", "criterion")):
+        ex.run(["node", "add", _n])
+        ex.run(["mcda", "element", _n, _el])
+    ex.run(["mcda", "criterion", "Build cost", "--weight", "50", "--direction", "lower", "--worst", "80",
+            "--best", "30", "--units", "$m", "--source", "board-workshop-2026-03"])
+    ex.run(["mcda", "criterion", "Travel time", "--weight", "30", "--direction", "lower", "--worst", "40",
+            "--best", "10", "--units", "min", "--source", "board-workshop-2026-03"])
+    ex.run(["mcda", "criterion", "Bed capacity", "--weight", "20", "--direction", "higher"])
+    for _o, _cost, _travel, _beds in (("Riverside", 45, 25, 300), ("North Park", 55, 15, 320),
+                                      ("Old Depot", 60, 30, 250)):
+        ex.run(["mcda", "score", _o, "Build cost", str(_cost), "--source", "cost-plan-v2", "--verified"])
+        ex.run(["mcda", "score", _o, "Travel time", str(_travel), "--source", "transport-model"])
+        ex.run(["mcda", "score", _o, "Bed capacity", str(_beds)])
+    ex.run(["mcda", "check"])
+    ex.run(["mcda", "show"])
+    ex.note("Bed capacity has no stated scale, so the options' own range is used — flagged, because adding a "
+            "site would shift it. The analysis ranks the sites, names the one no weights could make best, and "
+            "says how far each weight would have to move before the choice changes.")
+    ex.run(["mcda", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

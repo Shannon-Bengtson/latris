@@ -104,7 +104,8 @@ black-box predictors.
 
 1. ~~**Step 0** — one-module-per-formalism refactor.~~ Done: `operations/formalisms/`.
 2. **Quick wins** — #1 effect estimation (done: `latris analyse
-   estimate`, an analysis layer on the DAG), #2 MCDA, #3 ACH.
+   estimate`, an analysis layer on the DAG), #2 MCDA (done: `latris mcda`),
+   #3 ACH.
 3. **Decisions + HTA** — #4 decision tree + EVPI, #5 Markov.
 4. **Evaluation ladder** — #6 process tracing, #9 ITS / DiD.
 5. **Analysis layers** — #7 Monte Carlo on the risk types, #8 SALib.

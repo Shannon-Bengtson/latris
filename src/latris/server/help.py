@@ -773,10 +773,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **Fault Tree:** best for how an undesired event can happen — the combinations of failures that cause it, single points of failure, its probability and which failures matter most. See the dedicated Fault Trees topic.
 - **Bow-Tie:** best for showing, for one top event, what could cause it, what could follow, and the barriers in between — where the protection is thin, shared or uncontrolled, and (with frequencies and failure probabilities) how often each outcome is expected. See the dedicated Bow-Ties topic.
 - **Event Tree:** best for following one initiating event forward — which safety functions work or fail, in what order, and how often each end state results. See the dedicated Event Trees topic.
+- **MCDA:** best for a choice between options judged on several criteria — the ranking, what drives it, and how far the weights would have to move to change it. See the dedicated Multi-Criteria Decision Analysis topic.
 
 ## Planned model types
 
-On the roadmap: decision trees, influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: multi-criteria decision analysis, analysis of competing hypotheses, and process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: decision trees, influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: analysis of competing hypotheses, and process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -808,6 +809,8 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "Once this happens, how does it play out, and how often does it end
   badly?" → **Event Tree** — yes/no headings from one initiating event to
   end states.
+- "Which option should we choose, given what we care about?" → **MCDA** —
+  options scored against weighted criteria, and how firm the choice is.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1098,6 +1101,33 @@ Complete when there is one initiating event and at least one end state, every he
 ## Practical caution
 
 Branches are binary, and dependence between headings is only what you state with conditional probabilities. Values are points, with no uncertainty propagation, and heading probabilities are entered rather than linked live to fault trees. Methods: IEC 62502 (event tree analysis) and the NRC *PRA Procedures Guide* (NUREG/CR-2300).
+""",
+    ),
+    HelpTopic(
+        id="model-type-mcda",
+        title="Multi-Criteria Decision Analysis",
+        category="model-types",
+        summary="Choose between options judged on several criteria, and see how firm the choice is.",
+        body="""## What an MCDA represents
+
+Options you could choose (sites, suppliers, policies) and the criteria they are judged on (cost, travel time, capacity). Give each factor its element (`latris mcda element <factor> option|criterion`), then for each criterion a **swing weight**, a **direction** and, ideally, a **scale** (`latris mcda criterion Cost --weight 50 --direction lower --worst 100 --best 0 --units "$m"`), and each option's **score** on each criterion (`latris mcda score "Site A" Cost 40 --source quote-2025`).
+
+A swing weight says how much moving from the worst to the best of the scale matters, compared with the other criteria's swings — so a weight means nothing without its scale. Without `--worst`/`--best` the options' own range is used; that shifts when an option is added, and the weights then need revisiting.
+
+## What the analysis shows
+
+`latris mcda analyse` turns each score into a value from 0 (worst) to 1 (best), combines them by the normalised weights into a total out of 100, and shows:
+
+- the **ranking**, with each criterion's contribution to each option's total;
+- **dominated** options — no better anywhere, worse somewhere — which can be set aside whatever the weights;
+- for each weight, **how far it would have to move** (the others keeping their proportions) before the top choice changes — a fragile choice shows up as a small move;
+- the scores the winning margin rests on that nobody has verified.
+
+The result is recorded for the report and goes out of date when a weight, scale or score changes.
+
+## Practical caution
+
+The model is additive and linear: it assumes criteria can be traded off independently and value rises evenly between worst and best. Weights are judgements — record whose (`--source`). Methods: Keeney & Raiffa (1976), Belton & Stewart (2002), and the UK government's *Multi-criteria analysis: a manual* (DCLG 2009).
 """,
     ),
     HelpTopic(

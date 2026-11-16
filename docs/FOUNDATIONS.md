@@ -201,6 +201,30 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   propagation; heading probabilities are entered (they can cite a fault-tree
   run) rather than computed from linked fault trees.
 
+## Multi-criteria decision analysis
+
+- **Lineage.** The additive value model of multi-attribute value theory
+  (Keeney & Raiffa 1976), as set out for practice by Belton & Stewart
+  (2002) and for public-sector appraisal in the UK government's
+  *Multi-criteria analysis: a manual* (DCLG 2009). Weights are swing
+  weights: how much moving from the worst to the best of each criterion's
+  scale matters, relative to the other criteria's swings.
+- **Implemented.** Options and criteria as view roles. Each score becomes a
+  value from 0 to 1 on a linear scale between the criterion's worst and best
+  (stated, or the options' range, flagged); values are combined by
+  normalised weights into a total out of 100. The analysis gives the
+  ranking with each criterion's contribution, dominated options, and for
+  each weight the nearest values — the others keeping their proportions —
+  at which the top choice changes (exact, since totals are linear in one
+  weight). It names the scores the winning margin rests on that nobody has
+  verified. Every weight and score keeps its provenance.
+- **Limits.** Assumes preferential independence and linear value between
+  worst and best; scores outside a stated scale are clipped (and flagged).
+  Weights mean nothing apart from their scales, and scales taken from the
+  options' range shift when an option is added. One-way weight sensitivity
+  only; no probabilistic weights or scores; no AHP, outranking (ELECTRE,
+  PROMETHEE) or TOPSIS.
+
 ## Theory of change
 
 - **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
@@ -265,6 +289,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
 | Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
 | Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
+| MCDA | Not causal: a structured comparison of options under stated weights |
 | DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -293,12 +318,16 @@ the code it describes win, and this page is wrong.
 - Birnbaum, Z. W. (1969). "On the Importance of Different Components in a
   Multicomponent System." In P. R. Krishnaiah (Ed.), *Multivariate Analysis
   II*. Academic Press.
+- Belton, V., & Stewart, T. J. (2002). *Multiple Criteria Decision Analysis:
+  An Integrated Approach*. Kluwer.
 - Bradford Hill, A. (1965). "The Environment and Disease: Association or
   Causation?" *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
 - CCPS — Center for Chemical Process Safety (2001). *Layer of Protection
   Analysis: Simplified Process Risk Assessment*. AIChE.
 - CCPS & Energy Institute (2018). *Bow Ties in Risk Management: A Concept
   Book for Process Safety*. AIChE / Wiley.
+- Department for Communities and Local Government (2009). *Multi-criteria
+  analysis: a manual*. London: DCLG.
 - Fenton, N., & Neil, M. (2018). *Risk Assessment and Decision Analysis with
   Bayesian Networks* (2nd ed.). CRC Press.
 - Forrester, J. W. (1961). *Industrial Dynamics*. MIT Press.
@@ -322,6 +351,8 @@ the code it describes win, and this page is wrong.
   *Journal of Econometrics*, 29(3), 305–325.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.
+- Keeney, R. L., & Raiffa, H. (1976). *Decisions with Multiple Objectives:
+  Preferences and Value Tradeoffs*. Wiley.
 - Kellogg Foundation, W.K. (2004). *Logic Model Development Guide*. W.K.
   Kellogg Foundation.
 - Kosko, B. (1986). "Fuzzy Cognitive Maps." *International Journal of

@@ -381,6 +381,22 @@ latris et check                                       # complete tree? exits 1 u
 latris et analyse [--no-record]                       # sequence and end-state probabilities / frequencies
 ```
 
+## MCDA (multi-criteria decision analysis)
+
+Options against swing-weighted criteria. Options and criteria are view
+roles; weights, directions, scales and scores are stored with provenance.
+`mcda analyse` is recorded as an `AnalysisRun` (`mcda-analysis`).
+
+```bash
+latris mcda element <node> <option|criterion>
+latris mcda criterion <criterion> [--weight W] [--direction higher|lower] [--worst X --best Y] [--units U]
+                      [--source] [--origin] [--verified] [--notes]      # only what you give changes
+latris mcda score <option> <criterion> <value> [--source] [--origin] [--verified] [--notes]
+latris mcda show                                      # options × criteria matrix with weights
+latris mcda check                                     # weights, directions, every score; exits 1 until complete
+latris mcda analyse [--no-record]                     # ranking, contributions, dominance, weight thresholds
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

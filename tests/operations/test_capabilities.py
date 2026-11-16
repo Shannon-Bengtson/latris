@@ -10,7 +10,7 @@ def test_manifest_counts_match_registry():
     stable = [m for m in manifest["model_types"] if m["can_use_today"]]
     planned = [m for m in manifest["model_types"] if not m["can_use_today"]]
     assert {m["id"] for m in stable} == {
-        "cld", "dag", "bn", "fcm", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree",
+        "cld", "dag", "bn", "fcm", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree", "mcda",
     }
     assert len(planned) == 11
     assert manifest["excluded_by_design"]  # non-empty, hand-coded list present
@@ -35,7 +35,7 @@ def test_manifest_roadmap_groups_and_order():
         groups.setdefault(m["roadmap"], set()).add(m["id"])
         assert (m["roadmap"] == "built") == m["can_use_today"]
     assert groups["built"] == {
-        "cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree",
+        "cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree", "mcda",
     }
     assert groups["roadmap"] == {"gsn", "decision_tree", "influence_diagram", "markov", "argument_map"}
     assert "parked" not in groups  # see docs/engineering/ROADMAP.md

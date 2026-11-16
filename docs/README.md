@@ -46,6 +46,10 @@ repository. Start at the repo-root [README](../README.md).
   states, checked to be a complete tree; conditional branch probabilities,
   sequence and end-state frequencies, the dominant sequences — via CLI `et`
   + `/api/et/*`.
+- Multi-criteria decision analysis: options scored against swing-weighted
+  criteria, the ranking with each criterion's contribution, dominated
+  options, and how far each weight would have to move to change the
+  choice — via CLI `mcda` + `/api/mcda/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

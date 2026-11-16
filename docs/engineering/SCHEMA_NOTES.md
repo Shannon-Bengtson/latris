@@ -142,6 +142,9 @@ the schema change.
 | Event-tree branch probabilities (P(yes), optionally conditional) | `ETProbabilitySet` | `views/parameters/event_tree-probability.yaml` | **built** |
 | Event-tree initiating frequency | `ETFrequencySet` | `views/parameters/event_tree-frequency.yaml` | **built** |
 | Event-tree elements (initiating event/heading/end state) | `RoleSet` | `views/roles/event_tree-roles.yaml` | **built** |
+| MCDA criteria (swing weight, direction, scale) | `MCDACriterionSet` | `views/parameters/mcda-criterion.yaml` | **built** |
+| MCDA scores (option × criterion) | `MCDAScoreSet` | `views/parameters/mcda-score.yaml` | **built** |
+| MCDA elements (option/criterion) | `RoleSet` | `views/roles/mcda-roles.yaml` | **built** |
 | Node state spaces | `NodeStateSpacesFile` | `views/parameters/node-state-spaces.yaml` |
 
 **Parameterized views and the analysis layer.** The `views/parameters/*`
@@ -309,7 +312,7 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 9 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree) + 11 planned
+  (built) defines 10 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA) + 11 planned
   model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
@@ -337,8 +340,8 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 9 stable types (CLD, DAG, FCM, BN, SD, Theory
-of Change, Fault Tree, Bow-Tie, Event Tree) and 11 planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 10 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree, Bow-Tie, Event Tree, MCDA) and 11 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
@@ -364,6 +367,7 @@ planned (their fit notes are kept below for reference).
 | **Argument Map** | Registered — on the roadmap (before GSN) | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
 | **Fuzzy Cognitive Map** | Stable | CLD with continuous edge weights in [−1, +1]. Cycles allowed; weight storage and steady-state inference are built. |
 | **Flowchart** | Registered — not currently planned | Activity-decision-outcome process flow. Universal visual modelling tool. |
+| **MCDA** | Stable | Options and criteria as view roles; no edges. Per criterion a swing weight, a direction and an optional worst/best scale (else the options' range, flagged); per option × criterion a score; each value with provenance. Additive linear value model, dominance, one-way weight rank-reversal thresholds. |
 | **State Machine** | Registered — not currently planned | States and guarded transitions. Qualitative sibling of Markov. |
 
 **Open question if we ever wire GSN.** GSN treats Assumptions and

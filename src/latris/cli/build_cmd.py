@@ -63,10 +63,13 @@ def build(
       sequences (answers: {heading: yes|no}, end_state), probabilities
       (node, p_yes, given: {heading: yes|no}, source, origin, verified),
       frequency (node, frequency per year, …)
+    - ``mcda``: elements (node, type: option | criterion), criteria (node,
+      weight, direction: higher | lower, worst, best, units, source, …),
+      scores (option, criterion, value, source, origin, verified, notes)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
       ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
-      outcome, dataset, adjust, columns, estimator)
+      outcome, dataset, adjust, columns, estimator | mcda_analyse)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML
