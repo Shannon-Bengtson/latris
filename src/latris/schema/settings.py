@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Base(BaseModel):
@@ -50,14 +50,22 @@ class FCMSettings(_SettingsBase):
 
 
 class MarkovSettings(_SettingsBase):
-    """Markov chain / MDP settings."""
+    """Markov cohort model settings (stored at ``views/parameters/markov-settings.yaml``).
+
+    ``discount_rate`` applies to costs, ``outcome_discount_rate`` to outcomes (default: the same rate).
+    ``wtp`` is the willingness to pay per unit of outcome (e.g. per QALY) used for net benefit.
+    """
 
     model_type: Literal["markov"] = "markov"
-    cycle_length: float = 1.0
-    num_cycles: int = 50
-    discount_rate: float = 0.035
+    cycle_length: float = Field(default=1.0, gt=0)
+    num_cycles: int = Field(default=50, ge=1, le=10_000)
+    discount_rate: float = Field(default=0.035, ge=0, le=1)
+    outcome_discount_rate: float | None = Field(default=None, ge=0, le=1)
     half_cycle_correction: bool = True
-    time_units: str = "years"
+    time_units: Literal["days", "weeks", "months", "years"] = "years"
+    wtp: float | None = Field(default=None, ge=0)
+    cost_units: str | None = None
+    outcome_units: str | None = None
 
 
 class BNSettings(_SettingsBase):

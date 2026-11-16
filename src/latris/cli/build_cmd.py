@@ -73,11 +73,17 @@ def build(
       type: decision | chance | terminal), branches (link "Parent -> Child",
       label, probability, value, source, …), payoffs (node, value, source,
       …), uncertainties (node, uncertainty)
+    - ``markov``: elements (node, type: state | strategy), settings
+      (cycle_length, num_cycles, time_units, discount_rate,
+      outcome_discount_rate, half_cycle_correction, wtp, cost_units,
+      outcome_units), transitions (link "From -> To", probability, strategy,
+      source, …), rewards (state, strategy, cost, utility, source, …), start
+      (state, proportion)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
       ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
       outcome, dataset, adjust, columns, estimator | mcda_analyse |
-      ach_analyse | dt_analyse)
+      ach_analyse | dt_analyse | markov_analyse)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML

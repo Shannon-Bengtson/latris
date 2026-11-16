@@ -264,11 +264,17 @@ register_model_type(
 register_model_type(
     ModelTypeSpec(
         id="markov",
-        display_name="Markov Chain / MDP",
+        display_name="Markov Cohort Model",
         short_name="MC",
-        description="State-transition graph with transition probabilities and optional rewards.",
-        roadmap="roadmap",
-        availability="planned",
+        description=(
+            "A cohort moving between states each cycle: the trace, discounted costs and outcomes per strategy, "
+            "and incremental cost-effectiveness (ICERs, dominance, net benefit at a willingness to pay)."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("mk_states", "mk_transitions"),
+        allowed_roles=("state", "strategy"),
+        required_roles=("state",),
     )
 )
 

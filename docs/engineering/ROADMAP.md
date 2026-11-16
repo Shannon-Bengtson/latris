@@ -107,7 +107,8 @@ black-box predictors.
    estimate`, an analysis layer on the DAG), #2 MCDA (done: `latris mcda`),
    #3 ACH (done: `latris ach`).
 3. **Decisions + HTA** — #4 decision tree + EVPI (done: `latris dt`; probabilistic sensitivity
-   analysis still to come), #5 Markov.
+   analysis still to come), #5 Markov (done: `latris markov`; PSA and
+   acceptability curves still to come).
 4. **Evaluation ladder** — #6 process tracing, #9 ITS / DiD.
 5. **Analysis layers** — #7 Monte Carlo on the risk types, #8 SALib.
 6. **Argument map** (#12), then GSN on top of it — when a safety user appears.

@@ -266,6 +266,26 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   as not priced), and is an upper bound — imperfect information (EVSI) is
   not computed. A node has one parent; shared subtrees are repeated.
 
+## Markov cohort models and cost-effectiveness
+
+- **Lineage.** Sonnenberg & Beck (1993), "Markov Models in Medical Decision
+  Making"; Briggs, Claxton & Sculpher (2006), *Decision Modelling for Health
+  Economic Evaluation*; incremental analysis after Drummond et al. (2015).
+- **Implemented.** States and strategies as view roles; per-cycle transition
+  probabilities on links (for every strategy, or overridden for one), the
+  rest staying; per-state cost per cycle and utility per year (likewise);
+  the starting cohort. The cohort trace; discounted costs and outcomes
+  (separate rates allowed) with optional half-cycle correction — the
+  trapezoid rule, discounting at mid-cycle; expected time in each state.
+  Incremental analysis: dominated and extendedly dominated strategies,
+  ICERs along the frontier, and net monetary benefit at a willingness to
+  pay. Every value keeps its provenance.
+- **Limits.** Memoryless — the chance of moving depends only on the current
+  state (no tunnel states or time-varying probabilities yet). Point
+  estimates only: no probabilistic sensitivity analysis, acceptability
+  curves or value of information yet. A cohort expectation, not individual
+  simulation; MDPs (choosing actions in each state) are not implemented.
+
 ## Theory of change
 
 - **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
@@ -333,6 +353,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | MCDA | Not causal: a structured comparison of options under stated weights |
 | ACH | Weighs explanations against evidence; orders hypotheses, gives no probabilities |
 | Decision tree | Choices under stated probabilities; the value of knowing them first — not causal estimation |
+| Markov model | Expected costs and outcomes under stated transition probabilities — not causal estimation |
 | DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -365,6 +386,8 @@ the code it describes win, and this page is wrong.
   An Integrated Approach*. Kluwer.
 - Bradford Hill, A. (1965). "The Environment and Disease: Association or
   Causation?" *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
+- Briggs, A., Claxton, K., & Sculpher, M. (2006). *Decision Modelling for
+  Health Economic Evaluation*. Oxford University Press.
 - CCPS — Center for Chemical Process Safety (2001). *Layer of Protection
   Analysis: Simplified Process Risk Assessment*. AIChE.
 - CCPS & Energy Institute (2018). *Bow Ties in Risk Management: A Concept
@@ -373,6 +396,9 @@ the code it describes win, and this page is wrong.
   DecisionTools* (3rd ed.). Cengage.
 - Department for Communities and Local Government (2009). *Multi-criteria
   analysis: a manual*. London: DCLG.
+- Drummond, M. F., Sculpher, M. J., Claxton, K., Stoddart, G. L., &
+  Torrance, G. W. (2015). *Methods for the Economic Evaluation of Health
+  Care Programmes* (4th ed.). Oxford University Press.
 - Fenton, N., & Neil, M. (2018). *Risk Assessment and Decision Analysis with
   Bayesian Networks* (2nd ed.). CRC Press.
 - Forrester, J. W. (1961). *Industrial Dynamics*. MIT Press.
@@ -435,6 +461,9 @@ the code it describes win, and this page is wrong.
   Science Conference*.
 - Shachter, R. D. (1998). "Bayes-Ball: The Rational Pastime." *Proceedings of
   the 14th Conference on Uncertainty in Artificial Intelligence (UAI)*.
+- Sonnenberg, F. A., & Beck, J. R. (1993). "Markov Models in Medical
+  Decision Making: A Practical Guide." *Medical Decision Making*, 13(4),
+  322–338.
 - Sterman, J. D. (2000). *Business Dynamics: Systems Thinking and Modeling
   for a Complex World*. Irwin/McGraw-Hill.
 - Toulmin, S. E. (1958). *The Uses of Argument*. Cambridge University Press.

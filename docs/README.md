@@ -57,6 +57,10 @@ repository. Start at the repo-root [README](../README.md).
 - Decision trees: the best strategy by expected value, the expected value of
   perfect information for each uncertainty, and the probabilities at which
   the best choice changes — via CLI `dt` + `/api/dt/*`.
+- Markov cohort models: per-strategy transitions, costs and utilities;
+  discounted costs and outcomes with half-cycle correction; incremental
+  cost-effectiveness (ICERs, dominance, extended dominance, net benefit) —
+  via CLI `markov` + `/api/markov/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

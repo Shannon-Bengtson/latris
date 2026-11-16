@@ -429,6 +429,23 @@ latris dt check                                        # one root, a tree, payof
 latris dt analyse [--no-record]                        # best strategy, EVPI, probability thresholds
 ```
 
+## Markov cohort model
+
+States and strategies (view roles); transitions are ordinary links between
+states. Probabilities, costs, utilities and the start are stored with
+provenance. `markov analyse` is recorded (`markov-analysis`).
+
+```bash
+latris markov element <node> <state|strategy>
+latris markov transition "From -> To" <p> [--strategy S] [--source] [--origin] [--verified]
+latris markov reward <state> [--cost C] [--utility U] [--strategy S] [--source] [--verified]
+latris markov start <state> <proportion>
+latris markov settings [--cycles N] [--cycle-length L] [--time-units years] [--discount R] [--outcome-discount R]
+                       [--half-cycle/--no-half-cycle] [--wtp W] [--cost-units U] [--outcome-units U]
+latris markov show | check
+latris markov analyse [--no-record]            # costs, outcomes, ICERs, dominance, the choice at the WTP
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

@@ -130,7 +130,6 @@ the schema change.
 | SD constants | `SDConstantSet` | `views/parameters/sd-constant.yaml` |
 | SD table functions | `SDTableSet` | `views/parameters/sd-table.yaml` |
 | SD classification (stock/flow/auxiliary/constant/source_sink) | `RoleSet` | `views/roles/sd-roles.yaml` |
-| Markov / MDP transitions | `MarkovTransitionsFile` | `views/parameters/markov-transitions.yaml` |
 | SCM coefficients | `DAGCoefficientsFile` | `views/parameters/dag-coefficients.yaml` |
 | Fault-tree gates (and/or/vote k) | `FTGateSet` | `views/parameters/fault_tree-gate.yaml` | **built** |
 | Fault-tree basic-event probabilities | `FTProbabilitySet` | `views/parameters/fault_tree-probability.yaml` | **built** |
@@ -152,6 +151,10 @@ the schema change.
 | Decision-tree payoffs | `DTPayoffSet` | `views/parameters/decision_tree-payoff.yaml` | **built** |
 | Decision-tree chance-node uncertainty names | `DTChanceSet` | `views/parameters/decision_tree-chance.yaml` | **built** |
 | Decision-tree objective and units | `DTSettings` | `views/parameters/decision_tree-settings.yaml` | **built** |
+| Markov transitions (per strategy) | `MarkovTransitionSet` | `views/parameters/markov-transition.yaml` | **built** |
+| Markov costs and utilities (per state, per strategy) | `MarkovRewardSet` | `views/parameters/markov-reward.yaml` | **built** |
+| Markov starting cohort | `MarkovStartSet` | `views/parameters/markov-start.yaml` | **built** |
+| Markov settings | `MarkovSettings` | `views/parameters/markov-settings.yaml` | **built** |
 | Node state spaces | `NodeStateSpacesFile` | `views/parameters/node-state-spaces.yaml` |
 
 **Parameterized views and the analysis layer.** The `views/parameters/*`
@@ -319,8 +322,8 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 12 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH,
-  Decision Tree) + 10 planned
+  (built) defines 13 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH,
+  Decision Tree, Markov) + 9 planned
   model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
@@ -348,12 +351,12 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 12 stable types (CLD, DAG, FCM, BN, SD, Theory
-of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree) and 10 planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 13 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov) and 9 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, influence diagram, Markov/MDP, argument map and GSN are on it
+types, influence diagram, argument map and GSN are on it
 (order in [ROADMAP.md](ROADMAP.md)); causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
@@ -366,7 +369,7 @@ planned (their fit notes are kept below for reference).
 | **Fault Tree** | Stable | Event types (top_event, intermediate_event, basic_event, undeveloped_event) as view roles; inputs are `causal` or `logical` edges from input to output event. The gate (and / or / vote k) is stored on its event (`fault_tree-gate.yaml`), not drawn as a node, so the shared substrate keeps only real events. Basic-event probabilities carry per-value provenance. Only entities with an FT type are in the tree; other inputs are listed and left out. Acyclicity is checked within the tree, not over the whole substrate. Analysis: MOCUS cut sets, exact top-event probability by BDD, Birnbaum / Fussell–Vesely / RAW importance. |
 | **Bow-Tie** | Stable | Elements (hazard, top_event, threat, consequence, barrier, escalation_factor) as view roles; lines are `causal`/`logical` edges (threat → barriers → top event → barriers → consequence; escalation factor → controls → barrier). Barrier type (CCPS), status, owner and PFD per barrier, and threat frequencies, each with provenance. Only entities with a bow-tie role are in it. Analysis: lines and effective barrier counts, flags (unprotected, single barrier, shared, uncontrolled escalation, no owner), LOPA frequencies with each threat's routes combined exactly by the fault-tree BDD. |
 | **Petri nets** | Registered — not currently planned | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |
-| **Markov chains / MDPs** | Registered — on the roadmap | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
+| **Markov cohort model** | Stable | States and strategies as view roles; a transition is an ordinary edge between two states, with a per-cycle probability for every strategy or one (the rest stays). Per state a cost per cycle and a utility per year, for every strategy or one; the starting cohort; `MarkovSettings` (horizon, discounting, half-cycle correction, WTP, units). Cohort trace and incremental cost-effectiveness. MDPs (optimal policies) are not built. |
 | **Influence Diagram** | Registered — on the roadmap | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
 | **Decision Tree** | Stable | Decision, chance and terminal nodes as view roles; branches are ordinary edges (one parent per node). Per branch a label, probability (chance) and value along it; per terminal a payoff; chance nodes named by the uncertainty they resolve, so EVPI can price the same uncertainty under different choices; objective and units as settings. |
 | **Event Tree** | Stable | Initiating event, headings (functional events) and end states as view roles. The tree is *not* substrate edges — one heading is asked on many branches — so heading order and sequences (yes/no answers → end state) are stored as data (`event_tree-structure.yaml`) and checked to form a complete tree. P(yes) per heading, optionally conditional on earlier answers (most specific match wins), and the initiating frequency carry provenance. |

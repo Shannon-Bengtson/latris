@@ -1885,6 +1885,42 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "implications", "--model-type", "decision_tree"])
     os.chdir(ex.root)
 
+    # ── 11j. Markov cohort model ──────────────────────────────────────
+    ex.section(
+        "Markov Cohort Model",
+        "A cohort moving between states each cycle — healthy, sick, dead — with a cost per cycle and a quality-of-"
+        "life weight in each state, compared under two strategies. The new drug slows progression but costs more "
+        "while people are healthy. The analysis gives each strategy's discounted cost and QALYs and the "
+        "incremental cost-effectiveness. Shown on a ninth, small project.",
+    )
+    mk_root = ex.root.parent / "new-drug"
+    ex.run(["init", str(mk_root), "--question", "Is the new drug worth its cost?"])
+    os.chdir(mk_root)
+    ex.run(["project", "select-models", "markov"])
+    for _n, _k in (("Healthy", "state"), ("Sick", "state"), ("Dead", "state"),
+                   ("Standard care", "strategy"), ("New drug", "strategy")):
+        ex.run(["node", "add", _n])
+        ex.run(["markov", "element", _n, _k])
+    for _a, _b in (("Healthy", "Sick"), ("Healthy", "Dead"), ("Sick", "Dead")):
+        ex.run(["edge", "add", _a, _b])
+    ex.run(["markov", "transition", "Healthy -> Sick", "0.10", "--source", "disease-registry"])
+    ex.run(["markov", "transition", "Healthy -> Sick", "0.06", "--strategy", "New drug", "--source", "phase-3-trial"])
+    ex.run(["markov", "transition", "Healthy -> Dead", "0.01", "--source", "life-tables"])
+    ex.run(["markov", "transition", "Sick -> Dead", "0.20", "--source", "disease-registry"])
+    ex.run(["markov", "reward", "Healthy", "--cost", "500", "--utility", "0.95"])
+    ex.run(["markov", "reward", "Healthy", "--cost", "1500", "--strategy", "New drug", "--source", "price-list"])
+    ex.run(["markov", "reward", "Sick", "--cost", "3000", "--utility", "0.6"])
+    ex.run(["markov", "reward", "Dead", "--cost", "0", "--utility", "0"])
+    ex.run(["markov", "start", "Healthy", "1"])
+    ex.run(["markov", "settings", "--cycles", "30", "--discount", "0.035", "--wtp", "20000",
+            "--cost-units", "£", "--outcome-units", "QALY"])
+    ex.run(["markov", "check"])
+    ex.run(["markov", "show"])
+    ex.run(["markov", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "sensitivity", "--model-type", "markov"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

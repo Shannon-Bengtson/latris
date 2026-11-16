@@ -14,7 +14,7 @@ def test_registry_populated_at_import():
 def test_stable_types():
     stable = list_model_types(include_planned=False)
     ids = {s.id for s in stable}
-    assert ids == {"cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree", "mcda", "ach", "decision_tree"}
+    assert ids == {"cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree", "mcda", "ach", "decision_tree", "markov"}
 
 
 def test_all_types_include_planned():
@@ -94,10 +94,10 @@ def test_petri_net_has_bipartite_validator():
     assert "bipartite" in pn.structural_validators
 
 
-def test_markov_is_planned():
+def test_markov_is_stable():
     mc = get_model_type("markov")
-    assert mc.availability == "planned"
-    assert mc.structural_validators == ()
+    assert mc.availability == "stable"
+    assert set(mc.allowed_roles) == {"state", "strategy"}
 
 
 def test_influence_diagram_is_planned():

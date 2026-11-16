@@ -253,6 +253,27 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="markov-cohort",
+        applies_to=("markov",),
+        method="Cohort Markov model and incremental cost-effectiveness analysis",
+        citation=(
+            "Sonnenberg & Beck (1993), \"Markov Models in Medical Decision Making\", *Medical Decision Making* "
+            "13(4); Briggs, Claxton & Sculpher (2006), *Decision Modelling for Health Economic Evaluation*; "
+            "Drummond et al. (2015), *Methods for the Economic Evaluation of Health Care Programmes*, 4th ed."
+        ),
+        used_for=(
+            "a cohort moving between states each cycle (per-strategy transition probabilities, the rest staying); "
+            "discounted costs and outcomes with optional half-cycle correction; incremental analysis — "
+            "dominance, extended dominance, ICERs along the frontier — and net monetary benefit at a "
+            "willingness to pay"
+        ),
+        limits=(
+            "Memoryless: the chance of moving depends only on the current state, not on time in it (no tunnel "
+            "states or time-varying probabilities yet); point estimates only — no probabilistic sensitivity "
+            "analysis or acceptability curves yet; a cohort expectation, not individual-level simulation."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",

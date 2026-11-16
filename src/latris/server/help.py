@@ -776,10 +776,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **MCDA:** best for a choice between options judged on several criteria — the ranking, what drives it, and how far the weights would have to move to change it. See the dedicated Multi-Criteria Decision Analysis topic.
 - **ACH:** best for choosing between competing explanations — which one the evidence fails to rule out, and which pieces of evidence the conclusion turns on. See the dedicated Analysis of Competing Hypotheses topic.
 - **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
+- **Markov model:** best for what happens to a group over time — moving between states such as well, ill and dead — and what each strategy costs and achieves, with cost-effectiveness (ICERs, net benefit). See the dedicated Markov Cohort Models topic.
 
 ## Planned model types
 
-On the roadmap: influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -818,6 +819,9 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "What should we do, given what we don't know — and is it worth finding
   out more first?" → **Decision tree** — expected values and the value of
   information.
+- "What does each option cost and achieve over years, and is the better one
+  worth its price?" → **Markov model** — a cohort moving between states,
+  with cost-effectiveness.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1188,6 +1192,28 @@ The result is recorded for the report and goes out of date when the tree or a va
 ## Practical caution
 
 Expected value is risk-neutral: a strategy with a small chance of ruin can still come out best. Probabilities and payoffs are point values. Perfect information is an upper bound — real research is imperfect and worth less. Methods: Raiffa (1968), Clemen & Reilly (2014), Howard (1966).
+""",
+    ),
+    HelpTopic(
+        id="model-type-markov",
+        title="Markov Cohort Models",
+        category="model-types",
+        summary="Follow a cohort between states over time, and compare what strategies cost and achieve.",
+        body="""## What a Markov model represents
+
+A group of people (a cohort) spread over **states** — Healthy, Sick, Dead — moving between them each **cycle**. Give each factor its element (`latris markov element <factor> state|strategy`); a transition is an ordinary link between two states with a probability per cycle (`latris markov transition "Healthy -> Sick" 0.10 --source registry-2024`). Whatever doesn't leave a state stays in it. Say where the cohort starts (`latris markov start Healthy 1`).
+
+Each state can have a **cost** per cycle and a **utility** — a quality-of-life weight per year, 1 for full health and 0 for dead (`latris markov reward Sick --cost 2500 --utility 0.6`). **Strategies** being compared (Standard care, New drug) use the same model and differ where you override a transition or reward for one of them (`--strategy "New drug"`). Settings set the horizon and cycle length, discounting for costs and outcomes, half-cycle correction, the willingness to pay per unit of outcome and the units (`latris markov settings --cycles 40 --discount 0.035 --wtp 20000 --cost-units £ --outcome-units QALY`).
+
+## What the analysis shows
+
+`latris markov analyse` runs the cohort for each strategy and gives its discounted cost and outcome (e.g. QALYs) per person and the expected time in each state. With two or more strategies it does the standard **incremental analysis**: cheapest first; strategies that cost more and achieve no more are **dominated**; those a mix of their neighbours would beat are **extendedly dominated**; the rest have an **ICER** — the extra cost per extra unit of outcome — against the previous one. Each ICER is the willingness to pay at which the choice changes; with a willingness to pay set, the strategy with the highest net monetary benefit is named.
+
+The result is recorded for the report and goes out of date when any value changes.
+
+## Practical caution
+
+The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Values are point estimates — probabilistic sensitivity analysis is not yet available. Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015).
 """,
     ),
     HelpTopic(

@@ -442,6 +442,59 @@ class SpecDT(_Spec):
     uncertainties: list[SpecDTUncertainty] = Field(default_factory=list)
 
 
+class SpecMarkovElement(_Spec):
+    node: str
+    type: Literal["state", "strategy"]
+
+
+class SpecMarkovTransition(_Spec):
+    link: str  # "From state -> To state" (the link must exist under links)
+    probability: float = Field(ge=0.0, le=1.0)  # per cycle
+    strategy: str | None = None  # this strategy only; omit for every strategy
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMarkovReward(_Spec):
+    state: str
+    strategy: str | None = None
+    cost: float | None = None  # per cycle
+    utility: float | None = None  # per year (e.g. a quality-of-life weight)
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMarkovStart(_Spec):
+    state: str
+    proportion: float = Field(ge=0.0, le=1.0)
+
+
+class SpecMarkovSettings(_Spec):
+    cycle_length: float | None = Field(default=None, gt=0)
+    num_cycles: int | None = Field(default=None, ge=1)
+    time_units: Literal["days", "weeks", "months", "years"] | None = None
+    discount_rate: float | None = Field(default=None, ge=0, le=1)
+    outcome_discount_rate: float | None = Field(default=None, ge=0, le=1)
+    half_cycle_correction: bool | None = None
+    wtp: float | None = Field(default=None, ge=0)
+    cost_units: str | None = None
+    outcome_units: str | None = None
+
+
+class SpecMarkov(_Spec):
+    """Markov cohort model: states and strategies, transitions, costs and utilities, the start, settings."""
+
+    elements: list[SpecMarkovElement] = Field(default_factory=list)
+    settings: SpecMarkovSettings | None = None
+    transitions: list[SpecMarkovTransition] = Field(default_factory=list)
+    rewards: list[SpecMarkovReward] = Field(default_factory=list)
+    start: list[SpecMarkovStart] = Field(default_factory=list)
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -499,7 +552,8 @@ class SpecAnalysis(_Spec):
     | dag_estimate (effect of treatment on outcome from a dataset: treatment, outcome, dataset, adjust,
       columns, estimator) | mcda_analyse (ranking and weight sensitivity; no options)
     | ach_analyse (competing hypotheses: ranking, linchpins; no options)
-    | dt_analyse (decision tree: best strategy, EVPI, probability thresholds; no options).
+    | dt_analyse (decision tree: best strategy, EVPI, probability thresholds; no options)
+    | markov_analyse (Markov cohort: costs, outcomes, incremental cost-effectiveness; no options).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
@@ -507,7 +561,7 @@ class SpecAnalysis(_Spec):
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
         "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
-        "mcda_analyse", "ach_analyse", "dt_analyse",
+        "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -563,4 +617,5 @@ class BuildSpec(_Spec):
     mcda: SpecMCDA | None = None  # MCDA options, criteria and scores
     ach: SpecACH | None = None  # ACH hypotheses, evidence items and ratings
     decision_tree: SpecDT | None = None  # Decision tree nodes, branches, payoffs, uncertainties
+    markov: SpecMarkov | None = None  # Markov states, strategies, transitions, rewards, start, settings
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building
