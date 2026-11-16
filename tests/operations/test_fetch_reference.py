@@ -159,3 +159,16 @@ def test_refetch_overwrites_snapshot(project: Path) -> None:
     )
     assert "second body" in ref.source_snapshot.extract
     assert "first body" not in ref.source_snapshot.extract
+
+
+def test_fetch_refuses_non_http_url(project: Path) -> None:
+    ref_ops.add_reference("smith2023", title="X", root=project)
+    calls: list[str] = []
+    with pytest.raises(ValueError, match="http"):
+        ref_ops.fetch_reference_source(
+            "smith2023",
+            url="file:///etc/passwd",
+            http_get=lambda url, **_: calls.append(url),
+            root=project,
+        )
+    assert calls == []

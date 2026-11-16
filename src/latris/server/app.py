@@ -30,7 +30,8 @@ from latris.schema import (
     ProjectFoundation,
     Substrate,
 )
-from latris.server.deps import get_project_root
+from latris.server.access import AccessTokenMiddleware, configured_token
+from latris.server.deps import get_project_root, log_unhandled
 from latris.server.perf import PerfMiddleware
 from latris.server.routes import (
     activity,
@@ -482,7 +483,7 @@ def _include_formalism_routers(app: FastAPI) -> None:
             app.include_router(importlib.import_module(f.routes).router)
 
 
-def create_app(*, project_root: Path | None = None) -> FastAPI:
+def create_app(*, project_root: Path | None = None, access_token: str | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
     Parameters
@@ -525,8 +526,16 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
     # before CORS so it sees raw timing without preflight overhead.
     app.add_middleware(PerfMiddleware)
 
-    # CORS — allow localhost origins for Vite dev server and Electron.
-    # "null" is the Origin header value for file:// protocol (packaged Electron).
+    # Optional shared-secret gate (LATRIS_SERVER_TOKEN). Added before CORS so
+    # CORS stays outermost: preflights are answered and 401s carry headers.
+    token = access_token if access_token is not None else configured_token()
+    if token:
+        app.add_middleware(AccessTokenMiddleware, token=token)
+
+    # CORS — allow localhost origins for the Vite dev server only.
+    # Never "null": sandboxed iframes on *any* website send Origin: null,
+    # so allowing it lets arbitrary pages drive this API. (It was for the
+    # packaged Electron app's file:// pages; that app is retired.)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -534,7 +543,6 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
             "http://localhost:8741",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:8741",
-            "null",  # file:// protocol (packaged Electron)
         ],
         allow_credentials=True,
         allow_methods=["*"],
@@ -573,13 +581,16 @@ def create_app(*, project_root: Path | None = None) -> FastAPI:
 
     @app.exception_handler(Exception)
     async def _unhandled_error(_request: Request, exc: Exception) -> JSONResponse:
-        """Catch-all: always return JSON with the error detail so packaged-app
-        users can diagnose issues (the default handler returns a bare
-        'Internal Server Error' which is opaque)."""
-        import traceback
+        """Catch-all: JSON with a short message and an error id.
 
-        detail = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
-        return JSONResponse(status_code=500, content={"detail": detail})
+        The traceback goes to the server log under that id, never to the
+        client — it exposes paths, code and environment details.
+        """
+        error_id = log_unhandled(exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "internal_error", "detail": f"{type(exc).__name__}: {exc}", "error_id": error_id},
+        )
 
     # ── Mutation route modules ────────────────────────────────────────
     app.include_router(activity.router)

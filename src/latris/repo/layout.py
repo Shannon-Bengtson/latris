@@ -6,8 +6,30 @@ module imports paths from here — never hardcodes directory names.
 
 from __future__ import annotations
 
+import hashlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
+
+# A filename component that is safe on every platform and cannot escape
+# its directory. Anything else is stored under a hashed name instead.
+_SAFE_FILENAME_STEM = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._+-]{0,150}$")
+
+
+def safe_filename_stem(name: str) -> str:
+    """Return *name* if it is a safe filename stem, else a stable hashed stand-in."""
+    if _SAFE_FILENAME_STEM.match(name) and ".." not in name:
+        return name
+    return "_key-" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:24]
+
+
+def contained_path(base: Path, candidate: Path) -> Path:
+    """Return *candidate* if it resolves inside *base*, else raise ``ValueError``."""
+    resolved_base = base.resolve()
+    resolved = candidate.resolve()
+    if resolved != resolved_base and resolved_base not in resolved.parents:
+        raise ValueError(f"path {candidate} escapes {base}")
+    return candidate
 
 STATE_DIR_NAME = ".graph-tooling"
 VERSION_FILE_NAME = "version"
@@ -219,8 +241,13 @@ class ProjectPaths:
         return self.ai_dir / "reference-extracts"
 
     def references_extract_path(self, bibkey: str) -> Path:
-        """Path to the per-bibkey extract artefact (Phase 4b)."""
-        return self.references_extracts_dir / f"{bibkey}.txt"
+        """Path to the per-bibkey extract artefact (Phase 4b).
+
+        Bibkeys are user data: an unsafe one (path separators, ``..``,
+        characters some filesystems reject) maps to a hashed filename, so
+        the artefact can never land outside ``references_extracts_dir``.
+        """
+        return self.references_extracts_dir / f"{safe_filename_stem(bibkey)}.txt"
 
     # Elicitations (under provenance)
     @property

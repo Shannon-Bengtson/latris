@@ -20,6 +20,7 @@ from pathlib import Path
 from latris.operations import bn as bn_ops
 from latris.operations.analysis_runs import record_run
 from latris.operations.commit import auto_commit
+from latris.repo.layout import contained_path
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
@@ -210,7 +211,7 @@ def _load_mapped_dataframe(paths, substrate, ds, bn_nodes, ss_map):
     """Load the dataset, map columns→node ids by convention, validate states."""
     from latris.operations._data_engine import load_dataframe
 
-    df = load_dataframe(paths.root / ds.location)
+    df = load_dataframe(contained_path(paths.data_files_dir, paths.root / ds.location))
 
     labels = {e.id: e.label for e in substrate.entities}
     col_lower = {c.lower(): c for c in df.columns}
