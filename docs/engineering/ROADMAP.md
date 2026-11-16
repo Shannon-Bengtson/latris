@@ -113,7 +113,7 @@ black-box predictors.
 5. **Analysis layers** — #7 Monte Carlo on the risk types, #8 SALib.
 6. **Argument map** (#12), then GSN on top of it — when a safety user appears.
 
-Registry statuses follow this plan: decision tree, Markov, influence
-diagram and argument map are `roadmap`; GSN stays `roadmap` behind the
-argument map. MCDA, ACH and process tracing aren't registered yet — each is
+Registry statuses follow this plan: influence diagram and argument map are
+`roadmap`; GSN stays `roadmap` behind the argument map. MCDA, ACH, decision
+tree and Markov are built. Process tracing isn't registered yet — it is
 registered when it is built.
