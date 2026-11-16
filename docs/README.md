@@ -31,7 +31,9 @@ repository. Start at the repo-root [README](../README.md).
   via CLI `bn` + `/api/bn/*`.
 - Theories of change: logic-model levels from activity to impact, with
   every pathway laid out link by link against its evidence (checked,
-  cited, untested, contested) and stated assumptions — via CLI `toc` +
+  cited, untested, contested) and stated assumptions, and Bayesian
+  process tracing (hoop / smoking-gun tests, posterior per link, pathway
+  confidence) — via CLI `toc` +
   `/api/toc/*`.
 - Fault trees: AND / OR / k-out-of-n gates, minimal cut sets and single
   points of failure, the exact top-event probability (binary decision

@@ -16,7 +16,7 @@ without being redrawn.
 |---|---|---|
 | Systems | CLD → FCM → SD | — |
 | Causal inference | DAG → BN | **estimation**: "how big is the effect?" |
-| Evaluation | Theory of Change | **testing the theory against evidence**, then **impact estimation** |
+| Evaluation | Theory of Change → process tracing | **impact estimation** |
 | Risk and safety | Bow-tie → Fault tree / Event tree | live links between them (today: citations) |
 | Decisions | — | **the whole family** |
 | Arguments | evidence checks and challenges, no formalism | **argument / hypothesis structure** |
@@ -109,11 +109,12 @@ black-box predictors.
 3. **Decisions + HTA** — #4 decision tree + EVPI (done: `latris dt`; probabilistic sensitivity
    analysis still to come), #5 Markov (done: `latris markov`; PSA and
    acceptability curves still to come).
-4. **Evaluation ladder** — #6 process tracing, #9 ITS / DiD.
+4. **Evaluation ladder** — #6 process tracing (done: `latris toc prior|test|trace`, an analysis on
+   the theory of change), #9 ITS / DiD.
 5. **Analysis layers** — #7 Monte Carlo on the risk types, #8 SALib.
 6. **Argument map** (#12), then GSN on top of it — when a safety user appears.
 
 Registry statuses follow this plan: influence diagram and argument map are
 `roadmap`; GSN stays `roadmap` behind the argument map. MCDA, ACH, decision
-tree and Markov are built. Process tracing isn't registered yet — it is
-registered when it is built.
+tree and Markov are built. Process tracing is an analysis on the theory of
+change, not a type of its own, so it isn't registered separately.

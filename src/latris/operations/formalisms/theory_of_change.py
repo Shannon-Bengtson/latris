@@ -8,7 +8,9 @@ from typing import Any
 from latris.operations.formalisms import (
     Formalism,
     ResultKind,
+    default_origin,
     register,
+    spec_verification,
 )
 
 
@@ -107,15 +109,30 @@ def _render(p: dict[str, Any]) -> list[str]:
 
 def _export(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
     """Theory-of-change levels as spec entries, inputs first."""
+    from latris.operations import process_tracing as pt
     from latris.operations import toc
-    from latris.schema.build_spec import SpecToC, SpecToCLevel
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+    from latris.schema.build_spec import SpecToC, SpecToCLevel, SpecToCPrior, SpecToCTest
 
     levels = toc.get_levels(root=paths.root)
     entries = sorted(
         (SpecToCLevel(node=labels[eid], level=lvl) for eid, lvl in levels.items() if eid in labels),
         key=lambda e: (toc.LEVELS.index(e.level), e.node),
     )
-    return SpecToC(levels=entries) if entries else None
+    if not entries:
+        return None
+    sub = load_model(Substrate, paths.conceptual_yaml)
+    link = {e.id: f"{labels[e.from_id]} -> {labels[e.to_id]}" for e in sub.edges
+            if e.from_id in labels and e.to_id in labels}
+    priors = [SpecToCPrior(link=link[p.target_id], prior=p.prior, notes=p.notes, source=p.source_id,
+                           origin=p.origin, verified=p.verification == "human-verified")
+              for p in pt.get_priors(root=paths.root).entries if p.target_id in link]
+    tests = [SpecToCTest(link=link[t.target_id], name=t.name, p_if_true=t.p_if_true, p_if_false=t.p_if_false,
+                         found=t.found, description=t.description, notes=t.notes, source=t.source_id,
+                         origin=t.origin, verified=t.verification == "human-verified")
+             for t in pt.get_tests(root=paths.root).entries if t.target_id in link]
+    return SpecToC(levels=entries, priors=priors, tests=tests)
 
 
 def _groups(paths) -> tuple[list[str], dict[str, str], dict[str, str]]:
@@ -142,8 +159,23 @@ def _problems(root: Path) -> list:
     return toc.structure_problems(root=root)
 
 
+def _ends(link: str) -> list[str]:
+    return [x.strip() for x in link.split("->", 1)] if "->" in link else [link]
+
+
 def _check(block, known, outcome: str | None) -> list[str]:
     problems = []
+    for where, link in [("toc prior", x.link) for x in block.priors] + [("toc test", x.link) for x in block.tests]:
+        ends = _ends(link)
+        if len(ends) != 2:
+            problems.append(f"{where}: {link!r} isn't a link; write it 'From -> To'")
+        problems += [f"{where}: no factor named {n!r}" for n in ends if len(ends) == 2 and not known(n)]
+    seen = set()
+    for t in block.tests:
+        key = (t.link.replace(" ", "").casefold(), t.name.strip())
+        if key in seen:
+            problems.append(f"toc test: {t.name!r} on {t.link!r} is given twice")
+        seen.add(key)
     for lv in block.levels:
         if not known(lv.node):
             problems.append(f"toc level: no factor named {lv.node!r}")
@@ -153,11 +185,19 @@ def _check(block, known, outcome: str | None) -> list[str]:
 
 
 def _apply(block, verified_by: str, root: Path) -> int:
+    from latris.operations import process_tracing as pt
     from latris.operations import toc
 
     for lv in block.levels:
         toc.set_level(lv.node, lv.level, root=root)
-    return len(block.levels)
+    for p in block.priors:
+        pt.set_prior(p.link, p.prior, origin=p.origin or default_origin(verified_by), source_id=p.source,
+                     verification=spec_verification(p.verified, verified_by), notes=p.notes, root=root)
+    for t in block.tests:
+        pt.set_test(t.link, t.name, p_if_true=t.p_if_true, p_if_false=t.p_if_false, found=t.found,
+                    description=t.description, notes=t.notes, origin=t.origin or default_origin(verified_by),
+                    source_id=t.source, verification=spec_verification(t.verified, verified_by), root=root)
+    return len(block.levels) + len(block.priors) + len(block.tests)
 
 
 def _run(a, root: Path) -> str:
@@ -170,6 +210,83 @@ def _definition(payload: dict[str, Any]):
     from latris.schema.build_spec import SpecAnalysis
 
     return SpecAnalysis(kind="toc_check")
+
+
+def _pct(x: float) -> str:
+    return f"{x:.0%}"
+
+
+def _render_trace(p: dict[str, Any]) -> list[str]:
+    from latris.exporters.results import _MAX_ROWS, _esc, _table
+    from latris.operations.process_tracing import describe
+
+    out = [_esc(describe(p)) + ".", ""]
+    if p["pathways"]:
+        rows = [[" → ".join(x["path"]), _pct(x["confidence"]), f"{x['weakest']} ({_pct(x['weakest_posterior'])})"]
+                for x in p["pathways"][:_MAX_ROWS]]
+        out += ["How believable each pathway is, all its links together (the product of their posteriors, "
+                "treating the links as independent):", ""]
+        out += _table(["Pathway", "Confidence", "Weakest link"], rows)
+    rows = []
+    for lk in p["links"]:
+        done = [t for t in lk["tests"] if t["found"] is not None]
+        tests = "; ".join(f"{t['test']} ({t['type']}, {'passed' if t['found'] else 'failed'}, ×{t['ratio']:.2g})"
+                          for t in done) or "—"
+        rows.append([lk["link"], _pct(lk["prior"]), tests, _pct(lk["posterior"]), lk["verdict"]])
+    if rows:
+        out += ["Each link: its prior, the tests carried out (type, result, and the factor each multiplied the "
+                "odds by) and the posterior.", ""]
+        out += _table(["Link", "Prior", "Tests", "Posterior", "Verdict"], rows[: _MAX_ROWS * 2])
+    pending = [(lk["link"], t) for lk in p["links"] for t in lk["pending"]]
+    if pending:
+        rows = [[name, t["test"], t["type"], _pct(t["if_found"]), _pct(t["if_not_found"])]
+                for name, t in sorted(pending, key=lambda c: -abs(c[1]["if_found"] - c[1]["if_not_found"]))]
+        out += ["Tests not yet carried out, most informative first — the link's posterior if the evidence is "
+                "found, and if it isn't:", ""]
+        out += _table(["Link", "Test", "Type", "If found", "If not found"], rows[:_MAX_ROWS])
+    if p["rests_on_unverified"]:
+        out += ["Tests whose judgements nobody has verified: " + _esc(", ".join(p["rests_on_unverified"])) + ".", ""]
+    return out
+
+
+def _claims_trace(p: dict[str, Any], out: dict[str, list[str]]) -> None:
+    for pw in p["pathways"][:3]:
+        out["answer_to_question"].append(
+            f"Process tracing puts the pathway {' → '.join(pw['path'])} at {_pct(pw['confidence'])}: its weakest "
+            f"link is {pw['weakest']} ({_pct(pw['weakest_posterior'])})."
+        )
+    for lk in p["links"]:
+        done = [t for t in lk["tests"] if t["found"] is not None]
+        if done:
+            out["confidence_assessment"].append(
+                f"{lk['link']}: {lk['verdict']} ({_pct(lk['posterior'])}, from {_pct(lk['prior'])} before "
+                f"{len(done)} test(s): " + ", ".join(f"{t['type']} {'passed' if t['found'] else 'failed'}"
+                                                      for t in done) + ")."
+            )
+    if p["untested"]:
+        out["open_questions"].append("Links on a pathway with no process-tracing test carried out: "
+                                     + ", ".join(p["untested"][:5]) + ".")
+    if p["next_test"]:
+        n = p["next_test"]
+        out["open_questions"].append(
+            f"The most informative test still to run is '{n['test']}' ({n['type']}) on {n['link']}: it would move "
+            f"the link to {_pct(n['if_found'])} if found, {_pct(n['if_not_found'])} if not."
+        )
+    if p["rests_on_unverified"]:
+        out["open_questions"].append("Process-tracing judgements nobody has verified: "
+                                     + ", ".join(p["rests_on_unverified"][:5]) + ".")
+
+
+def _run_trace(a, root: Path) -> str:
+    from latris.operations import process_tracing as pt
+
+    return pt.trace(root=root)[0]["run_id"]
+
+
+def _definition_trace(payload: dict[str, Any]):
+    from latris.schema.build_spec import SpecAnalysis
+
+    return SpecAnalysis(kind="toc_trace")
 
 
 def _fingerprint(paths) -> list[Path]:
@@ -196,7 +313,9 @@ register(Formalism(
     centrality=True,
     own_implications=True,
     results=(ResultKind(kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
-                        analysis="toc_check", run=_run, definition=_definition),),
+                        analysis="toc_check", run=_run, definition=_definition),
+             ResultKind(kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
+                        analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace)),
     fingerprint_files=_fingerprint,
     spec_field="toc",
     spec_check=_check,

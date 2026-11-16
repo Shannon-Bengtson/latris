@@ -780,7 +780,7 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 
 ## Planned model types
 
-On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -1014,13 +1014,28 @@ A theory of change is a results chain: what an intervention does (**activities**
 
 A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris provenance assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
 
+## Process tracing: how far does the evidence support each link?
+
+The check says whether a link has evidence; process tracing says how much that evidence should move you. For each link, set how confident you are before looking (`latris toc prior "A -> B" 0.6`; 0.5 if unset), then add **tests** — evidence you'd expect to see if the link holds — with two judgements: how likely you'd find it if the link holds (`--if-true`, its certainty) and if it doesn't (`--if-false`; low means the evidence is unique to the link):
+
+    latris toc test "Mentoring -> Engagement" "attendance rises" --if-true 0.9 --if-false 0.4
+
+Once you've looked, record the result (`--found` or `--not-found`). The test's type follows from the two numbers (Van Evera's four):
+
+- **hoop** (certain, not unique): failing it sinks the link; passing it helps only a little;
+- **smoking gun** (unique, not certain): passing it strongly supports the link; failing it hurts little;
+- **doubly decisive** (both): settles it either way;
+- **straw in the wind** (neither): nudges only.
+
+`latris toc trace` updates each link from its prior through the tests carried out (Bayes' rule in odds form), gives each pathway a confidence (the product of its links, treating them as independent) and its weakest link, and ranks the tests still to run by how far they could move their link. It is recorded, so the report shows it and the interpretation's claims include it. The numbers are judgements: write down why in `--notes`, cite where the evidence was found with `--source`, and mark them `--verified` once someone has reviewed them.
+
 ## Readiness
 
 The model is ready when every factor has a level, no link runs backwards (towards activities), there is at least one activity and one impact, every impact is reached from an activity, and nothing dead-ends before the impact.
 
 ## Practical caution
 
-The check is structural and about evidence. It shows where a theory rests on untested or contested steps — where to look first in an evaluation — not how big an effect is or how much of an outcome the intervention caused. Methods behind it: Weiss (1995) on theory-based evaluation, the W.K. Kellogg Foundation (2004) logic model, and Mayne (2012) on contribution analysis.
+The check is structural and about evidence. It shows where a theory rests on untested or contested steps — where to look first in an evaluation — not how big an effect is or how much of an outcome the intervention caused. Methods behind it: Weiss (1995) on theory-based evaluation, the W.K. Kellogg Foundation (2004) logic model, and Mayne (2012) on contribution analysis. Process tracing doesn't estimate effect sizes either: it weighs evidence for each causal step, and its answer is only as good as the probabilities given. Methods: Van Evera (1997), Bennett (2015), Befani & Mayne (2014), Fairfield & Charman (2017).
 """,
     ),
     HelpTopic(

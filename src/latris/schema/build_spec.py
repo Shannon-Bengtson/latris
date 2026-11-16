@@ -223,10 +223,41 @@ class SpecToCLevel(_Spec):
     level: Literal["input", "activity", "output", "short_term_outcome", "long_term_outcome", "impact"]
 
 
+class SpecToCPrior(_Spec):
+    """Process tracing: confidence that a link holds before the tests."""
+
+    link: str  # "From -> To"
+    prior: float = Field(gt=0.0, lt=1.0)
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecToCTest(_Spec):
+    """Process tracing: one evidence test on a link — P(evidence | link holds), P(evidence | it doesn't), found?"""
+
+    link: str  # "From -> To"
+    name: str
+    p_if_true: float = Field(gt=0.0, lt=1.0)
+    p_if_false: float = Field(gt=0.0, lt=1.0)
+    found: bool | None = None  # omit: not looked for yet
+    description: str | None = None
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
 class SpecToC(_Spec):
-    """Theory-of-change levels. The spec's ``outcome`` (if any) becomes an impact."""
+    """Theory-of-change levels, plus process-tracing priors and tests on its links.
+
+    The spec's ``outcome`` (if any) becomes an impact.
+    """
 
     levels: list[SpecToCLevel] = Field(default_factory=list)
+    priors: list[SpecToCPrior] = Field(default_factory=list)
+    tests: list[SpecToCTest] = Field(default_factory=list)
 
 
 class SpecFTEvent(_Spec):
@@ -546,6 +577,7 @@ class SpecAnalysis(_Spec):
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
     | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
+    | toc_trace (process tracing: each link's posterior from its tests, pathway confidence; no options)
     | ft_analyse (fault-tree cut sets, probability and importance; max_order)
     | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options)
     | et_analyse (event-tree sequences and end states; no options)
@@ -561,7 +593,7 @@ class SpecAnalysis(_Spec):
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
         "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
-        "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse",
+        "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)

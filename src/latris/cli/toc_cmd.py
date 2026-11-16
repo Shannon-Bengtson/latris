@@ -138,3 +138,142 @@ def check(
             console.print(f"\nrecorded · commit [cyan]{sha[:10]}[/cyan]")
 
     emit(payload, human=human, commit_sha=sha)
+
+
+def _origin_opts(origin: str | None, source: str | None, verified: bool) -> dict:
+    out: dict = {"verification": "human-verified" if verified else "unverified"}
+    if origin:
+        out["origin"] = origin
+    if source:
+        out["source_id"] = source
+    return out
+
+
+@app.command("prior")
+@handle_cli_errors
+def prior(
+    link: str = typer.Argument(..., help="The link, written 'From -> To' (or an edge ID)."),
+    value: float = typer.Argument(..., help="Probability the link holds before any test, strictly between 0 and 1."),
+    source: str | None = typer.Option(None, "--source", help="Source ID the prior rests on."),
+    origin: str | None = typer.Option(None, "--origin", help="human-direct | human-elicited | ai-proposed | …"),
+    verified: bool = typer.Option(False, "--verified", help="Mark the prior as checked by a person."),
+    notes: str | None = typer.Option(None, "--notes"),
+) -> None:
+    """Process tracing: how confident you are in a link before the tests (default 0.5)."""
+    from latris.operations import process_tracing as pt
+
+    entry, sha = pt.set_prior(link, value, notes=notes, **_origin_opts(origin, source, verified))
+    emit(entry.model_dump(mode="json"),
+         human=lambda: console.print(f"[green]prior[/green] {escape(link)} = {value:g} · "
+                                     f"commit [cyan]{sha[:10]}[/cyan]"),
+         commit_sha=sha)
+
+
+@app.command("test")
+@handle_cli_errors
+def test_link(
+    link: str = typer.Argument(..., help="The link, written 'From -> To' (or an edge ID)."),
+    name: str = typer.Argument(..., help="A short name for the test; unique on its link."),
+    if_true: float | None = typer.Option(None, "--if-true", help="P(evidence found | the link holds): certainty."),
+    if_false: float | None = typer.Option(
+        None, "--if-false", help="P(evidence found | it doesn't): low means the evidence is unique to the link."
+    ),
+    found: bool | None = typer.Option(
+        None, "--found/--not-found", help="The result, once you've looked. Omit while the test is still to run."
+    ),
+    description: str | None = typer.Option(None, "--description", help="What evidence you'd expect to find."),
+    source: str | None = typer.Option(None, "--source", help="Source ID where the evidence was (or wasn't) found."),
+    origin: str | None = typer.Option(None, "--origin"),
+    verified: bool = typer.Option(False, "--verified", help="Mark the judgements as checked by a person."),
+    notes: str | None = typer.Option(None, "--notes"),
+    remove: bool = typer.Option(False, "--remove", help="Remove this test."),
+) -> None:
+    """Process tracing: add or update an evidence test on a link.
+
+    A test is the evidence you'd expect to see if the link holds. --if-true
+    is how likely you'd find it if the link holds; --if-false, if it
+    doesn't. Van Evera's types follow: a *hoop* test (high --if-true) sinks
+    the link if failed; a *smoking gun* (low --if-false) clinches it if
+    passed; *doubly decisive* does both; *straw in the wind* nudges. Add the
+    result with --found or --not-found. Updating a test changes only what you
+    give.
+    """
+    from latris.operations import process_tracing as pt
+
+    if remove:
+        sha = pt.remove_test(link, name)
+        emit({"removed": name}, human=lambda: console.print(f"[green]removed[/green] {escape(name)} · commit "
+                                                             f"[cyan]{sha[:10]}[/cyan]"), commit_sha=sha)
+        return
+    kw: dict = {}
+    for k, v in (("p_if_true", if_true), ("p_if_false", if_false), ("description", description), ("notes", notes),
+                 ("origin", origin), ("source_id", source)):
+        if v is not None:
+            kw[k] = v
+    if found is not None:
+        kw["found"] = found
+    if verified:
+        kw["verification"] = "human-verified"
+    entry, sha = pt.set_test(link, name, **kw)
+    kind = pt.classify(entry.p_if_true, entry.p_if_false)
+    state = {True: "found", False: "not found", None: "not yet looked for"}[entry.found]
+    emit(entry.model_dump(mode="json") | {"type": kind},
+         human=lambda: console.print(f"[green]test[/green] {escape(name)} on {escape(link)}: {kind}, {state} · "
+                                     f"commit [cyan]{sha[:10]}[/cyan]"),
+         commit_sha=sha)
+
+
+@app.command("trace")
+@handle_cli_errors
+def trace(
+    no_record: bool = typer.Option(False, "--no-record", help="Show the result without recording it for reports."),
+) -> None:
+    """Process tracing: how far the tests support each link, and each pathway.
+
+    Each link starts at its prior; each test passed or failed multiplies the
+    odds by P(E|holds)/P(E|doesn't) or its complement. A pathway's confidence
+    is the product of its links' posteriors. Tests not yet run are ranked by
+    how far they could move their link. Recorded for reports unless --no-record.
+    """
+    from latris.operations import process_tracing as pt
+
+    payload, sha = pt.trace(record=not no_record)
+
+    def pct(x: float) -> str:
+        return f"{x:.0%}"
+
+    def human() -> None:
+        console.print(escape(pt.describe(payload)) + ".\n")
+        if payload["links"]:
+            table = Table(show_header=True, header_style="bold", title="Links")
+            for col in ("Link", "Prior", "Tests carried out", "Posterior", "Verdict"):
+                table.add_column(col)
+            for lk in payload["links"]:
+                done = [t for t in lk["tests"] if t["found"] is not None]
+                tests = "; ".join(f"{t['test']} ({t['type']}, {'passed' if t['found'] else 'failed'})"
+                                  for t in done) or "[dim]none[/dim]"
+                table.add_row(escape(lk["link"]), pct(lk["prior"]), tests, pct(lk["posterior"]), lk["verdict"])
+            console.print(table)
+        if payload["pathways"]:
+            table = Table(show_header=True, header_style="bold", title="Pathways")
+            for col in ("Pathway", "Confidence", "Weakest link"):
+                table.add_column(col)
+            for pw in payload["pathways"]:
+                table.add_row(escape(" → ".join(pw["path"])), pct(pw["confidence"]),
+                              f"{escape(pw['weakest'])} ({pct(pw['weakest_posterior'])})")
+            console.print(table)
+        pending = [(lk["link"], t) for lk in payload["links"] for t in lk["pending"]]
+        if pending:
+            table = Table(show_header=True, header_style="bold", title="Tests to run (most informative first)")
+            for col in ("Link", "Test", "Type", "If found", "If not found"):
+                table.add_column(col)
+            for name, t in sorted(pending, key=lambda c: -abs(c[1]["if_found"] - c[1]["if_not_found"])):
+                table.add_row(escape(name), escape(t["test"]), t["type"], pct(t["if_found"]), pct(t["if_not_found"]))
+            console.print(table)
+        if payload["rests_on_unverified"]:
+            console.print("[yellow]Judgements nobody has verified:[/yellow] "
+                          + escape(", ".join(payload["rests_on_unverified"])))
+        if sha:
+            console.print(f"\nrecorded · commit [cyan]{sha[:10]}[/cyan]")
+
+    emit(payload, human=human, commit_sha=sha)

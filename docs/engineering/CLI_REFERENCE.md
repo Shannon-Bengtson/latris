@@ -327,7 +327,15 @@ latris toc level <node> <input|activity|output|short_term_outcome|long_term_outc
 latris toc levels                              # factors by level, and any without one
 latris toc check [--no-record]                 # pathways activity → impact; per-link evidence status + assumptions
 latris assumption add "<why the step happens>" --target "From -> To"   # counted per link by the check
+latris toc prior "From -> To" <p> [--source ID] [--origin …] [--verified] [--notes …]   # process tracing: prior (default 0.5)
+latris toc test "From -> To" <name> --if-true <P(E|holds)> --if-false <P(E|doesn't)> [--found|--not-found]
+               [--description …] [--source ID] [--verified] [--notes …] [--remove]     # add / update / remove a test
+latris toc trace [--no-record]                 # posterior per link, pathway confidence, most informative next test
 ```
+
+Process tracing is recorded as `toc-process-trace`; tests are classified as
+hoop, smoking gun, doubly decisive or straw in the wind from their two
+probabilities.
 
 ## FT (Fault Trees)
 

@@ -1546,6 +1546,27 @@ def build_example(ex: WorkedExample) -> None:
             "test first.")
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "theory_of_change"])
+    ex.note("Process tracing weighs how far the evidence supports each link. Set a prior where you have one "
+            "(0.5 otherwise), then add tests: evidence you'd expect if the link holds, with how likely you'd "
+            "find it if it holds (--if-true) and if it doesn't (--if-false). The two numbers give the test's type.")
+    ex.run(["toc", "prior", "Students mentored -> School attendance", "0.6", "--source", "lee2020",
+            "--notes", "Prior evaluations of school mentoring mostly find small attendance gains."])
+    ex.run(["toc", "test", "Students mentored -> School attendance", "attendance up in mentored cohort",
+            "--if-true", "0.9", "--if-false", "0.5", "--found",
+            "--description", "Registers show mentored students attending more than before."])
+    ex.run(["toc", "test", "Students mentored -> School attendance", "students credit their mentor",
+            "--if-true", "0.4", "--if-false", "0.05",
+            "--description", "In exit interviews, students say unprompted that their mentor got them to school."])
+    ex.run(["toc", "test", "Grades -> School completion", "completion rises with grades in the cohort",
+            "--if-true", "0.85", "--if-false", "0.4", "--not-found"])
+    ex.note("A hoop test passed helps a little; a hoop test failed sinks the link. The trace gives each link "
+            "its posterior and each pathway its confidence, and ranks the tests still to run — here the "
+            "smoking gun (exit interviews) would move its link most.")
+    ex.run(["toc", "trace"])
+    ex.note("The interpretation's claims pick the trace up: pathway confidence in the answer, each tested "
+            "link in the confidence assessment, and the test to run next in the open questions.")
+    ex.run(["interpret", "refresh-claims"])
+    ex.run(["interpret", "show", "open_questions", "--model-type", "theory_of_change"])
     os.chdir(ex.root)
 
     # ── 11c. Fault Tree ───────────────────────────────────────────────

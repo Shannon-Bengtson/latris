@@ -293,6 +293,30 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="toc-process-tracing",
+        applies_to=("theory_of_change",),
+        method="Bayesian process tracing",
+        citation=(
+            "Van Evera (1997), *Guide to Methods for Students of Political Science* (hoop, smoking-gun, "
+            "doubly-decisive and straw-in-the-wind tests); Bennett (2015), \"Disciplining Our Conjectures\", "
+            "in Bennett & Checkel (eds), *Process Tracing*; Befani & Mayne (2014), \"Process Tracing and "
+            "Contribution Analysis\", *IDS Bulletin* 45(6); Fairfield & Charman (2017), \"Explicit Bayesian "
+            "Analysis for Process Tracing\", *Political Analysis* 25(3)"
+        ),
+        used_for=(
+            "how far the evidence supports each link of a theory of change: a prior per link, each test's "
+            "P(evidence | link holds) and P(evidence | it doesn't), odds-form updating for tests passed or "
+            "failed, Van Evera's classification of each test, pathway confidence, and which test still to run "
+            "would move a link most"
+        ),
+        limits=(
+            "The probabilities are judgements, and the answer is only as good as them; tests on a link are "
+            "treated as independent given whether it holds, and pathway confidence multiplies link posteriors "
+            "as if the links were independent. It weighs evidence for a causal step; it doesn't estimate how "
+            "large the effect is."
+        ),
+    ),
+    Foundation(
         id="sd-simulation",
         applies_to=("sd",),
         method="Stock-and-flow simulation with dimensional analysis",
@@ -383,6 +407,7 @@ _ANALYSIS_KIND_TO_ID = {
     "sd-sensitivity": "sd-sensitivity",
     "sd-loops": "sd-loop-dominance",
     "dag-estimate": "dag-estimation",
+    "toc-process-trace": "toc-process-tracing",
 }
 
 

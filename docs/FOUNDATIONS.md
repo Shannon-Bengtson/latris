@@ -305,11 +305,25 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   count of stated assumptions; a pathway takes its weakest link's status.
   Links that skip two or more levels are flagged as leaps. The result is
   recorded and goes out of date when sources, checks or assumptions change.
+- **Process tracing.** Bayesian process tracing (Bennett 2015; Befani &
+  Mayne 2014; Fairfield & Charman 2017) weighs how far the evidence supports
+  each link. A link has a prior (default 0.5) and evidence *tests*, each with
+  P(E | link holds) — its certainty — and P(E | it doesn't), whose complement
+  is its uniqueness. `latris toc trace` multiplies the link's odds by
+  P(E|H)/P(E|¬H) for each test passed and (1−P(E|H))/(1−P(E|¬H)) for each
+  failed, classifies each test by Van Evera's (1997) four types (hoop: certain,
+  P(E|H) ≥ 0.8; smoking gun: unique, P(E|¬H) ≤ 0.2; doubly decisive: both;
+  straw in the wind: neither), gives each pathway the product of its links'
+  posteriors, and ranks tests still to run by how far they could move their
+  link. Probabilities are kept open (strictly between 0 and 1), so no single
+  test settles a link outright.
 - **Limits.** Structural and evidential only: it shows where a results chain
   rests on untested or contested steps, not how large an effect is, and it
   does not attribute an outcome to the intervention (no counterfactual).
-  Feedback within a programme (a ToC is kept acyclic) belongs in a CLD on the
-  same substrate.
+  Process tracing is only as good as its probability judgements; it treats
+  tests on a link as independent given the link, and links on a pathway as
+  independent of each other. Feedback within a programme (a ToC is kept
+  acyclic) belongs in a CLD on the same substrate.
 
 ## The evidence discipline
 
@@ -346,7 +360,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | CLD | Mechanism claims — qualitative structure only; arrows are argued, not estimated |
 | FCM | Semi-quantitative simulation of the claimed mechanism |
 | SD | Quantitative mechanism simulation; scenario analysis intervenes *on the model* |
-| Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence; no estimation |
+| Theory of Change | Mechanism claims laid out as a results chain, each step read against its evidence — with process tracing, weighed by Bayes' rule; no effect estimation |
 | Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
 | Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
 | Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
@@ -379,11 +393,18 @@ the code it describes win, and this page is wrong.
 
 ## References
 
+- Befani, B., & Mayne, J. (2014). "Process Tracing and Contribution
+  Analysis: A Combined Approach to Generative Causal Inference for Impact
+  Evaluation." *IDS Bulletin*, 45(6), 17–36.
+- Belton, V., & Stewart, T. J. (2002). *Multiple Criteria Decision Analysis:
+  An Integrated Approach*. Kluwer.
+- Bennett, A. (2015). "Disciplining Our Conjectures: Systematizing Process
+  Tracing with Bayesian Analysis." In A. Bennett & J. T. Checkel (Eds.),
+  *Process Tracing: From Metaphor to Analytic Tool*. Cambridge University
+  Press.
 - Birnbaum, Z. W. (1969). "On the Importance of Different Components in a
   Multicomponent System." In P. R. Krishnaiah (Ed.), *Multivariate Analysis
   II*. Academic Press.
-- Belton, V., & Stewart, T. J. (2002). *Multiple Criteria Decision Analysis:
-  An Integrated Approach*. Kluwer.
 - Bradford Hill, A. (1965). "The Environment and Disease: Association or
   Causation?" *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
 - Briggs, A., Claxton, K., & Sculpher, M. (2006). *Decision Modelling for
@@ -399,6 +420,9 @@ the code it describes win, and this page is wrong.
 - Drummond, M. F., Sculpher, M. J., Claxton, K., Stoddart, G. L., &
   Torrance, G. W. (2015). *Methods for the Economic Evaluation of Health
   Care Programmes* (4th ed.). Oxford University Press.
+- Fairfield, T., & Charman, A. E. (2017). "Explicit Bayesian Analysis for
+  Process Tracing: Guidelines, Opportunities, and Caveats." *Political
+  Analysis*, 25(3), 363–380.
 - Fenton, N., & Neil, M. (2018). *Risk Assessment and Decision Analysis with
   Bayesian Networks* (2nd ed.). CRC Press.
 - Forrester, J. W. (1961). *Industrial Dynamics*. MIT Press.
@@ -471,6 +495,8 @@ the code it describes win, and this page is wrong.
   (WASH-1400, NUREG-75/014).
 - US Nuclear Regulatory Commission (1983). *PRA Procedures Guide*
   (NUREG/CR-2300).
+- Van Evera, S. (1997). *Guide to Methods for Students of Political
+  Science*. Cornell University Press.
 - Vesely, W. E., Goldberg, F. F., Roberts, N. H., & Haasl, D. F. (1981).
   *Fault Tree Handbook* (NUREG-0492). U.S. Nuclear Regulatory Commission.
 - Weiss, C. H. (1995). "Nothing as Practical as Good Theory: Exploring
