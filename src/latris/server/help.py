@@ -775,10 +775,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **Event Tree:** best for following one initiating event forward — which safety functions work or fail, in what order, and how often each end state results. See the dedicated Event Trees topic.
 - **MCDA:** best for a choice between options judged on several criteria — the ranking, what drives it, and how far the weights would have to move to change it. See the dedicated Multi-Criteria Decision Analysis topic.
 - **ACH:** best for choosing between competing explanations — which one the evidence fails to rule out, and which pieces of evidence the conclusion turns on. See the dedicated Analysis of Competing Hypotheses topic.
+- **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
 
 ## Planned model types
 
-On the roadmap: decision trees, influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -814,6 +815,9 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
   options scored against weighted criteria, and how firm the choice is.
 - "Which explanation does the evidence fail to rule out?" → **ACH** —
   competing hypotheses rated against every piece of evidence.
+- "What should we do, given what we don't know — and is it worth finding
+  out more first?" → **Decision tree** — expected values and the value of
+  information.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1157,6 +1161,33 @@ The result is recorded for the report and goes out of date when a rating, weight
 ## Practical caution
 
 Ratings are judgements; record your reasoning (`--rationale`). The weights (high 1.0, medium 0.7, low 0.4; an inconsistency counts 1, a strong one 2) are a stated convention, and the ranking orders hypotheses — it doesn't give their probabilities. Method: Heuer (1999), *Psychology of Intelligence Analysis*, ch. 8.
+""",
+    ),
+    HelpTopic(
+        id="model-type-dt",
+        title="Decision Trees",
+        category="model-types",
+        summary="Find the best choice under uncertainty, and what finding out more first would be worth.",
+        body="""## What a decision tree represents
+
+**Decision** nodes where someone chooses, **chance** nodes where the world does, and **terminal** nodes with a payoff. Give each factor its type (`latris dt element <factor> decision|chance|terminal`) and link each node to its children with ordinary links; each node has one parent, so repeat an outcome under each branch rather than sharing it. Then set each branch's label and, from a chance node, its probability (`latris dt branch "Demand if launched -> High demand, launched" --label High -p 0.4`), any value along a branch such as the cost of a test (`--value -20`), each terminal's payoff (`latris dt payoff <terminal> 500 --source forecast`), and whether you're maximising (profit) or minimising (cost) (`latris dt settings --objective maximise --units "$k"`).
+
+When the same uncertainty appears under several choices — demand if you launch, demand if you license — give those chance nodes one name (`latris dt uncertainty <chance node> Demand`) with the same states and probabilities, so the tree can price knowing it.
+
+## What the analysis shows
+
+`latris dt analyse` rolls the tree back — a chance node is worth the probability-weighted value of its branches, a decision node the best of its options — and gives:
+
+- the **best strategy** and the expected value of each first choice;
+- the **expected value of perfect information** for each uncertainty — the most it's worth paying to know it before choosing (market research costing more isn't worth it) — and for all of them together;
+- for each two-state uncertainty, the **probability at which the best choice changes**;
+- the values on the best path nobody has verified.
+
+The result is recorded for the report and goes out of date when the tree or a value changes.
+
+## Practical caution
+
+Expected value is risk-neutral: a strategy with a small chance of ruin can still come out best. Probabilities and payoffs are point values. Perfect information is an upper bound — real research is imperfect and worth less. Methods: Raiffa (1968), Clemen & Reilly (2014), Howard (1966).
 """,
     ),
     HelpTopic(

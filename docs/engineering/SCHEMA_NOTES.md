@@ -148,6 +148,10 @@ the schema change.
 | ACH ratings (evidence item × hypothesis) | `ACHRatingSet` | `views/parameters/ach-rating.yaml` | **built** |
 | ACH evidence-item credibility and relevance | `ACHItemSet` | `views/parameters/ach-item.yaml` | **built** |
 | ACH elements (hypothesis/evidence_item) | `RoleSet` | `views/roles/ach-roles.yaml` | **built** |
+| Decision-tree branches (label, probability, value) | `DTBranchSet` | `views/parameters/decision_tree-branch.yaml` | **built** |
+| Decision-tree payoffs | `DTPayoffSet` | `views/parameters/decision_tree-payoff.yaml` | **built** |
+| Decision-tree chance-node uncertainty names | `DTChanceSet` | `views/parameters/decision_tree-chance.yaml` | **built** |
+| Decision-tree objective and units | `DTSettings` | `views/parameters/decision_tree-settings.yaml` | **built** |
 | Node state spaces | `NodeStateSpacesFile` | `views/parameters/node-state-spaces.yaml` |
 
 **Parameterized views and the analysis layer.** The `views/parameters/*`
@@ -315,8 +319,8 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 11 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH) + 11
-  planned
+  (built) defines 12 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH,
+  Decision Tree) + 10 planned
   model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
@@ -344,12 +348,12 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 11 stable types (CLD, DAG, FCM, BN, SD, Theory
-of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH) and 11 planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 12 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree) and 10 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, decision tree, influence diagram, Markov/MDP, argument map and GSN are on it
+types, influence diagram, Markov/MDP, argument map and GSN are on it
 (order in [ROADMAP.md](ROADMAP.md)); causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
@@ -364,7 +368,7 @@ planned (their fit notes are kept below for reference).
 | **Petri nets** | Registered — not currently planned | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |
 | **Markov chains / MDPs** | Registered — on the roadmap | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
 | **Influence Diagram** | Registered — on the roadmap | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
-| **Decision Tree** | Registered — on the roadmap | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
+| **Decision Tree** | Stable | Decision, chance and terminal nodes as view roles; branches are ordinary edges (one parent per node). Per branch a label, probability (chance) and value along it; per terminal a payoff; chance nodes named by the uncertainty they resolve, so EVPI can price the same uncertainty under different choices; objective and units as settings. |
 | **Event Tree** | Stable | Initiating event, headings (functional events) and end states as view roles. The tree is *not* substrate edges — one heading is asked on many branches — so heading order and sequences (yes/no answers → end state) are stored as data (`event_tree-structure.yaml`) and checked to form a complete tree. P(yes) per heading, optionally conditional on earlier answers (most specific match wins), and the initiating frequency carry provenance. |
 | **Fishbone / Ishikawa** | Registered — not currently planned | Root cause analysis with categorised cause branches. Acyclic tree. |
 | **Theory of Change** | Stable | Logic-model levels (input, activity, output, short_term_outcome, long_term_outcome, impact) as view roles — no EntityKind change; links stay `causal` edges. The impact is the outcome of interest, so ToC has no separate `outcome` role. Readiness: every factor levelled, no backward links, every impact reached from an activity, no dead ends. `toc check` records a `toc-pathways` result whose fingerprint also covers evidence, assumptions and confidence. |

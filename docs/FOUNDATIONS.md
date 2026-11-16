@@ -245,6 +245,27 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   treated as independent, and no probabilities are computed: the ranking
   orders hypotheses, it doesn't say how likely each is.
 
+## Decision trees and the value of information
+
+- **Lineage.** Raiffa (1968), *Decision Analysis*; Clemen & Reilly (2014),
+  *Making Hard Decisions*; the value of information after Howard (1966).
+- **Implemented.** Decision, chance and terminal nodes as view roles;
+  branches as links, each with a label, a probability (from chance nodes)
+  and an optional value along it; payoffs at terminals; maximise or
+  minimise. Rollback by expected value to the optimal strategy and each
+  first choice's value. The expected value of perfect information for each
+  uncertainty — chance nodes that resolve the same uncertainty under
+  different choices are grouped by name and must agree on its states and
+  probabilities — and for all of them together (treated as independent).
+  For each two-state uncertainty, the probabilities at which the best first
+  choice changes, found by scanning and bisection. Every value keeps its
+  provenance; unverified values on the best path are named.
+- **Limits.** Risk-neutral (no utility function). Point probabilities and
+  payoffs; no probabilistic sensitivity analysis yet. EVPI is undefined for
+  an uncertainty whose probabilities depend on the choice (it is reported
+  as not priced), and is an upper bound — imperfect information (EVSI) is
+  not computed. A node has one parent; shared subtrees are repeated.
+
 ## Theory of change
 
 - **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
@@ -311,6 +332,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
 | MCDA | Not causal: a structured comparison of options under stated weights |
 | ACH | Weighs explanations against evidence; orders hypotheses, gives no probabilities |
+| Decision tree | Choices under stated probabilities; the value of knowing them first — not causal estimation |
 | DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -347,6 +369,8 @@ the code it describes win, and this page is wrong.
   Analysis: Simplified Process Risk Assessment*. AIChE.
 - CCPS & Energy Institute (2018). *Bow Ties in Risk Management: A Concept
   Book for Process Safety*. AIChE / Wiley.
+- Clemen, R. T., & Reilly, T. (2014). *Making Hard Decisions with
+  DecisionTools* (3rd ed.). Cengage.
 - Department for Communities and Local Government (2009). *Multi-criteria
   analysis: a manual*. London: DCLG.
 - Fenton, N., & Neil, M. (2018). *Risk Assessment and Decision Analysis with
@@ -366,6 +390,8 @@ the code it describes win, and this page is wrong.
   Study of Intelligence, Central Intelligence Agency.
 - Heuer, R. J., & Pherson, R. H. (2015). *Structured Analytic Techniques for
   Intelligence Analysis* (2nd ed.). CQ Press.
+- Howard, R. A. (1966). "Information Value Theory." *IEEE Transactions on
+  Systems Science and Cybernetics*, 2(1), 22–26.
 - IEC 61025:2006. *Fault tree analysis (FTA)*. International
   Electrotechnical Commission.
 - IEC 62502:2010. *Analysis techniques for dependability — Event tree
@@ -394,6 +420,8 @@ the code it describes win, and this page is wrong.
   Cambridge University Press.
 - Pearl, J., & Mackenzie, D. (2018). *The Book of Why: The New Science of
   Cause and Effect*. Basic Books.
+- Raiffa, H. (1968). *Decision Analysis: Introductory Lectures on Choices
+  under Uncertainty*. Addison-Wesley.
 - Rauzy, A. (1993). "New Algorithms for Fault Trees Analysis."
   *Reliability Engineering & System Safety*, 40(3), 203–211.
 - Schum, D. A. (1994). *Evidential Foundations of Probabilistic Reasoning*.

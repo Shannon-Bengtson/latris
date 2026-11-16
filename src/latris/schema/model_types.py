@@ -291,10 +291,15 @@ register_model_type(
         id="decision_tree",
         display_name="Decision Tree",
         short_name="DT",
-        description="Sequential decision model with chance and decision nodes branching to outcomes.",
-        roadmap="roadmap",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Decision, chance and terminal nodes: the optimal strategy by expected value, what perfect information "
+            "on each uncertainty is worth (EVPI), and the probabilities at which the best choice changes."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("dt_structure", "dt_nodes_complete", "dt_probabilities_complete"),
+        allowed_roles=("decision", "chance", "terminal"),
+        required_roles=("decision", "terminal"),
     )
 )
 

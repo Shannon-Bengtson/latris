@@ -54,6 +54,9 @@ repository. Start at the repo-root [README](../README.md).
   hypothesis, the hypothesis the evidence fails to rule out, items that
   don't discriminate, and the linchpins the conclusion turns on with
   whether their sources were checked — via CLI `ach` + `/api/ach/*`.
+- Decision trees: the best strategy by expected value, the expected value of
+  perfect information for each uncertainty, and the probabilities at which
+  the best choice changes — via CLI `dt` + `/api/dt/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

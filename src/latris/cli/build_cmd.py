@@ -69,11 +69,15 @@ def build(
     - ``ach``: elements (node, type: hypothesis | evidence_item), items
       (node, credibility, relevance: high | medium | low, source, …),
       ratings (item, hypothesis, rating: CC | C | N | I | II, rationale)
+    - ``decision_tree``: objective (maximise | minimise), units, nodes (node,
+      type: decision | chance | terminal), branches (link "Parent -> Child",
+      label, probability, value, source, …), payoffs (node, value, source,
+      …), uncertainties (node, uncertainty)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
       ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
       outcome, dataset, adjust, columns, estimator | mcda_analyse |
-      ach_analyse)
+      ach_analyse | dt_analyse)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML

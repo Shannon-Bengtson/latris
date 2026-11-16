@@ -401,6 +401,47 @@ class SpecACH(_Spec):
     ratings: list[SpecACHRating] = Field(default_factory=list)
 
 
+class SpecDTNode(_Spec):
+    node: str
+    type: Literal["decision", "chance", "terminal"]
+
+
+class SpecDTBranch(_Spec):
+    link: str  # "Parent -> Child" (the link must exist under links)
+    label: str | None = None  # the option or the state; default: the child's label
+    probability: float | None = Field(default=None, ge=0.0, le=1.0)  # branches from a chance node
+    value: float | None = None  # incurred along the branch (e.g. a cost, negative)
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecDTPayoff(_Spec):
+    node: str  # a terminal node
+    value: float
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecDTUncertainty(_Spec):
+    node: str  # a chance node
+    uncertainty: str  # chance nodes with the same name are one uncertainty (priced together for EVPI)
+
+
+class SpecDT(_Spec):
+    """Decision tree: node types, branches (label, probability, value), payoffs, uncertainties, objective."""
+
+    objective: Literal["maximise", "minimise"] | None = None
+    units: str | None = None
+    nodes: list[SpecDTNode] = Field(default_factory=list)
+    branches: list[SpecDTBranch] = Field(default_factory=list)
+    payoffs: list[SpecDTPayoff] = Field(default_factory=list)
+    uncertainties: list[SpecDTUncertainty] = Field(default_factory=list)
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -457,7 +498,8 @@ class SpecAnalysis(_Spec):
     | et_analyse (event-tree sequences and end states; no options)
     | dag_estimate (effect of treatment on outcome from a dataset: treatment, outcome, dataset, adjust,
       columns, estimator) | mcda_analyse (ranking and weight sensitivity; no options)
-    | ach_analyse (competing hypotheses: ranking, linchpins; no options).
+    | ach_analyse (competing hypotheses: ranking, linchpins; no options)
+    | dt_analyse (decision tree: best strategy, EVPI, probability thresholds; no options).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
@@ -465,7 +507,7 @@ class SpecAnalysis(_Spec):
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
         "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
-        "mcda_analyse", "ach_analyse",
+        "mcda_analyse", "ach_analyse", "dt_analyse",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -520,4 +562,5 @@ class BuildSpec(_Spec):
     event_tree: SpecEventTree | None = None  # Event tree elements, order, sequences, probabilities
     mcda: SpecMCDA | None = None  # MCDA options, criteria and scores
     ach: SpecACH | None = None  # ACH hypotheses, evidence items and ratings
+    decision_tree: SpecDT | None = None  # Decision tree nodes, branches, payoffs, uncertainties
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

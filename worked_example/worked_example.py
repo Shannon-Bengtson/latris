@@ -1836,6 +1836,55 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "implications", "--model-type", "ach"])
     os.chdir(ex.root)
 
+    # ── 11i. Decision tree ────────────────────────────────────────────
+    ex.section(
+        "Decision Tree",
+        "A choice whose outcome depends on chance: launch a product ourselves, license it, or do nothing, when "
+        "demand may be high or low. Decision, chance and terminal nodes are factors; branches are links. The tree "
+        "rolls back to the best strategy, prices knowing demand before choosing, and finds the probability at "
+        "which the choice flips. Shown on an eighth, small project.",
+    )
+    dt_root = ex.root.parent / "launch"
+    ex.run(["init", str(dt_root), "--question", "Should we launch the product ourselves, license it, or do nothing?"])
+    os.chdir(dt_root)
+    ex.run(["project", "select-models", "decision_tree"])
+    _dt_nodes = {
+        "Strategy": "decision", "Demand if launched": "chance", "Demand if licensed": "chance",
+        "Launched, high demand": "terminal", "Launched, low demand": "terminal",
+        "Licensed, high demand": "terminal", "Licensed, low demand": "terminal", "Do nothing": "terminal",
+    }
+    for _n, _k in _dt_nodes.items():
+        ex.run(["node", "add", _n])
+        ex.run(["dt", "element", _n, _k])
+    for _a, _b, _label, _p in (
+        ("Strategy", "Demand if launched", "Launch", None), ("Strategy", "Demand if licensed", "License", None),
+        ("Strategy", "Do nothing", "Do nothing", None),
+        ("Demand if launched", "Launched, high demand", "High", "0.4"),
+        ("Demand if launched", "Launched, low demand", "Low", "0.6"),
+        ("Demand if licensed", "Licensed, high demand", "High", "0.4"),
+        ("Demand if licensed", "Licensed, low demand", "Low", "0.6"),
+    ):
+        ex.run(["edge", "add", _a, _b, "--kind", "conditional"])
+        ex.run(["dt", "branch", f"{_a} -> {_b}", "--label", _label]
+               + (["-p", _p, "--source", "market-survey-2026"] if _p else []))
+    for _n, _v in (("Launched, high demand", "500"), ("Launched, low demand", "-200"),
+                   ("Licensed, high demand", "150"), ("Licensed, low demand", "50"), ("Do nothing", "0")):
+        # `--` stops option parsing so a negative payoff isn't read as a flag.
+        ex.run(["dt", "payoff", _n, "--source", "finance-model", "--", _v])
+    ex.note("Demand is the same uncertainty whether we launch or license; naming it once lets the tree price "
+            "knowing it before choosing.")
+    ex.run(["dt", "uncertainty", "Demand if launched", "Demand"])
+    ex.run(["dt", "uncertainty", "Demand if licensed", "Demand"])
+    ex.run(["dt", "settings", "--objective", "maximise", "--units", "$k"])
+    ex.run(["dt", "check"])
+    ex.run(["dt", "show"])
+    ex.note("Licensing is the better bet on today's numbers. Knowing demand first would be worth up to 140: "
+            "research costing more isn't worth it. If high demand is likelier than about 42%, launching wins.")
+    ex.run(["dt", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "decision_tree"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

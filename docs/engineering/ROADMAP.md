@@ -106,7 +106,8 @@ black-box predictors.
 2. **Quick wins** — #1 effect estimation (done: `latris analyse
    estimate`, an analysis layer on the DAG), #2 MCDA (done: `latris mcda`),
    #3 ACH (done: `latris ach`).
-3. **Decisions + HTA** — #4 decision tree + EVPI, #5 Markov.
+3. **Decisions + HTA** — #4 decision tree + EVPI (done: `latris dt`; probabilistic sensitivity
+   analysis still to come), #5 Markov.
 4. **Evaluation ladder** — #6 process tracing, #9 ITS / DiD.
 5. **Analysis layers** — #7 Monte Carlo on the risk types, #8 SALib.
 6. **Argument map** (#12), then GSN on top of it — when a safety user appears.

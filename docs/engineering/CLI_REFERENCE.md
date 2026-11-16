@@ -412,6 +412,23 @@ latris ach check                                      # every pair rated? exits 
 latris ach analyse [--no-record]                      # ranking by evidence against, linchpins, non-diagnostic items
 ```
 
+## Decision tree
+
+Decision, chance and terminal nodes (view roles); branches are ordinary
+links, each node with one parent. Branch labels, probabilities, values and
+payoffs are stored with provenance. `dt analyse` is recorded (`dt-analysis`).
+
+```bash
+latris dt element <node> <decision|chance|terminal>
+latris dt branch "Parent -> Child" [--label L] [-p P] [--value V] [--source] [--origin] [--verified]
+latris dt payoff <terminal> <value> [--source] [--origin] [--verified] [--notes]
+latris dt uncertainty <chance node> <name>             # same name: one uncertainty under different choices
+latris dt settings [--objective maximise|minimise] [--units U]
+latris dt show                                         # the tree with expected values; → marks best choices
+latris dt check                                        # one root, a tree, payoffs, probabilities sum to 1
+latris dt analyse [--no-record]                        # best strategy, EVPI, probability thresholds
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

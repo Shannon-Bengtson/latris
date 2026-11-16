@@ -233,6 +233,26 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="dt-expected-value",
+        applies_to=("decision_tree",),
+        method="Decision trees and the value of information",
+        citation=(
+            "Raiffa (1968), *Decision Analysis*; Clemen & Reilly (2014), *Making Hard Decisions*, 3rd ed.; "
+            "Howard (1966), \"Information Value Theory\", *IEEE Trans. Systems Science and Cybernetics* 2(1)"
+        ),
+        used_for=(
+            "rolling back expected values to the optimal strategy; the expected value of perfect information for "
+            "each uncertainty (grouping chance nodes that resolve the same uncertainty under different choices) "
+            "and for all of them together; the probabilities at which the best first choice changes"
+        ),
+        limits=(
+            "Risk-neutral (expected value, no utility function); point probabilities and payoffs, no "
+            "probabilistic sensitivity analysis yet; EVPI needs an uncertainty to have the same probabilities "
+            "whatever is chosen, and treats separate uncertainties as independent; no imperfect information "
+            "(EVSI); thresholds for two-state uncertainties only."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",

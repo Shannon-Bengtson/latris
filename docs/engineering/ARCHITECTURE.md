@@ -66,7 +66,7 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | Regression (linear/logistic/GLM) | DAG with fitted/elicited edge coefficients; quantifies DAG edges | not currently planned |
 | Markov Chain / MDP | State-transition graph, transition probabilities, rewards | on the roadmap |
 | Influence Diagram | Decision + chance + utility nodes, informational arcs | on the roadmap |
-| Decision Tree | Sequential decision/chance branching to outcomes | on the roadmap |
+| Decision Tree | Decision, chance and terminal nodes (roles); branches as links with labels, probabilities and values; rollback to the optimal strategy, EVPI per uncertainty, probability thresholds | stable (built) |
 | Event Tree | Initiating event → ordered yes/no headings → end states (roles; tree stored as data and checked complete); conditional branch probabilities, sequence and end-state frequencies | stable (built) |
 | Fishbone / Ishikawa | Categorised cause branches converging on effect | not currently planned |
 | Theory of Change | Input → activity → output → short/long-term outcome → impact levels (view roles); acyclic, forward-only results chain; pathway enumeration with per-link evidence status and assumptions | stable (built) |
@@ -209,7 +209,7 @@ src/latris/
 │   ├── data_actions.py # DataAction, DataActionLog (audit trail)
 │   ├── data_versions.py # DatasetVersion, DatasetVersionLibrary
 │   ├── lineage.py     # LineageNode, Milestone, MilestoneLog
-│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC, FT, BT, ET, MCDA, ACH stable; 11 planned)
+│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC, FT, BT, ET, MCDA, ACH, DT stable; 10 planned)
 │   ├── roles.py       # ViewRoleMap — formalism-specific entity classifications
 │   ├── settings.py    # Per-model-type settings (SDSettings, FCMSettings, MarkovSettings)
 │   ├── common.py      # HumanActor, AIActor, ExpertActor, provenance axes
@@ -273,7 +273,7 @@ src/latris/
 
 ## Adding a formalism
 
-Each newer model type (Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH)
+Each newer model type (Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH, decision tree)
 plugs in through **one module** in `src/latris/operations/formalisms/`. It
 declares a `Formalism` with the hooks the shared code calls:
 
@@ -355,9 +355,10 @@ classifications** (stock, chance, goal, gate, barrier, etc.) live in a
 separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
-own semantic roles to substrate entities. 11 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 11 stable ones
-(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH); the Layer-3 table above gives
+own semantic roles to substrate entities. 10 planned model types are
+registered in the `ModelTypeSpec` registry alongside the 12 stable ones
+(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree); the Layer-3
+table above gives
 each one's
 roadmap status. Each formalism lands as an **additive** extension — no
 schema migration. See `SCHEMA_NOTES.md` → "Extensibility hypothesis"
