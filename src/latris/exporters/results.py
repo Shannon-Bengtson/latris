@@ -356,6 +356,7 @@ def render_results(
     labels: dict[str, str] | None = None,
 ) -> list[str]:
     """The Results section's lines, or ``[]`` when nothing has been recorded."""
+    from latris.operations import formalisms
     from latris.operations.analysis_results import report_results
 
     results = report_results(model_types=model_types, root=paths.root)
@@ -370,7 +371,9 @@ def render_results(
     ]
     for res in results:
         kind, p = res.run.result_kind, res.payload
-        title = _TITLES.get(kind, kind)
+        found = formalisms.result_kind(kind)
+        plugin_kind = found[1] if found else None
+        title = _TITLES.get(kind) or (plugin_kind.title if plugin_kind else kind)
         if kind == "sd-sensitivity":
             title = f"Sensitivity of {p['label']}"
         elif kind == "bn-sensitivity":
@@ -398,6 +401,8 @@ def render_results(
                 out += _bn_monte_carlo(p)
             elif kind == "bn-sensitivity":
                 out += _bn_sensitivity(p, labels or {})
+            elif plugin_kind:
+                out += plugin_kind.render(p)
         except (KeyError, TypeError, ValueError, IndexError):
             out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
     return out

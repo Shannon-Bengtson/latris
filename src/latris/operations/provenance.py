@@ -48,6 +48,12 @@ def add_assumption(
     root: Path | None = None,
 ) -> tuple[Assumption, str]:
     paths = require_project(root)
+    if target_id:
+        # Accept what evidence accepts: an ID, a prefix, a factor label or a link as "From -> To".
+        from latris.operations._resolve import resolve_target
+        from latris.schema import Substrate
+
+        target_id = resolve_target(target_id, load_model(Substrate, paths.conceptual_yaml))
     entry = Assumption(
         id=new_id("assumption"),
         statement=statement,

@@ -63,11 +63,30 @@ def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
     if not entities:
         return ""
 
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.mermaid:
+        own = plugin.mermaid(paths, entities, edges)
+        if own:
+            return own
     direction = "TB" if model_type == "dag" else "LR"
     alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
     lines = [f"flowchart {direction}"]
+    levels: dict[str, str] = {}
+    if plugin and plugin.mermaid_groups:
+        # One column per group (e.g. results-chain level, inputs to impact).
+        order, names, levels = plugin.mermaid_groups(paths)
+        for i, group in enumerate(order):
+            members = [e for e in entities if levels.get(e.id) == group]
+            if not members:
+                continue
+            lines.append(f'    subgraph L{i}["{names[group]}"]')
+            lines += [f'        {alias[e.id]}["{_mermaid_text(e.label)}"]' for e in members]
+            lines.append("    end")
     for e in entities:
-        lines.append(f'    {alias[e.id]}["{_mermaid_text(e.label)}"]')
+        if e.id not in levels:
+            lines.append(f'    {alias[e.id]}["{_mermaid_text(e.label)}"]')
     for e in edges:
         label = polarity.get(e.id) or ("" if e.kind == "causal" else e.kind)
         arrow = "-->" if e.kind in _SOLID_EDGE_KINDS else "-.->"

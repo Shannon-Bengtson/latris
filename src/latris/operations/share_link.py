@@ -29,6 +29,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from latris.operations import formalisms
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import (
@@ -208,6 +209,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
         sd=_export_sd(paths, labels), bn=_export_bn(paths, labels), analyses=_export_analyses(paths),
+        **{f.spec_field: f.spec_export(paths, labels) for f in formalisms.all_formalisms() if f.spec_field},
     )
     return foundation, spec
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from latris.operations import formalisms
 from latris.operations.commit import auto_commit
 from latris.operations.interpret_registry import (
     get_sections_for_model_types,
@@ -371,6 +372,9 @@ def _outcome_ids(paths, model_type: str) -> set[str]:
 
         outcome = sd_ops.get_settings(root=paths.root).outcome
         return {outcome} if outcome else set()
+    plugin = formalisms.get(model_type)
+    if plugin:
+        return plugin.outcome_ids(paths)
     path = paths.role_path(model_type)
     if not path.exists():
         return set()
@@ -444,6 +448,12 @@ def hedge_mode_active(model_type: str, paths) -> bool:
     """
     _cited, _total, ratio = coverage_ratio(model_type, paths)
     return ratio < HEDGE_COVERAGE_THRESHOLD and accepted_findings_count(model_type, paths) == 0
+
+
+def _centrality_applies(model_type: str) -> bool:
+    """Graph-centrality claims mean nothing where links are logic or barrier lines (fault trees, bow-ties, …)."""
+    plugin = formalisms.get(model_type)
+    return plugin.centrality if plugin else True
 
 
 def _extract_structural_summary(model_type: str, paths) -> list[str]:
@@ -522,6 +532,8 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
         else:
             claims.append("DAG structure confirmed (acyclic by readiness gate).")
 
+    claims.extend(formalisms.claims(model_type, paths, "structure"))
+
     # Add any recorded structural findings
     findings = _load_findings(paths, model_type)
     structural = [f for f in findings if f.category == "structure"]
@@ -546,7 +558,7 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
     # Centrality and loop participation read causal edges only —
     # non-causal kinds inflate degrees and create phantom loops.
     causal = causal_edges(substrate.edges)
-    if substrate.entities and causal:
+    if substrate.entities and causal and _centrality_applies(model_type):
         centrality = compute_centrality(substrate.entities, causal)
         # Top 3 by betweenness, outcomes excluded — same ranking as
         # Sensitivity and Implications, so the sections don't disagree.
@@ -614,6 +626,13 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
 
     substrate = load_model(Substrate, paths.conceptual_yaml)
     claims: list[str] = []
+
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.sensitivity_fallback is not None:
+        # The formalism's own measures (importance, RAW, …), not graph centrality.
+        claims = formalisms.claims(model_type, paths, "sensitivity")
+        claims.extend(f.statement for f in _load_findings(paths, model_type) if f.category == "sensitivity")
+        return claims or [plugin.sensitivity_fallback]
 
     causal = causal_edges(substrate.edges)
     if substrate.entities and causal:
@@ -718,6 +737,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
             f"{noun.capitalize()} without a source: {', '.join(names[:5])}"
             + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
         )
+    claims.extend(formalisms.claims(model_type, paths, "gaps"))
     return claims
 
 
@@ -824,12 +844,14 @@ def _extract_answer(model_type: str, paths) -> list[str]:
                 claims.append(f"{b_groups} balancing feedback mechanism(s) provide natural stabilisation.")
 
     # Most central nodes as key factors
-    if substrate.entities and causal:
+    if substrate.entities and causal and _centrality_applies(model_type):
         centrality = compute_centrality(substrate.entities, causal)
         top_3 = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
         if top_3:
             names = [entity_labels.get(c.entity_id, "") for c in top_3]
             claims.append(f"Key factors in the system: {', '.join(names)}.")
+
+    claims.extend(formalisms.claims(model_type, paths, "answer"))
 
     # Recorded inference findings
     findings = _load_findings(paths, model_type)
@@ -852,8 +874,12 @@ def _extract_implications(model_type: str, paths) -> list[str]:
     # decision_rule / governance edges don't inflate betweenness.
     causal = causal_edges(substrate.edges)
 
+    # In a theory of change the intervention is its activities; what matters is which steps to test.
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.own_implications:
+        claims.extend(formalisms.claims(model_type, paths, "implications"))
     # High-betweenness nodes are intervention leverage points
-    if substrate.entities and causal:
+    elif substrate.entities and causal:
         centrality = compute_centrality(substrate.entities, causal)
         entity_labels = {e.id: e.label for e in substrate.entities}
         top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]

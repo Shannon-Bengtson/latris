@@ -1510,6 +1510,510 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["fcm", "infer"])
     ex.run(["fcm", "infer", "--clamp", "Transport Policy=1.0"])
 
+    # ── 11b. Theory of Change ─────────────────────────────────────────
+    ex.section(
+        "Theory of Change",
+        "A theory of change lays out how an intervention is meant to reach its impact: activities, the "
+        "outputs they produce, short- and long-term outcomes, and the impact. Each factor gets a level; "
+        "links are ordinary causal links. `toc check` lays out every pathway from an activity to the "
+        "impact and says, link by link, what holds it up. Shown on a second, small project.",
+    )
+    toc_root = ex.root.parent / "mentoring"
+    ex.run(["init", str(toc_root), "--question", "Does the mentoring programme raise school completion?"])
+    os.chdir(toc_root)
+    ex.run(["project", "select-models", "theory_of_change"])
+    for _n in ("Mentor training", "Weekly mentoring sessions", "Students mentored", "School attendance",
+               "Grades", "School completion"):
+        ex.run(["node", "add", _n])
+    for _a, _b in (("Mentor training", "Weekly mentoring sessions"),
+                   ("Weekly mentoring sessions", "Students mentored"),
+                   ("Students mentored", "School attendance"),
+                   ("School attendance", "Grades"),
+                   ("Grades", "School completion"),
+                   ("Students mentored", "School completion")):
+        ex.run(["edge", "add", _a, _b])
+    ex.note("Before levels are set, the check names what's missing.")
+    ex.run(["toc", "check", "--no-record"])
+    for _n, _lvl in (("Mentor training", "input"), ("Weekly mentoring sessions", "activity"),
+                     ("Students mentored", "output"), ("School attendance", "short_term_outcome"),
+                     ("Grades", "long_term_outcome"), ("School completion", "impact")):
+        ex.run(["toc", "level", _n, _lvl])
+    ex.note("The impact is the outcome of interest, so there is no separate outcome role; asking for one says so.")
+    ex.run(["view", "role", "theory_of_change", "School completion", "outcome"], expect_fail=True)
+    ex.run(["toc", "levels"])
+    ex.note("Say why each step should happen. An assumption can name its link as \"From -> To\".")
+    ex.run(["assumption", "add", "Students who feel someone expects them at school turn up more often.",
+            "--target", "Students mentored -> School attendance"])
+    ex.run(["assumption", "add", "Better grades keep students enrolled through the final years.",
+            "--target", "Grades -> School completion"])
+    ex.note("Cite and check a source for one step, and cite (without checking) another.")
+    ex.run(["ref", "add", "lee2020", "--title", "Mentoring and school attendance (illustrative)",
+            "--year", "2020"])
+    ex.run(["evidence", "add", "Students mentored -> School attendance", "description", "lee2020"])
+    ex.run(["evidence", "check", "Students mentored -> School attendance", "description", "lee2020",
+            "supports", "--rationale", "Mentored youth showed better school attendance."])
+    ex.run(["evidence", "add", "Grades -> School completion", "description", "lee2020"])
+    ex.note("Now every pathway is laid out with its weakest link. `Students mentored -> School completion` "
+            "skips two levels, so it is flagged as a leap. The result is recorded for the report.")
+    ex.run(["toc", "check"])
+    ex.run(["--json", "toc", "levels"])
+    ex.note("The interpretation's claims come from the same check: which pathways hold, and which links to "
+            "test first.")
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "theory_of_change"])
+    ex.note("Process tracing weighs how far the evidence supports each link. Set a prior where you have one "
+            "(0.5 otherwise), then add tests: evidence you'd expect if the link holds, with how likely you'd "
+            "find it if it holds (--if-true) and if it doesn't (--if-false). The two numbers give the test's type.")
+    ex.run(["toc", "prior", "Students mentored -> School attendance", "0.6", "--source", "lee2020",
+            "--notes", "Prior evaluations of school mentoring mostly find small attendance gains."])
+    ex.run(["toc", "test", "Students mentored -> School attendance", "attendance up in mentored cohort",
+            "--if-true", "0.9", "--if-false", "0.5", "--found",
+            "--description", "Registers show mentored students attending more than before."])
+    ex.run(["toc", "test", "Students mentored -> School attendance", "students credit their mentor",
+            "--if-true", "0.4", "--if-false", "0.05",
+            "--description", "In exit interviews, students say unprompted that their mentor got them to school."])
+    ex.run(["toc", "test", "Grades -> School completion", "completion rises with grades in the cohort",
+            "--if-true", "0.85", "--if-false", "0.4", "--not-found"])
+    ex.note("A hoop test passed helps a little; a hoop test failed sinks the link. The trace gives each link "
+            "its posterior and each pathway its confidence, and ranks the tests still to run — here the "
+            "smoking gun (exit interviews) would move its link most.")
+    ex.run(["toc", "trace"])
+    ex.note("The interpretation's claims pick the trace up: pathway confidence in the answer, each tested "
+            "link in the confidence assessment, and the test to run next in the open questions.")
+    ex.run(["interpret", "refresh-claims"])
+    ex.run(["interpret", "show", "open_questions", "--model-type", "theory_of_change"])
+    ex.note("With data, estimate the impact itself. Here, monthly attendance from the school's registers "
+            "(synthetic), with mentoring starting in January 2024: an interrupted time series compares what "
+            "happened with the pre-mentoring trend carried forward.")
+    import numpy as _np
+    import pandas as _pd
+
+    _rng = _np.random.default_rng(12)
+    _k = _np.arange(36)
+    _att = 82 + 0.05 * _k + 2.5 * (_k >= 24) + 0.15 * _np.where(_k >= 24, _k - 24, 0) + _rng.normal(0, 0.6, 36)
+    _months = _pd.date_range("2022-01-01", periods=36, freq="MS").strftime("%Y-%m-%d")
+    _registers = Path(tempfile.gettempdir()) / "latris_demo_attendance.csv"
+    _pd.DataFrame({"month": _months, "attendance_pct": _att.round(2)}).to_csv(_registers, index=False)
+    ex.run(["data", "add", str(_registers), "--name", "registers", "--description",
+            "Monthly attendance (synthetic)."])
+    ex.run(["toc", "impact", "School attendance", "--dataset", "registers", "--time", "month",
+            "--at", "2024-01-01", "--column", "attendance_pct"])
+    ex.note("With a comparison group the design is difference-in-differences. Two schools, one mentored, "
+            "observed for three years before and after: the estimate comes with cautions — two groups are too "
+            "few to cluster the errors, and the pre-period trends are checked for divergence.")
+    _rows = []
+    for _school, _treated in (("Northfield", True), ("Southgate", False)):
+        for _year in range(2018, 2024):
+            _y = 85 + (2 if _treated else 0) + 0.4 * (_year - 2018) + (3 if _treated and _year >= 2021 else 0)
+            _rows.append({"school": _school, "year": _year, "attendance_pct": round(_y + _rng.normal(0, 0.4), 2)})
+    _schools = Path(tempfile.gettempdir()) / "latris_demo_schools.csv"
+    _pd.DataFrame(_rows).to_csv(_schools, index=False)
+    ex.run(["data", "add", str(_schools), "--name", "schools", "--description",
+            "Yearly attendance in two schools (synthetic)."])
+    ex.run(["toc", "impact", "School attendance", "--dataset", "schools", "--time", "year", "--at", "2021",
+            "--group", "school", "--treated", "Northfield", "--column", "attendance_pct"])
+    os.chdir(ex.root)
+
+    # ── 11c. Fault Tree ───────────────────────────────────────────────
+    ex.section(
+        "Fault Tree",
+        "A fault tree breaks one undesired top event down through gates to the basic events that cause it. "
+        "Each event gets a type; each input links to the event it feeds; each top or intermediate event has "
+        "a gate (and, or, or vote k-of-n). Here both pumps draw on the same power supply, so one event feeds "
+        "two gates. Shown on a third, small project.",
+    )
+    ft_root = ex.root.parent / "cooling"
+    ex.run(["init", str(ft_root), "--question", "How likely is a loss of cooling, and what drives it?"])
+    os.chdir(ft_root)
+    ex.run(["project", "select-models", "fault_tree"])
+    _ft_events = {
+        "Loss of cooling": "top_event", "Both pumps fail": "intermediate_event",
+        "Pump A fails": "intermediate_event", "Pump B fails": "intermediate_event",
+        "Power lost": "intermediate_event", "Pump A mechanical failure": "basic_event",
+        "Pump B mechanical failure": "basic_event", "Supply 1 fails": "basic_event",
+        "Supply 2 fails": "basic_event", "Supply 3 fails": "basic_event", "Control fault": "undeveloped_event",
+    }
+    for _n in _ft_events:
+        ex.run(["node", "add", _n, "--kind", "event"])
+    for _a, _b in (("Both pumps fail", "Loss of cooling"), ("Control fault", "Loss of cooling"),
+                   ("Pump A fails", "Both pumps fail"), ("Pump B fails", "Both pumps fail"),
+                   ("Pump A mechanical failure", "Pump A fails"), ("Power lost", "Pump A fails"),
+                   ("Pump B mechanical failure", "Pump B fails"), ("Power lost", "Pump B fails"),
+                   ("Supply 1 fails", "Power lost"), ("Supply 2 fails", "Power lost"),
+                   ("Supply 3 fails", "Power lost")):
+        ex.run(["edge", "add", _a, _b, "--kind", "logical"])
+    ex.note("Nothing has a fault-tree type yet; the check says what's missing and exits 1.")
+    ex.run(["ft", "check"], expect_fail=True)
+    for _n, _t in _ft_events.items():
+        ex.run(["ft", "event", _n, _t])
+    ex.run(["ft", "gate", "Loss of cooling", "or"])
+    ex.run(["ft", "gate", "Both pumps fail", "and"])
+    ex.run(["ft", "gate", "Pump A fails", "or"])
+    ex.run(["ft", "gate", "Pump B fails", "or"])
+    ex.run(["ft", "gate", "Power lost", "vote", "--k", "2"])
+    ex.run(["ft", "check"])
+    ex.run(["ft", "show"])
+    ex.note("Before any probabilities, the cut sets already answer the qualitative question. Power lost "
+            "feeds both pumps, so two supplies failing defeats the redundant pumps.")
+    ex.run(["ft", "analyse", "--no-record"])
+    ex.note("Probabilities carry where they came from. Only one has been checked by a person.")
+    ex.run(["ref", "add", "pumpdata", "--title", "Pump reliability data (illustrative)", "--year", "2015"])
+    ex.run(["ft", "probability", "Pump A mechanical failure", "0.02", "--source", "pumpdata",
+            "--origin", "data-derived", "--verified", "--notes", "per year of operation"])
+    ex.run(["ft", "probability", "Pump B mechanical failure", "0.02", "--source", "pumpdata",
+            "--origin", "data-derived"])
+    for _n in ("Supply 1 fails", "Supply 2 fails", "Supply 3 fails"):
+        ex.run(["ft", "probability", _n, "0.01", "--origin", "human-elicited",
+                "--notes", "site engineer's estimate"])
+    ex.run(["ft", "probability", "Control fault", "0.0005", "--origin", "ai-proposed"])
+    ex.note("Now the analysis adds the exact top-event probability and each event's importance. The control "
+            "fault, a single point of failure whose value an AI proposed and nobody has checked, carries the "
+            "largest share: the first number to verify.")
+    ex.run(["ft", "analyse"])
+    ex.note("How sure is that probability? Give the uncertain values a range. Risk assessments usually state a "
+            "lognormal by its median and error factor (95th percentile ÷ median): the AI-proposed control fault "
+            "is known only to within a factor of ten.")
+    ex.run(["ft", "uncertainty", "Control fault", "--median", "0.0005", "--error-factor", "10",
+            "--reason", "AI-proposed point value; no data yet"])
+    ex.run(["ft", "uncertainty", "Pump A mechanical failure", "--median", "0.02", "--error-factor", "3",
+            "--source", "pumpdata", "--reason", "generic pump data, site not specific"])
+    ex.run(["ft", "uncertainty", "Pump B mechanical failure", "--median", "0.02", "--error-factor", "3",
+            "--source", "pumpdata", "--reason", "generic pump data, site not specific"])
+    ex.note("The Monte Carlo reruns the exact calculation for each sample. The mean sits above the point "
+            "estimate — skewed ranges pull it up — and the control fault's wide range drives most of the spread. "
+            "The supplies have no range, so they are held fixed and listed.")
+    ex.run(["ft", "monte-carlo", "--runs", "5000"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "sensitivity", "--model-type", "fault_tree"])
+    os.chdir(ex.root)
+
+    # ── 11d. Bow-tie ──────────────────────────────────────────────────
+    ex.section(
+        "Bow-Tie",
+        "A bow-tie centres on one top event — the moment control of a hazard is lost. Threats on the left "
+        "lead to it through prevention barriers; consequences on the right follow it through mitigation "
+        "barriers; an escalation factor degrades a barrier. Each factor gets its element and the lines are "
+        "ordinary links. Shown on a fourth, small project.",
+    )
+    bt_root = ex.root.parent / "gas"
+    ex.run(["init", str(bt_root), "--question", "How well protected are we against a loss of containment?"])
+    os.chdir(bt_root)
+    ex.run(["project", "select-models", "bow_tie"])
+    _bt = {
+        "Flammable gas under pressure": "hazard", "Loss of containment": "top_event",
+        "Corrosion": "threat", "Overpressure": "threat", "Impact damage": "threat",
+        "Inspection programme": "barrier", "Corrosion inhibitor": "barrier", "Pressure relief valve": "barrier",
+        "Gas detection": "barrier", "Emergency shutdown": "barrier", "Bypass permit": "barrier",
+        "Fire": "consequence", "Toxic exposure": "consequence",
+        "Detector bypassed for maintenance": "escalation_factor", "Relief valve not tested": "escalation_factor",
+    }
+    for _n in _bt:
+        ex.run(["node", "add", _n])
+    for _a, _b in (("Flammable gas under pressure", "Loss of containment"),
+                   ("Corrosion", "Inspection programme"), ("Inspection programme", "Corrosion inhibitor"),
+                   ("Corrosion inhibitor", "Loss of containment"),
+                   ("Overpressure", "Pressure relief valve"), ("Pressure relief valve", "Loss of containment"),
+                   ("Impact damage", "Loss of containment"),
+                   ("Loss of containment", "Gas detection"), ("Gas detection", "Emergency shutdown"),
+                   ("Emergency shutdown", "Fire"), ("Gas detection", "Toxic exposure"),
+                   ("Detector bypassed for maintenance", "Bypass permit"), ("Bypass permit", "Gas detection"),
+                   ("Relief valve not tested", "Pressure relief valve")):
+        ex.run(["edge", "add", _a, _b])
+    ex.run(["bowtie", "check"], expect_fail=True)
+    for _n, _el in _bt.items():
+        ex.run(["bowtie", "element", _n, _el])
+    ex.run(["bowtie", "check"])
+    ex.note("Barriers carry their CCPS type, status and owner. The corrosion inhibitor is degraded, so it no "
+            "longer counts as an effective barrier.")
+    for _n, _ty, _own in (("Inspection programme", "human", "Integrity engineer"),
+                          ("Corrosion inhibitor", "passive_hardware", "Chemicals supervisor"),
+                          ("Pressure relief valve", "passive_hardware", "Maintenance lead"),
+                          ("Gas detection", "active_hardware", "Instrument technician"),
+                          ("Emergency shutdown", "active_hardware_human", None),
+                          ("Bypass permit", "human", "Shift supervisor")):
+        ex.run(["bowtie", "barrier", _n, "--type", _ty] + (["--owner", _own] if _own else []))
+    ex.run(["bowtie", "barrier", "Corrosion inhibitor", "--status", "degraded",
+            "--notes", "Dosing pump out of service since March"])
+    ex.run(["bowtie", "show"])
+    ex.note("Before any numbers, the analysis already points at the thin places: a threat with no barrier, "
+            "lines resting on one, a barrier shared by both consequences, an escalation factor with no control, "
+            "and a barrier nobody owns.")
+    ex.run(["bowtie", "analyse", "--no-record"])
+    ex.note("With threat frequencies and barrier failure probabilities (each with its source), the analysis "
+            "adds a layer-of-protection estimate and how much each barrier buys.")
+    for _n, _f in (("Corrosion", "0.1"), ("Overpressure", "0.5"), ("Impact damage", "0.01")):
+        ex.run(["bowtie", "frequency", _n, _f, "--source", "site-incident-log", "--origin", "data-derived"])
+    for _n, _pfd in (("Inspection programme", "0.1"), ("Corrosion inhibitor", "0.5"),
+                     ("Pressure relief valve", "0.01"), ("Gas detection", "0.1"), ("Emergency shutdown", "0.05"),
+                     ("Bypass permit", "0.5")):
+        ex.run(["bowtie", "barrier", _n, "--pfd", _pfd, "--source", "lopa-generic-values"])
+    ex.run(["bowtie", "barrier", "Pressure relief valve", "--verified"])
+    ex.run(["bowtie", "analyse"])
+    ex.note("Generic LOPA values are order-of-magnitude: give the barriers and threats ranges and see how wide the "
+            "frequencies really are. The relief valve sits on one line but carries the overpressure threat alone.")
+    ex.run(["bowtie", "uncertainty", "Pressure relief valve", "--median", "0.01", "--error-factor", "10",
+            "--reason", "generic LOPA value; site test records not reviewed"])
+    ex.run(["bowtie", "uncertainty", "Overpressure", "triangular", "--min", "0.2", "--mode", "0.5", "--max", "1",
+            "--source", "site-incident-log", "--verified"])
+    ex.run(["bowtie", "uncertainty", "Gas detection", "--median", "0.1", "--error-factor", "3"])
+    ex.run(["bowtie", "monte-carlo", "--runs", "5000"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "bow_tie"])
+
+    # ── 11e. Event tree (same project: what happens after the top event) ──
+    ex.section(
+        "Event Tree",
+        "An event tree follows one initiating event forward through yes/no headings to end states. Here it "
+        "takes the bow-tie's top event and asks, in order: is the gas detected, does isolation succeed, does it "
+        "ignite? A branch need not ask every heading. The tree is stored as its sequences, not as links, "
+        "because one heading is asked on many branches.",
+    )
+    for _n in ("Isolation succeeds", "Ignition", "Contained release", "Jet fire", "Gas cloud dispersed"):
+        ex.run(["node", "add", _n])
+    ex.run(["node", "add", "Gas detected"])
+    for _n, _el in (("Loss of containment", "initiating_event"), ("Gas detected", "functional_event"),
+                    ("Isolation succeeds", "functional_event"), ("Ignition", "functional_event"),
+                    ("Contained release", "end_state"), ("Jet fire", "end_state"),
+                    ("Gas cloud dispersed", "end_state")):
+        ex.run(["et", "element", _n, _el])
+    ex.run(["et", "order", "Gas detected", "Isolation succeeds", "Ignition"])
+    ex.run(["et", "sequence", "Contained release", "Gas detected=yes", "Isolation succeeds=yes"])
+    ex.run(["et", "sequence", "Jet fire", "Gas detected=yes", "Isolation succeeds=no", "Ignition=yes"])
+    ex.run(["et", "sequence", "Gas cloud dispersed", "Gas detected=yes", "Isolation succeeds=no", "Ignition=no"])
+    ex.run(["et", "sequence", "Jet fire", "Gas detected=no", "Ignition=yes"])
+    ex.note("One branch is missing; the check names it and exits 1.")
+    ex.run(["et", "check"], expect_fail=True)
+    ex.run(["et", "sequence", "Gas cloud dispersed", "Gas detected=no", "Ignition=no"])
+    ex.run(["et", "check"])
+    ex.note("Branch probabilities carry their source. An undetected release grows larger, so ignition is likelier "
+            "on that branch: a conditional value. The initiating frequency cites the bow-tie analysis above.")
+    ex.run(["et", "probability", "Gas detected", "0.9", "--source", "lopa-generic-values", "--verified"])
+    ex.run(["et", "probability", "Isolation succeeds", "0.95", "--source", "lopa-generic-values"])
+    ex.run(["et", "probability", "Ignition", "0.1", "--origin", "human-elicited"])
+    ex.run(["et", "probability", "Ignition", "0.3", "--given", "Gas detected=no", "--origin", "human-elicited"])
+    ex.run(["et", "frequency", "Loss of containment", "0.02", "--source", "bow-tie analysis",
+            "--origin", "data-derived"])
+    ex.run(["et", "analyse"])
+    ex.note("Uncertainty on a conditional branch and on the initiating frequency; the Monte Carlo headlines the "
+            "jet fire.")
+    ex.run(["et", "uncertainty", "Ignition", "beta", "--alpha", "3", "--beta", "7", "--given", "Gas detected=no",
+            "--reason", "elicited: 'about 30%, could be 10–60%'"])
+    ex.run(["et", "uncertainty", "Loss of containment", "--median", "0.02", "--error-factor", "5"])
+    ex.run(["et", "monte-carlo", "--runs", "5000", "--output", "Jet fire"])
+    ex.note("The project now uses both views of the same event; selecting both gives each its interpretation.")
+    ex.run(["project", "select-models", "bow_tie", "event_tree"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "answer_to_question", "--model-type", "event_tree"])
+
+    # ── 11f. Effect estimation on a DAG ───────────────────────────────
+    ex.section(
+        "Effect Estimation",
+        "A DAG says what must be adjusted for; with a dataset, Latris estimates how big the effect is. Here a "
+        "survey (synthetic, generated so the true effect of an hour of exercise on the heart-health score is "
+        "+2.0) is confounded by age: older people exercise less and score lower. Shown on a fifth, small "
+        "project.",
+    )
+    import numpy as _np
+    import pandas as _pd
+
+    est_root = ex.root.parent / "heart"
+    ex.run(["init", str(est_root), "--question", "How much does exercise improve heart health?"])
+    os.chdir(est_root)
+    ex.run(["project", "select-models", "dag"])
+    for _n in ("Age", "Exercise", "Heart health"):
+        ex.run(["node", "add", _n, "--kind", "variable"])
+    for _a, _b in (("Age", "Exercise"), ("Age", "Heart health"), ("Exercise", "Heart health")):
+        ex.run(["edge", "add", _a, _b])
+    _rng = _np.random.default_rng(7)
+    _age = _rng.uniform(20, 80, 1000)
+    _ex = 10 - 0.1 * _age + _rng.normal(0, 1, 1000)
+    _heart = 50 + 2.0 * _ex - 0.5 * _age + _rng.normal(0, 2, 1000)
+    _survey = Path(_tempfile.gettempdir()) / "latris_demo_survey.csv"
+    _pd.DataFrame({"Age": _age.round(1), "exercise_hours": _ex.round(2), "Heart health": _heart.round(1)}).to_csv(
+        _survey, index=False)
+    ex.run(["data", "add", str(_survey), "--name", "survey", "--description", "Synthetic health survey."])
+    ex.run(["data", "show", "survey"])
+    ex.run(["analyse", "adjustment-sets", "Exercise", "Heart health"])
+    ex.note("Columns are matched to factors by name; the exercise column has a different name, so it is given. "
+            "Age is the backdoor set and the dataset measures it, so Latris adjusts for it.")
+    ex.run(["analyse", "estimate", "Exercise", "Heart health", "--dataset", "survey",
+            "--column", "Exercise=exercise_hours"])
+    ex.note("Adjusting for nothing would leave the backdoor through Age open, so it is refused rather than "
+            "estimated.")
+    ex.run(["analyse", "estimate", "Exercise", "Heart health", "--dataset", "survey",
+            "--column", "Exercise=exercise_hours", "--no-adjust", "--no-record"], expect_fail=True)
+    ex.note("The estimate becomes interpretation claims, with its assumptions stated beside it.")
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "assumptions_limitations", "--model-type", "dag"])
+    ex.note("If the DAG says income also drives both, and the survey didn't measure it, no unbiased estimate is "
+            "possible from this data; Latris says what to measure. (The recorded estimate is now out of date: "
+            "the DAG it relied on changed.)")
+    ex.run(["node", "add", "Income", "--kind", "variable"])
+    ex.run(["edge", "add", "Income", "Exercise"])
+    ex.run(["edge", "add", "Income", "Heart health"])
+    ex.run(["analyse", "estimate", "Exercise", "Heart health", "--dataset", "survey",
+            "--column", "Exercise=exercise_hours"], expect_fail=True)
+    os.chdir(ex.root)
+
+    # ── 11g. Multi-criteria decision analysis ─────────────────────────
+    ex.section(
+        "Multi-Criteria Decision Analysis",
+        "Choosing between options judged on several criteria. Each criterion has a swing weight (how much "
+        "moving from its worst to its best matters, against the other criteria's swings), a direction and a "
+        "scale; each option a score on each criterion, with its source. Shown on a sixth, small project.",
+    )
+    mcda_root = ex.root.parent / "hospital-site"
+    ex.run(["init", str(mcda_root), "--question", "Which site should the new hospital go on?"])
+    os.chdir(mcda_root)
+    ex.run(["project", "select-models", "mcda"])
+    for _n, _el in (("Riverside", "option"), ("North Park", "option"), ("Old Depot", "option"),
+                    ("Build cost", "criterion"), ("Travel time", "criterion"), ("Bed capacity", "criterion")):
+        ex.run(["node", "add", _n])
+        ex.run(["mcda", "element", _n, _el])
+    ex.run(["mcda", "criterion", "Build cost", "--weight", "50", "--direction", "lower", "--worst", "80",
+            "--best", "30", "--units", "$m", "--source", "board-workshop-2026-03"])
+    ex.run(["mcda", "criterion", "Travel time", "--weight", "30", "--direction", "lower", "--worst", "40",
+            "--best", "10", "--units", "min", "--source", "board-workshop-2026-03"])
+    ex.run(["mcda", "criterion", "Bed capacity", "--weight", "20", "--direction", "higher"])
+    for _o, _cost, _travel, _beds in (("Riverside", 45, 25, 300), ("North Park", 55, 15, 320),
+                                      ("Old Depot", 60, 30, 250)):
+        ex.run(["mcda", "score", _o, "Build cost", str(_cost), "--source", "cost-plan-v2", "--verified"])
+        ex.run(["mcda", "score", _o, "Travel time", str(_travel), "--source", "transport-model"])
+        ex.run(["mcda", "score", _o, "Bed capacity", str(_beds)])
+    ex.run(["mcda", "check"])
+    ex.run(["mcda", "show"])
+    ex.note("Bed capacity has no stated scale, so the options' own range is used — flagged, because adding a "
+            "site would shift it. The analysis ranks the sites, names the one no weights could make best, and "
+            "says how far each weight would have to move before the choice changes.")
+    ex.run(["mcda", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
+    os.chdir(ex.root)
+
+    # ── 11h. Analysis of competing hypotheses ─────────────────────────
+    ex.section(
+        "Analysis of Competing Hypotheses",
+        "Weighing competing explanations against all the evidence at once (Heuer). Each piece of evidence is "
+        "rated against each hypothesis, from CC (very consistent) to II (very inconsistent); the strongest "
+        "hypothesis is the one the evidence fails to rule out. Shown on a seventh, small project.",
+    )
+    ach_root = ex.root.parent / "outage"
+    ex.run(["init", str(ach_root), "--question", "Why did the payments service go down on Tuesday?"])
+    os.chdir(ach_root)
+    ex.run(["project", "select-models", "ach"])
+    for _h in ("Hardware failure", "Software bug", "Cyber attack"):
+        ex.run(["node", "add", _h])
+        ex.run(["ach", "element", _h, "hypothesis"])
+    _items = {
+        "Disk errors in the logs": ("medium", "medium", ("C", "N", "N")),
+        "Outage began minutes after a deploy": ("high", "high", ("I", "CC", "C")),
+        "No unusual network traffic": ("high", "high", ("C", "C", "II")),
+        "A restart restored service": ("medium", "medium", ("C", "C", "C")),
+    }
+    for _i, (_cred, _rel, _ratings) in _items.items():
+        ex.run(["node", "add", _i])
+        ex.run(["ach", "element", _i, "evidence_item"])
+        ex.run(["ach", "item", _i, "--credibility", _cred, "--relevance", _rel])
+        for _h, _r in zip(("Hardware failure", "Software bug", "Cyber attack"), _ratings, strict=True):
+            ex.run(["ach", "rate", _i, _h, _r])
+    ex.note("An evidence item carries its sources like any factor; the deploy log is cited and checked.")
+    ex.run(["ref", "add", "deploylog", "--title", "Deploy log, Tuesday (illustrative)", "--year", "2026"])
+    ex.run(["evidence", "add", "Outage began minutes after a deploy", "description", "deploylog"])
+    ex.run(["evidence", "check", "Outage began minutes after a deploy", "description", "deploylog", "supports",
+            "--rationale", "The log shows the deploy finishing four minutes before the first errors."])
+    ex.run(["ach", "show"])
+    ex.note("The software bug has no evidence against it. Two items are linchpins: without either, another "
+            "hypothesis would tie. One has a checked source, the other none — the place to look next.")
+    ex.run(["ach", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "ach"])
+    os.chdir(ex.root)
+
+    # ── 11i. Decision tree ────────────────────────────────────────────
+    ex.section(
+        "Decision Tree",
+        "A choice whose outcome depends on chance: launch a product ourselves, license it, or do nothing, when "
+        "demand may be high or low. Decision, chance and terminal nodes are factors; branches are links. The tree "
+        "rolls back to the best strategy, prices knowing demand before choosing, and finds the probability at "
+        "which the choice flips. Shown on an eighth, small project.",
+    )
+    dt_root = ex.root.parent / "launch"
+    ex.run(["init", str(dt_root), "--question", "Should we launch the product ourselves, license it, or do nothing?"])
+    os.chdir(dt_root)
+    ex.run(["project", "select-models", "decision_tree"])
+    _dt_nodes = {
+        "Strategy": "decision", "Demand if launched": "chance", "Demand if licensed": "chance",
+        "Launched, high demand": "terminal", "Launched, low demand": "terminal",
+        "Licensed, high demand": "terminal", "Licensed, low demand": "terminal", "Do nothing": "terminal",
+    }
+    for _n, _k in _dt_nodes.items():
+        ex.run(["node", "add", _n])
+        ex.run(["dt", "element", _n, _k])
+    for _a, _b, _label, _p in (
+        ("Strategy", "Demand if launched", "Launch", None), ("Strategy", "Demand if licensed", "License", None),
+        ("Strategy", "Do nothing", "Do nothing", None),
+        ("Demand if launched", "Launched, high demand", "High", "0.4"),
+        ("Demand if launched", "Launched, low demand", "Low", "0.6"),
+        ("Demand if licensed", "Licensed, high demand", "High", "0.4"),
+        ("Demand if licensed", "Licensed, low demand", "Low", "0.6"),
+    ):
+        ex.run(["edge", "add", _a, _b, "--kind", "conditional"])
+        ex.run(["dt", "branch", f"{_a} -> {_b}", "--label", _label]
+               + (["-p", _p, "--source", "market-survey-2026"] if _p else []))
+    for _n, _v in (("Launched, high demand", "500"), ("Launched, low demand", "-200"),
+                   ("Licensed, high demand", "150"), ("Licensed, low demand", "50"), ("Do nothing", "0")):
+        # `--` stops option parsing so a negative payoff isn't read as a flag.
+        ex.run(["dt", "payoff", _n, "--source", "finance-model", "--", _v])
+    ex.note("Demand is the same uncertainty whether we launch or license; naming it once lets the tree price "
+            "knowing it before choosing.")
+    ex.run(["dt", "uncertainty", "Demand if launched", "Demand"])
+    ex.run(["dt", "uncertainty", "Demand if licensed", "Demand"])
+    ex.run(["dt", "settings", "--objective", "maximise", "--units", "$k"])
+    ex.run(["dt", "check"])
+    ex.run(["dt", "show"])
+    ex.note("Licensing is the better bet on today's numbers. Knowing demand first would be worth up to 140: "
+            "research costing more isn't worth it. If high demand is likelier than about 42%, launching wins.")
+    ex.run(["dt", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "decision_tree"])
+    os.chdir(ex.root)
+
+    # ── 11j. Markov cohort model ──────────────────────────────────────
+    ex.section(
+        "Markov Cohort Model",
+        "A cohort moving between states each cycle — healthy, sick, dead — with a cost per cycle and a quality-of-"
+        "life weight in each state, compared under two strategies. The new drug slows progression but costs more "
+        "while people are healthy. The analysis gives each strategy's discounted cost and QALYs and the "
+        "incremental cost-effectiveness. Shown on a ninth, small project.",
+    )
+    mk_root = ex.root.parent / "new-drug"
+    ex.run(["init", str(mk_root), "--question", "Is the new drug worth its cost?"])
+    os.chdir(mk_root)
+    ex.run(["project", "select-models", "markov"])
+    for _n, _k in (("Healthy", "state"), ("Sick", "state"), ("Dead", "state"),
+                   ("Standard care", "strategy"), ("New drug", "strategy")):
+        ex.run(["node", "add", _n])
+        ex.run(["markov", "element", _n, _k])
+    for _a, _b in (("Healthy", "Sick"), ("Healthy", "Dead"), ("Sick", "Dead")):
+        ex.run(["edge", "add", _a, _b])
+    ex.run(["markov", "transition", "Healthy -> Sick", "0.10", "--source", "disease-registry"])
+    ex.run(["markov", "transition", "Healthy -> Sick", "0.06", "--strategy", "New drug", "--source", "phase-3-trial"])
+    ex.run(["markov", "transition", "Healthy -> Dead", "0.01", "--source", "life-tables"])
+    ex.run(["markov", "transition", "Sick -> Dead", "0.20", "--source", "disease-registry"])
+    ex.run(["markov", "reward", "Healthy", "--cost", "500", "--utility", "0.95"])
+    ex.run(["markov", "reward", "Healthy", "--cost", "1500", "--strategy", "New drug", "--source", "price-list"])
+    ex.run(["markov", "reward", "Sick", "--cost", "3000", "--utility", "0.6"])
+    ex.run(["markov", "reward", "Dead", "--cost", "0", "--utility", "0"])
+    ex.run(["markov", "start", "Healthy", "1"])
+    ex.run(["markov", "settings", "--cycles", "30", "--discount", "0.035", "--wtp", "20000",
+            "--cost-units", "£", "--outcome-units", "QALY"])
+    ex.run(["markov", "check"])
+    ex.run(["markov", "show"])
+    ex.run(["markov", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "sensitivity", "--model-type", "markov"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

@@ -214,9 +214,17 @@ register_model_type(
         id="bow_tie",
         display_name="Bow-Tie Diagram",
         short_name="BT",
-        description="Threat\u2013barrier\u2013consequence topology for risk analysis.",
-        roadmap="roadmap",
-        availability="planned",
+        description=(
+            "Threats and consequences of one top event and the barriers between them: lines that rest on one "
+            "barrier or none, shared barriers, uncontrolled escalation factors, and layer-of-protection "
+            "frequencies with each value's provenance."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("bt_elements_classified", "bt_links_valid", "bt_lines_complete"),
+        # One per element; the top event is the outcome of interest, so there is no separate "outcome" role.
+        allowed_roles=("hazard", "top_event", "threat", "consequence", "barrier", "escalation_factor"),
+        required_roles=("top_event", "threat", "consequence"),
     )
 )
 
@@ -225,10 +233,17 @@ register_model_type(
         id="fault_tree",
         display_name="Fault Tree",
         short_name="FT",
-        description="Top-down failure decomposition with AND/OR logic gates.",
-        roadmap="roadmap",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Top-down failure decomposition with AND, OR and k-out-of-n gates: minimal cut sets, single points "
+            "of failure, exact top-event probability and importance, with each probability's provenance."
+        ),
+        roadmap="built",
+        availability="stable",
+        # Acyclicity is checked within the tree (ft_tree_connected), not over the whole shared substrate.
+        structural_validators=("ft_events_classified", "ft_gates_complete", "ft_tree_connected"),
+        # One per event; the top event is the outcome of interest, so there is no separate "outcome" role.
+        allowed_roles=("top_event", "intermediate_event", "basic_event", "undeveloped_event"),
+        required_roles=("top_event", "basic_event"),
     )
 )
 
@@ -249,11 +264,17 @@ register_model_type(
 register_model_type(
     ModelTypeSpec(
         id="markov",
-        display_name="Markov Chain / MDP",
+        display_name="Markov Cohort Model",
         short_name="MC",
-        description="State-transition graph with transition probabilities and optional rewards.",
-        roadmap="parked",
-        availability="planned",
+        description=(
+            "A cohort moving between states each cycle: the trace, discounted costs and outcomes per strategy, "
+            "and incremental cost-effectiveness (ICERs, dominance, net benefit at a willingness to pay)."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("mk_states", "mk_transitions"),
+        allowed_roles=("state", "strategy"),
+        required_roles=("state",),
     )
 )
 
@@ -263,7 +284,7 @@ register_model_type(
         display_name="Influence Diagram",
         short_name="ID",
         description="Extension of Bayesian network with decision and utility nodes for decision analysis.",
-        roadmap="parked",
+        roadmap="roadmap",
         availability="planned",
         structural_validators=("acyclicity",),
         required_roles=("chance", "utility"),
@@ -276,10 +297,15 @@ register_model_type(
         id="decision_tree",
         display_name="Decision Tree",
         short_name="DT",
-        description="Sequential decision model with chance and decision nodes branching to outcomes.",
-        roadmap="parked",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Decision, chance and terminal nodes: the optimal strategy by expected value, what perfect information "
+            "on each uncertainty is worth (EVPI), and the probabilities at which the best choice changes."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("dt_structure", "dt_nodes_complete", "dt_probabilities_complete"),
+        allowed_roles=("decision", "chance", "terminal"),
+        required_roles=("decision", "terminal"),
     )
 )
 
@@ -288,10 +314,16 @@ register_model_type(
         id="event_tree",
         display_name="Event Tree",
         short_name="ET",
-        description="Forward-logic tree from initiating event through barriers to outcomes for safety analysis.",
-        roadmap="roadmap",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Forward from one initiating event through yes/no headings to end states: a complete-tree check, "
+            "sequence and end-state probabilities and frequencies, with each value's provenance."
+        ),
+        roadmap="built",
+        availability="stable",
+        # The tree is stored as data (heading order and sequences), not as substrate links.
+        structural_validators=("et_elements_classified", "et_headings_ordered", "et_sequences_complete"),
+        allowed_roles=("initiating_event", "functional_event", "end_state"),
+        required_roles=("initiating_event", "functional_event", "end_state"),
     )
 )
 
@@ -312,10 +344,51 @@ register_model_type(
         id="theory_of_change",
         display_name="Theory of Change",
         short_name="ToC",
-        description="Logic model linking activities through outputs and outcomes to long-term goals.",
-        roadmap="roadmap",
-        availability="planned",
-        structural_validators=("acyclicity",),
+        description=(
+            "Results chain from activities through outputs and outcomes to impact, with the evidence and "
+            "assumptions behind each step laid out pathway by pathway."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("acyclicity", "toc_levels_complete", "toc_links_forward", "toc_pathways_complete"),
+        # Logic-model levels (W.K. Kellogg Foundation 2004). One per factor; the
+        # outcome of interest is the impact, so there is no separate "outcome" role.
+        allowed_roles=("input", "activity", "output", "short_term_outcome", "long_term_outcome", "impact"),
+        required_roles=("activity", "impact"),
+    )
+)
+
+register_model_type(
+    ModelTypeSpec(
+        id="mcda",
+        display_name="Multi-Criteria Decision Analysis",
+        short_name="MCDA",
+        description=(
+            "Options scored against weighted criteria: the ranking, each criterion's contribution, dominated "
+            "options, and how far each weight would have to move to change the choice."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("mcda_elements_present", "mcda_criteria_complete", "mcda_scores_complete"),
+        allowed_roles=("option", "criterion"),
+        required_roles=("option", "criterion"),
+    )
+)
+
+register_model_type(
+    ModelTypeSpec(
+        id="ach",
+        display_name="Analysis of Competing Hypotheses",
+        short_name="ACH",
+        description=(
+            "Hypotheses against the evidence: which one the evidence fails to rule out, which items don't "
+            "discriminate, and which linchpins the conclusion turns on."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("ach_elements_present", "ach_matrix_complete"),
+        allowed_roles=("hypothesis", "evidence_item"),
+        required_roles=("hypothesis", "evidence_item"),
     )
 )
 
@@ -327,7 +400,7 @@ register_model_type(
         display_name="Argument Map",
         short_name="AM",
         description="Toulmin/IBIS-style argumentation: claims, warrants, evidence, rebuttals.",
-        roadmap="not_planned",
+        roadmap="roadmap",
         availability="planned",
     )
 )

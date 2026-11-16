@@ -1,4 +1,4 @@
-"""Analysis CLI commands — loops, propagation, d-separation, blanket, paths."""
+"""Analysis CLI commands — loops, propagation, d-separation, blanket, paths, adjustment sets, effect estimates."""
 
 from __future__ import annotations
 
@@ -254,3 +254,73 @@ def adjustment_sets_cmd(
         else:
             members = ", ".join(sorted(labels.get(nid, nid[:12]) for nid in s))
             console.print(f"  {i}. {{{members}}}")
+
+
+@app.command("estimate")
+@handle_cli_errors
+def estimate_cmd(
+    treatment: str = typer.Argument(..., help="The factor whose effect you want (the treatment / exposure)."),
+    outcome: str = typer.Argument(..., help="The factor it affects."),
+    dataset: str = typer.Option(..., "--dataset", "-d", help="A registered dataset (`latris data` / the app)."),
+    adjust: list[str] = typer.Option(None, "--adjust", help="Adjust for exactly these (checked against the DAG); "
+                                                            "repeatable. Default: the smallest valid measured set."),
+    column: list[str] = typer.Option(None, "--column", help="'Factor=column' where the names differ; repeatable."),
+    estimator: str = typer.Option("auto", "--model", help="auto | linear | logistic (auto: logistic for a "
+                                                         "two-valued outcome)."),
+    no_adjust: bool = typer.Option(False, "--no-adjust", help="Adjust for nothing (checked: only valid when no "
+                                                              "backdoor path is open)."),
+    no_record: bool = typer.Option(False, "--no-record", help="Show the estimate without recording it."),
+) -> None:
+    """Estimate how big the effect of TREATMENT on OUTCOME is, from a dataset, adjusting as the DAG requires.
+
+    Factors map to dataset columns by name (label or id, any case), or with
+    --column. The adjustment set is the smallest valid backdoor set the
+    dataset measures, unless you give one; if every valid set needs
+    something the dataset lacks, it says what to measure instead of
+    estimating something biased. Linear regression (robust standard errors)
+    for a numeric outcome, logistic for a yes/no one; the unadjusted
+    association is shown beside it. The estimate is causal only under the
+    DAG's assumptions, which the output repeats.
+    """
+    from latris.operations import estimation
+
+    columns = {}
+    for c in column or []:
+        if "=" not in c:
+            raise typer.BadParameter(f"--column takes 'Factor=column', not {c!r}")
+        k, v = c.split("=", 1)
+        columns[k.strip()] = v.strip()
+    payload = estimation.estimate(treatment, outcome, dataset, adjust=[] if no_adjust else (adjust or None),
+                                  columns=columns or None, estimator=estimator)  # type: ignore[arg-type]
+    sha = None
+    if not no_record:
+        sha, payload["run_id"] = estimation.record(payload)
+
+    def human() -> None:
+        e, u = payload["effect"], payload["unadjusted"]
+        console.print(estimation.describe(payload) + ".\n")
+        adj = ", ".join(payload["adjustment"]) or "nothing"
+        console.print(f"Adjusted for: {adj} ({payload['adjustment_how']})")
+        if payload["minimal_sets"]:
+            sets = "; ".join("{" + ", ".join(s) + "}" if s else "{}" for s in payload["minimal_sets"])
+            console.print(f"[dim]Minimal valid sets in the DAG: {sets}[/dim]")
+        t = Table(show_header=True, header_style="bold")
+        logistic = payload["model"] == "logistic"
+        for col in ("", "Odds ratio" if logistic else "Estimate", "95% CI", "p"):
+            t.add_column(col, justify="left" if not col else "right")
+        for name, r in (("Adjusted", e), ("Unadjusted", u)):
+            if logistic:
+                t.add_row(name, f"{r['odds_ratio']:.4g}", f"{r['or_ci_low']:.4g} – {r['or_ci_high']:.4g}",
+                          f"{r['p']:.3g}")
+            else:
+                t.add_row(name, f"{r['estimate']:.4g}", f"{r['ci_low']:.4g} – {r['ci_high']:.4g}", f"{r['p']:.3g}")
+        console.print(t)
+        console.print(f"{payload['model']} regression, {payload['se_type']} standard errors, n = {payload['n']}"
+                      + (f" ({payload['dropped']} dropped)" if payload["dropped"] else ""))
+        for w in payload["warnings"]:
+            console.print(f"[yellow]caution:[/yellow] {w}")
+        console.print("\n[dim]Causal only if: " + " ".join(payload["assumptions"]) + "[/dim]")
+        if sha:
+            console.print(f"\nrecorded · commit [cyan]{sha[:10]}[/cyan]")
+
+    emit(payload, human=human, commit_sha=sha)

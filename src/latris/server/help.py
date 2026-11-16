@@ -768,7 +768,10 @@ When an AI agent (such as Claude Code) runs `latris` commands, Latris recognises
         id="model-types-overview",
         title="Choosing a Model Type",
         category="model-types",
-        summary="How to choose between CLD, DAG, FCM, BN, SD, and planned formal views — by the question each one answers.",
+        summary=(
+            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, "
+            "and planned formal views — by the question each one answers."
+        ),
         body="""## Current stable model types
 
 - **CLD:** best for feedback systems and reinforcing or balancing loops.
@@ -776,12 +779,20 @@ When an AI agent (such as Claude Code) runs `latris` commands, Latris recognises
 - **FCM:** best for semi-quantitative influence modelling with weights.
 - **BN:** best for quantitative probabilistic reasoning over an acyclic causal subgraph (discrete state spaces + CPTs with per-cell provenance). See the dedicated Bayesian Networks topic.
 - **SD:** best for how a system with accumulation, delay, and feedback behaves over time — stocks, flows, unit-checked equations, and deterministic simulation. See the dedicated System Dynamics topic.
+- **Theory of Change:** best for programme and policy logic — how an intervention's activities are expected to lead, step by step, to its impact, and what evidence and assumptions hold each step up. See the dedicated Theory of Change topic.
+- **Fault Tree:** best for how an undesired event can happen — the combinations of failures that cause it, single points of failure, its probability and which failures matter most. See the dedicated Fault Trees topic.
+- **Bow-Tie:** best for showing, for one top event, what could cause it, what could follow, and the barriers in between — where the protection is thin, shared or uncontrolled, and (with frequencies and failure probabilities) how often each outcome is expected. See the dedicated Bow-Ties topic.
+- **Event Tree:** best for following one initiating event forward — which safety functions work or fail, in what order, and how often each end state results. See the dedicated Event Trees topic.
+- **MCDA:** best for a choice between options judged on several criteria — the ranking, what drives it, and how far the weights would have to move to change it. See the dedicated Multi-Criteria Decision Analysis topic.
+- **ACH:** best for choosing between competing explanations — which one the evidence fails to rule out, and which pieces of evidence the conclusion turns on. See the dedicated Analysis of Competing Hypotheses topic.
+- **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
+- **Markov model:** best for what happens to a group over time — moving between states such as well, ill and dead — and what each strategy costs and achieves, with cost-effectiveness (ICERs, net benefit). See the dedicated Markov Cohort Models topic.
 
 ## Planned model types
 
-On the roadmap: fault trees, event trees, bow-tie diagrams and Goal Structuring Notation (for risk and safety cases), and theories of change (for programme and policy logic). Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
-Other registered types — decision trees, influence diagrams, Markov chains and MDPs, regression, argument maps, fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
+Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
 ## How selection affects the app
 
@@ -792,13 +803,35 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "How does this work — what feeds back on what?" → **CLD**. The cheapest
   honest answer; start here unless the question says otherwise.
 - "Can this effect actually be estimated, and from what data?" → **DAG**.
-  Identification — adjustment sets and d-separation; no effect sizes.
+  Adjustment sets and d-separation; with a dataset, the effect size under
+  the DAG's stated assumptions (`latris analyse estimate`).
 - "How likely is each outcome, and what would change my mind?" → **BN** —
   discrete states and probabilities.
 - "Which forces dominate, roughly?" → **FCM** — semi-quantitative weights
   and steady-state tendencies.
 - "How will it behave over time if we intervene?" → **SD** — the most
   commitment; build the CLD first.
+- "How is this programme supposed to work, and which steps are we taking
+  on trust?" → **Theory of Change** — a results chain from activities to
+  impact, link by link against the evidence.
+- "What combinations of failures cause this, and how likely is it?" →
+  **Fault Tree** — gates down to basic events; cut sets, probability and
+  importance.
+- "What stands between this hazard and harm, and where is it thin?" →
+  **Bow-Tie** — threats, barriers and consequences around one top event.
+- "Once this happens, how does it play out, and how often does it end
+  badly?" → **Event Tree** — yes/no headings from one initiating event to
+  end states.
+- "Which option should we choose, given what we care about?" → **MCDA** —
+  options scored against weighted criteria, and how firm the choice is.
+- "Which explanation does the evidence fail to rule out?" → **ACH** —
+  competing hypotheses rated against every piece of evidence.
+- "What should we do, given what we don't know — and is it worth finding
+  out more first?" → **Decision tree** — expected values and the value of
+  information.
+- "What does each option cost and achieve over years, and is the better one
+  worth its price?" → **Markov model** — a cohort moving between states,
+  with cost-effectiveness.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -938,6 +971,12 @@ DAG views require directionality and acyclicity. Feedback loops that are valid i
 ## Analysis outputs
 
 DAG analysis supports path enumeration, d-separation, Markov blankets, and adjustment-set reasoning.
+
+## Estimating the effect
+
+With a dataset (`latris data add survey.csv`, or the data workspace), `latris analyse estimate Exercise "Heart health" --dataset survey` estimates how big the effect is. Factors map to columns by name (or `--column "Exercise=exercise_hours"`). Latris adjusts for the smallest valid backdoor set the dataset measures — or a set you give with `--adjust`, which it checks against the DAG — and fits linear regression with robust standard errors for a numeric outcome, or logistic regression for a yes/no one. The unadjusted association is shown beside it, so you can see what adjustment changed. If every valid adjustment set needs a factor the data doesn't have, Latris names what to measure and estimates nothing.
+
+The estimate is the effect only if the DAG leaves out no common cause, the model's form is right, and every kind of unit could receive every level of the treatment; the output and the report say so each time. The result is recorded and goes out of date when the DAG or the data changes.
 """,
     ),
     HelpTopic(
@@ -963,6 +1002,264 @@ FCM analysis depends on edge weights and, for simulation, node activation settin
 ## Practical caution
 
 FCM weights are judgement-rich. Link weights to elicitation, evidence, or rationale so they are not mistaken for measured parameters.
+""",
+    ),
+    HelpTopic(
+        id="model-type-toc",
+        title="Theory of Change",
+        category="model-types",
+        summary="Lay out how an intervention is meant to reach its impact, and see which steps the evidence holds up.",
+        body="""## What a theory of change represents
+
+A theory of change is a results chain: what an intervention does (**activities**), what that directly produces (**outputs**), the changes that follow (**short-term** and **long-term outcomes**), and the long-term change it is for (**impact**). **Inputs** are the resources it uses. Every factor gets one of these levels (`latris toc level <factor> <level>`); links are ordinary causal links that run forward through the levels. The impact is the outcome of interest.
+
+## What the check shows
+
+`latris toc check` lays out every pathway from an activity to an impact and, for each link on one, what holds it up:
+
+- **checked** — a source was read and found to support it;
+- **cited** — it has a source nobody has checked yet;
+- **untested** — no source at all;
+- **contested** — a source argues against it.
+
+A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris provenance assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
+
+## Process tracing: how far does the evidence support each link?
+
+The check says whether a link has evidence; process tracing says how much that evidence should move you. For each link, set how confident you are before looking (`latris toc prior "A -> B" 0.6`; 0.5 if unset), then add **tests** — evidence you'd expect to see if the link holds — with two judgements: how likely you'd find it if the link holds (`--if-true`, its certainty) and if it doesn't (`--if-false`; low means the evidence is unique to the link):
+
+    latris toc test "Mentoring -> Engagement" "attendance rises" --if-true 0.9 --if-false 0.4
+
+Once you've looked, record the result (`--found` or `--not-found`). The test's type follows from the two numbers (Van Evera's four):
+
+- **hoop** (certain, not unique): failing it sinks the link; passing it helps only a little;
+- **smoking gun** (unique, not certain): passing it strongly supports the link; failing it hurts little;
+- **doubly decisive** (both): settles it either way;
+- **straw in the wind** (neither): nudges only.
+
+`latris toc trace` updates each link from its prior through the tests carried out (Bayes' rule in odds form), gives each pathway a confidence (the product of its links, treating them as independent) and its weakest link, and ranks the tests still to run by how far they could move their link. It is recorded, so the report shows it and the interpretation's claims include it. The numbers are judgements: write down why in `--notes`, cite where the evidence was found with `--source`, and mark them `--verified` once someone has reviewed them.
+
+## Impact: did the outcome change when the intervention started?
+
+With data on an outcome over time (`latris data add`), `latris toc impact` estimates the change:
+
+- **Interrupted time series** (no comparison group): `latris toc impact Attendance --dataset monthly --time month --at 2024-01-01`. It fits the trend before the start, the step at the start and the change of slope after it, and compares the last period with the pre-period trend projected forward. At least 8 periods on each side are advised; the errors are modelled as autocorrelated (AR(1)), so month-to-month persistence doesn't make the interval falsely narrow.
+- **Difference-in-differences** (a comparison group): add `--group <column> --treated <value>` (repeat `--treated` for several). It compares the treated group's change with the comparison group's, after checking whether their trends were already diverging before the start. With 20 or more groups the errors are clustered by group; with fewer, it says the interval is likely too narrow.
+
+Each check that fails or can't be made is listed as a caution with the result, and the result states what it assumes: for a time series, that nothing else changed at the same time; for difference-in-differences, that the groups would otherwise have moved in parallel. These are the designs' weak points and the data can only partly test them. The estimate is recorded and goes out of date when the dataset changes.
+
+## Readiness
+
+The model is ready when every factor has a level, no link runs backwards (towards activities), there is at least one activity and one impact, every impact is reached from an activity, and nothing dead-ends before the impact.
+
+## Practical caution
+
+The check is structural and about evidence. It shows where a theory rests on untested or contested steps — where to look first in an evaluation — not how big an effect is; for that, use the impact estimate, within its assumptions. Methods behind it: Weiss (1995) on theory-based evaluation, the W.K. Kellogg Foundation (2004) logic model, and Mayne (2012) on contribution analysis. Process tracing doesn't estimate effect sizes: it weighs evidence for each causal step, and its answer is only as good as the probabilities given. Methods: Van Evera (1997), Bennett (2015), Befani & Mayne (2014), Fairfield & Charman (2017); for impact, Wagner et al. (2002), Bernal et al. (2017) and Angrist & Pischke (2009).
+""",
+    ),
+    HelpTopic(
+        id="model-type-ft",
+        title="Fault Trees",
+        category="model-types",
+        summary="Break an undesired event down into the failures that cause it; find cut sets, its probability and what matters most.",
+        body="""## What a fault tree represents
+
+A fault tree starts from one undesired **top event** and works down through **gates** to the **basic events** that, in combination, cause it. Each factor gets a type (`latris ft event <factor> top_event|intermediate_event|basic_event|undeveloped_event`); link each input to the event it feeds (`latris edge add <input> <event> --kind logical`, or a causal link). Every top or intermediate event has a gate (`latris ft gate`): **and** (all inputs must occur), **or** (any one is enough) or **vote** with k (at least k of them, e.g. 2-out-of-3 redundant supplies). Undeveloped events are leaves you chose not to break down further.
+
+Only factors with a fault-tree type are in the tree, so a fault tree can share its events with a causal loop diagram. A link into the tree from an unclassified factor is left out and listed, never silently used.
+
+## What the analysis shows
+
+`latris ft analyse` lists the **minimal cut sets** — the smallest combinations of basic events that cause the top event — and the **single points of failure** (cut sets of one event). Give every basic event a probability (`latris ft probability <event> <p> --source <where>`) and it adds:
+
+- the **exact top-event probability**, from a binary decision diagram, so an event that feeds more than one gate isn't double-counted (the rare-event approximation and min-cut upper bound are shown beside it);
+- each event's **importance**: Fussell–Vesely (the share of the top-event probability that needs it), Birnbaum (how far the top-event probability moves between the event surely happening and surely not) and RAW (how many times likelier the top event is if it happens).
+
+Every probability keeps where it came from; the important ones nobody has verified are flagged, so you know which numbers to check first. The analysis is recorded for the report and goes out of date when the tree or a probability changes.
+
+## How sure is it? (Monte Carlo)
+
+Basic-event probabilities are rarely known exactly. Give them a range — `latris ft uncertainty "Pump A fails" --median 0.01 --error-factor 3` is a lognormal whose 95th percentile is three times its median, the usual way probabilistic risk assessments state it; `uniform --min --max`, `triangular`, `beta` and others also work — then `latris ft monte-carlo`. It recomputes the exact top-event probability for each sample and gives its 5th–95th percentile, median and mean beside the point estimate (with skewed ranges the mean is higher: the point estimate is not the expected value), and ranks the uncertain events by how strongly they drive the spread. Events without a range stay fixed and are listed. Ranges are judgements too: say why with `--reason` and cite with `--source`.
+
+## Readiness
+
+The tree is complete when it has one top event, every top and intermediate event has a gate and inputs (and a vote gate's k fits), basic and undeveloped events have no inputs, nothing loops, and every event leads to the top event. Probabilities aren't needed to be ready — the cut sets are useful on their own.
+
+## Practical caution
+
+The analysis is static and assumes basic events are independent: it has no common-cause failure model, no NOT, priority-AND or sequence gates, and different events' uncertainties are sampled as independent. Methods: the NRC *Fault Tree Handbook* (Vesely et al. 1981), IEC 61025, Rauzy (1993) for the decision diagram, and Birnbaum (1969) and Fussell (1975) for importance.
+""",
+    ),
+    HelpTopic(
+        id="model-type-bowtie",
+        title="Bow-Ties",
+        category="model-types",
+        summary="Lay out the threats and consequences of one top event and the barriers between, and see where protection is thin.",
+        body="""## What a bow-tie represents
+
+A bow-tie centres on a **top event** — the moment control of a **hazard** is lost (e.g. *loss of containment* of *flammable gas under pressure*). On the left, the **threats** that could cause it, each on a line through the **prevention barriers** meant to stop it. On the right, the **consequences** that could follow, each through **mitigation barriers**. An **escalation factor** is a condition that degrades a barrier (a detector bypassed for maintenance); its own line runs through the barriers that control it.
+
+Give each factor its element (`latris bowtie element <factor> hazard|top_event|threat|consequence|barrier|escalation_factor`) and draw the lines with ordinary links: threat → barrier → … → top event → barrier → … → consequence, and escalation factor → control → … → the barrier it degrades. Only factors with a bow-tie element are in it; a link from anything else is listed and left out.
+
+## Barriers
+
+Each barrier can carry its **type** (passive hardware, active hardware, active hardware + human, human — the CCPS types), its **status** (in place, degraded, not in place), its **owner**, and its **probability of failure on demand**, with where that number came from (`latris bowtie barrier <barrier> --type … --status … --owner … --pfd … --source …`). Only what you give changes.
+
+## What the analysis shows
+
+`latris bowtie analyse` lists every line with its barriers and flags:
+
+- lines with **no effective barrier**, and lines resting on **one** (a degraded or missing barrier doesn't count);
+- barriers on **more than one line** — one failure takes them all;
+- escalation factors with **no control**, and barriers with **no owner**.
+
+Give every threat a frequency per year (`latris bowtie frequency <threat> <f> --source …`) and every barrier on a line a failure probability, and it adds a layer-of-protection estimate: the top event's frequency, each consequence's, and for each barrier how many times more often its side's outcome would happen if it always failed (RAW). A barrier on two routes from the same threat is counted once. The important values nobody has verified are flagged. The analysis is recorded for the report and goes out of date when the bow-tie or a value changes.
+
+## How sure is it? (Monte Carlo)
+
+Give barrier failure probabilities and threat frequencies a range (`latris bowtie uncertainty "Pressure relief valve" --median 0.01 --error-factor 10`, or `uniform --min --max` and other distributions), then `latris bowtie monte-carlo`: the top event's and each consequence's frequency as a 5th–95th percentile range, median and mean beside the point estimate, and which ranges drive the spread. A barrier on several lines takes one value per run everywhere it appears, as it should.
+
+## Readiness
+
+Complete when there is one top event, at most one hazard (linked to the top event), at least one threat and one consequence each on a line, every barrier on a line, every escalation factor linked to the barrier it degrades, and no link that breaks the pattern or loops.
+
+## Practical caution
+
+The quantification is LOPA's: order-of-magnitude and barriers assumed independent; values are points unless given a range for Monte Carlo. Escalation factors are not quantified, and there is no severity scale or risk matrix. The left side of a bow-tie is often a fault tree: a threat's frequency can cite a fault-tree analysis as its source. Methods: CCPS & Energy Institute (2018) *Bow Ties in Risk Management*, and CCPS (2001) *Layer of Protection Analysis*.
+""",
+    ),
+    HelpTopic(
+        id="model-type-et",
+        title="Event Trees",
+        category="model-types",
+        summary="Follow one initiating event forward through yes/no headings to end states, with the probability of each.",
+        body="""## What an event tree represents
+
+An event tree starts from one **initiating event** (a gas release) and asks, in order, a series of yes/no questions — the **headings** or functional events (*Gas detected?*, *Isolation succeeds?*, *Ignition?*). Each complete path of answers is a **sequence**, and each sequence ends in an **end state** (*contained release*, *fire*, *gas cloud dispersed*). A branch need not ask every heading: once isolation succeeds, ignition may not matter.
+
+Give each factor its element (`latris et element <factor> initiating_event|functional_event|end_state`), set the heading order (`latris et order <heading> …`), then add each sequence with its answers and end state (`latris et sequence Fire "Gas detected=no" "Ignition=yes"`). The tree isn't drawn with links: one heading is asked on many branches, so the structure is stored as data.
+
+## Probabilities
+
+Each heading has P(yes) (`latris et probability <heading> <p>`), and can have different values on different branches (`--given "Gas detected=no"`): the most specific value that matches a branch applies. The initiating event can have a frequency per year (`latris et frequency`). Every value keeps where it came from; a heading's probability can cite a fault-tree analysis, and the initiating frequency a bow-tie's.
+
+## What the analysis shows
+
+`latris et analyse` gives each sequence's probability (the product of its branch probabilities) and, with the initiating frequency, how often it happens per year; the totals per end state; and the dominant sequence behind each end state. Values on the dominant sequences that nobody has verified are flagged. The result is recorded for the report and goes out of date when the tree or a value changes.
+
+## How sure is it? (Monte Carlo)
+
+Give the uncertain numbers a range and sample them: `latris et uncertainty "Gas release" --median 0.02 --error-factor 3` (a lognormal whose 95th percentile is three times its median — the usual way risk assessments state it), or a branch probability, conditional ones with `--given "Gas detected=no"`; other distributions take `uniform --min --max`, `triangular`, `beta` and so on. `latris et monte-carlo` reruns the tree for each sample and gives every end state's 5th–95th percentile, median and mean beside the point estimate, and ranks the uncertain inputs by how strongly they drive the headline end state (`--output` picks it; by default the rarest). Values without a range stay fixed and are listed, so the spread is a lower bound.
+
+## Readiness
+
+Complete when there is one initiating event and at least one end state, every heading is in the order, and the sequences form a complete tree: at each branch point every sequence asks the same next question, both answers are covered, no sequence stops while a sibling continues, and every heading and end state is used.
+
+## Practical caution
+
+Branches are binary, and dependence between headings is only what you state with conditional probabilities. Uncertainty comes only from the ranges you give for Monte Carlo, and heading probabilities are entered rather than linked live to fault trees. Methods: IEC 62502 (event tree analysis) and the NRC *PRA Procedures Guide* (NUREG/CR-2300).
+""",
+    ),
+    HelpTopic(
+        id="model-type-mcda",
+        title="Multi-Criteria Decision Analysis",
+        category="model-types",
+        summary="Choose between options judged on several criteria, and see how firm the choice is.",
+        body="""## What an MCDA represents
+
+Options you could choose (sites, suppliers, policies) and the criteria they are judged on (cost, travel time, capacity). Give each factor its element (`latris mcda element <factor> option|criterion`), then for each criterion a **swing weight**, a **direction** and, ideally, a **scale** (`latris mcda criterion Cost --weight 50 --direction lower --worst 100 --best 0 --units "$m"`), and each option's **score** on each criterion (`latris mcda score "Site A" Cost 40 --source quote-2025`).
+
+A swing weight says how much moving from the worst to the best of the scale matters, compared with the other criteria's swings — so a weight means nothing without its scale. Without `--worst`/`--best` the options' own range is used; that shifts when an option is added, and the weights then need revisiting.
+
+## What the analysis shows
+
+`latris mcda analyse` turns each score into a value from 0 (worst) to 1 (best), combines them by the normalised weights into a total out of 100, and shows:
+
+- the **ranking**, with each criterion's contribution to each option's total;
+- **dominated** options — no better anywhere, worse somewhere — which can be set aside whatever the weights;
+- for each weight, **how far it would have to move** (the others keeping their proportions) before the top choice changes — a fragile choice shows up as a small move;
+- the scores the winning margin rests on that nobody has verified.
+
+The result is recorded for the report and goes out of date when a weight, scale or score changes.
+
+## Practical caution
+
+The model is additive and linear: it assumes criteria can be traded off independently and value rises evenly between worst and best. Weights are judgements — record whose (`--source`). Methods: Keeney & Raiffa (1976), Belton & Stewart (2002), and the UK government's *Multi-criteria analysis: a manual* (DCLG 2009).
+""",
+    ),
+    HelpTopic(
+        id="model-type-ach",
+        title="Analysis of Competing Hypotheses",
+        category="model-types",
+        summary="Weigh competing explanations against all the evidence at once, and find what the conclusion turns on.",
+        body="""## What ACH represents
+
+Several possible explanations (**hypotheses**) and everything you know that bears on them (**evidence items**: facts, reports, arguments, even things you'd expect to see and don't). Give each factor its element (`latris ach element <factor> hypothesis|evidence_item`), say how far each item can be trusted and how directly it bears (`latris ach item <item> --credibility high --relevance medium`), and rate every item against every hypothesis (`latris ach rate <item> <hypothesis> CC|C|N|I|II --rationale "…"`) — very consistent to very inconsistent. Ask of each cell: *if this hypothesis were true, how likely would I be to see this?*
+
+An evidence item can carry its own sources like any factor (`latris evidence add <item> description <key>`), and the analysis says whether they've been checked.
+
+## What the analysis shows
+
+`latris ach analyse` (Heuer's method):
+
+- ranks the hypotheses by the **evidence against them**, weighted by credibility and relevance — the strongest hypothesis is the one the evidence fails to rule out, not the one with most in its favour;
+- flags evidence rated the same against every hypothesis — it can't help you choose;
+- finds the **linchpins**: items without which the lead would change or be tied, with whether their sources were checked. Those are what to verify first.
+
+The result is recorded for the report and goes out of date when a rating, weight or source changes.
+
+## Practical caution
+
+Ratings are judgements; record your reasoning (`--rationale`). The weights (high 1.0, medium 0.7, low 0.4; an inconsistency counts 1, a strong one 2) are a stated convention, and the ranking orders hypotheses — it doesn't give their probabilities. Method: Heuer (1999), *Psychology of Intelligence Analysis*, ch. 8.
+""",
+    ),
+    HelpTopic(
+        id="model-type-dt",
+        title="Decision Trees",
+        category="model-types",
+        summary="Find the best choice under uncertainty, and what finding out more first would be worth.",
+        body="""## What a decision tree represents
+
+**Decision** nodes where someone chooses, **chance** nodes where the world does, and **terminal** nodes with a payoff. Give each factor its type (`latris dt element <factor> decision|chance|terminal`) and link each node to its children with ordinary links; each node has one parent, so repeat an outcome under each branch rather than sharing it. Then set each branch's label and, from a chance node, its probability (`latris dt branch "Demand if launched -> High demand, launched" --label High -p 0.4`), any value along a branch such as the cost of a test (`--value -20`), each terminal's payoff (`latris dt payoff <terminal> 500 --source forecast`), and whether you're maximising (profit) or minimising (cost) (`latris dt settings --objective maximise --units "$k"`).
+
+When the same uncertainty appears under several choices — demand if you launch, demand if you license — give those chance nodes one name (`latris dt uncertainty <chance node> Demand`) with the same states and probabilities, so the tree can price knowing it.
+
+## What the analysis shows
+
+`latris dt analyse` rolls the tree back — a chance node is worth the probability-weighted value of its branches, a decision node the best of its options — and gives:
+
+- the **best strategy** and the expected value of each first choice;
+- the **expected value of perfect information** for each uncertainty — the most it's worth paying to know it before choosing (market research costing more isn't worth it) — and for all of them together;
+- for each two-state uncertainty, the **probability at which the best choice changes**;
+- the values on the best path nobody has verified.
+
+The result is recorded for the report and goes out of date when the tree or a value changes.
+
+## Practical caution
+
+Expected value is risk-neutral: a strategy with a small chance of ruin can still come out best. Probabilities and payoffs are point values. Perfect information is an upper bound — real research is imperfect and worth less. Methods: Raiffa (1968), Clemen & Reilly (2014), Howard (1966).
+""",
+    ),
+    HelpTopic(
+        id="model-type-markov",
+        title="Markov Cohort Models",
+        category="model-types",
+        summary="Follow a cohort between states over time, and compare what strategies cost and achieve.",
+        body="""## What a Markov model represents
+
+A group of people (a cohort) spread over **states** — Healthy, Sick, Dead — moving between them each **cycle**. Give each factor its element (`latris markov element <factor> state|strategy`); a transition is an ordinary link between two states with a probability per cycle (`latris markov transition "Healthy -> Sick" 0.10 --source registry-2024`). Whatever doesn't leave a state stays in it. Say where the cohort starts (`latris markov start Healthy 1`).
+
+Each state can have a **cost** per cycle and a **utility** — a quality-of-life weight per year, 1 for full health and 0 for dead (`latris markov reward Sick --cost 2500 --utility 0.6`). **Strategies** being compared (Standard care, New drug) use the same model and differ where you override a transition or reward for one of them (`--strategy "New drug"`). Settings set the horizon and cycle length, discounting for costs and outcomes, half-cycle correction, the willingness to pay per unit of outcome and the units (`latris markov settings --cycles 40 --discount 0.035 --wtp 20000 --cost-units £ --outcome-units QALY`).
+
+## What the analysis shows
+
+`latris markov analyse` runs the cohort for each strategy and gives its discounted cost and outcome (e.g. QALYs) per person and the expected time in each state. With two or more strategies it does the standard **incremental analysis**: cheapest first; strategies that cost more and achieve no more are **dominated**; those a mix of their neighbours would beat are **extendedly dominated**; the rest have an **ICER** — the extra cost per extra unit of outcome — against the previous one. Each ICER is the willingness to pay at which the choice changes; with a willingness to pay set, the strategy with the highest net monetary benefit is named.
+
+The result is recorded for the report and goes out of date when any value changes.
+
+## Practical caution
+
+The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Values are point estimates — probabilistic sensitivity analysis is not yet available. Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015).
 """,
     ),
     HelpTopic(

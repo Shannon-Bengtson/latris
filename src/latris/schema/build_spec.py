@@ -218,6 +218,333 @@ class SpecSD(_Spec):
     scenarios: list[SpecScenario] = Field(default_factory=list)
 
 
+class SpecToCLevel(_Spec):
+    node: str
+    level: Literal["input", "activity", "output", "short_term_outcome", "long_term_outcome", "impact"]
+
+
+class SpecToCPrior(_Spec):
+    """Process tracing: confidence that a link holds before the tests."""
+
+    link: str  # "From -> To"
+    prior: float = Field(gt=0.0, lt=1.0)
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecToCTest(_Spec):
+    """Process tracing: one evidence test on a link — P(evidence | link holds), P(evidence | it doesn't), found?"""
+
+    link: str  # "From -> To"
+    name: str
+    p_if_true: float = Field(gt=0.0, lt=1.0)
+    p_if_false: float = Field(gt=0.0, lt=1.0)
+    found: bool | None = None  # omit: not looked for yet
+    description: str | None = None
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecToC(_Spec):
+    """Theory-of-change levels, plus process-tracing priors and tests on its links.
+
+    The spec's ``outcome`` (if any) becomes an impact.
+    """
+
+    levels: list[SpecToCLevel] = Field(default_factory=list)
+    priors: list[SpecToCPrior] = Field(default_factory=list)
+    tests: list[SpecToCTest] = Field(default_factory=list)
+
+
+class SpecFTEvent(_Spec):
+    node: str
+    type: Literal["top_event", "intermediate_event", "basic_event", "undeveloped_event"]
+
+
+class SpecFTGate(_Spec):
+    node: str
+    gate: Literal["and", "or", "vote"]
+    k: int | None = Field(default=None, ge=1)
+
+
+class SpecFTProbability(_Spec):
+    node: str
+    probability: float = Field(ge=0.0, le=1.0)
+    source: str | None = None  # where it came from (a reference key, dataset, …)
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False  # a person has checked it against its source
+    notes: str | None = None
+
+
+class SpecRiskUncertainty(_SpecParam):
+    """How uncertain a risk model's number is, for Monte Carlo: a fault-tree event's probability, a bow-tie
+    barrier's PFD or threat's frequency, an event-tree heading's P(yes) (``given`` its condition, as in the
+    probability entry) or initiating frequency.
+
+    ``params`` as for the distribution, or ``{median, error_factor}`` for a lognormal.
+    """
+
+    node: str
+    distribution: Literal["uniform", "triangular", "normal", "lognormal", "beta", "gamma"]
+    params: dict[str, float]
+    given: dict[str, Literal["yes", "no"]] = Field(default_factory=dict)  # event trees only
+    reason: str = ""
+    verified: bool = False
+
+
+class SpecFT(_Spec):
+    """Fault tree: event types, gates on top/intermediate events, basic-event probabilities.
+
+    The spec's ``outcome`` (if any) becomes the top event.
+    """
+
+    events: list[SpecFTEvent] = Field(default_factory=list)
+    gates: list[SpecFTGate] = Field(default_factory=list)
+    probabilities: list[SpecFTProbability] = Field(default_factory=list)
+    uncertainty: list[SpecRiskUncertainty] = Field(default_factory=list)
+
+
+class SpecBTElement(_Spec):
+    node: str
+    type: Literal["hazard", "top_event", "threat", "consequence", "barrier", "escalation_factor"]
+
+
+class SpecBTBarrier(_Spec):
+    node: str
+    type: Literal["passive_hardware", "active_hardware", "active_hardware_human", "human"] | None = None
+    status: Literal["in_place", "degraded", "not_in_place"] = "in_place"
+    owner: str | None = None
+    pfd: float | None = Field(default=None, ge=0.0, le=1.0)  # probability of failure on demand
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecBTFrequency(_Spec):
+    node: str
+    frequency: float = Field(ge=0.0)  # per year
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecBowTie(_Spec):
+    """Bow-tie elements, barriers and threat frequencies. The spec's ``outcome`` becomes the top event."""
+
+    elements: list[SpecBTElement] = Field(default_factory=list)
+    barriers: list[SpecBTBarrier] = Field(default_factory=list)
+    frequencies: list[SpecBTFrequency] = Field(default_factory=list)
+    uncertainty: list[SpecRiskUncertainty] = Field(default_factory=list)
+
+
+class SpecETElement(_Spec):
+    node: str
+    type: Literal["initiating_event", "functional_event", "end_state"]
+
+
+class SpecETSequence(_Spec):
+    answers: dict[str, Literal["yes", "no"]] = Field(default_factory=dict)  # heading label → answer
+    end_state: str
+
+
+class SpecETProbability(_Spec):
+    node: str  # a heading
+    p_yes: float = Field(ge=0.0, le=1.0)
+    given: dict[str, Literal["yes", "no"]] = Field(default_factory=dict)  # earlier answers it applies under
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecETFrequency(_Spec):
+    node: str  # the initiating event
+    frequency: float = Field(ge=0.0)  # per year
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+    notes: str | None = None
+
+
+class SpecEventTree(_Spec):
+    """Event tree: elements, heading order, sequences, branch probabilities, initiating frequency."""
+
+    elements: list[SpecETElement] = Field(default_factory=list)
+    order: list[str] = Field(default_factory=list)  # heading labels, left to right
+    sequences: list[SpecETSequence] = Field(default_factory=list)
+    probabilities: list[SpecETProbability] = Field(default_factory=list)
+    frequency: SpecETFrequency | None = None
+    uncertainty: list[SpecRiskUncertainty] = Field(default_factory=list)
+
+
+class SpecMCDAElement(_Spec):
+    node: str
+    type: Literal["option", "criterion"]
+
+
+class SpecMCDACriterion(_Spec):
+    node: str
+    weight: float | None = Field(default=None, gt=0)  # swing weight; normalised over the criteria
+    direction: Literal["higher", "lower"] | None = None  # which way is better
+    worst: float | None = None  # the scale; omit both to use the options' range
+    best: float | None = None
+    units: str | None = None
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMCDAScore(_Spec):
+    option: str
+    criterion: str
+    value: float
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMCDA(_Spec):
+    """Multi-criteria decision analysis: options, criteria (weight, direction, scale) and scores."""
+
+    elements: list[SpecMCDAElement] = Field(default_factory=list)
+    criteria: list[SpecMCDACriterion] = Field(default_factory=list)
+    scores: list[SpecMCDAScore] = Field(default_factory=list)
+
+
+class SpecACHElement(_Spec):
+    node: str
+    type: Literal["hypothesis", "evidence_item"]
+
+
+class SpecACHItem(_Spec):
+    node: str
+    credibility: Literal["high", "medium", "low"] = "medium"
+    relevance: Literal["high", "medium", "low"] = "medium"
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecACHRating(_Spec):
+    item: str
+    hypothesis: str
+    rating: Literal["CC", "C", "N", "I", "II"]
+    rationale: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecACH(_Spec):
+    """Analysis of competing hypotheses: hypotheses, evidence items (credibility, relevance) and ratings."""
+
+    elements: list[SpecACHElement] = Field(default_factory=list)
+    items: list[SpecACHItem] = Field(default_factory=list)
+    ratings: list[SpecACHRating] = Field(default_factory=list)
+
+
+class SpecDTNode(_Spec):
+    node: str
+    type: Literal["decision", "chance", "terminal"]
+
+
+class SpecDTBranch(_Spec):
+    link: str  # "Parent -> Child" (the link must exist under links)
+    label: str | None = None  # the option or the state; default: the child's label
+    probability: float | None = Field(default=None, ge=0.0, le=1.0)  # branches from a chance node
+    value: float | None = None  # incurred along the branch (e.g. a cost, negative)
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecDTPayoff(_Spec):
+    node: str  # a terminal node
+    value: float
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecDTUncertainty(_Spec):
+    node: str  # a chance node
+    uncertainty: str  # chance nodes with the same name are one uncertainty (priced together for EVPI)
+
+
+class SpecDT(_Spec):
+    """Decision tree: node types, branches (label, probability, value), payoffs, uncertainties, objective."""
+
+    objective: Literal["maximise", "minimise"] | None = None
+    units: str | None = None
+    nodes: list[SpecDTNode] = Field(default_factory=list)
+    branches: list[SpecDTBranch] = Field(default_factory=list)
+    payoffs: list[SpecDTPayoff] = Field(default_factory=list)
+    uncertainties: list[SpecDTUncertainty] = Field(default_factory=list)
+
+
+class SpecMarkovElement(_Spec):
+    node: str
+    type: Literal["state", "strategy"]
+
+
+class SpecMarkovTransition(_Spec):
+    link: str  # "From state -> To state" (the link must exist under links)
+    probability: float = Field(ge=0.0, le=1.0)  # per cycle
+    strategy: str | None = None  # this strategy only; omit for every strategy
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMarkovReward(_Spec):
+    state: str
+    strategy: str | None = None
+    cost: float | None = None  # per cycle
+    utility: float | None = None  # per year (e.g. a quality-of-life weight)
+    notes: str | None = None
+    source: str | None = None
+    origin: ProvenanceOrigin | None = None
+    verified: bool = False
+
+
+class SpecMarkovStart(_Spec):
+    state: str
+    proportion: float = Field(ge=0.0, le=1.0)
+
+
+class SpecMarkovSettings(_Spec):
+    cycle_length: float | None = Field(default=None, gt=0)
+    num_cycles: int | None = Field(default=None, ge=1)
+    time_units: Literal["days", "weeks", "months", "years"] | None = None
+    discount_rate: float | None = Field(default=None, ge=0, le=1)
+    outcome_discount_rate: float | None = Field(default=None, ge=0, le=1)
+    half_cycle_correction: bool | None = None
+    wtp: float | None = Field(default=None, ge=0)
+    cost_units: str | None = None
+    outcome_units: str | None = None
+
+
+class SpecMarkov(_Spec):
+    """Markov cohort model: states and strategies, transitions, costs and utilities, the start, settings."""
+
+    elements: list[SpecMarkovElement] = Field(default_factory=list)
+    settings: SpecMarkovSettings | None = None
+    transitions: list[SpecMarkovTransition] = Field(default_factory=list)
+    rewards: list[SpecMarkovReward] = Field(default_factory=list)
+    start: list[SpecMarkovStart] = Field(default_factory=list)
+
+
 class SpecBNStates(_Spec):
     node: str
     states: list[str] = Field(min_length=2)
@@ -268,14 +595,29 @@ class SpecAnalysis(_Spec):
     | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
-    | bn_sensitivity (target, state, evidence).
+    | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
+    | toc_trace (process tracing: each link's posterior from its tests, pathway confidence; no options)
+    | ft_monte_carlo / bowtie_monte_carlo / et_monte_carlo (uncertainty in the top-event probability or the
+      frequencies: runs, seed, sampling; target: the output to headline)
+    | toc_impact (interrupted time series, or difference-in-differences with group and treated: outcome,
+      dataset, time, at, group, treated, columns)
+    | ft_analyse (fault-tree cut sets, probability and importance; max_order)
+    | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options)
+    | et_analyse (event-tree sequences and end states; no options)
+    | dag_estimate (effect of treatment on outcome from a dataset: treatment, outcome, dataset, adjust,
+      columns, estimator) | mcda_analyse (ranking and weight sensitivity; no options)
+    | ach_analyse (competing hypotheses: ranking, linchpins; no options)
+    | dt_analyse (decision tree: best strategy, EVPI, probability thresholds; no options)
+    | markov_analyse (Markov cohort: costs, outcomes, incremental cost-effectiveness; no options).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_sensitivity",
+        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
+        "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace", "toc_impact",
+        "ft_monte_carlo", "bowtie_monte_carlo", "et_monte_carlo",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -297,6 +639,19 @@ class SpecAnalysis(_Spec):
     over: list[str] = Field(default_factory=list)
     target: str | None = None
     state: str | None = None
+    max_order: int | None = Field(default=None, ge=1)  # ft_analyse: list cut sets up to this order
+    # dag_estimate: the effect of treatment on outcome, from a registered dataset
+    treatment: str | None = None
+    outcome: str | None = None
+    dataset: str | None = None
+    adjust: list[str] = Field(default_factory=list)  # empty: the smallest valid set of measured factors
+    columns: dict[str, str] = Field(default_factory=dict)  # factor label → dataset column, where names differ
+    estimator: Literal["auto", "linear", "logistic"] | None = None
+    # toc_impact: interrupted time series (no group) or difference-in-differences, for outcome from dataset
+    time: str | None = None  # the dataset's time column (numbers or dates)
+    at: str | float | None = None  # the first period the intervention could affect
+    group: str | None = None  # difference-in-differences: the column saying which group a row is in
+    treated: list[str] = Field(default_factory=list)  # … and the group value(s) that received it
 
 
 class BuildSpec(_Spec):
@@ -316,4 +671,12 @@ class BuildSpec(_Spec):
     interpretation: list[SpecInterpretation] = Field(default_factory=list)
     sd: SpecSD | None = None  # System Dynamics roles, values, equations, tables, uncertainty, scenarios
     bn: SpecBN | None = None  # Bayesian network states and probability tables
+    toc: SpecToC | None = None  # Theory of Change levels (input … impact)
+    ft: SpecFT | None = None  # Fault tree events, gates and probabilities
+    bowtie: SpecBowTie | None = None  # Bow-tie elements, barriers and threat frequencies
+    event_tree: SpecEventTree | None = None  # Event tree elements, order, sequences, probabilities
+    mcda: SpecMCDA | None = None  # MCDA options, criteria and scores
+    ach: SpecACH | None = None  # ACH hypotheses, evidence items and ratings
+    decision_tree: SpecDT | None = None  # Decision tree nodes, branches, payoffs, uncertainties
+    markov: SpecMarkov | None = None  # Markov states, strategies, transitions, rewards, start, settings
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

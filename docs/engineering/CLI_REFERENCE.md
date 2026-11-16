@@ -236,6 +236,8 @@ latris analyse d-sep <x> <y> [--given <z1,z2,...>]
 latris analyse blanket <variable>
 latris analyse paths <from-variable> <to-variable>
 latris analyse adjustment-sets <treatment> <outcome>
+latris analyse estimate <treatment> <outcome> --dataset NAME [--adjust F ...] [--no-adjust]
+                        [--column "Factor=column" ...] [--model auto|linear|logistic] [--no-record]
 ```
 
 Qualitative computation on the existing stable views. `loops` finds all
@@ -245,7 +247,21 @@ qualitative effects of a hypothetical increase. `d-sep` tests d-separation
 the Markov blanket (parents + children + co-parents). `paths` enumerates
 all paths between two variables with node classification
 (chain/fork/collider). `adjustment-sets` finds valid adjustment sets via
-the backdoor criterion. Variables resolve by ID, label, or prefix.
+the backdoor criterion. `estimate` fits the effect from a dataset, adjusting
+for the smallest valid backdoor set the data measures (or a given set,
+checked), and records it (`dag-estimate`). Variables resolve by ID, label,
+or prefix.
+
+## Data
+
+```bash
+latris data add <file.csv|.tsv> [--name NAME] [--description TEXT]   # copied into data/files, committed
+latris data list
+latris data show <name>                                                # columns and types
+```
+
+The app's data workspace has the full set of cleaning and reshaping
+operations (`/api/datasets/*`).
 
 ## FCM (Fuzzy Cognitive Maps)
 
@@ -312,6 +328,155 @@ latris sd loops [--scenario NAME] [--from T] [--to T]          # loop dominance 
 Simulate, monte-carlo, sensitivity and loops take the run settings
 (`--final-time`, `--dt`, `--method`) and record their result
 (`--no-record` to skip).
+
+## ToC (Theory of Change)
+
+A results chain on the shared substrate: each factor gets a level (view
+role), links are ordinary causal links running forward through the levels,
+and the impact is the outcome of interest. The check is recorded as an
+`AnalysisRun` (`toc-pathways`) so reports show it.
+
+```bash
+latris toc level <node> <input|activity|output|short_term_outcome|long_term_outcome|impact>
+latris toc levels                              # factors by level, and any without one
+latris toc check [--no-record]                 # pathways activity → impact; per-link evidence status + assumptions
+latris assumption add "<why the step happens>" --target "From -> To"   # counted per link by the check
+latris toc prior "From -> To" <p> [--source ID] [--origin …] [--verified] [--notes …]   # process tracing: prior (default 0.5)
+latris toc test "From -> To" <name> --if-true <P(E|holds)> --if-false <P(E|doesn't)> [--found|--not-found]
+               [--description …] [--source ID] [--verified] [--notes …] [--remove]     # add / update / remove a test
+latris toc trace [--no-record]                 # posterior per link, pathway confidence, most informative next test
+latris toc impact <outcome> --dataset D --time COL --at T [--column C] [--no-record]   # interrupted time series
+latris toc impact <outcome> --dataset D --time COL --at T --group COL --treated V…     # difference-in-differences
+```
+
+Impact estimates are recorded as `toc-impact` (one per outcome, dataset and
+design) and list a caution for each validity check that fails or can't be
+made. Process tracing is recorded as `toc-process-trace`; tests are classified as
+hoop, smoking gun, doubly decisive or straw in the wind from their two
+probabilities.
+
+## FT (Fault Trees)
+
+A fault tree on the shared substrate: each event's type is a view role, an
+input links to the event it feeds (`logical` or `causal` edge), and every
+top or intermediate event has a gate stored on it. Only events with a type
+are in the tree. `ft analyse` is recorded as an `AnalysisRun`
+(`ft-analysis`).
+
+```bash
+latris ft event <node> <top_event|intermediate_event|basic_event|undeveloped_event>
+latris ft gate <event> <and|or|vote> [--k K]          # vote: at least K of the inputs
+latris ft probability <event> <p> [--source KEY] [--origin ORIGIN] [--verified] [--notes]
+latris ft show                                        # the tree from the top event down
+latris ft check                                       # structure; exits 1 until complete
+latris ft analyse [--max-order N] [--no-record]       # cut sets, SPOFs, exact P(top), importance
+latris ft uncertainty <target> [lognormal --median M --error-factor EF | uniform --min --max | …] [--reason] [--source] [--clear]
+latris ft monte-carlo [--runs N] [--seed S] [--sampling lhs|random] [--output R] [--no-record]   # percentiles, mean vs point, drivers
+```
+
+## Bow-tie
+
+Threats, barriers and consequences around one top event, on the shared
+substrate: each element is a view role, lines are ordinary links, and each
+barrier's type, status, owner and failure probability (PFD) are stored with
+provenance. `bowtie analyse` is recorded as an `AnalysisRun` (`bt-analysis`).
+
+```bash
+latris bowtie element <node> <hazard|top_event|threat|consequence|barrier|escalation_factor>
+latris bowtie barrier <barrier> [--type passive_hardware|active_hardware|active_hardware_human|human]
+                      [--status in_place|degraded|not_in_place] [--owner] [--pfd P] [--source] [--origin] [--verified]
+latris bowtie frequency <threat> <per_year> [--source] [--origin] [--verified] [--notes]
+latris bowtie show                                    # line by line
+latris bowtie check                                   # structure; exits 1 until complete
+latris bowtie analyse [--no-record]                   # lines, flags, LOPA frequencies, RAW per barrier
+latris bowtie uncertainty <target> [lognormal --median M --error-factor EF | uniform --min --max | …] [--reason] [--source] [--clear]
+latris bowtie monte-carlo [--runs N] [--seed S] [--sampling lhs|random] [--output R] [--no-record]   # percentiles, mean vs point, drivers
+```
+
+## Event tree
+
+From one initiating event through ordered yes/no headings to end states.
+The tree is stored as data (heading order + sequences), not substrate
+links. `et analyse` is recorded as an `AnalysisRun` (`et-analysis`).
+
+```bash
+latris et element <node> <initiating_event|functional_event|end_state>
+latris et order <heading> <heading> ...               # left to right
+latris et sequence <end_state> "Heading=yes" "Heading=no" ...   # one path; same answers replace it
+latris et remove-sequence "Heading=yes" ...
+latris et probability <heading> <p_yes> [--given "Heading=no" ...] [--source] [--origin] [--verified]
+latris et frequency <initiating_event> <per_year> [--source] [--origin] [--verified]
+latris et show                                        # sequences table (· = not asked)
+latris et check                                       # complete tree? exits 1 until it is
+latris et analyse [--no-record]                       # sequence and end-state probabilities / frequencies
+latris et uncertainty <target> [lognormal --median M --error-factor EF | uniform --min --max | …] [--reason] [--source] [--clear] [--given "Heading=no"]
+latris et monte-carlo [--runs N] [--seed S] [--sampling lhs|random] [--output R] [--no-record]   # percentiles, mean vs point, drivers
+```
+
+## MCDA (multi-criteria decision analysis)
+
+Options against swing-weighted criteria. Options and criteria are view
+roles; weights, directions, scales and scores are stored with provenance.
+`mcda analyse` is recorded as an `AnalysisRun` (`mcda-analysis`).
+
+```bash
+latris mcda element <node> <option|criterion>
+latris mcda criterion <criterion> [--weight W] [--direction higher|lower] [--worst X --best Y] [--units U]
+                      [--source] [--origin] [--verified] [--notes]      # only what you give changes
+latris mcda score <option> <criterion> <value> [--source] [--origin] [--verified] [--notes]
+latris mcda show                                      # options × criteria matrix with weights
+latris mcda check                                     # weights, directions, every score; exits 1 until complete
+latris mcda analyse [--no-record]                     # ranking, contributions, dominance, weight thresholds
+```
+
+## ACH (analysis of competing hypotheses)
+
+Hypotheses against evidence items (view roles); one rating per pair, and an
+item's credibility and relevance, each with provenance. An item's sources
+are ordinary citations on it. `ach analyse` is recorded (`ach-analysis`).
+
+```bash
+latris ach element <node> <hypothesis|evidence_item>
+latris ach item <item> [--credibility high|medium|low] [--relevance high|medium|low] [--notes]
+latris ach rate <item> <hypothesis> <CC|C|N|I|II> [--rationale] [--origin] [--verified]
+latris ach show                                       # items × hypotheses matrix
+latris ach check                                      # every pair rated? exits 1 until so
+latris ach analyse [--no-record]                      # ranking by evidence against, linchpins, non-diagnostic items
+```
+
+## Decision tree
+
+Decision, chance and terminal nodes (view roles); branches are ordinary
+links, each node with one parent. Branch labels, probabilities, values and
+payoffs are stored with provenance. `dt analyse` is recorded (`dt-analysis`).
+
+```bash
+latris dt element <node> <decision|chance|terminal>
+latris dt branch "Parent -> Child" [--label L] [-p P] [--value V] [--source] [--origin] [--verified]
+latris dt payoff <terminal> <value> [--source] [--origin] [--verified] [--notes]
+latris dt uncertainty <chance node> <name>             # same name: one uncertainty under different choices
+latris dt settings [--objective maximise|minimise] [--units U]
+latris dt show                                         # the tree with expected values; → marks best choices
+latris dt check                                        # one root, a tree, payoffs, probabilities sum to 1
+latris dt analyse [--no-record]                        # best strategy, EVPI, probability thresholds
+```
+
+## Markov cohort model
+
+States and strategies (view roles); transitions are ordinary links between
+states. Probabilities, costs, utilities and the start are stored with
+provenance. `markov analyse` is recorded (`markov-analysis`).
+
+```bash
+latris markov element <node> <state|strategy>
+latris markov transition "From -> To" <p> [--strategy S] [--source] [--origin] [--verified]
+latris markov reward <state> [--cost C] [--utility U] [--strategy S] [--source] [--verified]
+latris markov start <state> <proportion>
+latris markov settings [--cycles N] [--cycle-length L] [--time-units years] [--discount R] [--outcome-discount R]
+                       [--half-cycle/--no-half-cycle] [--wtp W] [--cost-units U] [--outcome-units U]
+latris markov show | check
+latris markov analyse [--no-record]            # costs, outcomes, ICERs, dominance, the choice at the WTP
+```
 
 ## Results
 

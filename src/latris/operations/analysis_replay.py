@@ -80,6 +80,11 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
             raise ValueError("a BN sensitivity analysis needs a target and a state")
         result = bn_sensitivity.sensitivity(a.target, a.state, evidence=a.evidence or None, root=paths.root)
         return bn_sensitivity.record_sensitivity(result, root=paths.root)[1]
+    from latris.operations import formalisms
+
+    rk = formalisms.for_analysis(a.kind)
+    if rk:
+        return rk.run(a, paths.root)
     raise ValueError(f"unknown analysis kind {a.kind!r}")
 
 
@@ -155,4 +160,10 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
                 kind="bn_sensitivity", target=names.get(p["target_id"], p["target_id"]), state=p["target_state"],
                 evidence={names.get(k, k): v for k, v in (p.get("evidence") or {}).items()},
             ))
+        else:
+            from latris.operations import formalisms
+
+            found = formalisms.result_kind(kind)
+            if found:
+                out.append(found[1].definition(p))
     return out

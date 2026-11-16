@@ -23,18 +23,60 @@ repository. Start at the repo-root [README](../README.md).
   search), table view for systematic review, lineage/versioning, model
   type registry with readiness gating, graph analysis (CLD loop
   detection + polarity propagation; DAG d-separation, Markov blanket,
-  path enumeration, adjustment sets).
+  path enumeration, adjustment sets) and, with a dataset, effect
+  estimates by backdoor-adjusted regression (`latris analyse estimate`).
 - A discrete Bayesian Network engine: state spaces, CPTs with per-cell
   provenance, exact inference (pgmpy), Noisy-OR canonical models,
   parameter learning from data, provenance-aware sensitivity analysis —
   via CLI `bn` + `/api/bn/*`.
+- Theories of change: logic-model levels from activity to impact, with
+  every pathway laid out link by link against its evidence (checked,
+  cited, untested, contested) and stated assumptions, and Bayesian
+  process tracing (hoop / smoking-gun tests, posterior per link, pathway
+  confidence), and impact estimates from data (interrupted time series,
+  difference-in-differences, with validity checks) — via CLI `toc` +
+  `/api/toc/*`.
+- Fault trees: AND / OR / k-out-of-n gates, minimal cut sets and single
+  points of failure, the exact top-event probability (binary decision
+  diagram) and Birnbaum / Fussell–Vesely / RAW importance, with each
+  probability's provenance — via CLI `ft` + `/api/ft/*`.
+- Bow-ties: threats, prevention and mitigation barriers, consequences and
+  escalation factors around one top event; flags for thin, shared or
+  uncontrolled protection and barriers with no owner; layer-of-protection
+  frequencies with each value's provenance — via CLI `bowtie` +
+  `/api/bowtie/*`.
+- Event trees: one initiating event through ordered yes/no headings to end
+  states, checked to be a complete tree; conditional branch probabilities,
+  sequence and end-state frequencies, the dominant sequences — via CLI `et`
+  + `/api/et/*`.
+- Uncertainty in all three risk types: ranges on probabilities, PFDs and
+  frequencies (lognormal median and error factor, or any distribution) and
+  Monte Carlo through each model's own calculation — percentiles, mean
+  against the point estimate, what drives the spread — via `ft|bowtie|et
+  uncertainty` and `monte-carlo`.
+- Multi-criteria decision analysis: options scored against swing-weighted
+  criteria, the ranking with each criterion's contribution, dominated
+  options, and how far each weight would have to move to change the
+  choice — via CLI `mcda` + `/api/mcda/*`.
+- Analysis of competing hypotheses: every evidence item rated against every
+  hypothesis, the hypothesis the evidence fails to rule out, items that
+  don't discriminate, and the linchpins the conclusion turns on with
+  whether their sources were checked — via CLI `ach` + `/api/ach/*`.
+- Decision trees: the best strategy by expected value, the expected value of
+  perfect information for each uncertainty, and the probabilities at which
+  the best choice changes — via CLI `dt` + `/api/dt/*`.
+- Markov cohort models: per-strategy transitions, costs and utilities;
+  discounted costs and outcomes with half-cycle correction; incremental
+  cost-effectiveness (ICERs, dominance, extended dominance, net benefit) —
+  via CLI `markov` + `/api/markov/*`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked
   simulation, scenarios, Monte Carlo bands, sensitivity, loop dominance)
   and the discrete BN engine above (including soft evidence, most likely
-  explanations, and Monte Carlo over the tables) are built; regression
-  fitting, model calibration to data, and BN EVPI are deferred.
+  explanations, and Monte Carlo over the tables) are built, as is effect
+  estimation on DAGs by backdoor-adjusted regression; model calibration to
+  data and BN EVPI are deferred.
 
 **Isn't ever (excluded by design — fails the inspectability test):**
 - Black-box predictors you can run but can't inspect or defend (random
@@ -71,7 +113,9 @@ agents: read these before changing code.
    hermetic contract, how to add tests.
 6. [`CLI_REFERENCE.md`](engineering/CLI_REFERENCE.md) — the `latris`
    command catalogue.
-7. [`SHARE_LINK.md`](engineering/SHARE_LINK.md) — open issue: `latris link`
+7. [`ROADMAP.md`](engineering/ROADMAP.md) — which model types and
+   analysis layers come next, in what order, and why.
+8. [`SHARE_LINK.md`](engineering/SHARE_LINK.md) — open issue: `latris link`
    copies drop the evidence trail but keep prose that describes it; the
    planned fix.
 

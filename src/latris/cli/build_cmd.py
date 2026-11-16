@@ -48,14 +48,48 @@ def build(
     - ``challenges``: argument, target
     - ``decisions``: statement, rationale, target
     - ``interpretation``: section, prose, by (ai | human)
-    - ``outcome``: the factor the model explains
+    - ``outcome``: the factor the model explains (in a theory of change, the
+      impact; in a fault tree or bow-tie, the top event)
     - ``sd``: roles, stocks, constants, equations, tables, uncertainty
       (node, distribution, params, reason), scenarios (name, set:
       ["Variable=value units"], description, reason)
     - ``bn``: states, tables (node, parents, probabilities), noisy_or
+    - ``toc``: levels (node, level: input | activity | output |
+      short_term_outcome | long_term_outcome | impact)
+    - ``ft``: events (node, type: top_event | intermediate_event |
+      basic_event | undeveloped_event), gates (node, gate: and | or | vote,
+      k), probabilities (node, probability, source, origin, verified, notes)
+    - ``bowtie``: elements (node, type: hazard | top_event | threat |
+      consequence | barrier | escalation_factor), barriers (node, type,
+      status, owner, pfd, source, origin, verified, notes), frequencies
+      (node, frequency per year, source, origin, verified, notes)
+    - ``event_tree``: elements (node, type: initiating_event |
+      functional_event | end_state), order (heading labels, left to right),
+      sequences (answers: {heading: yes|no}, end_state), probabilities
+      (node, p_yes, given: {heading: yes|no}, source, origin, verified),
+      frequency (node, frequency per year, …)
+    - ``mcda``: elements (node, type: option | criterion), criteria (node,
+      weight, direction: higher | lower, worst, best, units, source, …),
+      scores (option, criterion, value, source, origin, verified, notes)
+    - ``ach``: elements (node, type: hypothesis | evidence_item), items
+      (node, credibility, relevance: high | medium | low, source, …),
+      ratings (item, hypothesis, rating: CC | C | N | I | II, rationale)
+    - ``decision_tree``: objective (maximise | minimise), units, nodes (node,
+      type: decision | chance | terminal), branches (link "Parent -> Child",
+      label, probability, value, source, …), payoffs (node, value, source,
+      …), uncertainties (node, uncertainty)
+    - ``markov``: elements (node, type: state | strategy), settings
+      (cycle_length, num_cycles, time_units, discount_rate,
+      outcome_discount_rate, half_cycle_correction, wtp, cost_units,
+      outcome_units), transitions (link "From -> To", probability, strategy,
+      source, …), rewards (state, strategy, cost, utility, source, …), start
+      (state, proportion)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
-      bn_query | bn_sensitivity) + its options — run and recorded after
-      building, so the report shows them
+      bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
+      ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
+      outcome, dataset, adjust, columns, estimator | mcda_analyse |
+      ach_analyse | dt_analyse | markov_analyse)
+      + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML
     values that contain a colon.

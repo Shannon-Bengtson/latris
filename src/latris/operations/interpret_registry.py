@@ -59,7 +59,14 @@ def get_sections_for_model_types(
 # Built-in section definitions
 # ---------------------------------------------------------------------------
 
-_ALL_STABLE = ("cld", "dag", "fcm", "bn", "sd")
+def _stable() -> tuple[str, ...]:
+    from latris.schema.model_types import list_model_types
+
+    return tuple(s.id for s in list_model_types())
+
+
+# Every section applies to every stable model type; each type's claims differ, not its sections.
+_ALL_STABLE = _stable()
 
 # -- Technical sections (for the modeller) --
 

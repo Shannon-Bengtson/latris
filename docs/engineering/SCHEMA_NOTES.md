@@ -147,7 +147,7 @@ findings about a removed node or link. These are history and are kept.
 | Per-session elicitation | `ElicitationSession` | `provenance/elicitations/<YYYY-MM-DD>-<slug>.yaml` |
 | View roles | `ViewRoleMap` | `views/roles/{view_kind}-roles.yaml` | **built** |
 | Model settings | `SDSettings` / `FCMSettings` / `MarkovSettings` | per run (CLI options); not stored | **built** (schema) |
-| Parameter uncertainty | `ParameterUncertaintySet` (`parameter_cell_id` `sd:constant` / `sd:initial_value`) | `substrate/attributes/parameter-uncertainty.yaml` | **built** (SD) |
+| Parameter uncertainty | `ParameterUncertaintySet` (`parameter_cell_id` `sd:constant` / `sd:initial_value`) | `substrate/attributes/parameter-uncertainty.yaml` | **built** (SD, BN, fault tree, bow-tie, event tree) |
 | Datasets | `DatasetLibrary` | `data/datasets.yaml` | **built** |
 | Committed dataset files | *(arbitrary content)* | `data/files/<name>` | **built** |
 | Dataset action log | `DataActionLog` | `data/actions/{dataset_id}.yaml` | **built** |
@@ -162,9 +162,33 @@ findings about a removed node or link. These are history and are kept.
 | SD constants | `SDConstantSet` | `views/parameters/sd-constant.yaml` |
 | SD table functions | `SDTableSet` | `views/parameters/sd-table.yaml` |
 | SD classification (stock/flow/auxiliary/constant/source_sink) | `RoleSet` | `views/roles/sd-roles.yaml` |
-| Markov / MDP transitions | `MarkovTransitionsFile` | `views/parameters/markov-transitions.yaml` |
 | SCM coefficients | `DAGCoefficientsFile` | `views/parameters/dag-coefficients.yaml` |
-| Fault-tree event probs | `FTEventProbsFile` | `views/parameters/ft-event-probs.yaml` |
+| Fault-tree gates (and/or/vote k) | `FTGateSet` | `views/parameters/fault_tree-gate.yaml` | **built** |
+| Fault-tree basic-event probabilities | `FTProbabilitySet` | `views/parameters/fault_tree-probability.yaml` | **built** |
+| Fault-tree event types (top/intermediate/basic/undeveloped) | `RoleSet` | `views/roles/fault_tree-roles.yaml` | **built** |
+| Bow-tie barriers (type, status, owner, PFD) | `BTBarrierSet` | `views/parameters/bow_tie-barrier.yaml` | **built** |
+| Bow-tie threat frequencies | `BTFrequencySet` | `views/parameters/bow_tie-frequency.yaml` | **built** |
+| Bow-tie elements (hazard/top event/threat/consequence/barrier/escalation factor) | `RoleSet` | `views/roles/bow_tie-roles.yaml` | **built** |
+| Event-tree heading order and sequences | `ETStructure` | `views/parameters/event_tree-structure.yaml` | **built** |
+| Event-tree branch probabilities (P(yes), optionally conditional) | `ETProbabilitySet` | `views/parameters/event_tree-probability.yaml` | **built** |
+| Event-tree initiating frequency | `ETFrequencySet` | `views/parameters/event_tree-frequency.yaml` | **built** |
+| Event-tree elements (initiating event/heading/end state) | `RoleSet` | `views/roles/event_tree-roles.yaml` | **built** |
+| Process-tracing priors on ToC links | `PTPriorSet` | `views/parameters/theory_of_change-pt_prior.yaml` | **built** |
+| Process-tracing tests (P(E\|H), P(E\|¬H), found) | `PTTestSet` | `views/parameters/theory_of_change-pt_test.yaml` | **built** |
+| MCDA criteria (swing weight, direction, scale) | `MCDACriterionSet` | `views/parameters/mcda-criterion.yaml` | **built** |
+| MCDA scores (option × criterion) | `MCDAScoreSet` | `views/parameters/mcda-score.yaml` | **built** |
+| MCDA elements (option/criterion) | `RoleSet` | `views/roles/mcda-roles.yaml` | **built** |
+| ACH ratings (evidence item × hypothesis) | `ACHRatingSet` | `views/parameters/ach-rating.yaml` | **built** |
+| ACH evidence-item credibility and relevance | `ACHItemSet` | `views/parameters/ach-item.yaml` | **built** |
+| ACH elements (hypothesis/evidence_item) | `RoleSet` | `views/roles/ach-roles.yaml` | **built** |
+| Decision-tree branches (label, probability, value) | `DTBranchSet` | `views/parameters/decision_tree-branch.yaml` | **built** |
+| Decision-tree payoffs | `DTPayoffSet` | `views/parameters/decision_tree-payoff.yaml` | **built** |
+| Decision-tree chance-node uncertainty names | `DTChanceSet` | `views/parameters/decision_tree-chance.yaml` | **built** |
+| Decision-tree objective and units | `DTSettings` | `views/parameters/decision_tree-settings.yaml` | **built** |
+| Markov transitions (per strategy) | `MarkovTransitionSet` | `views/parameters/markov-transition.yaml` | **built** |
+| Markov costs and utilities (per state, per strategy) | `MarkovRewardSet` | `views/parameters/markov-reward.yaml` | **built** |
+| Markov starting cohort | `MarkovStartSet` | `views/parameters/markov-start.yaml` | **built** |
+| Markov settings | `MarkovSettings` | `views/parameters/markov-settings.yaml` | **built** |
 | Node state spaces | `NodeStateSpacesFile` | `views/parameters/node-state-spaces.yaml` |
 
 **Parameterized views and the analysis layer.** The `views/parameters/*`
@@ -178,7 +202,9 @@ annotates any such cell with a distribution; **Monte Carlo / PSA / EVPI**
 is a cross-cutting *analysis layer* that propagates those uncertainties
 over any parameterized model (BN, regression, SD, …) — it is not itself a
 model type or a parameter file. Built for SD (`sd monte-carlo`,
-`sd sensitivity`); BN PSA/EVPI would reuse the same store. See the PARAMETERS design spec (held in the private design docs).
+`sd sensitivity`), BN tables (`bn monte-carlo`) and the risk types (`ft`/`bowtie`/`et
+monte-carlo`, cells `fault_tree:probability`, `bow_tie:pfd`, `bow_tie:frequency`,
+`event_tree:probability[:<heading>=<answer>,…]`, `event_tree:frequency`). See the PARAMETERS design spec (held in the private design docs).
 
 ## Maturity ladder
 
@@ -261,8 +287,7 @@ the target log to look in is determined by `origin`. The future
 
 ## First-class data and analysis objects
 
-Two top-level concerns have their own files. **Datasets are fully built;
-AnalysisRun is schema-stubbed only.**
+Two top-level concerns have their own files. **Both are built.**
 
 - **`Dataset`** (in `data/datasets.yaml`) — **built.** Structured input
   that algorithms read. Includes `DatasetLibrary` (registration +
@@ -288,7 +313,7 @@ Full design in the DATA_AND_ANALYSIS design spec (held in the private design doc
 
 Per-formalism parameter files live under `views/parameters/`:
 `bn-cpt.yaml`, `sd-equations.yaml`, `markov-transitions.yaml`,
-`dag-coefficients.yaml`, `ft-event-probs.yaml`, plus shared
+`dag-coefficients.yaml`, `fault_tree-probability.yaml`, plus shared
 `node-state-spaces.yaml`. Each parameter cell is keyed
 `(target_id, parameter_name, ...)` and carries the same `origin /
 verification / source_id / informants` machinery as attributes —
@@ -331,8 +356,8 @@ The "data-driven backlog" entries have progressed:
   their own audit axes.
 - **`Dataset`** — **done.** Full data wrangling system (schema, 39 ops,
   versioning, audit trail).
-- **`AnalysisRun`** — **schema stubbed only.** Implementation deferred
-  to M17+.
+- **`AnalysisRun`** — **done.** `operations/analysis_runs.py` writes
+  `analysis/runs.jsonl`; `operations/analysis_results.py` keeps results.
 
 Open backlog items:
 
@@ -342,7 +367,9 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 4 stable (CLD, DAG, FCM, BN) + 16 planned model types. Registry-driven
+  (built) defines 13 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH,
+  Decision Tree, Markov) + 9 planned
+  model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
   and settings in a single call. When planned types become stable,
@@ -369,14 +396,13 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 5 stable types (CLD, DAG, FCM, BN, SD) and 15
-planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 13 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov) and 9 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, only fault tree, event tree, bow-tie, GSN and theory of change are
-currently on it. Decision tree, influence diagram and Markov/MDP are
-parked; causal DAG is being folded into DAG; the rest are not currently
+types, influence diagram, argument map and GSN are on it
+(order in [ROADMAP.md](ROADMAP.md)); causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
 | Class | Registry status | Notes on fit |
@@ -385,17 +411,20 @@ planned (their fit notes are kept below for reference).
 | **SD** | Stable | Stock-and-flow engine built: stock/flow/auxiliary/constant/source_sink as view roles (no EntityKind change); `flow` edges carry material, `causal` edges are information links; per-parameter provenance; equations evaluated on pint quantities so dimensional consistency is enforced by arithmetic; table functions; deterministic simulation via scipy `solve_ivp` (hand-rolled Euler). |
 | **Causal DAG** | Registered — merging into DAG | Quantitative extension of DAG; parameter schemas designed. |
 | **GSN / safety cases** | Registered — on the roadmap | Strong fit. Adds `goal`/`strategy`/`solution`/`context`/`justification` as view roles; `solved_by`/`in_context_of` to EdgeKind. Provenance layer lands as core, not nice-to-have. Surfaces the assumption-as-node design question (see below). Largest commercial upside. |
-| **Bow-Tie / Fault Tree** | Registered — on the roadmap | Risk/safety analysis. Fault tree uses `gate` view role + `logical` EdgeKind; bow-tie uses `barrier`/`hazard` view roles. |
+| **Fault Tree** | Stable | Event types (top_event, intermediate_event, basic_event, undeveloped_event) as view roles; inputs are `causal` or `logical` edges from input to output event. The gate (and / or / vote k) is stored on its event (`fault_tree-gate.yaml`), not drawn as a node, so the shared substrate keeps only real events. Basic-event probabilities carry per-value provenance. Only entities with an FT type are in the tree; other inputs are listed and left out. Acyclicity is checked within the tree, not over the whole substrate. Analysis: MOCUS cut sets, exact top-event probability by BDD, Birnbaum / Fussell–Vesely / RAW importance. |
+| **Bow-Tie** | Stable | Elements (hazard, top_event, threat, consequence, barrier, escalation_factor) as view roles; lines are `causal`/`logical` edges (threat → barriers → top event → barriers → consequence; escalation factor → controls → barrier). Barrier type (CCPS), status, owner and PFD per barrier, and threat frequencies, each with provenance. Only entities with a bow-tie role are in it. Analysis: lines and effective barrier counts, flags (unprotected, single barrier, shared, uncontrolled escalation, no owner), LOPA frequencies with each threat's routes combined exactly by the fault-tree BDD. |
 | **Petri nets** | Registered — not currently planned | Adds `place`/`transition` as view roles, plus a bipartite view-level constraint. Tokens / firing semantics are runtime, not structural. |
-| **Markov chains / MDPs** | Registered — parked | `state` and `decision` in substrate EntityKind; `utility` as view role for rewards. Transition probabilities deferred to quantitative track. Model settings schema (`MarkovSettings`) built. |
-| **Influence Diagram** | Registered — parked | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
-| **Decision Tree** | Registered — parked | Sequential decision/chance branching to outcome nodes. Acyclic tree. |
-| **Event Tree** | Registered — on the roadmap | Forward-logic complement to fault trees. Barrier success/failure branching. |
+| **Markov cohort model** | Stable | States and strategies as view roles; a transition is an ordinary edge between two states, with a per-cycle probability for every strategy or one (the rest stays). Per state a cost per cycle and a utility per year, for every strategy or one; the starting cohort; `MarkovSettings` (horizon, discounting, half-cycle correction, WTP, units). Cohort trace and incremental cost-effectiveness. MDPs (optimal policies) are not built. |
+| **Influence Diagram** | Registered — on the roadmap | Extends BN with `decision`, `chance`, `utility` view roles and `informational` edges. Standard decision-analysis formalism. |
+| **Decision Tree** | Stable | Decision, chance and terminal nodes as view roles; branches are ordinary edges (one parent per node). Per branch a label, probability (chance) and value along it; per terminal a payoff; chance nodes named by the uncertainty they resolve, so EVPI can price the same uncertainty under different choices; objective and units as settings. |
+| **Event Tree** | Stable | Initiating event, headings (functional events) and end states as view roles. The tree is *not* substrate edges — one heading is asked on many branches — so heading order and sequences (yes/no answers → end state) are stored as data (`event_tree-structure.yaml`) and checked to form a complete tree. P(yes) per heading, optionally conditional on earlier answers (most specific match wins), and the initiating frequency carry provenance. |
 | **Fishbone / Ishikawa** | Registered — not currently planned | Root cause analysis with categorised cause branches. Acyclic tree. |
-| **Theory of Change** | Registered — on the roadmap | Logic model: activities → outputs → outcomes → goals. Policy/evaluation standard. |
-| **Argument Map** | Registered — not currently planned | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
+| **Theory of Change** | Stable | Logic-model levels (input, activity, output, short_term_outcome, long_term_outcome, impact) as view roles — no EntityKind change; links stay `causal` edges. The impact is the outcome of interest, so ToC has no separate `outcome` role. Readiness: every factor levelled, no backward links, every impact reached from an activity, no dead ends. `toc check` records a `toc-pathways` result whose fingerprint also covers evidence, assumptions and confidence. Process tracing (`toc prior`/`test`/`trace`) adds priors and tests per link as parameter files and records `toc-process-trace`; `toc impact` records `toc-impact` (ITS or DiD from a dataset; its fingerprint covers the data files). |
+| **Argument Map** | Registered — on the roadmap (before GSN) | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
 | **Fuzzy Cognitive Map** | Stable | CLD with continuous edge weights in [−1, +1]. Cycles allowed; weight storage and steady-state inference are built. |
 | **Flowchart** | Registered — not currently planned | Activity-decision-outcome process flow. Universal visual modelling tool. |
+| **MCDA** | Stable | Options and criteria as view roles; no edges. Per criterion a swing weight, a direction and an optional worst/best scale (else the options' range, flagged); per option × criterion a score; each value with provenance. Additive linear value model, dominance, one-way weight rank-reversal thresholds. |
+| **ACH** | Stable | Hypotheses and evidence items as view roles; no edges. One CC–II rating per (item, hypothesis) with reasoning, and an item's credibility and relevance, each with provenance; an item's own sources are ordinary citations on it. Partly overlaps the argument map (claims vs evidence), which stays a separate, planned type. |
 | **State Machine** | Registered — not currently planned | States and guarded transitions. Qualitative sibling of Markov. |
 
 **Open question if we ever wire GSN.** GSN treats Assumptions and
@@ -415,9 +444,13 @@ model-specific attributes are wired into the readiness engine. The risk
 of building wrong without a real user in front of us is much higher
 than the cost of refactoring later — and the refactor is bounded
 because the relevant fields are deliberately Literal-typed for additive
-extension. Concrete next move flagged in `ROADMAP.md` deferred section:
-have a 30-minute conversation with a safety engineer (rail / aerospace
-/ medtech in AU/NZ) before building any of the safety formalisms.
+extension. Concrete next move before building any of the safety
+formalisms (GSN): have a 30-minute conversation with a safety engineer
+(rail / aerospace / medtech in AU/NZ). The fault tree, bow-tie and event
+tree were built from their textbook formalisms (NRC *Fault Tree Handbook*,
+IEC 61025; the CCPS/EI bow-tie concept book and CCPS LOPA; IEC 62502 and
+NUREG/CR-2300) without that conversation, so show them to one before
+leaning on them in a safety case.
 
 ## Schema readiness for future capabilities
 

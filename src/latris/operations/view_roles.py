@@ -35,6 +35,11 @@ def set_role(
         from latris.operations import sd as sd_ops
 
         return sd_ops.set_outcome(target, root=root)
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+    if plugin and role == "outcome":
+        raise ValueError(plugin.outcome_refusal)
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:
         raise ValueError(f"{role!r} is not a valid role for {spec.display_name}. Valid: {spec.allowed_roles}")

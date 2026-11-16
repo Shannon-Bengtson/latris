@@ -254,6 +254,12 @@ def claims_by_section(model_type: str, paths: ProjectPaths) -> dict[str, list[st
                 _bn_monte_carlo(p, out)
             elif kind == "bn-sensitivity":
                 _bn_sensitivity(p, out, labels)
+            else:
+                from latris.operations import formalisms
+
+                found = formalisms.result_kind(kind)
+                if found and found[1].claims:
+                    found[1].claims(p, out)
         except (KeyError, TypeError, ValueError, IndexError):
             continue  # an unreadable result contributes no claims rather than a wrong one
     return out

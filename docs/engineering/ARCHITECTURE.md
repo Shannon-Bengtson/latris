@@ -64,19 +64,21 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | SD quantitative | Stocks, flows, auxiliaries, constants (view roles); unit-checked equations (pint); table functions; deterministic ODE simulation (scipy) | stable (built) |
 | Causal DAG with identification | Observed/unobserved, adjustment sets | merging into DAG |
 | Regression (linear/logistic/GLM) | DAG with fitted/elicited edge coefficients; quantifies DAG edges | not currently planned |
-| Markov Chain / MDP | State-transition graph, transition probabilities, rewards | parked |
-| Influence Diagram | Decision + chance + utility nodes, informational arcs | parked |
-| Decision Tree | Sequential decision/chance branching to outcomes | parked |
-| Event Tree | Initiating event → barrier branching → consequences | on the roadmap |
+| Markov Cohort Model | States and strategies (roles); per-strategy transition probabilities on links, per-state costs and utilities; cohort trace, discounting, half-cycle correction, incremental cost-effectiveness (ICERs, dominance, NMB) | stable (built) |
+| Influence Diagram | Decision + chance + utility nodes, informational arcs | on the roadmap |
+| Decision Tree | Decision, chance and terminal nodes (roles); branches as links with labels, probabilities and values; rollback to the optimal strategy, EVPI per uncertainty, probability thresholds | stable (built) |
+| Event Tree | Initiating event → ordered yes/no headings → end states (roles; tree stored as data and checked complete); conditional branch probabilities, sequence and end-state frequencies | stable (built) |
 | Fishbone / Ishikawa | Categorised cause branches converging on effect | not currently planned |
-| Theory of Change | Activities → outputs → outcomes → goals | on the roadmap |
-| Argument Map | Toulmin/IBIS claims, warrants, rebuttals | not currently planned |
+| Theory of Change | Input → activity → output → short/long-term outcome → impact levels (view roles); acyclic, forward-only results chain; pathway enumeration with per-link evidence status and assumptions | stable (built) |
+| Argument Map | Toulmin/IBIS claims, warrants, rebuttals | on the roadmap |
 | Fuzzy Cognitive Map | CLD with edge weights in [−1, +1]; steady-state inference | v1 semi-quantitative |
 | Flowchart | Activity-decision-outcome process flow | not currently planned |
 | State Machine | States and guarded transitions | not currently planned |
-| Bow-Tie | Threat–barrier–consequence topology | on the roadmap |
-| Fault Tree | Top-down failure decomposition with AND/OR gates | on the roadmap |
+| Bow-Tie | Threat → prevention barriers → top event → mitigation barriers → consequence, escalation factors and their controls (view roles); barrier type/status/owner/PFD; line flags and LOPA frequencies | stable (built) |
+| Fault Tree | Top event → gates (AND / OR / k-of-n vote, stored on the event) → basic events (view roles); minimal cut sets, exact top-event probability (BDD), Birnbaum / Fussell–Vesely / RAW importance with provenance | stable (built) |
 | Petri Net | Bipartite places + transitions, token semantics | not currently planned |
+| MCDA | Options × criteria (roles); swing weights, directions and scales; additive value ranking, dominance, weight rank-reversal thresholds | stable (built) |
+| ACH | Hypotheses × evidence items (roles); CC–II ratings, credibility and relevance; weighted inconsistency, diagnosticity, linchpins with source checks | stable (built) |
 
 ### Mapping registry
 
@@ -200,7 +202,7 @@ src/latris/
 │   ├── project.py     # project.yaml (foundation: research_question | decision)
 │   ├── substrate.py   # conceptual.yaml (entities + edges), mappings.yaml
 │   ├── attributes.py  # descriptions / confidence / polarity / evidence-links / data-links
-│   ├── views.py       # cld.yaml, dag.yaml + 16 planned view stubs
+│   ├── views.py       # one View shape for every kind (kind checked against the registry)
 │   ├── provenance.py  # 8 provenance object types
 │   ├── ai.py          # challenges.yaml, interactions.jsonl record
 │   ├── references.py  # extended BibTeX entries
@@ -208,7 +210,7 @@ src/latris/
 │   ├── data_actions.py # DataAction, DataActionLog (audit trail)
 │   ├── data_versions.py # DatasetVersion, DatasetVersionLibrary
 │   ├── lineage.py     # LineageNode, Milestone, MilestoneLog
-│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN stable; 16 planned)
+│   ├── model_types.py # ModelTypeSpec registry (CLD, DAG, FCM, BN, SD, ToC, FT, BT, ET, MCDA, ACH, DT, Markov stable; 9 planned)
 │   ├── roles.py       # ViewRoleMap — formalism-specific entity classifications
 │   ├── settings.py    # Per-model-type settings (SDSettings, FCMSettings, MarkovSettings)
 │   ├── common.py      # HumanActor, AIActor, ExpertActor, provenance axes
@@ -233,6 +235,7 @@ src/latris/
 │   ├── graph_analysis.py # pure CLD loop / DAG structural analysis algorithms
 │   ├── activation.py  # registry-driven model type dispatch
 │   ├── _activations.py # model type registrations (CLD, DAG)
+│   ├── formalisms/    # one plugin module per newer model type (ToC, FT, bow-tie, ET) — see "Adding a formalism"
 │   ├── view_roles.py  # formalism-specific entity role operations
 │   ├── _data_engine.py # pandas engine: 39 operations, stats, preview
 │   ├── _resolve.py, batch.py
@@ -268,6 +271,43 @@ src/latris/
     ├── app.py         # root + --version + doctor
     └── *_cmd.py       # one module per command group
 ```
+
+## Adding a formalism
+
+Each newer model type (Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH, decision tree, Markov)
+plugs in through **one module** in `src/latris/operations/formalisms/`. It
+declares a `Formalism` with the hooks the shared code calls:
+
+| Hook | Used by |
+|---|---|
+| `structure_problems`, `validators` (name → gap types), `whole_label` | readiness (`_STRUCTURAL_VALIDATORS`) |
+| `outcome_role`, `outcome_refusal`, `outcome_ids`, `set_outcome` | `view_roles.set_role`, interpretation, `build --spec` `outcome:` |
+| `claims(paths, section)`, `centrality`, `own_implications`, `sensitivity_fallback` | interpretation claims |
+| `results` (`ResultKind`: kind, title, `render`, analysis, `run`, `definition`), `fingerprint_files` | `analysis_results` (report order, staleness), the report's Results section, `analysis_replay` (build-spec analyses and share links) |
+| `spec_field`, `spec_check`, `spec_apply`, `spec_export` | `build --spec` and share links |
+| `mermaid` (full diagram) or `mermaid_groups` (columns) | the report's diagram |
+| `cli` (module, command), `routes` (module) | `cli/app.py`, `server/app.py` |
+
+Four things stay central on purpose, because each is a single registry or a
+static schema:
+
+1. the `ModelTypeSpec` in `schema/model_types.py` (availability, roles,
+   validator names);
+2. its build-spec block — a pydantic field on `BuildSpec`
+   (`schema/build_spec.py`), and its analysis kind in `SpecAnalysis.kind`;
+3. its entry in the foundations registry (`operations/foundations.py`);
+4. its help topic (`server/help.py`), and its keys in `latris build --help`.
+
+The steps for a new type: schema for its parameters (with round-trip tests)
+→ its operations module (setters, structure check, analysis, `record`) →
+CLI and routes modules → the plugin module, added to `_MODULES` in
+`formalisms/__init__.py` (registration order = the order commands, routes
+and report sections appear in) → the four central entries → tests and the
+worked example. `tests/operations/test_formalisms.py` fails, naming what is
+missing, if a stable type is half-wired.
+
+The older types (CLD, DAG, FCM, BN, SD) predate the registry and keep their
+own wiring.
 
 ## The five chokepoint files
 
@@ -316,9 +356,12 @@ classifications** (stock, chance, goal, gate, barrier, etc.) live in a
 separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
-own semantic roles to substrate entities. 15 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 5 stable ones
-(CLD, DAG, FCM, BN, SD); the Layer-3 table above gives each one's
+own semantic roles to substrate entities. 9 planned model types are
+registered in the `ModelTypeSpec` registry alongside the 13 stable ones
+(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov); the
+Layer-3
+table above gives
+each one's
 roadmap status. Each formalism lands as an **additive** extension — no
 schema migration. See `SCHEMA_NOTES.md` → "Extensibility hypothesis"
 for per-formalism fit notes and the open design question
@@ -338,6 +381,7 @@ been built:
 | `operations/readiness.py` | **built** | Per-model-type readiness with structural validators |
 | `operations/graph_analysis.py` | **built** | CLD loop analysis + DAG structural analysis (pure algorithms) |
 | `operations/activation.py` + `_activations.py` | **built** | Registry-driven model type dispatch; single-call registration |
+| `operations/formalisms/` | **built** | Formalism plugins: everything a newer model type adds (readiness, outcome, claims, results, build spec, share link, diagram, CLI and routes) in one module each |
 | `operations/view_roles.py` + `schema/roles.py` | **built** | Formalism-specific entity role assignments |
 | `schema/settings.py` | **built** | Per-model-type settings schemas (SD, FCM, Markov) |
 | `operations/compose.py` | **built** | Gather→Build bridge: node/edge suggestions from data, refs, AI |
@@ -349,23 +393,26 @@ been built:
 | `operations/view_attributes.py` | **built** | Model-type-scoped attribute queries and mutations |
 | `schema/interpretation.py` | **built** | InterpretSection, audience targeting, staleness tracking |
 | `exporters/narrative.py`, `packs.py`, `mermaid.py` | **built** | Report pipeline (prose, pack assembly, Mermaid sketch). Word, review-pack and story HTML exports moved to the Latris app (0.5.0), which adds them to the server through the `latris.server_plugins` hook |
+| `operations/analysis_runs.py` + `analysis_results.py` | **built** | AnalysisRun log (`analysis/runs.jsonl`) and recorded results the report reads |
 
 Still planned (not yet built):
 
 ```
 src/latris/
-├── analysis/           # AnalysisRun lifecycle + output management
 ├── compile/            # Validate parameter completeness; produce CompiledView
 └── (existing modules unchanged)
 ```
 
-When these land, the chokepoints list extends:
+When it lands, the chokepoints list extends:
 
 | File | Monopoly on |
 |---|---|
 | `compile/validator.py` | All parameter-completeness checks against views |
 | `compile/materialize.py` | Translation from on-disk parameter files to runtime backend objects (when the future `latris` library lands) |
-| `operations/analysis_runs.py` | All AnalysisRun creation; only place that writes `analysis/runs.jsonl` (results go through `operations/analysis_results.py`) |
+
+`operations/analysis_runs.py` already holds the AnalysisRun monopoly: it is
+the only place that writes `analysis/runs.jsonl` (results go through
+`operations/analysis_results.py`).
 
 ## GUI architecture (React app + Python backend)
 

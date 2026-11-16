@@ -472,6 +472,17 @@ def _register_plugins(app: FastAPI) -> None:
         loaded.add(spec)
 
 
+def _include_formalism_routers(app: FastAPI) -> None:
+    """Each registered formalism's routes (``operations/formalisms``), in registration order."""
+    import importlib
+
+    from latris.operations import formalisms
+
+    for f in formalisms.all_formalisms():
+        if f.routes:
+            app.include_router(importlib.import_module(f.routes).router)
+
+
 def create_app(*, project_root: Path | None = None, access_token: str | None = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -606,6 +617,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(fcm.router)
     app.include_router(bn.router)
     app.include_router(sd.router)
+    _include_formalism_routers(app)
     app.include_router(results.router)
     app.include_router(history.router)
     app.include_router(layout.router)

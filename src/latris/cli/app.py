@@ -23,6 +23,7 @@ from latris.cli import (  # noqa: E402
     challenge_cmd,
     check_cmd,
     completeness_cmd,
+    data_cmd,
     docs_cmd,
     edge_cmd,
     elicit_cmd,
@@ -93,10 +94,24 @@ app.add_typer(check_cmd.app, name="check")
 app.add_typer(findings_cmd.app, name="finding")
 app.add_typer(interpret_cmd.app, name="interpret")
 app.add_typer(completeness_cmd.app, name="completeness")
+def _add_formalism_commands(app: typer.Typer) -> None:
+    """Each registered formalism's command group (``operations/formalisms``), in registration order."""
+    import importlib
+
+    from latris.operations import formalisms
+
+    for f in formalisms.all_formalisms():
+        if f.cli:
+            module, name = f.cli
+            app.add_typer(importlib.import_module(module).app, name=name)
+
+
 app.add_typer(fcm_cmd.app, name="fcm")
 app.add_typer(bn_cmd.app, name="bn")
 app.add_typer(sd_cmd.app, name="sd")
+_add_formalism_commands(app)
 app.add_typer(results_cmd.app, name="results")
+app.add_typer(data_cmd.app, name="data")
 app.add_typer(lineage_cmd.app, name="version")
 
 console = Console()

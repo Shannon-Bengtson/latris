@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from latris.operations import formalisms
 from latris.operations.analysis_runs import RunPurpose, iter_runs, record_run
 from latris.operations.commit import auto_commit
 from latris.repo.layout import ProjectPaths
@@ -30,15 +31,17 @@ from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 
-# Order results appear in reports, and the most of each kind a client report shows.
+# Order results appear in reports (registered formalisms' kinds last), and the most of each kind a client
+# report shows.
 KIND_ORDER: tuple[str, ...] = (
     "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
     "bn-query", "bn-explanation", "bn-monte-carlo", "bn-sensitivity",
+    *(r.kind for r in formalisms.result_kinds()),
 )
 REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
 _DEFAULT_LIMIT = 4
 
-KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER}
+KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | formalisms.kind_model_types()
 
 
 # ── fingerprints ─────────────────────────────────────────────────────
@@ -69,6 +72,9 @@ def fingerprint(
         for e in sorted(sub.edges, key=lambda x: x.id):
             h.update(f"e|{e.id}|{e.from_id}|{e.to_id}|{e.kind}\n".encode())
     h.update(_file_text(paths.role_path(model_type)).encode())
+    # Inputs beyond structure, roles and parameters that this model type's results read (evidence, datasets…).
+    for f in formalisms.fingerprint_files(model_type, paths):
+        h.update(f.name.encode() + b"\n" + (f.read_bytes() if f.exists() else b""))
     scenario_file = paths.view_attribute_path(model_type, "scenarios")
     if paths.parameters_dir.exists():
         for f in sorted(paths.parameters_dir.glob(f"{model_type}-*.yaml")):
@@ -121,6 +127,7 @@ def record_result(
     scenarios: list[str] | None = None,
     uncertainty: bool = False,
     seed: int | None = None,
+    input_dataset_ids: list[str] | None = None,
     metrics: dict | None = None,
     affected_target_ids: list[str] | None = None,
     duration_seconds: float | None = None,
@@ -145,6 +152,7 @@ def record_result(
         library_version=library_version,
         hyperparameters={**(hyperparameters or {}), "fingerprint_inputs": inputs},
         seed=seed,
+        input_dataset_ids=input_dataset_ids,
         target_view=model_type,
         output_summary=summary,
         output_artifacts=[rel],

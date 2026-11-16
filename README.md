@@ -189,11 +189,13 @@ See [AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls".
 
 **What's available varies by model type.** `latris capabilities` (or
 `latris capabilities --json`) lists every registered model type with
-`can_use_today: true/false`. Only `cld`, `dag`, `bn`, `fcm`, and `sd` are
-stable/switchable today; the rest (`theory_of_change`, `gsn`, and
-13 others) are registered but not yet switchable. Each entry's `roadmap`
-field says where it stands: fault tree, event tree, bow-tie, GSN and
-theory of change are `roadmap`; a few are `parked`; the rest are
+`can_use_today: true/false`. Only `cld`, `dag`, `bn`, `fcm`, `sd`,
+`theory_of_change`, `fault_tree`, `bow_tie`, `event_tree`, `mcda`, `ach`,
+`decision_tree` and `markov` are stable/switchable today; the rest (`gsn`,
+`influence_diagram`, and 7 others) are registered but not yet switchable.
+Each entry's `roadmap` field says where it stands: influence diagram,
+argument map and GSN are `roadmap` (order and reasoning in
+[ROADMAP.md](docs/engineering/ROADMAP.md)); the rest are
 `not_planned` — registered, but not something to describe as coming — `latris view project
 <kind>` raises a `ValueError` if `kind` isn't stable. A few categories
 (black-box ML) are excluded by design, not "not yet." Checking this
@@ -233,8 +235,9 @@ approach shows it:
   default: the cheapest honest answer, and every other formalism builds
   on it.
 - "Can this effect actually be estimated, and from what data?" → `dag`.
-  Identification only — adjustment sets and d-separation, no effect
-  sizes, no counterfactuals.
+  Adjustment sets and d-separation; with a dataset, `latris analyse
+  estimate` gives the effect size under the DAG's stated assumptions. No
+  counterfactuals.
 - "How likely is each outcome, and what would change my mind?" → `bn`.
   Discrete states and probabilities; CPTs elicited, learned, or mixed.
 - "Which forces dominate, roughly?" → `fcm`. Signed, weighted links and
