@@ -19,7 +19,18 @@ _MAX_WORKERS = 4
 
 
 def check_url(url: str) -> bool:
-    """Return True if the URL responds with a non-error status (2xx/3xx)."""
+    """Return True if the URL responds with a non-error status (2xx/3xx).
+
+    URLs come from model output, so they are checked first: http(s) only,
+    public addresses only (no probing loopback, other sessions or cloud
+    metadata). A blocked URL counts as not valid.
+    """
+    from latris._net_guard import BlockedURLError, check_public_url
+
+    try:
+        check_public_url(url)
+    except BlockedURLError:
+        return False
     try:
         req = Request(
             url,

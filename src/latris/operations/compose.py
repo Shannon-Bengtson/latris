@@ -20,6 +20,7 @@ from latris.operations.attributes import set_attribute
 from latris.operations.batch import batch
 from latris.operations.edges import add_edge
 from latris.operations.nodes import add_node
+from latris.repo.layout import contained_path
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import (
@@ -68,9 +69,9 @@ def suggest_nodes_from_data(
         # Load the dataframe for stats (best effort).
         df = None
         if dataset.location:
-            data_path = paths.root / dataset.location
-            if data_path.exists():
-                with suppress(Exception):
+            with suppress(Exception):
+                data_path = contained_path(paths.data_files_dir, paths.root / dataset.location)
+                if data_path.exists():
                     df = load_dataframe(data_path)
 
         for col in dataset.columns:
@@ -162,7 +163,7 @@ def suggest_edges_from_correlations(
         # Load the dataframe.
         if not dataset.location:
             continue
-        data_path = paths.root / dataset.location
+        data_path = contained_path(paths.data_files_dir, paths.root / dataset.location)
         if not data_path.exists():
             continue
         try:

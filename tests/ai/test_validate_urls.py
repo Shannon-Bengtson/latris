@@ -11,7 +11,19 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
+import pytest
+
 from latris.ai.validate_urls import check_url, validate_reference_urls
+
+
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hermetic DNS: every host resolves to a public address (the SSRF
+    guard resolves before fetching). Guard behaviour is in test_net_guard."""
+    monkeypatch.setattr(
+        "latris._net_guard.socket.getaddrinfo",
+        lambda host, port, **_: [(2, 1, 6, "", ("93.184.216.34", port))],
+    )
 
 
 def _http_error(code: int) -> HTTPError:
@@ -23,6 +35,18 @@ def _resp(status: int) -> MagicMock:
 
 
 # ── check_url ────────────────────────────────────────────────────────
+
+
+def test_check_url_blocks_non_http_and_private(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened = MagicMock(return_value=_resp(200))
+    monkeypatch.setattr("latris.ai.validate_urls.urlopen", opened)
+    assert check_url("file:///etc/passwd") is False
+    monkeypatch.setattr(
+        "latris._net_guard.socket.getaddrinfo",
+        lambda host, port, **_: [(2, 1, 6, "", ("169.254.169.254", port))],
+    )
+    assert check_url("http://metadata.example") is False
+    opened.assert_not_called()
 
 
 def test_check_url_head_success() -> None:

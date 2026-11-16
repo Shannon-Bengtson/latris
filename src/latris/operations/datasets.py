@@ -24,6 +24,7 @@ from latris.operations._data_engine import (
 )
 from latris.operations.commit import auto_commit
 from latris.repo import git
+from latris.repo.layout import contained_path, safe_filename_stem
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import (
@@ -49,6 +50,16 @@ def _load_datasets(root: Path | None) -> tuple:
     else:
         library = DatasetLibrary()
     return paths, library
+
+
+def _dataset_file(paths, dataset: Dataset) -> Path:
+    """The dataset's file on disk, refusing any location outside ``data/files``.
+
+    ``location`` is read back from ``data/datasets.yaml``, which a
+    collaborator can push; a crafted value (``.git/hooks/...``) must not
+    turn dataset reads and writes into arbitrary file access.
+    """
+    return contained_path(paths.data_files_dir, paths.root / dataset.location)
 
 
 def _find_dataset(library: DatasetLibrary, query: str) -> Dataset:
@@ -133,7 +144,14 @@ def upload_dataset(
             raise ValueError(f"Dataset named {dataset_name!r} already exists (id: {existing.id})")
 
     # Copy file into project
-    dest = paths.data_files_dir / f"{dataset_name}{ext}"
+    # The display name is free text; the file name is a safe stem of it, so
+    # a name like "../../x" can never place the file outside data/files.
+    if not dataset_name or not dataset_name.strip():
+        raise ValueError("Dataset name must not be empty")
+    file_stem = safe_filename_stem(dataset_name)
+    dest = contained_path(paths.data_files_dir, paths.data_files_dir / f"{file_stem}{ext}")
+    if dest.exists():
+        raise ValueError(f"A data file named {dest.name!r} already exists; choose another dataset name")
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(file_path, dest)
 
@@ -148,7 +166,7 @@ def upload_dataset(
         name=dataset_name,
         description=description,
         source_type="file",
-        location=f"data/files/{dataset_name}{ext}",
+        location=dest.relative_to(paths.root).as_posix(),
         schema_info={"columns": [c.name for c in columns]},
         rows=len(df),
         columns=columns,
@@ -255,7 +273,7 @@ def apply_operation(
     paths, library = _load_datasets(root)
     dataset = _find_dataset(library, dataset_id)
 
-    file_path = paths.root / dataset.location
+    file_path = _dataset_file(paths, dataset)
     df = load_dataframe(file_path)
     rows_before = len(df)
 
@@ -527,7 +545,7 @@ def version_dataset(
     paths, library = _load_datasets(root)
     dataset = _find_dataset(library, dataset_id)
 
-    file_path = paths.root / dataset.location
+    file_path = _dataset_file(paths, dataset)
     content_hash = file_content_hash(file_path)
     head = git.head_sha(paths.root)
 
@@ -596,7 +614,7 @@ def restore_version(
     old_content = git.show_file(paths.root, version.commit_sha, rel_path)
 
     # Write restored content
-    file_path = paths.root / dataset.location
+    file_path = _dataset_file(paths, dataset)
     file_path.write_text(old_content, encoding="utf-8", newline="")
 
     # Re-read with pandas to update metadata
@@ -630,7 +648,7 @@ def preview_data(
     """Return a paginated preview of a dataset's current state."""
     paths, library = _load_datasets(root)
     dataset = _find_dataset(library, dataset_id)
-    file_path = paths.root / dataset.location
+    file_path = _dataset_file(paths, dataset)
     df = load_dataframe(file_path)
     return dataframe_to_page(df, offset, limit)
 
@@ -644,7 +662,7 @@ def column_stats(
     """Compute summary statistics for a single column."""
     paths, library = _load_datasets(root)
     dataset = _find_dataset(library, dataset_id)
-    file_path = paths.root / dataset.location
+    file_path = _dataset_file(paths, dataset)
     df = load_dataframe(file_path)
     return _compute_stats(df, column_name)
 

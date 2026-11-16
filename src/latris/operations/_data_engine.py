@@ -392,11 +392,15 @@ def _apply_rank(df: pd.DataFrame, params: dict) -> pd.DataFrame:
 
 
 def _apply_derived_column(df: pd.DataFrame, params: dict) -> pd.DataFrame:
+    # Never DataFrame.eval: its ``@name`` syntax reaches Python objects and
+    # can run arbitrary code. See _safe_expr for the whitelist.
+    from latris.operations._safe_expr import evaluate_expression
+
     expression = params["expression"]
     target = params["target"]
     result = df.copy()
     try:
-        result[target] = result.eval(expression)
+        result[target] = evaluate_expression(result, expression)
     except Exception as exc:
         raise ValueError(f"Expression error: {exc}") from exc
     return result
