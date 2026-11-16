@@ -145,6 +145,9 @@ the schema change.
 | MCDA criteria (swing weight, direction, scale) | `MCDACriterionSet` | `views/parameters/mcda-criterion.yaml` | **built** |
 | MCDA scores (option × criterion) | `MCDAScoreSet` | `views/parameters/mcda-score.yaml` | **built** |
 | MCDA elements (option/criterion) | `RoleSet` | `views/roles/mcda-roles.yaml` | **built** |
+| ACH ratings (evidence item × hypothesis) | `ACHRatingSet` | `views/parameters/ach-rating.yaml` | **built** |
+| ACH evidence-item credibility and relevance | `ACHItemSet` | `views/parameters/ach-item.yaml` | **built** |
+| ACH elements (hypothesis/evidence_item) | `RoleSet` | `views/roles/ach-roles.yaml` | **built** |
 | Node state spaces | `NodeStateSpacesFile` | `views/parameters/node-state-spaces.yaml` |
 
 **Parameterized views and the analysis layer.** The `views/parameters/*`
@@ -312,7 +315,8 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 10 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA) + 11 planned
+  (built) defines 11 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH) + 11
+  planned
   model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
@@ -340,8 +344,8 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 10 stable types (CLD, DAG, FCM, BN, SD, Theory
-of Change, Fault Tree, Bow-Tie, Event Tree, MCDA) and 11 planned types are declared in the `ModelTypeSpec` registry with their
+**Registered formalisms** — 11 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH) and 11 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
@@ -368,6 +372,7 @@ planned (their fit notes are kept below for reference).
 | **Fuzzy Cognitive Map** | Stable | CLD with continuous edge weights in [−1, +1]. Cycles allowed; weight storage and steady-state inference are built. |
 | **Flowchart** | Registered — not currently planned | Activity-decision-outcome process flow. Universal visual modelling tool. |
 | **MCDA** | Stable | Options and criteria as view roles; no edges. Per criterion a swing weight, a direction and an optional worst/best scale (else the options' range, flagged); per option × criterion a score; each value with provenance. Additive linear value model, dominance, one-way weight rank-reversal thresholds. |
+| **ACH** | Stable | Hypotheses and evidence items as view roles; no edges. One CC–II rating per (item, hypothesis) with reasoning, and an item's credibility and relevance, each with provenance; an item's own sources are ordinary citations on it. Partly overlaps the argument map (claims vs evidence), which stays a separate, planned type. |
 | **State Machine** | Registered — not currently planned | States and guarded transitions. Qualitative sibling of Markov. |
 
 **Open question if we ever wire GSN.** GSN treats Assumptions and

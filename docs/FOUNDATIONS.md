@@ -225,6 +225,26 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   only; no probabilistic weights or scores; no AHP, outranking (ELECTRE,
   PROMETHEE) or TOPSIS.
 
+## Analysis of competing hypotheses
+
+- **Lineage.** Heuer (1999), *Psychology of Intelligence Analysis*, ch. 8;
+  Heuer & Pherson (2015), *Structured Analytic Techniques for Intelligence
+  Analysis*. The method's core: judge hypotheses by the evidence *against*
+  them, because evidence consistent with every hypothesis proves nothing.
+- **Implemented.** Hypotheses and evidence items as view roles; every item
+  rated against every hypothesis (CC very consistent, C, N neutral or not
+  applicable, I, II very inconsistent) with its reasoning and provenance;
+  each item's credibility and relevance. Hypotheses ranked by weighted
+  inconsistency; items rated identically against every hypothesis flagged as
+  non-diagnostic; linchpins — items without which the lead changes or ties —
+  found by leaving each out in turn, with whether their own sources (the
+  item's citations) were checked.
+- **Limits.** Ratings and weights are judgements. The weights — high 1.0,
+  medium 0.7, low 0.4 (credibility × relevance), an inconsistency 1 and a
+  strong one 2 — are Latris's stated convention, not Heuer's. Items are
+  treated as independent, and no probabilities are computed: the ranking
+  orders hypotheses, it doesn't say how likely each is.
+
 ## Theory of change
 
 - **Lineage.** Weiss (1995), "Nothing as Practical as Good Theory" — a theory
@@ -290,6 +310,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
 | Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
 | MCDA | Not causal: a structured comparison of options under stated weights |
+| ACH | Weighs explanations against evidence; orders hypotheses, gives no probabilities |
 | DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -341,6 +362,10 @@ the code it describes win, and this page is wrong.
   of evidence and strength of recommendations." *BMJ*, 336, 924–926.
 - Hernán, M., & Robins, J. (2020). *Causal Inference: What If*. Chapman &
   Hall/CRC. <https://hsph.harvard.edu/causalinference/>
+- Heuer, R. J. (1999). *Psychology of Intelligence Analysis*. Center for the
+  Study of Intelligence, Central Intelligence Agency.
+- Heuer, R. J., & Pherson, R. H. (2015). *Structured Analytic Techniques for
+  Intelligence Analysis* (2nd ed.). CQ Press.
 - IEC 61025:2006. *Fault tree analysis (FTA)*. International
   Electrotechnical Commission.
 - IEC 62502:2010. *Analysis techniques for dependability — Event tree

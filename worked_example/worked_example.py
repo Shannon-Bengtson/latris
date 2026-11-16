@@ -1797,6 +1797,45 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
     os.chdir(ex.root)
 
+    # ── 11h. Analysis of competing hypotheses ─────────────────────────
+    ex.section(
+        "Analysis of Competing Hypotheses",
+        "Weighing competing explanations against all the evidence at once (Heuer). Each piece of evidence is "
+        "rated against each hypothesis, from CC (very consistent) to II (very inconsistent); the strongest "
+        "hypothesis is the one the evidence fails to rule out. Shown on a seventh, small project.",
+    )
+    ach_root = ex.root.parent / "outage"
+    ex.run(["init", str(ach_root), "--question", "Why did the payments service go down on Tuesday?"])
+    os.chdir(ach_root)
+    ex.run(["project", "select-models", "ach"])
+    for _h in ("Hardware failure", "Software bug", "Cyber attack"):
+        ex.run(["node", "add", _h])
+        ex.run(["ach", "element", _h, "hypothesis"])
+    _items = {
+        "Disk errors in the logs": ("medium", "medium", ("C", "N", "N")),
+        "Outage began minutes after a deploy": ("high", "high", ("I", "CC", "C")),
+        "No unusual network traffic": ("high", "high", ("C", "C", "II")),
+        "A restart restored service": ("medium", "medium", ("C", "C", "C")),
+    }
+    for _i, (_cred, _rel, _ratings) in _items.items():
+        ex.run(["node", "add", _i])
+        ex.run(["ach", "element", _i, "evidence_item"])
+        ex.run(["ach", "item", _i, "--credibility", _cred, "--relevance", _rel])
+        for _h, _r in zip(("Hardware failure", "Software bug", "Cyber attack"), _ratings, strict=True):
+            ex.run(["ach", "rate", _i, _h, _r])
+    ex.note("An evidence item carries its sources like any factor; the deploy log is cited and checked.")
+    ex.run(["ref", "add", "deploylog", "--title", "Deploy log, Tuesday (illustrative)", "--year", "2026"])
+    ex.run(["evidence", "add", "Outage began minutes after a deploy", "description", "deploylog"])
+    ex.run(["evidence", "check", "Outage began minutes after a deploy", "description", "deploylog", "supports",
+            "--rationale", "The log shows the deploy finishing four minutes before the first errors."])
+    ex.run(["ach", "show"])
+    ex.note("The software bug has no evidence against it. Two items are linchpins: without either, another "
+            "hypothesis would tie. One has a checked source, the other none — the place to look next.")
+    ex.run(["ach", "analyse"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "ach"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

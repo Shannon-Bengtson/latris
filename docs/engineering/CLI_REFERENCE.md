@@ -397,6 +397,21 @@ latris mcda check                                     # weights, directions, eve
 latris mcda analyse [--no-record]                     # ranking, contributions, dominance, weight thresholds
 ```
 
+## ACH (analysis of competing hypotheses)
+
+Hypotheses against evidence items (view roles); one rating per pair, and an
+item's credibility and relevance, each with provenance. An item's sources
+are ordinary citations on it. `ach analyse` is recorded (`ach-analysis`).
+
+```bash
+latris ach element <node> <hypothesis|evidence_item>
+latris ach item <item> [--credibility high|medium|low] [--relevance high|medium|low] [--notes]
+latris ach rate <item> <hypothesis> <CC|C|N|I|II> [--rationale] [--origin] [--verified]
+latris ach show                                       # items × hypotheses matrix
+latris ach check                                      # every pair rated? exits 1 until so
+latris ach analyse [--no-record]                      # ranking by evidence against, linchpins, non-diagnostic items
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

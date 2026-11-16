@@ -199,7 +199,7 @@ def default_origin(verified_by: str) -> str:
 
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
-_MODULES = ("theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda")
+_MODULES = ("theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach")
 
 
 def _load() -> None:

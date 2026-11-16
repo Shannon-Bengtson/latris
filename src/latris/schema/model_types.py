@@ -364,6 +364,23 @@ register_model_type(
     )
 )
 
+register_model_type(
+    ModelTypeSpec(
+        id="ach",
+        display_name="Analysis of Competing Hypotheses",
+        short_name="ACH",
+        description=(
+            "Hypotheses against the evidence: which one the evidence fails to rule out, which items don't "
+            "discriminate, and which linchpins the conclusion turns on."
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("ach_elements_present", "ach_matrix_complete"),
+        allowed_roles=("hypothesis", "evidence_item"),
+        required_roles=("hypothesis", "evidence_item"),
+    )
+)
+
 # -- Tier 2: systems thinking, process, and state-based formalisms ---------
 
 register_model_type(

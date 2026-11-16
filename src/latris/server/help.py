@@ -774,10 +774,11 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 - **Bow-Tie:** best for showing, for one top event, what could cause it, what could follow, and the barriers in between — where the protection is thin, shared or uncontrolled, and (with frequencies and failure probabilities) how often each outcome is expected. See the dedicated Bow-Ties topic.
 - **Event Tree:** best for following one initiating event forward — which safety functions work or fail, in what order, and how often each end state results. See the dedicated Event Trees topic.
 - **MCDA:** best for a choice between options judged on several criteria — the ranking, what drives it, and how far the weights would have to move to change it. See the dedicated Multi-Criteria Decision Analysis topic.
+- **ACH:** best for choosing between competing explanations — which one the evidence fails to rule out, and which pieces of evidence the conclusion turns on. See the dedicated Analysis of Competing Hypotheses topic.
 
 ## Planned model types
 
-On the roadmap: decision trees, influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: analysis of competing hypotheses, and process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: decision trees, influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -811,6 +812,8 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
   end states.
 - "Which option should we choose, given what we care about?" → **MCDA** —
   options scored against weighted criteria, and how firm the choice is.
+- "Which explanation does the evidence fail to rule out?" → **ACH** —
+  competing hypotheses rated against every piece of evidence.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1128,6 +1131,32 @@ The result is recorded for the report and goes out of date when a weight, scale 
 ## Practical caution
 
 The model is additive and linear: it assumes criteria can be traded off independently and value rises evenly between worst and best. Weights are judgements — record whose (`--source`). Methods: Keeney & Raiffa (1976), Belton & Stewart (2002), and the UK government's *Multi-criteria analysis: a manual* (DCLG 2009).
+""",
+    ),
+    HelpTopic(
+        id="model-type-ach",
+        title="Analysis of Competing Hypotheses",
+        category="model-types",
+        summary="Weigh competing explanations against all the evidence at once, and find what the conclusion turns on.",
+        body="""## What ACH represents
+
+Several possible explanations (**hypotheses**) and everything you know that bears on them (**evidence items**: facts, reports, arguments, even things you'd expect to see and don't). Give each factor its element (`latris ach element <factor> hypothesis|evidence_item`), say how far each item can be trusted and how directly it bears (`latris ach item <item> --credibility high --relevance medium`), and rate every item against every hypothesis (`latris ach rate <item> <hypothesis> CC|C|N|I|II --rationale "…"`) — very consistent to very inconsistent. Ask of each cell: *if this hypothesis were true, how likely would I be to see this?*
+
+An evidence item can carry its own sources like any factor (`latris evidence add <item> description <key>`), and the analysis says whether they've been checked.
+
+## What the analysis shows
+
+`latris ach analyse` (Heuer's method):
+
+- ranks the hypotheses by the **evidence against them**, weighted by credibility and relevance — the strongest hypothesis is the one the evidence fails to rule out, not the one with most in its favour;
+- flags evidence rated the same against every hypothesis — it can't help you choose;
+- finds the **linchpins**: items without which the lead would change or be tied, with whether their sources were checked. Those are what to verify first.
+
+The result is recorded for the report and goes out of date when a rating, weight or source changes.
+
+## Practical caution
+
+Ratings are judgements; record your reasoning (`--rationale`). The weights (high 1.0, medium 0.7, low 0.4; an inconsistency counts 1, a strong one 2) are a stated convention, and the ranking orders hypotheses — it doesn't give their probabilities. Method: Heuer (1999), *Psychology of Intelligence Analysis*, ch. 8.
 """,
     ),
     HelpTopic(

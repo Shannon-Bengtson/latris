@@ -213,6 +213,26 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="ach-heuer",
+        applies_to=("ach",),
+        method="Analysis of competing hypotheses",
+        citation=(
+            "Heuer (1999), *Psychology of Intelligence Analysis*, ch. 8; Heuer & Pherson (2015), *Structured "
+            "Analytic Techniques for Intelligence Analysis*"
+        ),
+        used_for=(
+            "every evidence item rated against every hypothesis (CC to II) with its reasoning; hypotheses ranked "
+            "by credibility- and relevance-weighted inconsistency — the least evidence against, not the most "
+            "for; evidence that doesn't discriminate; linchpin items without which the lead changes or ties, with "
+            "whether their sources were checked"
+        ),
+        limits=(
+            "Ratings and weights are judgements; the weights (high 1.0, medium 0.7, low 0.4; an inconsistency "
+            "1, a strong one 2) are Latris's stated convention, not Heuer's; items are treated as independent "
+            "and no probabilities are computed — the ranking orders hypotheses, it doesn't say how likely each is."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",
