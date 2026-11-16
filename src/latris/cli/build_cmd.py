@@ -65,7 +65,8 @@ def build(
       frequency (node, frequency per year, …)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
-      ft_analyse | bowtie_analyse | et_analyse)
+      ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
+      outcome, dataset, adjust, columns, estimator)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML

@@ -386,14 +386,16 @@ class SpecAnalysis(_Spec):
     | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
     | ft_analyse (fault-tree cut sets, probability and importance; max_order)
     | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options)
-    | et_analyse (event-tree sequences and end states; no options).
+    | et_analyse (event-tree sequences and end states; no options)
+    | dag_estimate (effect of treatment on outcome from a dataset: treatment, outcome, dataset, adjust,
+      columns, estimator).
     ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
     ``settings``: initial_time, final_time, dt, saveper, method, time_units.
     """
 
     kind: Literal[
         "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse",
+        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
     ]
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
@@ -416,6 +418,13 @@ class SpecAnalysis(_Spec):
     target: str | None = None
     state: str | None = None
     max_order: int | None = Field(default=None, ge=1)  # ft_analyse: list cut sets up to this order
+    # dag_estimate: the effect of treatment on outcome, from a registered dataset
+    treatment: str | None = None
+    outcome: str | None = None
+    dataset: str | None = None
+    adjust: list[str] = Field(default_factory=list)  # empty: the smallest valid set of measured factors
+    columns: dict[str, str] = Field(default_factory=dict)  # factor label → dataset column, where names differ
+    estimator: Literal["auto", "linear", "logistic"] | None = None
 
 
 class BuildSpec(_Spec):

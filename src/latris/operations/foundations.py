@@ -67,8 +67,29 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "adjustment sets by graph surgery"
         ),
         limits=(
-            "Identification only — no do-operator estimation and no counterfactuals; "
-            "adjustment sets are enumerated only up to size 3."
+            "Identification: says what must be adjusted for, not how big the effect is (that is the separate "
+            "effect estimate); no counterfactuals; minimal adjustment sets are enumerated only up to size 3."
+        ),
+    ),
+    Foundation(
+        id="dag-estimation",
+        applies_to=("dag",),
+        method="Effect estimation by backdoor adjustment",
+        citation=(
+            "Pearl (2009), *Causality*, the back-door adjustment; Hernán & Robins (2020), *Causal Inference: "
+            "What If*, ch. 15 (outcome regression); MacKinnon & White (1985), HC3 standard errors; Seabold & "
+            "Perktold (2010), statsmodels"
+        ),
+        used_for=(
+            "the average effect of one factor on another from a dataset: the smallest valid backdoor set made "
+            "only of measured factors (or a given set, checked against the DAG), linear regression with robust "
+            "standard errors or logistic regression for a yes/no outcome, beside the unadjusted association"
+        ),
+        limits=(
+            "Causal only under the DAG's assumptions (no common cause left out), the model's linear, additive "
+            "form, and positivity; complete cases only; one numeric or two-valued treatment, no effect "
+            "modification; refuses rather than estimates when every valid adjustment set needs an unmeasured "
+            "factor."
         ),
     ),
     Foundation(
@@ -280,6 +301,7 @@ _ANALYSIS_KIND_TO_ID = {
     "sd-monte-carlo": "sd-uncertainty",
     "sd-sensitivity": "sd-sensitivity",
     "sd-loops": "sd-loop-dominance",
+    "dag-estimate": "dag-estimation",
 }
 
 

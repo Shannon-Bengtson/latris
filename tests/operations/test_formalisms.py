@@ -119,3 +119,16 @@ def test_hooks_run_on_an_empty_project(f, tmp_path: Path, git_identity):
     assert f.spec_export(paths, {}) is None
     assert f.structure_problems(root)  # an empty model is never complete
     assert mermaid(paths, model_type=f.model_type) == ""
+
+
+@pytest.mark.parametrize("a", formalisms.ANALYSES, ids=[a.result.kind for a in formalisms.ANALYSES])
+def test_analysis_layers_are_registered_everywhere(a):
+    from latris.operations.analysis_results import KIND_MODEL_TYPE, KIND_ORDER
+    from latris.operations.foundations import _ANALYSIS_KIND_TO_ID, FOUNDATIONS
+    from latris.schema.build_spec import SpecAnalysis
+
+    assert get_model_type(a.model_type).availability == "stable"
+    r = a.result
+    assert r.kind in KIND_ORDER and KIND_MODEL_TYPE[r.kind] == a.model_type
+    assert r.analysis in get_args(SpecAnalysis.model_fields["kind"].annotation)
+    assert _ANALYSIS_KIND_TO_ID.get(r.kind) in {fd.id for fd in FOUNDATIONS}, "map the kind to a foundations entry"

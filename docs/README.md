@@ -23,7 +23,8 @@ repository. Start at the repo-root [README](../README.md).
   search), table view for systematic review, lineage/versioning, model
   type registry with readiness gating, graph analysis (CLD loop
   detection + polarity propagation; DAG d-separation, Markov blanket,
-  path enumeration, adjustment sets).
+  path enumeration, adjustment sets) and, with a dataset, effect
+  estimates by backdoor-adjusted regression (`latris analyse estimate`).
 - A discrete Bayesian Network engine: state spaces, CPTs with per-cell
   provenance, exact inference (pgmpy), Noisy-OR canonical models,
   parameter learning from data, provenance-aware sensitivity analysis —
@@ -50,8 +51,9 @@ repository. Start at the repo-root [README](../README.md).
 - A *general* quantitative modelling engine. System dynamics (unit-checked
   simulation, scenarios, Monte Carlo bands, sensitivity, loop dominance)
   and the discrete BN engine above (including soft evidence, most likely
-  explanations, and Monte Carlo over the tables) are built; regression
-  fitting, model calibration to data, and BN EVPI are deferred.
+  explanations, and Monte Carlo over the tables) are built, as is effect
+  estimation on DAGs by backdoor-adjusted regression; model calibration to
+  data and BN EVPI are deferred.
 
 **Isn't ever (excluded by design — fails the inspectability test):**
 - Black-box predictors you can run but can't inspect or defend (random

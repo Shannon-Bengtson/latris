@@ -63,7 +63,7 @@ Working in a chat app (Claude, ChatGPT) rather than a shell? Use the Latris conn
 People rarely know which formalism fits their question. Guide the choice by the kind of answer needed, not the drawing:
 
 - "How does this work — what feeds back on what?" → CLD. Start here by default: cheapest honest answer, and every other formalism builds on it.
-- "Can this effect actually be estimated, and from what data?" → DAG. Identification only — adjustment sets, no effect sizes, no counterfactuals.
+- "Can this effect actually be estimated, and from what data?" → DAG. Adjustment sets; then, with a dataset (`latris data add file.csv`), `latris analyse estimate <treatment> <outcome> --dataset <name>` picks the smallest valid adjustment set the data measures, fits linear (robust SEs) or logistic regression, shows the unadjusted association beside it, and refuses — naming what to measure — when the DAG says the data can't support it. Causal only under the DAG's assumptions; no counterfactuals.
 - "How likely is each outcome, and what would change my mind?" → BN. Discrete states and probabilities; CPTs elicited, learned, or mixed.
 - "Which forces dominate, roughly?" → FCM. Signed, weighted links; steady-state tendencies.
 - "How will it behave over time if we intervene?" → SD. Stocks, flows, units, scenarios — the most commitment; build the CLD first.

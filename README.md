@@ -235,8 +235,9 @@ approach shows it:
   default: the cheapest honest answer, and every other formalism builds
   on it.
 - "Can this effect actually be estimated, and from what data?" → `dag`.
-  Identification only — adjustment sets and d-separation, no effect
-  sizes, no counterfactuals.
+  Adjustment sets and d-separation; with a dataset, `latris analyse
+  estimate` gives the effect size under the DAG's stated assumptions. No
+  counterfactuals.
 - "How likely is each outcome, and what would change my mind?" → `bn`.
   Discrete states and probabilities; CPTs elicited, learned, or mixed.
 - "Which forces dominate, roughly?" → `fcm`. Signed, weighted links and

@@ -41,9 +41,7 @@ KIND_ORDER: tuple[str, ...] = (
 REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
 _DEFAULT_LIMIT = 4
 
-KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | {
-    r.kind: f.model_type for f in formalisms.all_formalisms() for r in f.results
-}
+KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | formalisms.kind_model_types()
 
 
 # ── fingerprints ─────────────────────────────────────────────────────
@@ -74,11 +72,9 @@ def fingerprint(
         for e in sorted(sub.edges, key=lambda x: x.id):
             h.update(f"e|{e.id}|{e.from_id}|{e.to_id}|{e.kind}\n".encode())
     h.update(_file_text(paths.role_path(model_type)).encode())
-    plugin = formalisms.get(model_type)
-    if plugin and plugin.fingerprint_files:
-        # Inputs beyond structure, roles and parameters that this formalism's results read.
-        for f in plugin.fingerprint_files(paths):
-            h.update(_file_text(f).encode())
+    # Inputs beyond structure, roles and parameters that this model type's results read (evidence, datasets…).
+    for f in formalisms.fingerprint_files(model_type, paths):
+        h.update(f.name.encode() + b"\n" + (f.read_bytes() if f.exists() else b""))
     scenario_file = paths.view_attribute_path(model_type, "scenarios")
     if paths.parameters_dir.exists():
         for f in sorted(paths.parameters_dir.glob(f"{model_type}-*.yaml")):
@@ -131,6 +127,7 @@ def record_result(
     scenarios: list[str] | None = None,
     uncertainty: bool = False,
     seed: int | None = None,
+    input_dataset_ids: list[str] | None = None,
     metrics: dict | None = None,
     affected_target_ids: list[str] | None = None,
     duration_seconds: float | None = None,
@@ -155,6 +152,7 @@ def record_result(
         library_version=library_version,
         hyperparameters={**(hyperparameters or {}), "fingerprint_inputs": inputs},
         seed=seed,
+        input_dataset_ids=input_dataset_ids,
         target_view=model_type,
         output_summary=summary,
         output_artifacts=[rel],

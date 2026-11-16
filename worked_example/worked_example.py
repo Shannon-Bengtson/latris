@@ -1711,6 +1711,55 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["project", "select-models", "bow_tie", "event_tree"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "answer_to_question", "--model-type", "event_tree"])
+
+    # ── 11f. Effect estimation on a DAG ───────────────────────────────
+    ex.section(
+        "Effect Estimation",
+        "A DAG says what must be adjusted for; with a dataset, Latris estimates how big the effect is. Here a "
+        "survey (synthetic, generated so the true effect of an hour of exercise on the heart-health score is "
+        "+2.0) is confounded by age: older people exercise less and score lower. Shown on a fifth, small "
+        "project.",
+    )
+    import numpy as _np
+    import pandas as _pd
+
+    est_root = ex.root.parent / "heart"
+    ex.run(["init", str(est_root), "--question", "How much does exercise improve heart health?"])
+    os.chdir(est_root)
+    ex.run(["project", "select-models", "dag"])
+    for _n in ("Age", "Exercise", "Heart health"):
+        ex.run(["node", "add", _n, "--kind", "variable"])
+    for _a, _b in (("Age", "Exercise"), ("Age", "Heart health"), ("Exercise", "Heart health")):
+        ex.run(["edge", "add", _a, _b])
+    _rng = _np.random.default_rng(7)
+    _age = _rng.uniform(20, 80, 1000)
+    _ex = 10 - 0.1 * _age + _rng.normal(0, 1, 1000)
+    _heart = 50 + 2.0 * _ex - 0.5 * _age + _rng.normal(0, 2, 1000)
+    _survey = Path(_tempfile.gettempdir()) / "latris_demo_survey.csv"
+    _pd.DataFrame({"Age": _age.round(1), "exercise_hours": _ex.round(2), "Heart health": _heart.round(1)}).to_csv(
+        _survey, index=False)
+    ex.run(["data", "add", str(_survey), "--name", "survey", "--description", "Synthetic health survey."])
+    ex.run(["data", "show", "survey"])
+    ex.run(["analyse", "adjustment-sets", "Exercise", "Heart health"])
+    ex.note("Columns are matched to factors by name; the exercise column has a different name, so it is given. "
+            "Age is the backdoor set and the dataset measures it, so Latris adjusts for it.")
+    ex.run(["analyse", "estimate", "Exercise", "Heart health", "--dataset", "survey",
+            "--column", "Exercise=exercise_hours"])
+    ex.note("Adjusting for nothing would leave the backdoor through Age open, so it is refused rather than "
+            "estimated.")
+    ex.run(["analyse", "estimate", "Exercise", "Heart health", "--dataset", "survey",
+            "--column", "Exercise=exercise_hours", "--no-adjust", "--no-record"], expect_fail=True)
+    ex.note("The estimate becomes interpretation claims, with its assumptions stated beside it.")
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "assumptions_limitations", "--model-type", "dag"])
+    ex.note("If the DAG says income also drives both, and the survey didn't measure it, no unbiased estimate is "
+            "possible from this data; Latris says what to measure. (The recorded estimate is now out of date: "
+            "the DAG it relied on changed.)")
+    ex.run(["node", "add", "Income", "--kind", "variable"])
+    ex.run(["edge", "add", "Income", "Exercise"])
+    ex.run(["edge", "add", "Income", "Heart health"])
+    ex.run(["analyse", "estimate", "Exercise", "Heart health", "--dataset", "survey",
+            "--column", "Exercise=exercise_hours"], expect_fail=True)
     os.chdir(ex.root)
 
     # ── 12. Interpret phase ───────────────────────────────────────────

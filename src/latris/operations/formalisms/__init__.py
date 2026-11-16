@@ -43,6 +43,21 @@ class ResultKind:
     analysis: str  # the build-spec ``SpecAnalysis.kind`` that runs it, e.g. "ft_analyse"
     run: Callable[[Any, Path], str]  # (SpecAnalysis, root) → run id; runs and records it
     definition: Callable[[dict[str, Any]], Any]  # recorded payload → SpecAnalysis that reproduces it
+    # (payload, claims by interpretation section) → add this result's claims, e.g. to "answer_to_question"
+    claims: Callable[[dict[str, Any], dict[str, list[str]]], None] | None = None
+
+
+@dataclass(frozen=True)
+class Analysis:
+    """An analysis layer on an existing model type — e.g. effect estimation on a DAG.
+
+    Not a model type of its own: it adds a recorded result kind to ``model_type`` (which may be one of the
+    older types not registered as a :class:`Formalism`).
+    """
+
+    model_type: str
+    result: ResultKind
+    fingerprint_files: Callable[[Any], list[Path]] | None = None  # extra inputs its results depend on
 
 
 @dataclass(frozen=True)
@@ -89,17 +104,29 @@ class Formalism:
 
 
 FORMALISMS: dict[str, Formalism] = {}
+ANALYSES: list[Analysis] = []
+
+
+def _refuse_clash(new: list[ResultKind]) -> None:
+    kinds = {r.kind for r in result_kinds()}
+    analyses = {r.analysis for r in result_kinds()}
+    clash = (kinds & {r.kind for r in new}) | (analyses & {r.analysis for r in new})
+    if clash:
+        raise ValueError(f"result or analysis kind(s) {sorted(clash)} already registered")
 
 
 def register(f: Formalism) -> Formalism:
     if f.model_type in FORMALISMS:
         raise ValueError(f"formalism {f.model_type!r} registered twice")
-    kinds = {r.kind for g in FORMALISMS.values() for r in g.results}
-    clash = kinds & {r.kind for r in f.results}
-    if clash:
-        raise ValueError(f"result kind(s) {sorted(clash)} already registered")
+    _refuse_clash(list(f.results))
     FORMALISMS[f.model_type] = f
     return f
+
+
+def register_analysis(a: Analysis) -> Analysis:
+    _refuse_clash([a.result])
+    ANALYSES.append(a)
+    return a
 
 
 def get(model_type: str | None) -> Formalism | None:
@@ -110,16 +137,36 @@ def all_formalisms() -> list[Formalism]:
     return list(FORMALISMS.values())
 
 
+def _owned() -> list[tuple[str, ResultKind]]:
+    """Every registered result kind with the model type it belongs to — formalisms first, then analyses."""
+    return [(f.model_type, r) for f in FORMALISMS.values() for r in f.results] + [
+        (a.model_type, a.result) for a in ANALYSES
+    ]
+
+
 def result_kinds() -> list[ResultKind]:
-    return [r for f in FORMALISMS.values() for r in f.results]
+    return [r for _, r in _owned()]
 
 
-def result_kind(kind: str) -> tuple[Formalism, ResultKind] | None:
-    for f in FORMALISMS.values():
-        for r in f.results:
-            if r.kind == kind:
-                return f, r
-    return None
+def result_kind(kind: str) -> tuple[str, ResultKind] | None:
+    """(model type, result kind) for a recorded ``result_kind``, or None if it isn't a registered one."""
+    return next(((mt, r) for mt, r in _owned() if r.kind == kind), None)
+
+
+def kind_model_types() -> dict[str, str]:
+    return {r.kind: mt for mt, r in _owned()}
+
+
+def fingerprint_files(model_type: str, paths: Any) -> list[Path]:
+    """Inputs beyond structure, roles and parameters that this model type's results read."""
+    out: list[Path] = []
+    f = get(model_type)
+    if f and f.fingerprint_files:
+        out += f.fingerprint_files(paths)
+    for a in ANALYSES:
+        if a.model_type == model_type and a.fingerprint_files:
+            out += a.fingerprint_files(paths)
+    return out
 
 
 def for_analysis(analysis: str) -> ResultKind | None:
@@ -152,7 +199,7 @@ def default_origin(verified_by: str) -> str:
 
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
-_MODULES = ("theory_of_change", "fault_tree", "bow_tie", "event_tree")
+_MODULES = ("theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation")
 
 
 def _load() -> None:

@@ -778,7 +778,7 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 
 On the roadmap: decision trees, influence diagrams and Markov models (for decisions and health economics), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Also planned but not yet registered: multi-criteria decision analysis, analysis of competing hypotheses, and process tracing for theories of change. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
-Other registered types — regression (effect estimation is coming as an analysis on DAGs instead), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
+Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
 ## How selection affects the app
 
@@ -789,7 +789,8 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "How does this work — what feeds back on what?" → **CLD**. The cheapest
   honest answer; start here unless the question says otherwise.
 - "Can this effect actually be estimated, and from what data?" → **DAG**.
-  Identification — adjustment sets and d-separation; no effect sizes.
+  Adjustment sets and d-separation; with a dataset, the effect size under
+  the DAG's stated assumptions (`latris analyse estimate`).
 - "How likely is each outcome, and what would change my mind?" → **BN** —
   discrete states and probabilities.
 - "Which forces dominate, roughly?" → **FCM** — semi-quantitative weights
@@ -946,6 +947,12 @@ DAG views require directionality and acyclicity. Feedback loops that are valid i
 ## Analysis outputs
 
 DAG analysis supports path enumeration, d-separation, Markov blankets, and adjustment-set reasoning.
+
+## Estimating the effect
+
+With a dataset (`latris data add survey.csv`, or the data workspace), `latris analyse estimate Exercise "Heart health" --dataset survey` estimates how big the effect is. Factors map to columns by name (or `--column "Exercise=exercise_hours"`). Latris adjusts for the smallest valid backdoor set the dataset measures — or a set you give with `--adjust`, which it checks against the DAG — and fits linear regression with robust standard errors for a numeric outcome, or logistic regression for a yes/no one. The unadjusted association is shown beside it, so you can see what adjustment changed. If every valid adjustment set needs a factor the data doesn't have, Latris names what to measure and estimates nothing.
+
+The estimate is the effect only if the DAG leaves out no common cause, the model's form is right, and every kind of unit could receive every level of the treatment; the output and the report say so each time. The result is recorded and goes out of date when the DAG or the data changes.
 """,
     ),
     HelpTopic(

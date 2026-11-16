@@ -40,7 +40,7 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   definitional edges are excluded from loop and centrality analysis — they
   are policy or identity links, not feedback mechanisms.
 
-## Causal DAGs — identification, not estimation
+## Causal DAGs — identification, then estimation under stated assumptions
 
 - **Lineage.** Pearl (2009), *Causality*; Pearl & Mackenzie (2018), *The Book
   of Why*; Hernán & Robins (2020), *Causal Inference: What If*. The
@@ -49,13 +49,26 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   (with chain/fork/collider classification), and backdoor adjustment sets by
   graph surgery — the exposure's outgoing edges removed, then testing which
   sets d-separate exposure from outcome (`latris analyse`, DAG-scoped).
-- **Limits — read this before citing Pearl.** Latris answers the
-  *identification* question only: what would have to be measured (conditioned
-  on) for an effect to be estimable. There is no do-operator estimation, no
-  g-computation, and no counterfactual computation anywhere in the package.
-  Adjustment sets are enumerated only up to size 3; if no valid set of three
-  or fewer exists, Latris says so instead of searching further. Analyses run
-  on the causal-edge subgraph only.
+- **Effect estimation** (`latris analyse estimate`). With a dataset, the
+  average effect of one factor on another by back-door adjustment (Pearl
+  2009): the smallest valid back-door set made only of measured factors (or
+  a set you give, checked against the DAG), then outcome regression
+  (Hernán & Robins 2020, ch. 15) — ordinary least squares with HC3 robust
+  standard errors (MacKinnon & White 1985) for a numeric outcome, logistic
+  regression (odds ratio and average marginal effect) for a two-valued one,
+  via statsmodels (Seabold & Perktold 2010). The unadjusted association is
+  reported beside it. If every valid set needs a factor the dataset doesn't
+  measure, Latris names what to measure and estimates nothing.
+- **Limits — read this before citing Pearl.** An estimate is causal only if
+  the DAG leaves out no common cause of treatment and outcome, the model's
+  form is right (linear or logistic, additive in the adjustment variables,
+  no effect modification), and positivity holds; the report states these
+  every time. Complete cases only. One numeric or two-valued treatment at a
+  time. No g-computation, inverse-probability weighting, instrumental
+  variables or front-door estimation, and no counterfactual computation
+  anywhere in the package. Minimal adjustment sets are enumerated up to size
+  3; the search for a measured set goes to size 6. Analyses run on the
+  causal-edge subgraph only.
 
 ## Bayesian networks
 
@@ -252,7 +265,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | Fault Tree | Logical decomposition of how a failure can occur; probabilities assume independent basic events — no causal estimation |
 | Bow-Tie | Barrier structure around one event; LOPA frequencies are order-of-magnitude, barriers assumed independent |
 | Event Tree | Forward sequences from one event; probabilities are as conditional as you state them — no causal estimation |
-| DAG / BN | Observational queries and identification — what to measure; no interventional estimation |
+| DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
 successful scenario run says what the model does under an assumed change, not
@@ -263,7 +276,8 @@ Latris reports say it themselves in the Methods section.
 
 Black-box machine learning and opaque structure learning (they fail the
 inspectability test — `latris capabilities`, `excluded_by_design`);
-interventional and counterfactual estimation on DAGs; XMILE/Vensim import
+counterfactual estimation, and interventional estimation beyond back-door
+adjusted regression; XMILE/Vensim import
 (off the roadmap). See the capability manifest for the living list.
 
 ## Machine-readable source of truth
@@ -303,6 +317,9 @@ the code it describes win, and this page is wrong.
 - IEC 62502:2010. *Analysis techniques for dependability — Event tree
   analysis (ETA)*. International Electrotechnical Commission.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
+- MacKinnon, J. G., & White, H. (1985). "Some heteroskedasticity-consistent
+  covariance matrix estimators with improved finite sample properties."
+  *Journal of Econometrics*, 29(3), 305–325.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.
 - Kellogg Foundation, W.K. (2004). *Logic Model Development Guide*. W.K.
@@ -329,6 +346,9 @@ the code it describes win, and this page is wrong.
   *System Dynamics Review*.
 - Schoenberg, S., Hayward, J., & Eberlein, R. (2023). Revised flow-to-stock
   link score for Loops That Matter. *System Dynamics Review*.
+- Seabold, S., & Perktold, J. (2010). "statsmodels: Econometric and
+  Statistical Modeling with Python." *Proceedings of the 9th Python in
+  Science Conference*.
 - Shachter, R. D. (1998). "Bayes-Ball: The Rational Pastime." *Proceedings of
   the 14th Conference on Uncertainty in Artificial Intelligence (UAI)*.
 - Sterman, J. D. (2000). *Business Dynamics: Systems Thinking and Modeling

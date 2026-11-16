@@ -222,6 +222,8 @@ latris analyse d-sep <x> <y> [--given <z1,z2,...>]
 latris analyse blanket <variable>
 latris analyse paths <from-variable> <to-variable>
 latris analyse adjustment-sets <treatment> <outcome>
+latris analyse estimate <treatment> <outcome> --dataset NAME [--adjust F ...] [--no-adjust]
+                        [--column "Factor=column" ...] [--model auto|linear|logistic] [--no-record]
 ```
 
 Qualitative computation on the existing stable views. `loops` finds all
@@ -231,7 +233,21 @@ qualitative effects of a hypothetical increase. `d-sep` tests d-separation
 the Markov blanket (parents + children + co-parents). `paths` enumerates
 all paths between two variables with node classification
 (chain/fork/collider). `adjustment-sets` finds valid adjustment sets via
-the backdoor criterion. Variables resolve by ID, label, or prefix.
+the backdoor criterion. `estimate` fits the effect from a dataset, adjusting
+for the smallest valid backdoor set the data measures (or a given set,
+checked), and records it (`dag-estimate`). Variables resolve by ID, label,
+or prefix.
+
+## Data
+
+```bash
+latris data add <file.csv|.tsv> [--name NAME] [--description TEXT]   # copied into data/files, committed
+latris data list
+latris data show <name>                                                # columns and types
+```
+
+The app's data workspace has the full set of cleaning and reshaping
+operations (`/api/datasets/*`).
 
 ## FCM (Fuzzy Cognitive Maps)
 
