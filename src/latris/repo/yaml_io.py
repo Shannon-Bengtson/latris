@@ -102,6 +102,30 @@ def dump_model(model: BaseModel, path: Path) -> None:
     atomic_replace(tmp, path)
 
 
+def load_raw(path: Path):
+    """Read YAML from ``path`` as plain data (dicts/lists), without validation.
+
+    For store-agnostic maintenance (e.g. removing every row that points at a
+    deleted element) where the concrete pydantic class varies by file.
+    """
+    data = _make_yaml().load(path.read_text(encoding="utf-8"))
+    return {} if data is None else data
+
+
+def dump_raw(data, path: Path) -> None:
+    """Write plain data loaded with :func:`load_raw` back to ``path`` atomically."""
+    buf = io.StringIO()
+    _make_yaml().dump(data, buf)
+    text = buf.getvalue()
+    if not text.endswith("\n"):
+        text += "\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    atomic_replace(tmp, path)
+
+
 def load_model(cls: type[T], path: Path) -> T:
     """Read YAML from ``path`` and validate it into an instance of ``cls``.
 

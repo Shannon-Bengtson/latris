@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from latris.cli._agent import CONFIRMED_BY_PERSON, require_person
 from latris.cli._errors import handle_cli_errors
 from latris.operations import mappings as mapping_ops
 
@@ -66,7 +67,9 @@ def mapping_list(
 def mapping_approve(
     l2_id: str = typer.Argument(..., help="Substrate entity/edge (ID / prefix / label)."),
     view: str = typer.Argument(..., help="View: cld | dag."),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Approve an AI-proposed mapping."""
+    require_person(confirmed_by_person, "Approving a mapping")
     mapping, sha = mapping_ops.approve_mapping(l2_id, view)
     console.print(f"Approved mapping [cyan]{mapping.l2_id[:20]}…[/cyan] ↔ {view}")

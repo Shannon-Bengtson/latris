@@ -160,7 +160,16 @@ def test_retype_edge_rejects_noop(project: Path) -> None:
 
 
 def test_ambiguous_label_raises(project: Path) -> None:
+    from latris.repo.layout import ProjectPaths
+    from latris.repo.yaml_io import dump_raw, load_raw
+
     node_ops.add_node("Price", root=project)
-    node_ops.add_node("Price", root=project)  # same label, different IDs
+    with pytest.raises(ValueError, match="already called"):
+        node_ops.add_node("Price", root=project)
+    # A hand edit or merge can still produce two; resolution must refuse to guess.
+    conceptual = ProjectPaths(project).conceptual_yaml
+    data = load_raw(conceptual)
+    data["entities"].append(dict(data["entities"][-1], id="node_01J0000000000000000000000Z"))
+    dump_raw(data, conceptual)
     with pytest.raises(ResolveError, match="ambiguous"):
         node_ops.get_node("Price", project)

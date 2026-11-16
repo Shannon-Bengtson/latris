@@ -26,6 +26,34 @@ if TYPE_CHECKING:
 
 Provenance = Literal["human-authored", "ai-proposed", "ai-verified"]
 
+RECORDED_BY_AGENT_ENV = "LATRIS_RECORDED_BY_AGENT"
+"""Set (by the CLI) to the name of the AI agent running the command."""
+FOR_PERSON_ENV = "LATRIS_FOR_PERSON"
+"""Set (by the CLI) when the agent records a person's own review or approval at their request."""
+
+
+def _for_person() -> bool:
+    import os
+
+    return os.environ.get(FOR_PERSON_ENV) == "1"
+
+
+def _agent_trailer() -> str | None:
+    """``Recorded-by-agent:`` trailer when an AI agent ran the command, else None.
+
+    The git author is still the responsible person (no AI-authored commits);
+    this trailer says the keystrokes were an agent's, and — for a review or
+    approval — that the agent recorded it on the person's instruction.
+    """
+    import os
+
+    agent = os.environ.get(RECORDED_BY_AGENT_ENV, "").strip()
+    if not agent:
+        return None
+    if _for_person():
+        return f"Recorded-by-agent: {agent} (on the person's instruction)"
+    return f"Recorded-by-agent: {agent}"
+
 
 def _get_active_batch() -> _BatchState | None:
     """Lazy import to avoid circular dependency with batch.py."""
@@ -78,7 +106,12 @@ def auto_commit(
             with span("git_head_sha"):
                 return git.head_sha(root)
 
+        agent_trailer = _agent_trailer()
+        if agent_trailer and provenance == "human-authored" and not _for_person():
+            provenance = "ai-proposed"  # an agent's own work isn't the person's
         trailer = f"Provenance: {provenance}"
+        if agent_trailer:
+            trailer += f"\n{agent_trailer}"
         message = f"{subject}\n\n{body.rstrip()}\n\n{trailer}" if body else f"{subject}\n\n{trailer}"
         with span("git_commit"):
             sha = git.commit(root, message)

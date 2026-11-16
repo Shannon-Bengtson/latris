@@ -694,6 +694,12 @@ Provenance records explain the reasoning around the model, not just the model st
 ## Best practice
 
 Record why a choice was made, what it affects, and who was involved. This makes exports more credible and reduces the burden of reconstructing decisions later.
+
+## Removing things keeps the history
+
+Removing a node or link also removes what describes it — its description, confidence, polarity, citations, parameter values, roles and mappings — in the same change. Challenges, questions, sign-offs, assumptions, decisions and findings about it are kept: they are the record of what was argued and approved.
+
+`latris check integrity` checks that every reference between the project's files resolves: no link to a missing node, no citation of a source that isn't in the library, no two nodes with the same name, no duplicate links. The handover check includes it. `latris check integrity --fix` clears rows left behind by older removals or hand edits.
 """,
     ),
     HelpTopic(
@@ -752,6 +758,10 @@ The backend uses a provider-agnostic AI layer. API keys are managed outside the 
 ## Human responsibility
 
 The modeller remains responsible for accepting, editing, or rejecting proposals. Treat AI as a source of candidate work, not as an authority.
+
+## AI agents using the command line
+
+When an AI agent (such as Claude Code) runs `latris` commands, Latris recognises it and records what it adds as AI-proposed. Each change it saves notes the agent. Approvals, reviews, sign-offs and resolved challenges are a person's judgement: the agent records one only when you have reviewed the item yourself and asked it to, and the change history says it was recorded on your instruction. This catches the ordinary case; it can't stop an agent that sets out to hide itself. Approve in the Latris app when you need an approval that only you could have made.
 """,
     ),
     HelpTopic(
@@ -1427,7 +1437,7 @@ EvidenceDemote does NOT promote a verdict to `supports`. Promotion to `supports`
         summary="A persistent fetched-content slot on each Reference, with metadata that the verifier audits against.",
         body="""## What it is
 
-`Reference.source_snapshot` records the text the project actually has access to for a citation: `retrieval_url`, `fetched_at`, `content_hash`, an extract (≤2000 chars), and a `kind` discriminator.
+`Reference.source_snapshot` records the text the project actually has access to for a citation: `retrieval_url`, `fetched_at`, `content_hash`, an extract (≤2000 chars; a longer one is refused — keep the passage that bears on the claim), and a `kind` discriminator.
 
 ## Three kinds
 

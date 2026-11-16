@@ -86,17 +86,49 @@ The v5 → v6 transition is a **hard break**: v5 projects don't load
 into v6 tools. Demo projects in this repo were rewritten alongside
 the schema change.
 
+## Invariants (enforced by `latris check integrity`)
+
+Each file's shape is checked by its pydantic model on load. The
+relationships *between* files are checked by
+`operations/integrity.py::check_integrity` — read-only, run by
+`latris check integrity` and as one item of `latris check handover`.
+
+Errors (block handover):
+
+- Every node and link ID is `<kind>_<ULID>` of the right kind
+  (`node_…`, `edge_…`) and is used once.
+- No two nodes share a label (compared case- and space-insensitively):
+  labels address nodes in the CLI, build specs and AI applies.
+  `node add` / `node rename` refuse a taken label.
+- Every link joins two nodes that exist; no two links of the same kind
+  join the same ordered pair. `edge add` refuses a duplicate.
+- Every row in `substrate/attributes/`, `views/parameters/`,
+  `views/roles/`, `substrate/mappings.yaml` and `views/*.yaml` points at
+  a node or link that exists. `node remove` / `edge remove` delete those
+  rows in the same commit; `latris check integrity --fix` removes rows
+  left by older removals or hand edits.
+- Every citation's `bibkey` is in the reference library; every data
+  link's `dataset_id` is a registered dataset.
+
+Warnings: a `source_id` that doesn't match its origin (table above) or
+doesn't resolve; a finding that supersedes an unrecorded finding; a
+stored source extract over 2000 characters (`SNAPSHOT_EXTRACT_MAX`,
+enforced when an extract is written).
+
+Info: challenges, questions, signoffs, assumptions, decisions and
+findings about a removed node or link. These are history and are kept.
+
 ## Entity → file map
 
 | Design term | Pydantic model | On-disk file |
 |---|---|---|
 | Project foundation | `ProjectFoundation` | `project.yaml` |
-| Research base refs | `ReferenceLibrary` | `research-base/references.bib` |
+| Research base refs | `ReferenceLibrary` | `research-base/references.yaml` (structured store; `references.bib` is created empty and reserved for BibTeX import/export) |
 | Research notes | *(Markdown, free-form)* | `research-base/notes.md` |
 | Substrate (L2) | `Substrate` | `substrate/conceptual.yaml` |
-| Attribute: description | `AttributeSet[str]` | `substrate/attributes/descriptions.yaml` |
-| Attribute: confidence | `AttributeSet[Confidence]` | `substrate/attributes/confidence.yaml` |
-| Attribute: polarity | `AttributeSet[Polarity]` | `substrate/attributes/polarity.yaml` |
+| Attribute: description | `DescriptionSet` | `substrate/attributes/descriptions.yaml` |
+| Attribute: confidence | `ConfidenceSet` | `substrate/attributes/confidence.yaml` |
+| Attribute: polarity | `PolaritySet` | `substrate/attributes/polarity.yaml` |
 | Evidence links | `EvidenceLinkSet` | `substrate/attributes/evidence-links.yaml` |
 | Layer 2 ↔ 3 mapping | `MappingRegistry` | `substrate/mappings.yaml` |
 | Any formal view (CLD, DAG, FCM, …) | `View` (single class; `kind` validated against `MODEL_TYPE_REGISTRY`) | `views/{kind}.yaml` |
@@ -213,8 +245,11 @@ design spec (held in the private design docs).
 
 ## Provenance origin and verification axes
 
-Every `AttributeValue`, `Entity`, `Edge`, `EvidenceLink`, and
-quantitative parameter cell carries two orthogonal provenance fields:
+Attribute values, findings, data links and quantitative parameter cells
+carry two orthogonal provenance fields (`Entity` and `Edge` carry
+`origin` only; `EvidenceLink` carries `origin` plus its own audit axes —
+`verified_by`, `source_access`, `support_verdict`, quote — instead of
+`verification`, see `schema/common.py`):
 
 ```
 ProvenanceOrigin       = human-direct | human-elicited | ai-proposed
@@ -238,7 +273,12 @@ appropriate log:
 | `human-elicited` | `ElicitationSession.id` (in `provenance/elicitations/...`) |
 | `ai-proposed` | `AIInteraction.id` (in `ai/interactions.jsonl`) |
 | `data-derived` | `AnalysisRun.id` (in `analysis/runs.jsonl`) |
-| `human-direct` / `imported` | `null` |
+| `human-direct` | `null` |
+| `imported` | `null`, or the source project's pointer (needn't resolve locally) |
+| `mixed` | any one of the three records above, or `null` |
+
+`latris check integrity` reports a `source_id` that names the wrong kind
+of record for its origin, or no recorded one, as a warning.
 
 This is polymorphic by convention — the field is just a string, and
 the target log to look in is determined by `origin`. The future
@@ -296,7 +336,7 @@ deliberate moat decision; rationale in the LIBRARY design spec (held in the priv
 ## PDF storage policy
 
 PDFs do not version well in Git. V1 ships a **references-only** policy:
-`references.bib` entries link to PDFs the user already has (typically in
+reference entries (`research-base/references.yaml`) link to PDFs the user already has (typically in
 Zotero or a local cache). The repository does not commit PDF files. This
 keeps repos small and diffs clean. Git LFS and hybrid policies remain
 options for later versions.
@@ -311,8 +351,9 @@ on attributes. Never silently overwritten; resolution requires going through
 
 The "data-driven backlog" entries have progressed:
 - **Provenance-axis split** — **done** (M11). `ProvenanceOrigin` (6
-  values) × `ProvenanceVerification` (3 values) on entities, edges,
-  attribute values, evidence links.
+  values) × `ProvenanceVerification` (3 values) on attribute values and
+  parameter cells; origin only on entities and edges; evidence links use
+  their own audit axes.
 - **`Dataset`** — **done.** Full data wrangling system (schema, 39 ops,
   versioning, audit trail).
 - **`AnalysisRun`** — **done.** `operations/analysis_runs.py` writes

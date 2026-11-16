@@ -46,6 +46,30 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(skip_slow)
 
 
+_AGENT_ENV_VARS = (
+    "LATRIS_AGENT",
+    "AI_AGENT",
+    "CLAUDECODE",
+    "LATRIS_RECORDED_BY_AGENT",
+    "LATRIS_FOR_PERSON",
+    "LATRIS_DEFAULT_ORIGIN",
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_agent_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run every test as a person, even when the suite runs inside an AI agent's shell.
+
+    The CLI's agent detection (``latris.cli._agent``) reads and *sets* these
+    variables; setenv-then-delenv makes monkeypatch restore them to absent
+    afterwards, so one test's CLI call can't leak agent mode into the next.
+    Tests that exercise agent behaviour set them explicitly.
+    """
+    for var in _AGENT_ENV_VARS:
+        monkeypatch.setenv(var, "")
+        monkeypatch.delenv(var)
+
+
 @pytest.fixture
 def git_identity(monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
     """Provide a usable git identity via env vars; yields (name, email)."""

@@ -5,7 +5,8 @@ nobody has sourced, citations nobody has checked against their source,
 cited sources with nothing on file showing they were read, checks resting
 on a quote that isn't in the source's stored text, findings waiting for a
 person's approval, report sections without prose or with prose the model
-has outgrown, and descriptions that contradict their link's polarity. Each item says how
+has outgrown, descriptions that contradict their link's polarity, and
+broken references between files (``check_integrity``). Each item says how
 to fix it. Contested links aren't on the list: showing both sides is the
 point, not a gap.
 """
@@ -22,7 +23,7 @@ from latris.repo.yaml_io import load_model
 @dataclass
 class HandoverItem:
     # unsourced_links | unchecked_citations | unread_sources | unfound_quotes | unapproved_findings
-    # | missing_prose | stale_prose | contradictions | stale_results | model_incomplete
+    # | missing_prose | stale_prose | contradictions | stale_results | model_incomplete | integrity
     kind: str
     count: int
     message: str
@@ -196,6 +197,19 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
                 "`latris sd check` lists each gap and how to fix it",
                 [g.message for g in gaps[:5]],
             ))
+
+    from latris.operations.integrity import check_integrity
+
+    broken = check_integrity(root=paths.root).errors
+    if broken:
+        items.append(HandoverItem(
+            "integrity", len(broken),
+            f"{len(broken)} broken reference{'s' if len(broken) != 1 else ''} in the project files "
+            "(something points at a node, link, source or dataset that isn't there)",
+            "`latris check integrity` lists each one; `latris check integrity --fix` removes rows "
+            "left behind by deleted nodes and links",
+            [f"{p.where}: {p.message}" for p in broken[:5]],
+        ))
 
     return HandoverReport(model_type=model_type, ready=not items, items=items)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from latris.operations._cascade import cascade_removed_ids
 from latris.operations._resolve import resolve_edge, resolve_entity
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
@@ -23,6 +24,17 @@ def list_edges(root: Path | None = None) -> list[Edge]:
     return list(substrate.edges)
 
 
+class DuplicateEdgeError(ValueError):
+    """An edge of the same kind already joins these two nodes."""
+
+    def __init__(self, existing: Edge, from_label: str, to_label: str) -> None:
+        self.existing = existing
+        super().__init__(
+            f'a {existing.kind} link "{from_label}" → "{to_label}" already exists ({existing.id}); '
+            "edit that one instead of adding a second"
+        )
+
+
 def add_edge(
     from_query: str,
     to_query: str,
@@ -35,6 +47,9 @@ def add_edge(
     dst = resolve_entity(to_query, substrate.entities)
     if src.id == dst.id:
         raise ValueError(f"self-loop: from and to resolve to the same node {src.id}")
+    for existing in substrate.edges:
+        if existing.from_id == src.id and existing.to_id == dst.id and existing.kind == kind:
+            raise DuplicateEdgeError(existing, src.label, dst.label)
 
     edge = Edge(id=new_id("edge"), from_id=src.id, to_id=dst.id, kind=kind, origin=default_origin())
     substrate.edges.append(edge)
@@ -90,13 +105,16 @@ def remove_edge(
 
     substrate.edges = [e for e in substrate.edges if e.id != edge.id]
     dump_model(substrate, paths.conceptual_yaml)
+    changed, rows_removed = cascade_removed_ids(paths, [edge.id])
     body = f"id: {edge.id}"
+    if rows_removed:
+        body += f"\nremoved {rows_removed} dependent row(s) from {len(changed)} file(s)"
     if rationale:
         body += f"\nrationale: {rationale}"
     sha = auto_commit(
         paths.root,
         subject=f'Removed edge "{src_label}" → "{dst_label}"',
         body=body,
-        paths=[paths.conceptual_yaml],
+        paths=[paths.conceptual_yaml, *changed],
     )
     return edge, sha

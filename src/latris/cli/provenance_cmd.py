@@ -13,6 +13,7 @@ from datetime import date, datetime
 import typer
 from rich.console import Console
 
+from latris.cli._agent import CONFIRMED_BY_PERSON, require_person
 from latris.cli._errors import handle_cli_errors
 from latris.operations import provenance as ops
 
@@ -69,8 +70,10 @@ def signoff_record(
     role: str = typer.Option(..., "--role", help="Reviewer's role (e.g. 'Senior reviewer')."),
     scope: str = typer.Option(..., "--scope", help="What the sign-off covers."),
     notes: str = typer.Option(None, "--notes", help="Free-text notes."),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Record a formal review sign-off."""
+    require_person(confirmed_by_person, "A sign-off")
     entry, sha = ops.record_signoff(role=role, scope=scope, notes=notes)
     console.print(f"[green]recorded sign-off[/green] [cyan]{entry.id}[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import typer
 from rich.console import Console
 
+from latris.cli._agent import CONFIRMED_BY_PERSON, default_by, require_person
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit, json_mode
 
@@ -126,8 +127,9 @@ def set_prose(
     text: str = typer.Argument(..., help="The prose for this section."),
     model_type: str = typer.Option(None, "--model-type", "-m", help="Pick between model types' sections."),
     by: str = typer.Option(
-        "human", "--by", help="human | ai — who wrote it. Agents writing prose themselves pass --by ai."
+        None, "--by", help="human | ai — who wrote it (default: human; ai when an AI agent runs this)."
     ),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Write a section's prose yourself (no AI key needed).
 
@@ -137,8 +139,11 @@ def set_prose(
     """
     from latris.operations.interpret import resolve_section, update_prose
 
+    by = default_by(by)
     if by not in {"human", "ai"}:
         raise ValueError("--by must be 'human' or 'ai'")
+    if by == "human":
+        require_person(confirmed_by_person, "Prose --by human")
     target = resolve_section(section, model_type=model_type)
     updated, sha = update_prose(
         target.id, text, source="ai" if by == "ai" else "human-edit", written_by_agent=by == "ai"

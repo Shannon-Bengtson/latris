@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from latris.cli._agent import CONFIRMED_BY_PERSON, require_person
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit, json_mode
 from latris.operations import challenges as ops
@@ -50,8 +51,10 @@ def resolve(
         "-r",
         help="Why this outcome was reached.",
     ),
+    confirmed_by_person: bool = CONFIRMED_BY_PERSON,
 ) -> None:
     """Close a challenge with a terminal state."""
+    require_person(confirmed_by_person, "Resolving a challenge")
     ch, sha = ops.resolve_challenge(challenge, state, rationale=rationale)  # type: ignore[arg-type]
     console.print(f"[green]resolved[/green] {ch.id} → [bold]{state}[/bold] · commit [cyan]{sha[:10]}[/cyan]")
 

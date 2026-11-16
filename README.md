@@ -257,8 +257,8 @@ A causal loop diagram, end to end (works in a sandbox with no API key):
 ```bash
 # Every change is a git commit, so git needs an identity first.
 git config --global user.name "Your Name"; git config --global user.email "you@example.com"
-# You're an AI agent: record what you create as AI-proposed, not as the person's own work.
-export LATRIS_DEFAULT_ORIGIN=ai-proposed
+# Latris sees it's an AI agent's shell (CLAUDECODE / AI_AGENT) and records your work as
+# AI-proposed. If yours doesn't say so: export LATRIS_AGENT=<your name>
 
 latris init volunteers --question "Why are volunteers leaving?"
 cd volunteers
@@ -370,8 +370,8 @@ Tips for agents:
   recorded: the client report's Results section shows the latest of each,
   and `latris interpret refresh-claims` turns them into claims the
   interpretation can use. `latris results list` / `results hide <run>`
-  choose what the report shows. Values you set are AI-proposed under
-  `LATRIS_DEFAULT_ORIGIN=ai-proposed`; the report says so. For Bayesian
+  choose what the report shows. Values an agent sets are recorded as
+  AI-proposed; the report says so. For Bayesian
   networks: `bn query -s "Heavy Rain=yes:0.8"` (soft evidence: 80% sure),
   `bn explain -e "Road Closed=yes"` (the most likely combination of causes),
   and `bn set-uncertainty Flood --n 10` + `bn monte-carlo Flood` (how sure
@@ -384,9 +384,15 @@ Tips for agents:
   reviews it — say so when you hand the model over. Attaching a citation
   says only that it was attached; whether the source actually supports the
   claim is recorded with `latris evidence check "<from> -> <to>" polarity
-  <key> supports|against|off-topic --rationale "..."` (a person by default;
-  an agent that read the source adds `--by ai`). Links can be named
-  `"From -> To"` wherever a command takes one.
+  <key> supports|against|off-topic --rationale "..."` (`--by ai` is the
+  default when an agent runs it). Links can be named `"From -> To"`
+  wherever a command takes one.
+- **Approving is the person's call.** Approvals, reviews, sign-offs,
+  resolved challenges and a check `--by human` ask an agent for
+  `--confirmed-by-person`. Pass it only when the person reviewed it
+  themselves and asked you to record their decision (common when they
+  build in a chat); the commit says you recorded it for them. Otherwise
+  tell them what's waiting for their review.
 - **A quote must be copied, not paraphrased.** An agent's `supports` needs
   `--quote`, and the quote is looked up in the text Latris holds for the
   source: the `extract` you saved (`ref snapshot`, or `extract:` in a build
@@ -428,8 +434,9 @@ Tips for agents:
   left — links with no source, citations not checked against their source,
   cited sources with nothing on file showing they were read, checks whose
   quote isn't in the stored text, findings waiting for approval, sections
-  without prose or written before the model last changed, contradictions —
-  each with how to fix it, and exits 1 until it's clear. Tell the person
+  without prose or written before the model last changed, contradictions,
+  broken references between files (`latris check integrity`) — each with
+  how to fix it, and exits 1 until it's clear. Tell the person
   what's still on it.
 - **Prose goes out of date.** When the model changes after a section was
   written, `interpret list`/`show`, the handover check and the report say so;

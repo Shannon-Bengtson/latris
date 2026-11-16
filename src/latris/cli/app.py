@@ -140,7 +140,10 @@ def main(
     ),
 ) -> None:
     """Root command."""
+    from latris.cli._agent import apply_agent_defaults
+
     set_json_mode(json_output)
+    apply_agent_defaults()
 
 
 app.command("capabilities")(capabilities_cmd.capabilities)
