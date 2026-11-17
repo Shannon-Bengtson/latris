@@ -225,14 +225,21 @@ def compare_options(
     seed: int = DEFAULT_SEED,
     sampling: str = "lhs",
     max_seconds: float = 60.0,
+    reference: str | None = None,
 ) -> dict[str, Any]:
     """Run the baseline and every option on the SAME sampled draws and compare one result metric.
 
     Common random numbers: draw *i* of every option uses the same sampled values (a value an option
-    fixes is the option's), so the difference between an option and the baseline is measured draw by
-    draw — the spread of that paired difference is far narrower, and more honest, than comparing two
+    fixes is the option's), so the difference between two options is measured draw by draw — the
+    spread of that paired difference is far narrower, and more honest, than comparing two
     independent bands. Reports each option's metric (median, 95% of draws, the central-value run) and
-    its paired difference from the baseline, with the share of draws where it is lower or higher.
+    its paired difference from its **reference**, with the share of draws where it is lower or higher.
+
+    The reference is explicit on every row. ``reference`` names one arm (``"baseline"`` or a compared
+    scenario) for every row; left out, an option that ``extends`` a compared scenario is measured
+    against that parent (delayed vs undelayed), every other option against the baseline. A row whose
+    reference isn't the baseline also carries ``vs_baseline``. ``warnings`` flags comparisons likely
+    to be misread (an option whose parent wasn't compared).
     """
     from latris.operations.sd_sensitivity import measure, metric_label, metric_units, parse_metric
 
@@ -250,9 +257,9 @@ def compare_options(
     arms = [("baseline", model, set())] + [
         (sc.name, apply_overrides(model, sc.overrides), {o.target_id for o in sc.overrides}) for sc in options
     ]
-    reference = simulate(model)
-    if not reference.success:
-        raise ValueError(f"the baseline run failed before sampling: {reference.message}")
+    ref_run = simulate(model)
+    if not ref_run.success:
+        raise ValueError(f"the baseline run failed before sampling: {ref_run.message}")
 
     def value(m: SDModel) -> float:
         res = simulate(m)
@@ -291,30 +298,42 @@ def compare_options(
         return {"p2.5": _r(percentile(ys, 2.5)), "p50": _r(percentile(ys, 50)), "p97.5": _r(percentile(ys, 97.5)),
                 "mean": _r(sum(ys) / len(ys))}
 
-    base = per_arm["baseline"]
+    def paired(xs: list[float], ref: list[float]) -> dict[str, float]:
+        diffs = [x - b for x, b in zip(xs, ref, strict=True)]
+        return {
+            **spread(diffs),
+            "share_lower": _r(sum(d < 0 for d in diffs) / len(diffs)),
+            "share_higher": _r(sum(d > 0 for d in diffs) / len(diffs)),
+        }
+
+    references, warnings, reference = _references(options, reference)
     rows = []
     for name, _, _ in arms:
         xs = per_arm[name]
         row: dict[str, Any] = {"name": name, "central": _r(central[name]), **spread(xs)}
-        if name != "baseline":
-            diffs = [x - b for x, b in zip(xs, base, strict=True)]
-            row["difference"] = {
-                **spread(diffs),
-                "share_lower": _r(sum(d < 0 for d in diffs) / len(diffs)),
-                "share_higher": _r(sum(d > 0 for d in diffs) / len(diffs)),
-            }
+        ref = references.get(name)
+        if ref is not None:
+            row["reference"] = ref
+            row["difference"] = paired(xs, per_arm[ref])
+            if ref != "baseline":
+                row["vs_baseline"] = paired(xs, per_arm["baseline"])
+        parent = next((sc.extends for sc in options if sc.name == name), None)
+        if parent:
+            row["extends"] = parent
         rows.append(row)
-    units = metric_units(kind, reference.units[vid], reference.time_units)
+    units = metric_units(kind, ref_run.units[vid], ref_run.time_units)
     return {
         "variable": vid,
         "label": model.labels[vid],
         "metric": kind,
         "at": at,
-        "metric_label": metric_label(kind, at, reference.time_units),
+        "metric_label": metric_label(kind, at, ref_run.time_units),
         "units": units,
-        "time_units": reference.time_units,
+        "time_units": ref_run.time_units,
         "options": rows,
         "scenarios": [sc.name for sc in options],
+        "reference": reference,
+        "warnings": warnings,
         "uncertain": sorted(model.labels.get(k, k) for k in uncertain),
         "runs": runs,
         "succeeded": kept,
@@ -322,22 +341,98 @@ def compare_options(
         "failure_examples": failures[:3],
         "seed": seed,
         "sampling": sampling,
-        "method": reference.method,
-        "algorithm": reference.algorithm,
-        "library_version": reference.library_version,
-        "settings": reference.settings,
+        "method": ref_run.method,
+        "algorithm": ref_run.algorithm,
+        "library_version": ref_run.library_version,
+        "settings": ref_run.settings,
         "seconds": round(time.perf_counter() - started, 3),
     }
 
 
+_DEFERRAL = ("delay", "defer", "later", "postpone", "wait")
+
+
+def _references(
+    options: list[SDScenario], reference: str | None,
+) -> tuple[dict[str, str], list[str], str | None]:
+    """Each arm's reference, warnings about comparisons likely to be misread, and the explicit reference
+    in its canonical spelling."""
+    names = {sc.name.lower(): sc.name for sc in options}
+    warnings: list[str] = []
+    if reference is not None:
+        if reference.strip().lower() == "baseline":
+            reference = "baseline"
+        elif reference.strip().lower() in names:
+            reference = names[reference.strip().lower()]
+        else:
+            raise ValueError(
+                f"the reference {reference!r} must be 'baseline' or one of the compared scenarios: "
+                + ", ".join(sc.name for sc in options)
+            )
+    out: dict[str, str] = {}
+    if reference is not None and reference != "baseline":
+        out["baseline"] = reference
+    for sc in options:
+        if sc.name == reference:
+            continue
+        parent = names.get((sc.extends or "").lower())
+        if reference is not None:
+            out[sc.name] = reference
+        elif parent:
+            out[sc.name] = parent
+        else:
+            out[sc.name] = "baseline"
+        if sc.extends and not parent and reference is None:
+            warnings.append(
+                f"{sc.name} extends {sc.extends}, which isn't in this comparison, so it is measured against the "
+                f"baseline (no scenario changes), not against {sc.extends}. Add {sc.extends} to compare them directly."
+            )
+        elif not sc.extends and out[sc.name] == "baseline" and any(w in sc.name.lower() for w in _DEFERRAL):
+            warnings.append(
+                f"{sc.name} sounds like a delayed or deferred option but is measured against the baseline "
+                "(no scenario changes). For the cost of waiting, save it with extends=<the undelayed option> "
+                "and compare both."
+            )
+    return out, warnings, reference
+
+
+def arm_label(name: str) -> str:
+    """How an arm is named in prose: the baseline says what it is."""
+    return "the baseline (no scenario changes)" if name == "baseline" else name
+
+
+def _share(d: dict[str, float]) -> str:
+    lo, hi = d["share_lower"], d["share_higher"]
+    same = max(0.0, 1 - lo - hi)
+    parts = [f"lower in {lo:.0%} of draws", f"higher in {hi:.0%}"]
+    if same >= 0.005:
+        parts.append(f"unchanged in {same:.0%}")
+    return ", ".join(parts)
+
+
 def describe_option(p: dict[str, Any], row: dict[str, Any]) -> str:
-    """'Both options: 4.1 week (95% of draws 2.9–5.6); 2.3 lower than the baseline in the median draw
-    (95% of draws: -3.8 to -1.1), lower in 99% of draws'."""
+    """One self-contained claim: the option, the result and metric, the value, the reference it is measured
+    against with the sign spelled out, and the world it holds in, e.g.
+
+    'Programme delayed 1 year — Bloom Weeks, total over the run: 48 week (95% of draws 40–57); vs Programme:
+    31 week higher in the median draw (95% of draws: +22 to +40), lower in 0% of draws, higher in 100%
+    [in every run: Internal Share=0.7]'."""
     u = p["units"]
-    head = f"{row['name']}: {row['p50']:.4g} {u} (95% of draws {row['p2.5']:.4g}–{row['p97.5']:.4g})"
+    name = "Baseline (no scenario changes)" if row["name"] == "baseline" else row["name"]
+    head = (f"{name} — {p['label']}, {p['metric_label']}: {row['p50']:.4g} {u} "
+            f"(95% of draws {row['p2.5']:.4g}–{row['p97.5']:.4g})")
     d = row.get("difference")
-    if not d:
-        return head
-    word = "lower" if d["p50"] < 0 else "higher"
-    return (f"{head}; {abs(d['p50']):.4g} {word} than the baseline in the median draw "
-            f"(95% of draws: {d['p2.5']:+.4g} to {d['p97.5']:+.4g}), lower in {d['share_lower']:.0%} of draws")
+    if d:
+        ref = row.get("reference", "baseline")
+        word = "lower" if d["p50"] < 0 else "higher" if d["p50"] > 0 else "no different"
+        size = f"{abs(d['p50']):.4g} {u} {word}" if d["p50"] else "no different"
+        head += (f"; vs {arm_label(ref)}: {size} in the median draw "
+                 f"(95% of draws: {d['p2.5']:+.4g} to {d['p97.5']:+.4g}), {_share(d)}")
+        b = row.get("vs_baseline")
+        if b:
+            bword = "lower" if b["p50"] < 0 else "higher" if b["p50"] > 0 else "no different"
+            head += f"; vs the baseline: {abs(b['p50']):.4g} {u} {bword} in the median draw"
+    world = p.get("world")
+    if world:
+        head += f" [in every run: {'; '.join(world)}]"
+    return head

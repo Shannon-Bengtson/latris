@@ -229,6 +229,7 @@ class ScenarioRequest(BaseModel):
     name: str
     set: list[str]
     description: str = ""
+    extends: str | None = None
     reason: str = ""
     source_id: str | None = None
     origin: str = "human-direct"
@@ -244,7 +245,7 @@ def list_scenarios(root: Root) -> dict[str, Any]:
 def set_scenario(body: ScenarioRequest, root: Root) -> dict[str, Any]:
     try:
         scenario, sha = sd_scenarios.set_scenario(
-            body.name, body.set, description=body.description, reason=body.reason,
+            body.name, body.set, description=body.description, extends=body.extends, reason=body.reason,
             source_id=body.source_id, origin=body.origin, root=root,  # type: ignore[arg-type]
         )
     except ValueError as exc:

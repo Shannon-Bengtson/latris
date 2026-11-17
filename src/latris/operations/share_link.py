@@ -253,7 +253,8 @@ def _export_sd(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
               for e in uncertainty.sd_specs(paths).values() if named(e.target_id)]
     scenarios = [
         SpecScenario(
-            name=s.name, description=s.description, reason=s.reason, origin=s.origin, source=s.source_id,
+            name=s.name, extends=s.extends, description=s.description, reason=s.reason, origin=s.origin,
+            source=s.source_id,
             set=[f"{labels[o.target_id]}={o.value!r} {o.units}" for o in s.overrides if named(o.target_id)],
         )
         for s in sd_scenarios.load(paths).scenarios

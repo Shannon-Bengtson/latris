@@ -321,6 +321,27 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     return result
 
 
+def _parents_first(scenarios: list) -> list:
+    """Scenarios ordered so each comes after the one it extends (a parent must exist to be extended)."""
+    by_name = {s.name.lower(): s for s in scenarios}
+    out: list = []
+    placed: set[str] = set()
+
+    def place(s, trail: tuple[str, ...] = ()) -> None:  # noqa: ANN001
+        key = s.name.lower()
+        if key in placed or key in trail:
+            return  # a loop is left for set_scenario to refuse with its own message
+        parent = by_name.get((s.extends or "").lower())
+        if parent is not None:
+            place(parent, (*trail, key))
+        placed.add(key)
+        out.append(s)
+
+    for s in scenarios:
+        place(s)
+    return out
+
+
 def _apply_sd(sd, default_origin: str, root: Path) -> int:
     """Roles first (equations need them), then values, equations, tables, uncertainty, scenarios."""
     from latris.operations import sd as sd_ops
@@ -354,10 +375,10 @@ def _apply_sd(sd, default_origin: str, root: Path) -> int:
         uncertainty.set_uncertainty(u.node, u.distribution, u.params, reason=u.reason, source_id=u.source,
                                     origin=u.origin or default_origin, root=root)  # type: ignore[arg-type]
         n += 1
-    for sc in sd.scenarios:
-        sd_scenarios.set_scenario(sc.name, sc.set, description=sc.description, reason=sc.reason,
-                                  origin=sc.origin or default_origin, source_id=sc.source,  # type: ignore[arg-type]
-                                  root=root)
+    for sc in _parents_first(sd.scenarios):
+        sd_scenarios.set_scenario(sc.name, sc.set, description=sc.description, extends=sc.extends,
+                                  reason=sc.reason, origin=sc.origin or default_origin,  # type: ignore[arg-type]
+                                  source_id=sc.source, root=root)
         n += 1
     return n
 

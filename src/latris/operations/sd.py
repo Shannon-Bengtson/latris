@@ -744,10 +744,13 @@ def run_compare(
     max_seconds: float = 60.0,
     settings: dict | None = None,
     apply_to_all: list[str] | None = None,
+    reference: str | None = None,
     root: Path | None = None,
 ) -> dict:
     """The baseline and each saved scenario on the same sampled draws, compared on one result metric.
-    ``apply_to_all`` values hold in every option, the baseline included."""
+    ``apply_to_all`` values hold in every option, the baseline included. ``reference`` ('baseline' or a
+    compared scenario) is what every option is measured against; left out, an option that extends a
+    compared scenario is measured against it and the rest against the baseline."""
     from latris.operations import sd_montecarlo, uncertainty
 
     paths = require_project(root)
@@ -757,6 +760,7 @@ def run_compare(
     payload = sd_montecarlo.compare_options(
         model, {k: v for k, v in uncertainty.sd_specs(paths).items() if k not in fixed}, options,
         variable=variable, metric=metric, runs=runs, seed=seed, sampling=sampling, max_seconds=max_seconds,
+        reference=reference,
     )
     if world:
         payload["world"] = world
@@ -775,7 +779,7 @@ def record_compare(payload: dict, *, root: Path | None = None) -> tuple[str, str
     sha, run = record_result(
         kind="sd-options",
         key=f"sd-options|{payload['variable']}:{metric}|" + json.dumps(sorted(payload["scenarios"]))
-        + _world_key(payload),
+        + (f"|ref:{payload['reference']}" if payload.get("reference") else "") + _world_key(payload),
         payload=payload,
         purpose="sensitivity-analysis",
         algorithm=f"paired monte-carlo[{payload['sampling']}]; {payload['algorithm']}",
@@ -783,7 +787,8 @@ def record_compare(payload: dict, *, root: Path | None = None) -> tuple[str, str
         summary=summary[:2000],
         model_type=_MODEL_TYPE,
         hyperparameters={**payload["settings"], "variable": payload["variable"], "metric": metric,
-                         "runs": payload["runs"], "sampling": payload["sampling"], "scenarios": payload["scenarios"]},
+                         "runs": payload["runs"], "sampling": payload["sampling"], "scenarios": payload["scenarios"],
+                         **({"reference": payload["reference"]} if payload.get("reference") else {})},
         scenarios=payload["scenarios"],
         uncertainty=True,
         seed=payload["seed"],

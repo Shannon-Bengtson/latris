@@ -222,7 +222,8 @@ def _options(p: dict[str, Any]) -> list[str]:
     out = [
         f"{p['label']}, {p['metric_label']} ({u}). Every option ran on the same {p['succeeded']} sampled draws "
         f"of the uncertain values ({', '.join(p['uncertain'])}; {p['sampling']}, seed {p['seed']}), so each "
-        "difference from the baseline is measured draw by draw. 'Central values' is the run with every value "
+        "difference from its reference is measured draw by draw (positive: higher than the reference). "
+        "The baseline is the model with no scenario changes. 'Central values' is the run with every value "
         "at its stated value; with skewed ranges the median draw can sit away from it.",
         "",
     ]
@@ -230,12 +231,16 @@ def _options(p: dict[str, Any]) -> list[str]:
     for r in p["options"]:
         d = r.get("difference")
         rows.append([
-            r["name"], f"{r['p50']:.4g}", f"{r['p2.5']:.4g}–{r['p97.5']:.4g}", f"{r['central']:.4g}",
+            "Baseline (no scenario changes)" if r["name"] == "baseline" else r["name"],
+            f"{r['p50']:.4g}", f"{r['p2.5']:.4g}–{r['p97.5']:.4g}", f"{r['central']:.4g}",
+            r.get("reference", "baseline") if d else "—",
             f"{d['p50']:+.4g} ({d['p2.5']:+.4g} to {d['p97.5']:+.4g})" if d else "—",
             f"{d['share_lower']:.0%} / {d['share_higher']:.0%}" if d else "—",
         ])
-    out += _table(["Option", "Median", "95% of draws", "Central values", "vs baseline (median, 95%)",
-                   "Draws lower / higher"], rows)
+    out += _table(["Option", "Median", "95% of draws", "Central values", "Compared with",
+                   "Difference (median, 95%)", "Draws lower / higher"], rows)
+    for w in p.get("warnings", []):
+        out += ["", f"> ⚠ {w}"]
     return out
 
 
