@@ -271,3 +271,22 @@ def test_handover_flags_an_unsaved_what_if_in_the_report(mixed_root):
     sd_ops.record_comparison(payload, runs, root=mixed_root)
     kinds = {i.kind for i in handover_check(root=mixed_root).items}
     assert "exploratory_results" in kinds
+
+
+# ── addressing ───────────────────────────────────────────────────────
+
+
+def test_a_link_can_be_removed_by_its_labels(mixed_root):
+    from latris.operations.edges import remove_edge
+
+    edge, _ = remove_edge("Catchment load -> Water-column phosphorus", root=mixed_root)
+    assert edge.kind == "causal"
+
+
+def test_records_about_a_removed_factor_are_listed(mixed_root):
+    from latris.operations._cascade import records_about
+    from latris.operations.nodes import remove_node
+
+    entity, edges, _ = remove_node("Bottom-water anoxia", root=mixed_root)
+    left = records_about(ProjectPaths(mixed_root), [entity.id, *edges])
+    assert left == ["finding: Internal release and blooms reinforce each other (R1)."]

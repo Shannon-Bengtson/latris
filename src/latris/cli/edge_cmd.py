@@ -68,12 +68,16 @@ def list_() -> None:
 @app.command("remove")
 @handle_cli_errors
 def remove(
-    query: str = typer.Argument(..., help="Edge ID or prefix."),
+    query: str = typer.Argument(..., help="Edge ID or prefix, or 'From -> To' (labels)."),
 ) -> None:
     """Remove an edge."""
+    from latris.operations._cascade import records_about
+    from latris.repo.project import require_project
+
     edge, sha = ops.remove_edge(query)
+    left = records_about(require_project(None), [edge.id])
     emit(
-        edge,
+        {**edge.model_dump(mode="json"), "records_left": left} if left else edge,
         commit_sha=sha,
         human=lambda: console.print(f"[green]removed[/green] edge {edge.id} · commit [cyan]{sha[:10]}[/cyan]"),
     )

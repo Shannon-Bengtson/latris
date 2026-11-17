@@ -95,9 +95,13 @@ def remove(
     query: str = typer.Argument(..., help="Node ID, ID prefix, or label."),
 ) -> None:
     """Remove a node and cascade-delete edges that touch it."""
+    from latris.operations._cascade import records_about
+    from latris.repo.project import require_project
+
     entity, edges, sha = ops.remove_node(query)
+    left = records_about(require_project(None), [entity.id, *edges])
     emit(
-        {"node": entity, "removed_edges": edges},
+        {"node": entity, "removed_edges": edges, "records_left": left},
         commit_sha=sha,
         human=lambda: console.print(
             f"[green]removed[/green] [bold]{entity.label}[/bold] "

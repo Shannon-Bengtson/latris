@@ -131,3 +131,15 @@ def cascade_model_type(paths: ProjectPaths, model_type: str, target_ids: Collect
                 dump_raw(data, unc)
                 changed.append(unc)
     return changed, removed
+
+
+def records_about(paths: ProjectPaths, ids: Collection[str]) -> list[str]:
+    """The audit records (findings, challenges) that mention any of *ids* — kept as history when the
+    element is removed, so the caller can say what now points at nothing."""
+    from latris.operations.challenges import list_challenges
+    from latris.operations.findings import list_findings
+
+    gone = set(ids)
+    out = [f"finding: {f.statement}" for f in list_findings(root=paths.root) if gone.intersection(f.target_ids)]
+    out += [f"challenge: {c.argument}" for c in list_challenges(root=paths.root) if c.target_id in gone]
+    return out

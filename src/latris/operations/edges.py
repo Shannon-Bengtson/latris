@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from latris.operations._cascade import cascade_removed_ids
-from latris.operations._resolve import resolve_edge, resolve_entity
+from latris.operations._resolve import resolve_edge, resolve_edge_by_name, resolve_entity
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
@@ -70,7 +70,7 @@ def retype_edge(
     root: Path | None = None,
 ) -> tuple[Edge, str]:
     paths, substrate = _load(root)
-    edge = resolve_edge(query, substrate.edges)
+    edge = resolve_edge_by_name(query, substrate) or resolve_edge(query, substrate.edges)  # "A -> B" or an id
     old_kind = edge.kind
     if old_kind == new_kind:
         raise ValueError(f"edge {edge.id} already has kind {new_kind!r}")
@@ -97,7 +97,7 @@ def remove_edge(
     root: Path | None = None,
 ) -> tuple[Edge, str]:
     paths, substrate = _load(root)
-    edge = resolve_edge(query, substrate.edges)
+    edge = resolve_edge_by_name(query, substrate) or resolve_edge(query, substrate.edges)  # "A -> B" or an id
 
     labels = {e.id: e.label for e in substrate.entities}
     src_label = labels.get(edge.from_id, edge.from_id)
