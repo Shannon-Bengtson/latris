@@ -208,7 +208,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         outcome=outcome, factors=factors, links=links, sources=sources,
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
-        sd=_export_sd(paths, labels), bn=_export_bn(paths, labels), analyses=_export_analyses(paths),
+        sd=_export_sd(paths, labels), analyses=_export_analyses(paths),
         **{f.spec_field: f.spec_export(paths, labels) for f in formalisms.all_formalisms() if f.spec_field},
     )
     return foundation, spec
@@ -262,64 +262,6 @@ def _export_sd(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
     stored = sd_ops.get_settings(root=paths.root).model_dump(exclude_none=True, exclude={"outcome"})
     return SpecSD(settings=stored, roles=roles, stocks=stocks, constants=constants, equations=equations, tables=tables,
                   uncertainty=ranges, scenarios=scenarios)
-
-
-def _export_bn(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
-    """Bayesian network states and tables as spec entries (flattened, first parent slowest)."""
-    import itertools
-
-    from latris.operations import bn as bn_ops
-    from latris.operations import uncertainty
-    from latris.schema.build_spec import (
-        SpecBN,
-        SpecBNStates,
-        SpecBNTable,
-        SpecBNUncertainty,
-        SpecNoisyOr,
-        SpecNoisyOrCause,
-    )
-
-    spaces = {e.target_id: e for e in bn_ops.get_state_spaces(root=paths.root).entries if e.target_id in labels}
-    if not spaces:
-        return None
-    states = [SpecBNStates(node=labels[k], states=e.states, ordered=e.ordered) for k, e in spaces.items()]
-    tables = []
-    for cpt in bn_ops.get_cpts(root=paths.root).entries:
-        if cpt.target_id not in labels or any(p not in spaces for p in cpt.parents):
-            continue
-        rows = {tuple(sorted(r.parent_states.items())): r for r in cpt.rows}
-        probs: list[float] = []
-        for combo in itertools.product(*(spaces[p].states for p in cpt.parents)):
-            row = rows.get(tuple(sorted(zip(cpt.parents, combo, strict=True))))
-            if row is None:
-                break
-            probs.extend(row.p)
-        else:
-            first = cpt.rows[0] if cpt.rows else None
-            tables.append(SpecBNTable(
-                node=labels[cpt.target_id], parents=[labels[p] for p in cpt.parents], probabilities=probs,
-                origin=first.origin if first else None, source=first.source_id if first else None,
-            ))
-    noisy = [
-        SpecNoisyOr(
-            node=labels[e.target_id], leak=e.leak, origin=e.origin, source=e.source_id, active=e.active_state,
-            causes=[SpecNoisyOrCause(parent=labels[c.parent_id], active_state=c.active_state, probability=c.prob)
-                    for c in e.links if c.parent_id in labels],
-        )
-        for e in bn_ops.get_noisy_or(root=paths.root).entries if e.target_id in labels and e.links
-    ]
-    ranges = []
-    for node, cells in uncertainty.bn_specs(paths).items():
-        if node not in labels:
-            continue
-        for cell, e in cells.items():
-            row = None
-            if cell != uncertainty.BN_TABLE:
-                pairs = [part.split("=", 1) for part in cell.split(":", 2)[-1].split(",")]
-                row = ",".join(f"{labels.get(pid, pid)}={state}" for pid, state in pairs)
-            ranges.append(SpecBNUncertainty(node=labels[node], n=e.params["n"], row=row, reason=e.reason,
-                                            origin=e.origin, source=e.source_id))
-    return SpecBN(states=states, tables=tables, noisy_or=noisy, uncertainty=ranges)
 
 
 def _export_analyses(paths):  # noqa: ANN001, ANN202

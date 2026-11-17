@@ -199,137 +199,17 @@ def _loops(p: dict[str, Any]) -> list[str]:
     return out
 
 
-def _given(p: dict[str, Any]) -> str:
-    from latris.operations.bn import evidence_description
-
-    return evidence_description(p.get("evidence", {}), p.get("soft"), p.get("likelihood"), p.get("labels", {}))
-
-
-def _bn_query(p: dict[str, Any]) -> list[str]:
-    labels = p["labels"]
-    given = _given(p)
-    out = [f"Given {given}:" if given else "With no evidence (prior probabilities):", ""]
-    rows = []
-    for node in sorted(p["posteriors"], key=lambda n: labels.get(n, n))[:_MAX_ROWS]:
-        for state, prob in p["posteriors"][node].items():
-            prior = p["priors"].get(node, {}).get(state)
-            rows.append([labels.get(node, node), state, _pct(prior) if given else "", _pct(prob)])
-    headers = ["Node", "State", "Prior", "Posterior"] if given else ["Node", "State", "", "Probability"]
-    out += _table(headers, rows)
-    return out
-
-
-def _pct(x: float | None) -> str:
-    return "—" if x is None else f"{x * 100:.1f}%"
-
-
-def _bn_explanation(p: dict[str, Any]) -> list[str]:
-    labels = p["labels"]
-    given = _given(p) or "no evidence"
-    what = "every unobserved factor" if p["kind"] == "MPE" else "the factors asked about"
-    prob = f" Its probability given the evidence: {_pct(p['probability'])}." if p.get("probability") is not None else ""
-    out = [f"The single most likely combination of states of {what}, given {given}.{prob}", ""]
-    rows = []
-    for r in p["rows"]:
-        if r.get("alternatives_impossible"):
-            vs = "alternatives impossible"
-        elif r.get("times_likelier") is not None:
-            vs = f"{r['times_likelier']:.3g}× likelier than {r['runner_up']}"
-        else:
-            vs = "—"
-        rows.append([labels.get(r["node"], r["node"]), r["state"], _pct(r["marginal"]), vs])
-    out += _table(["Factor", "Most likely", "Its own probability", "Against its runner-up"], rows)
-    differs = [r for r in p["rows"] if r.get("differs_from_marginal")]
-    for r in differs:
-        out.append(
-            f"On its own, {labels.get(r['node'], r['node'])} is likelier to be {r['favourite']}; it's "
-            f"{r['state']} in the most likely combination because of how it fits with the other factors."
-        )
-    if differs:
-        out.append("")
-    if p.get("note"):
-        out += [f"_{p['note']}_", ""]
-    return out
-
-
-def _bn_monte_carlo(p: dict[str, Any]) -> list[str]:
-    from latris.operations.bn_montecarlo import describe
-
-    out = [
-        describe(p) + ".",
-        "",
-        f"{p['runs']} draws of the uncertain probability tables (seed {p['seed']}); the point estimate uses the "
-        "tables as they stand.",
-        "",
-    ]
-    rows = []
-    for st in p["states"]:
-        b = p["by_state"][st]
-        rows.append(
-            [
-                st,
-                _pct(b["point"]),
-                _pct(b["p50"]),
-                f"{_pct(b['p25'])}–{_pct(b['p75'])}",
-                f"{_pct(b['p2.5'])}–{_pct(b['p97.5'])}",
-            ]
-        )
-    out += _table(["State", "Point estimate", "Median", "50% of draws", "95% of draws"], rows)
-    out.append("Tables sampled:")
-    out.append("")
-    for t in p["tables"]:
-        if t["fixed"]:
-            continue
-        n = f"worth about {t['n']:g} observations" if t.get("n") else "some rows uncertain"
-        why = f" — {t['reason']}" if t.get("reason") else ""
-        out.append(f"- {t['label']}: {n}{why} ({_grounding(t.get('origin'), t.get('verification'))})")
-    fixed = [t["label"] for t in p["tables"] if t["fixed"]]
-    if fixed:
-        out.append(f"- Held fixed: {', '.join(fixed)}")
-    out.append("")
-    drivers = [d for d in p["drivers"] if d["rho"] is not None and abs(d["rho"]) >= 0.1][:3]
-    if drivers:
-        listed = ", ".join(f"{d['label']} (rank correlation {d['rho']:+.2f})" for d in drivers)
-        out += [f"What drives the spread: {listed}.", ""]
-    return out
-
-
-def _bn_sensitivity(p: dict[str, Any], labels: dict[str, str]) -> list[str]:
-    target = labels.get(p["target_id"], p["target_id"])
-    out = [f"Which probabilities move P({target} = {p['target_state']}) (baseline {_pct(p['baseline'])}):", ""]
-    rows = []
-    for f in p["findings"][:_MAX_ROWS]:
-        given = ", ".join(f"{labels.get(k, k)}={v}" for k, v in f["parent_states"].items())
-        cell = f"P({labels.get(f['node_id'], f['node_id'])}={f['state']}{' | ' + given if given else ''})"
-        rows.append(
-            [
-                cell,
-                _pct(f["baseline_prob"]),
-                f"{_pct(f.get('low', 0.0))}–{_pct(f.get('high', 1.0))} "
-                f"({f.get('range_source', 'any value from 0 to 1')})",
-                f"{f['influence'] * 100:.1f} points",
-                _grounding(f.get("origin"), f.get("verification")),
-            ]
-        )
-    out += _table(["Probability", "Value", "Range tried", "Target moves by up to", "Grounding"], rows)
-    return out
-
-
 _TITLES = {
     "sd-simulation": "Simulation",
     "sd-monte-carlo": "Uncertainty (Monte Carlo)",
     "sd-sensitivity": "Sensitivity",
     "sd-loops": "Feedback loop dominance",
-    "bn-query": "Probabilities",
-    "bn-explanation": "Most likely explanation",
-    "bn-monte-carlo": "How sure the probability is (Monte Carlo)",
-    "bn-sensitivity": "Probability sensitivity",
 }
 
 
 def _charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """The ``latris-chart`` markers for one result: the plugin's own ``charts`` hook when it has one,
-    else the legacy sd/bn mapping (which moves to the sd/bn plugins when those types register)."""
+    else the legacy sd mapping (which moves to the sd plugin when that type registers)."""
     from latris.operations import formalisms
 
     found = formalisms.result_kind(kind)
@@ -345,12 +225,6 @@ def _charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any
         return [("tornado", {})]
     if kind == "sd-loops":
         return [("loops", {})] if payload["loops"] else []
-    if kind == "bn-query":
-        return [("posterior", {})]
-    if kind == "bn-monte-carlo":
-        return [("bn-interval", {})]
-    if kind == "bn-sensitivity":
-        return [("bn-tornado", {})]
     return []
 
 
@@ -360,7 +234,6 @@ def render_results(
     model_types: list[str] | None = None,
     chart_markers: bool = False,
     show_ids: bool = True,
-    labels: dict[str, str] | None = None,
 ) -> list[str]:
     """The Results section's lines, or ``[]`` when nothing has been recorded."""
     from latris.operations import formalisms
@@ -383,8 +256,6 @@ def render_results(
         title = _TITLES.get(kind) or (plugin_kind.title if plugin_kind else kind)
         if kind == "sd-sensitivity":
             title = f"Sensitivity of {p['label']}"
-        elif kind == "bn-sensitivity":
-            title = f"Probability sensitivity: {(labels or {}).get(p['target_id'], p['target_id'])}"
         out.append(f"### {title}")
         out.append("")
         out += _stale_note(res.stale, res.run.id, show_ids)
@@ -400,14 +271,6 @@ def render_results(
                 out += _sensitivity(p)
             elif kind == "sd-loops":
                 out += _loops(p)
-            elif kind == "bn-query":
-                out += _bn_query(p)
-            elif kind == "bn-explanation":
-                out += _bn_explanation(p)
-            elif kind == "bn-monte-carlo":
-                out += _bn_monte_carlo(p)
-            elif kind == "bn-sensitivity":
-                out += _bn_sensitivity(p, labels or {})
             elif plugin_kind:
                 out += plugin_kind.render(p)
         except (KeyError, TypeError, ValueError, IndexError):

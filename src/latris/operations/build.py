@@ -299,8 +299,6 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
         default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
         if spec.sd:
             result.parameters += _apply_sd(spec.sd, default_origin, paths.root)
-        if spec.bn:
-            result.parameters += _apply_bn(spec.bn, default_origin, paths.root)
         if spec.interpretation:
             _apply_interpretation(spec, model_type, paths.root, result)
 
@@ -360,31 +358,6 @@ def _apply_sd(sd, default_origin: str, root: Path) -> int:
         sd_scenarios.set_scenario(sc.name, sc.set, description=sc.description, reason=sc.reason,
                                   origin=sc.origin or default_origin, source_id=sc.source,  # type: ignore[arg-type]
                                   root=root)
-        n += 1
-    return n
-
-
-def _apply_bn(bn, default_origin: str, root: Path) -> int:
-    from latris.operations import bn as bn_ops
-
-    n = 0
-    for s in bn.states:
-        bn_ops.set_state_space(s.node, s.states, ordered=s.ordered, root=root)
-        n += 1
-    for t in bn.tables:
-        bn_ops.set_cpt(t.node, t.parents, t.probabilities, origin=t.origin or default_origin,  # type: ignore[arg-type]
-                       source_id=t.source, root=root)
-        n += 1
-    for no in bn.noisy_or:
-        bn_ops.set_noisy_or(no.node, no.leak, [(c.parent, c.active_state, c.probability) for c in no.causes],
-                            active=no.active, origin=no.origin or default_origin, source_id=no.source,
-                            root=root)  # type: ignore[arg-type]
-        n += 1
-    from latris.operations import uncertainty
-
-    for u in bn.uncertainty:
-        uncertainty.set_table_uncertainty(u.node, u.n, row=u.row, reason=u.reason, source_id=u.source,
-                                          origin=u.origin or default_origin, root=root)  # type: ignore[arg-type]
         n += 1
     return n
 
