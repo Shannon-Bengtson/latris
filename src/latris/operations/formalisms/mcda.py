@@ -71,6 +71,13 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    out: list[tuple[str, dict[str, Any]]] = [("mcda-contributions", {})]
+    if p["rank_reversal"]:
+        out.append(("mcda-swing", {}))
+    return out
+
+
 def _claims(paths, section: str) -> list[str]:
     from latris.operations import mcda
 
@@ -230,7 +237,7 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Complete the weights and scores to see how firm the choice is.",
     results=(ResultKind(kind="mcda-analysis", title="Multi-criteria decision analysis", render=_render,
-                        analysis="mcda_analyse", run=_run, definition=_definition),),
+                        analysis="mcda_analyse", run=_run, definition=_definition, charts=_charts),),
     spec_field="mcda",
     spec_check=_check,
     spec_apply=_apply,

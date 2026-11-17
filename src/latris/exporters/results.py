@@ -328,6 +328,13 @@ _TITLES = {
 
 
 def _charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """The ``latris-chart`` markers for one result: the plugin's own ``charts`` hook when it has one,
+    else the legacy sd/bn mapping (which moves to the sd/bn plugins when those types register)."""
+    from latris.operations import formalisms
+
+    found = formalisms.result_kind(kind)
+    if found and found[1].charts:
+        return found[1].charts(payload)
     if kind == "sd-simulation":
         roles = payload["roles"]
         stocks = [v for v in payload["labels"] if roles.get(v) == "stock"][:4]

@@ -75,6 +75,10 @@ def _claims(paths, section: str) -> list[str]:
     return claims
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("ft-importance", {})] if p.get("importance") else []
+
+
 def _render(p: dict[str, Any]) -> list[str]:
     from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
     from latris.operations.fault_tree import describe
@@ -254,7 +258,7 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Give every basic event a probability to rank the events by importance.",
     results=(ResultKind(kind="ft-analysis", title="Fault tree: cut sets, probability and importance", render=_render,
-                        analysis="ft_analyse", run=_run, definition=_definition),
+                        analysis="ft_analyse", run=_run, definition=_definition, charts=_charts),
              _risk_mc.result_kind("fault_tree")),
     spec_field="ft",
     spec_check=_check,

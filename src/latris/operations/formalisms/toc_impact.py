@@ -46,6 +46,12 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    if p["method"] == "its":
+        return [("impact-its", {})] if p.get("series") else []
+    return [("impact-did", {})]
+
+
 def _claims(p: dict[str, Any], out: dict[str, list[str]]) -> None:
     from latris.operations.impact import describe
 
@@ -92,6 +98,7 @@ def _fingerprint(paths) -> list[Path]:
 register_analysis(Analysis(
     model_type="theory_of_change",
     result=ResultKind(kind="toc-impact", title="Theory of change: impact estimate", render=_render,
-                      analysis="toc_impact", run=_run, definition=_definition, claims=_claims),
+                      analysis="toc_impact", run=_run, definition=_definition, claims=_claims,
+                      charts=_charts),
     fingerprint_files=_fingerprint,
 ))

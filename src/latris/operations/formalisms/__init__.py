@@ -45,6 +45,9 @@ class ResultKind:
     definition: Callable[[dict[str, Any]], Any]  # recorded payload → SpecAnalysis that reproduces it
     # (payload, claims by interpretation section) → add this result's claims, e.g. to "answer_to_question"
     claims: Callable[[dict[str, Any], dict[str, list[str]]], None] | None = None
+    # payload → [(chart kind, extra keys)] for the report's ``latris-chart`` markers; the app draws them.
+    # Chart kinds are namespaced per formalism ("mcda-swing") so each app renderer owns its contract.
+    charts: Callable[[dict[str, Any]], list[tuple[str, dict[str, Any]]]] | None = None
 
 
 @dataclass(frozen=True)
