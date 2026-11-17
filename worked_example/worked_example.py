@@ -1133,6 +1133,35 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["bn", "monte-carlo", "Respiratory Health", "--state", "poor",
             "--evidence", "Transport Policy=strict", "--runs", "300"])
 
+    # ── 7.8c BN interventions and weighted tables ─────────────────────
+    ex.section(
+        "Bayesian Network — Interventions and Weighted Tables",
+        "Observing a factor and setting it are different questions. Seeing poor "
+        "respiratory health makes poor air likelier; *making* health poor would "
+        "say nothing about the air. An intervention (--set, the do-operator) cuts "
+        "the factor off from its causes. And for a node whose parents have several "
+        "states, a weighted table needs a weight per parent state instead of a "
+        "number per row.",
+    )
+    ex.run(["bn", "query", "--evidence", "Respiratory Health=poor", "--query", "Air Quality Index", "--no-record"])
+    ex.note("Setting it instead leaves the air quality at its prior (shown first): the arrow runs from air to health.")
+    ex.run(["bn", "query", "--query", "Air Quality Index", "--no-record"])
+    ex.run(["bn", "query", "--set", "Respiratory Health=poor", "--query", "Air Quality Index"])
+    ex.run(["node", "add", "Clinic Visits", "--kind", "variable"])
+    ex.run(["edge", "add", "Air Quality Index", "Clinic Visits", "--kind", "causal"])
+    ex.run(["edge", "add", "Respiratory Health", "Clinic Visits", "--kind", "causal"])
+    ex.run(["bn", "set-state-space", "Clinic Visits", "low,high", "--ordered"])
+    ex.note(
+        "Base 80/20 when nothing pushes; moderate air adds 1, poor air 2, poor health 2.5 "
+        "(logits, toward 'high'). Twelve probabilities from four numbers."
+    )
+    ex.run(["bn", "set-weighted", "Clinic Visits", "--base", "0.8,0.2", "--toward", "high",
+            "-w", "Air Quality Index=moderate:1", "-w", "Air Quality Index=poor:2",
+            "-w", "Respiratory Health=poor:2.5"])
+    ex.run(["bn", "query", "--evidence", "Transport Policy=strict", "--query", "Clinic Visits", "--no-record"])
+    ex.note("A factor leaves the network without being deleted: its states and table go; it stays on the map.")
+    ex.run(["bn", "remove-states", "Clinic Visits"])
+
     # ── 7.9 System Dynamics ───────────────────────────────────────────
     ex.section(
         "System Dynamics",
@@ -1290,6 +1319,35 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["sd", "simulate", "--saveper", "1", "--no-record"])
     ex.note("The diagram's own loop list now includes feedback through the stock.")
     ex.run(["analyse", "loops"])
+
+    # ── 7.16 SD options under uncertainty, worlds, seasons ────────────
+    ex.section(
+        "System Dynamics — Comparing Options, Worlds and Seasons",
+        "Which option cuts the load, and how sure is that? `sd compare` runs the "
+        "baseline and each option on the same sampled draws, so each difference is "
+        "measured draw by draw. `--apply-to-all` sets values that hold in every run "
+        "(here a still-air world, where dispersal is slower). And a yearly model can still have seasons: "
+        "a short step plus SIN/COS or MODULO.",
+    )
+    ex.run(["sd", "set-scenario", "Street trees", "--set", "Dispersal Rate=2.4",
+            "--reason", "Canopy target raises dispersal by a fifth"])
+    ex.run(["sd", "compare", "PM2.5 Load", "-s", "Clean transport", "-s", "Street trees",
+            "--metric", "total", "--runs", "60", *_sd_run])
+    ex.run(["sd", "simulate", "--scenario", "Clean transport", "--apply-to-all", "Dispersal Rate=1.6",
+            *_sd_run, "--saveper", "2"])
+    ex.run(["node", "add", "Winter Inversion", "--kind", "variable"])
+    ex.run(["node", "add", "One Year", "--kind", "variable"])
+    ex.run(["edge", "add", "One Year", "Winter Inversion", "--kind", "causal"])
+    ex.run(["sd", "set-role", "Winter Inversion", "auxiliary"])
+    ex.run(["sd", "set-role", "One Year", "constant"])
+    ex.run(["sd", "set-constant", "One Year", "1", "--units", "year"])
+    ex.note("Strongest at the turn of each year: a cosine of the time within the year.")
+    ex.run(["sd", "set-equation", "Winter Inversion", "1 + 0.3 * COS(2 * PI * MODULO(TIME, one_year) / one_year)",
+            "--units", "dimensionless"])
+    ex.run(["sd", "roles"])
+    ex.note("Taken back out of the simulation, it stays on the map with its links.")
+    ex.run(["sd", "unset-role", "Winter Inversion"])
+    ex.run(["sd", "unset-role", "One Year"])
 
     # ── 8. AI prompts (mock mode) ─────────────────────────────────────
     ex.section("AI-Assisted Modelling (mock mode)",
