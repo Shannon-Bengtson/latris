@@ -13,6 +13,7 @@ Storage:
 from __future__ import annotations
 
 import itertools
+import math
 from dataclasses import dataclass
 import dataclasses
 from pathlib import Path
@@ -190,6 +191,83 @@ def set_cpt(
         paths=[path],
     )
     return cpt, sha
+
+
+def weighted_table(
+    states: list[str],
+    base: list[float],
+    weights: list[dict[str, float]],
+    parent_states: list[list[str]],
+    *,
+    toward_first: bool = True,
+) -> list[float]:
+    """A full table from a base distribution and a weight per parent state (an ordinal logistic model).
+
+    Each parent combination's score is the sum of its states' weights (logits; 0 = no effect, ±1 a
+    moderate push, ±3 a strong one). The score shifts the base distribution's cumulative logits toward
+    the first state (or the last, ``toward_first=False``): with every weight 0 each row is ``base``. A
+    two-state node is plain logistic regression. Rows come first-parent-slowest, like ``set_cpt``.
+    """
+    if len(base) != len(states):
+        raise ValueError(f"base needs one probability per state ({len(states)}), got {len(base)}")
+    if any(b < 0 for b in base) or abs(sum(base) - 1.0) > 1e-6:
+        raise ValueError("base must be probabilities that sum to 1")
+    order = list(range(len(states))) if toward_first else list(reversed(range(len(states))))
+    ordered = [base[i] for i in order]
+    eps = 1e-12
+    cum, logits = 0.0, []
+    for b in ordered[:-1]:
+        cum += b
+        c = min(max(cum, eps), 1 - eps)
+        logits.append(math.log(c / (1 - c)))
+    out: list[float] = []
+    for combo in itertools.product(*parent_states) if parent_states else [()]:
+        score = sum(w.get(s, 0.0) for w, s in zip(weights, combo, strict=True))
+        cdf = [1 / (1 + math.exp(-(lg + score))) for lg in logits] + [1.0]
+        probs_ordered = [cdf[0]] + [cdf[i] - cdf[i - 1] for i in range(1, len(cdf))]
+        row = [0.0] * len(states)
+        for pos, i in enumerate(order):
+            row[i] = max(probs_ordered[pos], 0.0)
+        total = sum(row)
+        out.extend(round(p / total, 10) for p in row)
+    return out
+
+
+def set_weighted_table(
+    node: str,
+    base: list[float],
+    weights: dict[str, dict[str, float]],
+    *,
+    toward: str | None = None,
+    origin: ProvenanceOrigin = "human-elicited",
+    source_id: str | None = None,
+    root: Path | None = None,
+) -> tuple[CPTEntry, str]:
+    """Set a node's table from a base distribution and weights per parent state (``weighted_table``).
+
+    ``weights`` maps each parent (label or id) to {state: weight}; states left out weigh 0. ``toward`` is
+    the state positive weights push toward — the node's first or last state (default: the first).
+    """
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    node_id = resolve_target(node, substrate)
+    ss_map = {e.target_id: e.states for e in _load_state_spaces(paths).entries}
+    if node_id not in ss_map:
+        raise ValueError(f"set the state space for {node!r} before its table")
+    states = ss_map[node_id]
+    if toward is not None and toward not in (states[0], states[-1]):
+        raise ValueError(f"toward must be the first or last state ({states[0]!r} or {states[-1]!r})")
+    parents = list(weights)
+    parent_ids = [resolve_target(p, substrate) for p in parents]
+    for raw, pid in zip(parents, parent_ids, strict=True):
+        if pid not in ss_map:
+            raise ValueError(f"set the state space for parent {raw!r} before this table")
+        bad = sorted(set(weights[raw]) - set(ss_map[pid]))
+        if bad:
+            raise ValueError(f"{raw!r} has no state(s) {', '.join(bad)} (states: {', '.join(ss_map[pid])})")
+    probs = weighted_table(states, base, [weights[p] for p in parents], [ss_map[p] for p in parent_ids],
+                           toward_first=toward is None or toward == states[0])
+    return set_cpt(node, parents, probs, origin=origin, source_id=source_id, root=paths.root)
 
 
 _EVENT_STATES = {"yes", "true", "present", "occurs", "occurred", "on", "1", "high", "y"}

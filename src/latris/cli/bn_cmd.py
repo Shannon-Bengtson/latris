@@ -94,6 +94,48 @@ def set_cpt(
     )
 
 
+@app.command("set-weighted")
+@handle_cli_errors
+def set_weighted(
+    node: str = typer.Argument(..., help="Node ID, ID prefix, or label."),
+    base: str = typer.Option(..., "--base", help="The node's distribution when every weight is 0, e.g. '0.1,0.9'."),
+    weight: list[str] = typer.Option(
+        ..., "--weight", "-w", help="'<parent>=<state>:<weight>' in logits (±1 moderate, ±3 strong); repeatable."),
+    toward: str | None = typer.Option(None, "--toward", help="The node's state positive weights push toward "
+                                                             "(its first or last; default the first)."),
+    origin: str = typer.Option("human-elicited", "--origin", help="Provenance origin."),
+    source: str | None = typer.Option(None, "--source", help="Source ID."),
+) -> None:
+    """Set a table from a base distribution and a weight per parent state (ordinal logistic).
+
+    For a node with several many-state parents, where a full table is dozens of numbers and Noisy-OR
+    (yes/no causes) doesn't fit. Example:
+    `bn set-weighted "Exceedance" --base 0.02,0.98 -w "Bloom=severe:3" -w "Bloom=moderate:1.5" -w "Barrier=failed:2.5"`
+    """
+    from latris.operations import bn as bn_ops
+
+    weights: dict[str, dict[str, float]] = {}
+    for raw in weight:
+        if ":" not in raw or "=" not in raw.rsplit(":", 1)[0]:
+            raise typer.BadParameter(f"--weight must be '<parent>=<state>:<weight>', got {raw!r}")
+        head, w = raw.rsplit(":", 1)
+        parent, state = head.split("=", 1)
+        try:
+            weights.setdefault(parent.strip(), {})[state.strip()] = float(w)
+        except ValueError as exc:
+            raise typer.BadParameter(f"weight in {raw!r} is not a number") from exc
+    try:
+        base_probs = [float(x) for x in base.split(",")]
+    except ValueError as exc:
+        raise typer.BadParameter(f"--base must be comma-separated numbers, got {base!r}") from exc
+    entry, sha = bn_ops.set_weighted_table(node, base_probs, weights, toward=toward, origin=origin, source_id=source)
+    if json_mode():
+        emit(entry, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]set[/green] weighted table on {entry.target_id[:15]}… ({len(entry.rows)} rows) · "
+                  f"commit [cyan]{sha[:10]}[/cyan]")
+
+
 @app.command("set-noisy-or")
 @handle_cli_errors
 def set_noisy_or(
