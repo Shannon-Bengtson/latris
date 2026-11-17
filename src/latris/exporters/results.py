@@ -252,6 +252,8 @@ def _sd_subtitle(kind: str, p: dict[str, Any]) -> str:
 
 
 def _heading(kind: str, title: str, p: dict[str, Any], plugin_kind: Any) -> str:
+    world = p.get("world") if isinstance(p, dict) else None
+    title = f"{title} (in every run: {'; '.join(world)})" if world else title
     try:
         if plugin_kind is not None and plugin_kind.subtitle:
             sub = plugin_kind.subtitle(p)

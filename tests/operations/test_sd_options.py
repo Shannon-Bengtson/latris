@@ -80,3 +80,25 @@ def test_comparison_replays_from_its_definition(options_root):
     [spec] = [d for d in definitions(root=options_root) if d.kind == "compare"]
     assert spec.scenarios == ["More inflow", "Faster drain"] and spec.variable == "Water"
     run_analysis(spec, root=options_root)
+
+
+def test_values_applied_to_all_hold_in_every_option(options_root):
+    plain = {r["name"]: r for r in _run(options_root)["options"]}
+    world = _run(options_root, apply_to_all=["Inflow Rate=20"])
+    assert world["world"] == ["Inflow Rate=20 liter/year"]
+    hot = {r["name"]: r for r in world["options"]}
+    assert hot["baseline"]["central"] > plain["baseline"]["central"]
+    assert hot["Faster drain"]["central"] > plain["Faster drain"]["central"]
+
+
+def test_a_world_is_named_in_the_heading_and_kept_apart(options_root):
+    from latris.exporters.results import render_results
+
+    payload, runs = sd_ops.simulate_scenarios(["Faster drain"], final_time=10, root=options_root)
+    sd_ops.record_comparison(payload, runs, root=options_root)
+    payload, runs = sd_ops.simulate_scenarios(["Faster drain"], final_time=10, apply_to_all=["Inflow Rate=20"],
+                                              root=options_root)
+    sd_ops.record_comparison(payload, runs, root=options_root)
+    headings = [h for h in render_results(ProjectPaths(options_root)) if h.startswith("### Simulation")]
+    assert len(headings) == 2
+    assert any("in every run: Inflow Rate=20" in h for h in headings)

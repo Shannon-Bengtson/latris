@@ -623,6 +623,8 @@ class SpecAnalysis(_Spec):
     settings: dict[str, float | str] = Field(default_factory=dict)
     scenarios: list[str] = Field(default_factory=list)
     set: list[str] = Field(default_factory=list)
+    # simulate / monte_carlo / compare / sensitivity: values that hold in every run, the baseline included
+    apply_to_all: list[str] = Field(default_factory=list)
     scenario: str | None = None
     runs: int | None = None
     seed: int | None = None

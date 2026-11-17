@@ -410,6 +410,9 @@ def _change(c: dict | None) -> str:
 @app.command("simulate")
 @handle_cli_errors
 def simulate(
+    apply_to_all: list[str] | None = typer.Option(
+        None, "--apply-to-all", help="'Variable=value [units]' that holds in every run, the baseline included "
+        "(repeatable), e.g. a high-load world."),
     scenario: list[str] | None = typer.Option(
         None, "--scenario", "-s", help="Also run a saved scenario and compare it with the baseline (repeatable)."),
     assignments: list[str] | None = typer.Option(
@@ -433,6 +436,7 @@ def simulate(
     payload, runs = sd_ops.simulate_scenarios(
         scenario or [], assignments or [],
         **_settings_options(initial_time, final_time, dt, saveper, method, time_units),
+        apply_to_all=apply_to_all or None,
     )
     recorded = sd_ops.record_comparison(payload, runs) if record else None
     base = runs[0].result
@@ -684,6 +688,9 @@ def clear_uncertainty(target: str = typer.Argument(..., help="A constant or stoc
 @app.command("monte-carlo")
 @handle_cli_errors
 def monte_carlo(
+    apply_to_all: list[str] | None = typer.Option(
+        None, "--apply-to-all", help="'Variable=value [units]' that holds in every run, the baseline included "
+        "(repeatable), e.g. a high-load world."),
     runs: int = typer.Option(200, "--runs", "-n", help="Number of sampled runs (2–1000)."),
     seed: int = typer.Option(1234, "--seed", help="Random seed; the same seed gives the same runs."),
     sampling: str = typer.Option("lhs", "--sampling", help="lhs (Latin hypercube) | random."),
@@ -706,7 +713,7 @@ def monte_carlo(
 
     payload = sd_ops.run_monte_carlo(
         runs=runs, seed=seed, sampling=sampling, variables=variable, scenario=scenario, max_seconds=max_seconds,
-        settings=_run_settings(final_time, dt, saveper, method),
+        settings=_run_settings(final_time, dt, saveper, method), apply_to_all=apply_to_all or None,
     )
     recorded = sd_ops.record_monte_carlo(payload) if record else None
     if json_mode():
@@ -750,6 +757,9 @@ def monte_carlo(
 @app.command("compare")
 @handle_cli_errors
 def compare(
+    apply_to_all: list[str] | None = typer.Option(
+        None, "--apply-to-all", help="'Variable=value [units]' that holds in every run, the baseline included "
+        "(repeatable), e.g. a high-load world."),
     variable: str = typer.Argument(..., help="The result to compare the options on: a stock, flow or auxiliary."),
     scenario: list[str] = typer.Option(..., "--scenario", "-s", help="A saved scenario (an option); repeat."),
     metric: str = typer.Option("final", "--metric", "-m",
@@ -773,7 +783,7 @@ def compare(
 
     payload = sd_ops.run_compare(
         scenario, variable, metric=metric, runs=runs, seed=seed, sampling=sampling, max_seconds=max_seconds,
-        settings=_run_settings(final_time, dt, None, method),
+        settings=_run_settings(final_time, dt, None, method), apply_to_all=apply_to_all or None,
     )
     recorded = sd_ops.record_compare(payload) if record else None
     if json_mode():
@@ -794,6 +804,9 @@ def compare(
 @app.command("sensitivity")
 @handle_cli_errors
 def sensitivity(
+    apply_to_all: list[str] | None = typer.Option(
+        None, "--apply-to-all", help="'Variable=value [units]' that holds in every run, the baseline included "
+        "(repeatable), e.g. a high-load world."),
     variable: str = typer.Argument(..., help="The result to explain: a stock, flow or auxiliary."),
     metric: str = typer.Option("final", "--metric", "-m", help="final | peak | peak-time | min | mean | total | at:T"),
     pct: float = typer.Option(10.0, "--pct", help="± percentage for values without an uncertainty range."),
@@ -814,7 +827,7 @@ def sensitivity(
 
     payload = sd_ops.run_sensitivity(
         variable, metric=metric, pct=pct, scenario=scenario,
-        settings=_run_settings(final_time, dt, None, method),
+        settings=_run_settings(final_time, dt, None, method), apply_to_all=apply_to_all or None,
     )
     recorded = sd_ops.record_sensitivity(payload) if record else None
     rows = payload["parameters"][:top]

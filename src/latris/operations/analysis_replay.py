@@ -37,12 +37,14 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
     paths = require_project(root)
     s = _settings(a.settings)
     if a.kind == "simulate":
-        payload, runs = sd_ops.simulate_scenarios(a.scenarios, a.set, **s, root=paths.root)
+        payload, runs = sd_ops.simulate_scenarios(a.scenarios, a.set, **s, apply_to_all=a.apply_to_all or None,
+                                                  root=paths.root)
         return sd_ops.record_comparison(payload, runs, root=paths.root)[1]
     if a.kind == "monte_carlo":
         payload = sd_ops.run_monte_carlo(
             runs=a.runs or 200, seed=a.seed if a.seed is not None else 1234, sampling=a.sampling or "lhs",
-            variables=a.variables or None, scenario=a.scenario, settings=s, root=paths.root,
+            variables=a.variables or None, scenario=a.scenario, settings=s, apply_to_all=a.apply_to_all or None,
+            root=paths.root,
         )
         return sd_ops.record_monte_carlo(payload, root=paths.root)[1]
     if a.kind == "compare":
@@ -50,7 +52,8 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
             raise ValueError("comparing options needs a variable")
         payload = sd_ops.run_compare(
             a.scenarios, a.variable, metric=a.metric or "final", runs=a.runs or 200,
-            seed=a.seed if a.seed is not None else 1234, sampling=a.sampling or "lhs", settings=s, root=paths.root,
+            seed=a.seed if a.seed is not None else 1234, sampling=a.sampling or "lhs", settings=s,
+            apply_to_all=a.apply_to_all or None, root=paths.root,
         )
         return sd_ops.record_compare(payload, root=paths.root)[1]
     if a.kind == "sensitivity":
@@ -58,7 +61,7 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
             raise ValueError("a sensitivity analysis needs a variable")
         payload = sd_ops.run_sensitivity(
             a.variable, metric=a.metric or "final", pct=a.pct or 10.0, scenario=a.scenario, settings=s,
-            root=paths.root,
+            apply_to_all=a.apply_to_all or None, root=paths.root,
         )
         return sd_ops.record_sensitivity(payload, root=paths.root)[1]
     if a.kind == "loops":
@@ -92,23 +95,25 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
         labels = p.get("labels", {})
         if kind == "sd-simulation":
             saved = [n for n in h.get("scenarios", []) if n != "what-if"]
-            out.append(SpecAnalysis(kind="simulate", settings=s, scenarios=saved, set=_what_if(p)))
+            out.append(SpecAnalysis(kind="simulate", settings=s, scenarios=saved, set=_what_if(p),
+                                    apply_to_all=p.get("world") or []))
         elif kind == "sd-monte-carlo":
             out.append(SpecAnalysis(
                 kind="monte_carlo", settings=s, runs=p["runs"], seed=p["seed"], sampling=p["sampling"],
                 variables=[labels.get(v, v) for v in p["variables"]], scenario=p.get("scenario"),
+                apply_to_all=p.get("world") or [],
             ))
         elif kind == "sd-options":
             metric = p["metric"] if p.get("at") is None else f"at:{p['at']:g}"
             out.append(SpecAnalysis(
                 kind="compare", settings=s, scenarios=p["scenarios"], variable=p["label"], metric=metric,
-                runs=p["runs"], seed=p["seed"], sampling=p["sampling"],
+                runs=p["runs"], seed=p["seed"], sampling=p["sampling"], apply_to_all=p.get("world") or [],
             ))
         elif kind == "sd-sensitivity":
             metric = p["metric"] if p.get("at") is None else f"at:{p['at']:g}"
             out.append(SpecAnalysis(
                 kind="sensitivity", settings=s, variable=p["label"], metric=metric, pct=p["pct"],
-                scenario=p.get("scenario"),
+                scenario=p.get("scenario"), apply_to_all=p.get("world") or [],
             ))
         elif kind == "sd-loops":
             lo, hi = p["window"]

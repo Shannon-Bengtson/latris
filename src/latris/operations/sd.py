@@ -490,9 +490,11 @@ def simulate_scenarios(
     saveper: float | None = None,
     method: str | None = None,
     time_units: str | None = None,
+    apply_to_all: list[str] | None = None,
     root: Path | None = None,
 ) -> tuple[dict, list[sd_scenarios.ScenarioRun]]:
-    """Simulate the baseline plus the named scenarios (and an ad-hoc what-if from ``assignments``).
+    """Simulate the baseline plus the named scenarios (and an ad-hoc what-if from ``assignments``, run as one
+    more scenario). ``apply_to_all`` values hold in every run, the baseline included.
 
     Returns the comparison payload (what reports and agents read) and the raw runs.
     """
@@ -501,11 +503,33 @@ def simulate_scenarios(
         initial_time=initial_time, final_time=final_time, dt=dt, saveper=saveper,
         method=method, time_units=time_units, root=paths.root,
     )
+    model, world, _ = _with_world(model, apply_to_all, paths)
     chosen = [sd_scenarios.get(n, paths) for n in dict.fromkeys(scenarios or [])]
     if assignments:
         chosen.append(sd_scenarios.what_if(assignments, paths))
     runs = sd_scenarios.run(model, chosen)
-    return sd_scenarios.comparison(runs, model), runs
+    payload = sd_scenarios.comparison(runs, model)
+    if world:
+        payload["world"] = world
+    return payload, runs
+
+
+def _with_world(model, apply_to_all: list[str] | None, paths) -> tuple:
+    """Apply values that hold in every run — the baseline and each scenario ("a high-internal-load world").
+
+    Returns ``(model, descriptions, fixed target ids)``. Uncertainty ranges on a fixed value aren't sampled.
+    """
+    if not apply_to_all:
+        return model, [], set()
+    world = sd_scenarios.what_if(apply_to_all, paths)
+    model = sd_scenarios.apply_overrides(model, world.overrides)
+    desc = [f"{model.labels.get(o.target_id, o.target_id)}={o.value:g} {o.units}" for o in world.overrides]
+    return model, desc, {o.target_id for o in world.overrides}
+
+
+def _world_key(payload: dict) -> str:
+    world = payload.get("world") or []
+    return ("|world:" + json.dumps(sorted(world), ensure_ascii=False)) if world else ""
 
 
 def _span(payload: dict) -> str:
@@ -539,14 +563,15 @@ def record_comparison(
     stocks = [v for v, r in payload["roles"].items() if r == "stock"]
     sha, run = record_result(
         kind="sd-simulation",
-        key=sd_scenarios.key(runs),
+        key=sd_scenarios.key(runs) + _world_key(payload),
         payload=payload,
         purpose="simulation",
         algorithm=payload["algorithm"],
         library_version=f"{payload['library_version']}; pint {pint_version()}",
         summary=comparison_summary(payload),
         model_type=_MODEL_TYPE,
-        hyperparameters={**payload["settings"], "scenarios": [r.name for r in runs[1:]]},
+        hyperparameters={**payload["settings"], "scenarios": [r.name for r in runs[1:]],
+                         "apply_to_all": payload.get("world") or []},
         scenarios=saved,
         metrics={
             "report_points": len(payload["times"]),
@@ -593,6 +618,7 @@ def run_monte_carlo(
     scenario: str | None = None,
     max_seconds: float = 60.0,
     settings: dict | None = None,
+    apply_to_all: list[str] | None = None,
     root: Path | None = None,
 ) -> dict:
     """Sample every value that has an uncertainty range and summarise the runs as bands."""
@@ -600,11 +626,15 @@ def run_monte_carlo(
 
     paths = require_project(root)
     model = compile_project(**_settings_kwargs(settings), root=paths.root)
+    model, world, fixed = _with_world(model, apply_to_all, paths)
     chosen = sd_scenarios.get(scenario, paths) if scenario else None
-    return sd_montecarlo.monte_carlo(
-        model, uncertainty.sd_specs(paths), runs=runs, seed=seed, sampling=sampling,
-        variables=variables, scenario=chosen, max_seconds=max_seconds,
+    payload = sd_montecarlo.monte_carlo(
+        model, {k: v for k, v in uncertainty.sd_specs(paths).items() if k not in fixed}, runs=runs, seed=seed,
+        sampling=sampling, variables=variables, scenario=chosen, max_seconds=max_seconds,
     )
+    if world:
+        payload["world"] = world
+    return payload
 
 
 def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
@@ -619,7 +649,7 @@ def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str,
     )
     sha, run = record_result(
         kind="sd-monte-carlo",
-        key=f"sd-monte-carlo|{scenario or 'baseline'}|{','.join(payload['variables'])}",
+        key=f"sd-monte-carlo|{scenario or 'baseline'}|{','.join(payload['variables'])}" + _world_key(payload),
         payload=payload,
         purpose="sensitivity-analysis",
         algorithm=f"monte-carlo[{payload['sampling']}]; {payload['algorithm']}",
@@ -649,6 +679,7 @@ def run_sensitivity(
     pct: float = 10.0,
     scenario: str | None = None,
     settings: dict | None = None,
+    apply_to_all: list[str] | None = None,
     root: Path | None = None,
 ) -> dict:
     """Swing every constant and initial value low/high and rank them by effect on one result."""
@@ -656,11 +687,15 @@ def run_sensitivity(
 
     paths = require_project(root)
     model = compile_project(**_settings_kwargs(settings), root=paths.root)
+    model, world, _ = _with_world(model, apply_to_all, paths)
     chosen = sd_scenarios.get(scenario, paths) if scenario else None
-    return sd_sensitivity.tornado(
+    payload = sd_sensitivity.tornado(
         model, variable, metric=metric, specs=uncertainty.sd_specs(paths), provenance=_provenance(paths),
         pct=pct, scenario=chosen,
     )
+    if world:
+        payload["world"] = world
+    return payload
 
 
 def record_sensitivity(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
@@ -676,7 +711,7 @@ def record_sensitivity(payload: dict, *, root: Path | None = None) -> tuple[str,
     metric = payload["metric"] if payload["at"] is None else f"at:{payload['at']:g}"
     sha, run = record_result(
         kind="sd-sensitivity",
-        key=f"sd-sensitivity|{payload['variable']}:{metric}|{scenario or 'baseline'}",
+        key=f"sd-sensitivity|{payload['variable']}:{metric}|{scenario or 'baseline'}" + _world_key(payload),
         payload=payload,
         purpose="sensitivity-analysis",
         algorithm=f"one-at-a-time; {payload['algorithm']}",
@@ -708,18 +743,24 @@ def run_compare(
     sampling: str = "lhs",
     max_seconds: float = 60.0,
     settings: dict | None = None,
+    apply_to_all: list[str] | None = None,
     root: Path | None = None,
 ) -> dict:
-    """The baseline and each saved scenario on the same sampled draws, compared on one result metric."""
+    """The baseline and each saved scenario on the same sampled draws, compared on one result metric.
+    ``apply_to_all`` values hold in every option, the baseline included."""
     from latris.operations import sd_montecarlo, uncertainty
 
     paths = require_project(root)
     model = compile_project(**_settings_kwargs(settings), root=paths.root)
+    model, world, fixed = _with_world(model, apply_to_all, paths)
     options = [sd_scenarios.get(n, paths) for n in dict.fromkeys(scenarios)]
-    return sd_montecarlo.compare_options(
-        model, uncertainty.sd_specs(paths), options, variable=variable, metric=metric, runs=runs, seed=seed,
-        sampling=sampling, max_seconds=max_seconds,
+    payload = sd_montecarlo.compare_options(
+        model, {k: v for k, v in uncertainty.sd_specs(paths).items() if k not in fixed}, options,
+        variable=variable, metric=metric, runs=runs, seed=seed, sampling=sampling, max_seconds=max_seconds,
     )
+    if world:
+        payload["world"] = world
+    return payload
 
 
 def record_compare(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
@@ -733,7 +774,8 @@ def record_compare(payload: dict, *, root: Path | None = None) -> tuple[str, str
     )
     sha, run = record_result(
         kind="sd-options",
-        key=f"sd-options|{payload['variable']}:{metric}|" + json.dumps(sorted(payload["scenarios"])),
+        key=f"sd-options|{payload['variable']}:{metric}|" + json.dumps(sorted(payload["scenarios"]))
+        + _world_key(payload),
         payload=payload,
         purpose="sensitivity-analysis",
         algorithm=f"paired monte-carlo[{payload['sampling']}]; {payload['algorithm']}",
