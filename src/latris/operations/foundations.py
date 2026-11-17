@@ -453,6 +453,7 @@ FOUNDATIONS: tuple[Foundation, ...] = (
 # genuine use of the SD formalism includes it, so it is deliberately absent here.
 _ANALYSIS_KIND_TO_ID = {
     "sd-monte-carlo": "sd-uncertainty",
+    "sd-options": "sd-uncertainty",
     "sd-sensitivity": "sd-sensitivity",
     "sd-loops": "sd-loop-dominance",
     "dag-estimate": "dag-estimation",

@@ -209,3 +209,135 @@ def describe_end(payload: dict[str, Any], v: str) -> str:
         f"{payload['labels'][v]} at {t:g} {payload['time_units']}: median {e['p50']:.4g}, "
         f"95% of runs {e['p2.5']:.4g}–{e['p97.5']:.4g} {payload['units'][v]}"
     )
+
+
+# ── comparing options under uncertainty ──────────────────────────────
+
+
+def compare_options(
+    model: SDModel,
+    specs: dict[str, ParameterUncertainty],
+    options: list[SDScenario],
+    *,
+    variable: str,
+    metric: str = "final",
+    runs: int = DEFAULT_RUNS,
+    seed: int = DEFAULT_SEED,
+    sampling: str = "lhs",
+    max_seconds: float = 60.0,
+) -> dict[str, Any]:
+    """Run the baseline and every option on the SAME sampled draws and compare one result metric.
+
+    Common random numbers: draw *i* of every option uses the same sampled values (a value an option
+    fixes is the option's), so the difference between an option and the baseline is measured draw by
+    draw — the spread of that paired difference is far narrower, and more honest, than comparing two
+    independent bands. Reports each option's metric (median, 95% of draws, the central-value run) and
+    its paired difference from the baseline, with the share of draws where it is lower or higher.
+    """
+    from latris.operations.sd_sensitivity import measure, metric_label, metric_units, parse_metric
+
+    if not 2 <= runs <= MAX_RUNS:
+        raise ValueError(f"runs must be between 2 and {MAX_RUNS}")
+    if not options:
+        raise ValueError("name at least one saved scenario to compare with the baseline")
+    kind, at = parse_metric(metric)
+    (vid,) = resolve_variables(model, [variable])
+    uncertain = {k: v for k, v in specs.items() if k in model.constants or k in model.stock_units}
+    if not uncertain:
+        raise ValueError(
+            "no uncertain values to sample — give constants or initial values a range first (set_uncertainty)"
+        )
+    arms = [("baseline", model, set())] + [
+        (sc.name, apply_overrides(model, sc.overrides), {o.target_id for o in sc.overrides}) for sc in options
+    ]
+    reference = simulate(model)
+    if not reference.success:
+        raise ValueError(f"the baseline run failed before sampling: {reference.message}")
+
+    def value(m: SDModel) -> float:
+        res = simulate(m)
+        if not res.success:
+            raise EquationError(res.message)
+        return measure(res.times, res.series[vid], kind, at)
+
+    central = {name: value(m) for name, m, _ in arms}
+    draws = sample(uncertain, runs, seed=seed, method=sampling)
+    per_arm: dict[str, list[float]] = {name: [] for name, _, _ in arms}
+    failures: list[str] = []
+    started = time.perf_counter()
+    for i, draw in enumerate(draws):
+        if i == 1:
+            estimate = (time.perf_counter() - started) * runs
+            if estimate > max_seconds:
+                raise ValueError(
+                    f"{runs} draws × {len(arms)} options would take about {estimate:.0f} s (limit {max_seconds:g} s). "
+                    f"Use fewer runs, a larger dt, or method euler"
+                )
+        try:
+            values = {name: value(_with_draw(m, {k: v for k, v in draw.items() if k not in fixed}))
+                      for name, m, fixed in arms}
+        except (EquationError, ValueError) as exc:
+            failures.append(str(exc))
+            continue
+        for name, v in values.items():
+            per_arm[name].append(v)
+    kept = len(per_arm["baseline"])
+    if kept < max(2, runs // 2):
+        detail = f" First error: {failures[0]}" if failures else ""
+        raise ValueError(f"only {kept} of {runs} draws succeeded; the sampled ranges break the model.{detail}")
+
+    def spread(xs: list[float]) -> dict[str, float]:
+        ys = sorted(xs)
+        return {"p2.5": _r(percentile(ys, 2.5)), "p50": _r(percentile(ys, 50)), "p97.5": _r(percentile(ys, 97.5)),
+                "mean": _r(sum(ys) / len(ys))}
+
+    base = per_arm["baseline"]
+    rows = []
+    for name, _, _ in arms:
+        xs = per_arm[name]
+        row: dict[str, Any] = {"name": name, "central": _r(central[name]), **spread(xs)}
+        if name != "baseline":
+            diffs = [x - b for x, b in zip(xs, base, strict=True)]
+            row["difference"] = {
+                **spread(diffs),
+                "share_lower": _r(sum(d < 0 for d in diffs) / len(diffs)),
+                "share_higher": _r(sum(d > 0 for d in diffs) / len(diffs)),
+            }
+        rows.append(row)
+    units = metric_units(kind, reference.units[vid], reference.time_units)
+    return {
+        "variable": vid,
+        "label": model.labels[vid],
+        "metric": kind,
+        "at": at,
+        "metric_label": metric_label(kind, at, reference.time_units),
+        "units": units,
+        "time_units": reference.time_units,
+        "options": rows,
+        "scenarios": [sc.name for sc in options],
+        "uncertain": sorted(model.labels.get(k, k) for k in uncertain),
+        "runs": runs,
+        "succeeded": kept,
+        "failed": len(failures),
+        "failure_examples": failures[:3],
+        "seed": seed,
+        "sampling": sampling,
+        "method": reference.method,
+        "algorithm": reference.algorithm,
+        "library_version": reference.library_version,
+        "settings": reference.settings,
+        "seconds": round(time.perf_counter() - started, 3),
+    }
+
+
+def describe_option(p: dict[str, Any], row: dict[str, Any]) -> str:
+    """'Both options: 4.1 week (95% of draws 2.9–5.6); 2.3 lower than the baseline in the median draw
+    (95% of draws: -3.8 to -1.1), lower in 99% of draws'."""
+    u = p["units"]
+    head = f"{row['name']}: {row['p50']:.4g} {u} (95% of draws {row['p2.5']:.4g}–{row['p97.5']:.4g})"
+    d = row.get("difference")
+    if not d:
+        return head
+    word = "lower" if d["p50"] < 0 else "higher"
+    return (f"{head}; {abs(d['p50']):.4g} {word} than the baseline in the median draw "
+            f"(95% of draws: {d['p2.5']:+.4g} to {d['p97.5']:+.4g}), lower in {d['share_lower']:.0%} of draws")

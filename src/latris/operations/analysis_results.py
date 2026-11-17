@@ -34,7 +34,7 @@ from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 # Order results appear in reports (SD's kinds first — it hasn't migrated to the registry yet —
 # then registered formalisms' in registration order), and the most of each kind a client report shows.
 KIND_ORDER: tuple[str, ...] = (
-    "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
+    "sd-simulation", "sd-options", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
     *(r.kind for r in formalisms.result_kinds()),
 )
 REPORT_LIMIT: dict[str, int] = {

@@ -16,6 +16,7 @@ same as BN and FCM settings today.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from latris.operations import sd_inference, sd_scenarios
@@ -689,6 +690,65 @@ def record_sensitivity(payload: dict, *, root: Path | None = None) -> tuple[str,
         metrics={"runs": payload["runs"], "baseline": payload["baseline"]},
         affected_target_ids=[payload["variable"]],
         commit_subject=f"SD sensitivity: {payload['label']} ({payload['metric_label']})"[:120],
+        root=root,
+    )
+    return sha, run.id
+
+
+# ── comparing options under uncertainty ─────────────────────────────
+
+
+def run_compare(
+    scenarios: list[str],
+    variable: str,
+    *,
+    metric: str = "final",
+    runs: int = 200,
+    seed: int = 1234,
+    sampling: str = "lhs",
+    max_seconds: float = 60.0,
+    settings: dict | None = None,
+    root: Path | None = None,
+) -> dict:
+    """The baseline and each saved scenario on the same sampled draws, compared on one result metric."""
+    from latris.operations import sd_montecarlo, uncertainty
+
+    paths = require_project(root)
+    model = compile_project(**_settings_kwargs(settings), root=paths.root)
+    options = [sd_scenarios.get(n, paths) for n in dict.fromkeys(scenarios)]
+    return sd_montecarlo.compare_options(
+        model, uncertainty.sd_specs(paths), options, variable=variable, metric=metric, runs=runs, seed=seed,
+        sampling=sampling, max_seconds=max_seconds,
+    )
+
+
+def record_compare(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
+    from latris.operations.analysis_results import record_result
+    from latris.operations.sd_montecarlo import describe_option
+
+    metric = payload["metric"] if payload["at"] is None else f"at:{payload['at']:g}"
+    summary = (
+        f"Options compared on {payload['label']} ({payload['metric_label']}), {payload['succeeded']} paired draws: "
+        + "; ".join(describe_option(payload, r) for r in payload["options"])
+    )
+    sha, run = record_result(
+        kind="sd-options",
+        key=f"sd-options|{payload['variable']}:{metric}|" + json.dumps(sorted(payload["scenarios"])),
+        payload=payload,
+        purpose="sensitivity-analysis",
+        algorithm=f"paired monte-carlo[{payload['sampling']}]; {payload['algorithm']}",
+        library_version=payload["library_version"],
+        summary=summary[:2000],
+        model_type=_MODEL_TYPE,
+        hyperparameters={**payload["settings"], "variable": payload["variable"], "metric": metric,
+                         "runs": payload["runs"], "sampling": payload["sampling"], "scenarios": payload["scenarios"]},
+        scenarios=payload["scenarios"],
+        uncertainty=True,
+        seed=payload["seed"],
+        metrics={"succeeded": payload["succeeded"], "failed": payload["failed"], "seconds": payload["seconds"]},
+        affected_target_ids=[payload["variable"]],
+        duration_seconds=payload["seconds"],
+        commit_subject=f"SD options compared: {', '.join(payload['scenarios'])}"[:120],
         root=root,
     )
     return sha, run.id

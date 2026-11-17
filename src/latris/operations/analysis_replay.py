@@ -45,6 +45,14 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
             variables=a.variables or None, scenario=a.scenario, settings=s, root=paths.root,
         )
         return sd_ops.record_monte_carlo(payload, root=paths.root)[1]
+    if a.kind == "compare":
+        if not a.variable:
+            raise ValueError("comparing options needs a variable")
+        payload = sd_ops.run_compare(
+            a.scenarios, a.variable, metric=a.metric or "final", runs=a.runs or 200,
+            seed=a.seed if a.seed is not None else 1234, sampling=a.sampling or "lhs", settings=s, root=paths.root,
+        )
+        return sd_ops.record_compare(payload, root=paths.root)[1]
     if a.kind == "sensitivity":
         if not a.variable:
             raise ValueError("a sensitivity analysis needs a variable")
@@ -89,6 +97,12 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
             out.append(SpecAnalysis(
                 kind="monte_carlo", settings=s, runs=p["runs"], seed=p["seed"], sampling=p["sampling"],
                 variables=[labels.get(v, v) for v in p["variables"]], scenario=p.get("scenario"),
+            ))
+        elif kind == "sd-options":
+            metric = p["metric"] if p.get("at") is None else f"at:{p['at']:g}"
+            out.append(SpecAnalysis(
+                kind="compare", settings=s, scenarios=p["scenarios"], variable=p["label"], metric=metric,
+                runs=p["runs"], seed=p["seed"], sampling=p["sampling"],
             ))
         elif kind == "sd-sensitivity":
             metric = p["metric"] if p.get("at") is None else f"at:{p['at']:g}"

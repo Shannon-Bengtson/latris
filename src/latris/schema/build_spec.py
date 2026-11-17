@@ -592,6 +592,7 @@ class SpecAnalysis(_Spec):
     """An analysis to run (and record, so the report shows it) once the model is built.
 
     kind: simulate (scenarios, set) | monte_carlo (runs, seed, sampling, variables, scenario)
+    | compare (options under uncertainty, on the same draws: scenarios, variable, metric, runs, seed, sampling)
     | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
@@ -614,7 +615,7 @@ class SpecAnalysis(_Spec):
     """
 
     kind: Literal[
-        "simulate", "monte_carlo", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
+        "simulate", "monte_carlo", "compare", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
         "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
         "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace", "toc_impact",
         "ft_monte_carlo", "bowtie_monte_carlo", "et_monte_carlo",

@@ -210,10 +210,33 @@ def _loops(p: dict[str, Any]) -> list[str]:
 
 _TITLES = {
     "sd-simulation": "Simulation",
+    "sd-options": "Options compared under uncertainty",
     "sd-monte-carlo": "Uncertainty (Monte Carlo)",
     "sd-sensitivity": "Sensitivity",
     "sd-loops": "Feedback loop dominance",
 }
+
+
+def _options(p: dict[str, Any]) -> list[str]:
+    u = p["units"]
+    out = [
+        f"{p['label']}, {p['metric_label']} ({u}). Every option ran on the same {p['succeeded']} sampled draws "
+        f"of the uncertain values ({', '.join(p['uncertain'])}; {p['sampling']}, seed {p['seed']}), so each "
+        "difference from the baseline is measured draw by draw. 'Central values' is the run with every value "
+        "at its stated value; with skewed ranges the median draw can sit away from it.",
+        "",
+    ]
+    rows = []
+    for r in p["options"]:
+        d = r.get("difference")
+        rows.append([
+            r["name"], f"{r['p50']:.4g}", f"{r['p2.5']:.4g}–{r['p97.5']:.4g}", f"{r['central']:.4g}",
+            f"{d['p50']:+.4g} ({d['p2.5']:+.4g} to {d['p97.5']:+.4g})" if d else "—",
+            f"{d['share_lower']:.0%} / {d['share_higher']:.0%}" if d else "—",
+        ])
+    out += _table(["Option", "Median", "95% of draws", "Central values", "vs baseline (median, 95%)",
+                   "Draws lower / higher"], rows)
+    return out
 
 
 def _sd_subtitle(kind: str, p: dict[str, Any]) -> str:
@@ -222,6 +245,8 @@ def _sd_subtitle(kind: str, p: dict[str, Any]) -> str:
         shown = [("unsaved what-if (" + "; ".join(f"{o['label']}={o['value']:g}" for o in sc.get("overrides", []))
                   + ")") if sc["name"] == "what-if" else sc["name"] for sc in p.get("scenarios", [])[1:]]
         return "baseline vs " + ", ".join(shown) if shown else "baseline"
+    if kind == "sd-options":
+        return f"{p['label']}, {p['metric_label']}"
     scenario = p.get("scenario")
     return f"scenario {scenario}" if scenario else "baseline"
 
@@ -300,6 +325,8 @@ def render_results(
                 out += _simulation(p)
             elif kind == "sd-monte-carlo":
                 out += _monte_carlo(p)
+            elif kind == "sd-options":
+                out += _options(p)
             elif kind == "sd-sensitivity":
                 out += _sensitivity(p)
             elif kind == "sd-loops":

@@ -25,12 +25,12 @@ from latris.operations.sd_scenarios import _r, apply_overrides
 from latris.schema.attributes import ParameterUncertainty
 from latris.schema.sd import SDScenario
 
-METRICS = ("final", "peak", "peak-time", "min", "mean")
+METRICS = ("final", "peak", "peak-time", "min", "mean", "total")
 DEFAULT_PCT = 10.0
 
 
 def parse_metric(metric: str) -> tuple[str, float | None]:
-    """``final`` | ``peak`` | ``peak-time`` | ``min`` | ``mean`` | ``at:T``."""
+    """``final`` | ``peak`` | ``peak-time`` | ``min`` | ``mean`` | ``total`` | ``at:T``."""
     m = (metric or "final").strip().lower()
     if m.startswith("at:"):
         try:
@@ -53,11 +53,11 @@ def measure(times: list[float], values: list[float], metric: str, at: float | No
         return times[max(range(len(values)), key=values.__getitem__)]
     if metric == "min":
         return min(values)
-    if metric == "mean":
+    if metric in ("mean", "total"):
         if len(times) < 2:
-            return values[0]
+            return values[0] if metric == "mean" else 0.0
         area = sum((times[i + 1] - times[i]) * (values[i] + values[i + 1]) / 2 for i in range(len(times) - 1))
-        return area / (times[-1] - times[0])
+        return area if metric == "total" else area / (times[-1] - times[0])
     if metric == "at":
         assert at is not None
         if not times[0] <= at <= times[-1]:
@@ -163,7 +163,7 @@ def tornado(
     return {
         "variable": vid,
         "label": base.labels[vid],
-        "units": reference.time_units if kind == "peak-time" else reference.units[vid],
+        "units": metric_units(kind, reference.units[vid], reference.time_units),
         "time_units": reference.time_units,
         "metric": kind,
         "at": at,
@@ -180,6 +180,15 @@ def tornado(
     }
 
 
+def metric_units(kind: str, units: str, time_units: str) -> str:
+    """The units a metric is in: a time for peak-time, value × time for a total."""
+    if kind == "peak-time":
+        return time_units
+    if kind == "total":
+        return f"{units} × {time_units}"
+    return units
+
+
 def metric_label(kind: str, at: float | None, time_units: str) -> str:
     if kind == "at":
         return f"value at {at:g} {time_units}"
@@ -189,4 +198,5 @@ def metric_label(kind: str, at: float | None, time_units: str) -> str:
         "peak-time": f"time of peak ({time_units})",
         "min": "minimum",
         "mean": "time-average",
+        "total": f"total over the run (summed over {time_units})",
     }[kind]

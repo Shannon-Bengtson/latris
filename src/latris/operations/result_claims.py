@@ -74,12 +74,22 @@ def _monte_carlo(p: dict[str, Any], out: dict[str, list[str]]) -> None:
     by_id = {prm["target_id"]: prm for prm in p["parameters"]}
     for v in p["variables"]:
         e = p["end"][v]
+        central = e.get("baseline")
         claim = (
             f"Across {p['succeeded']} sampled runs{on}, {p['labels'][v]} at {t:g} {p['time_units']} is between "
-            f"{_f(e['p2.5'])} and {_f(e['p97.5'])} {p['units'][v]} in 95% of runs (median {_f(e['p50'])})."
+            f"{_f(e['p2.5'])} and {_f(e['p97.5'])} {p['units'][v]} in 95% of runs (median {_f(e['p50'])}"
+            + (f"; the run with every value at its stated value gives {_f(central)}" if central is not None else "")
+            + ")."
         )
         out["sensitivity"].append(claim)
         out["confidence_assessment"].append(claim)
+        width = e["p97.5"] - e["p2.5"]
+        if central is not None and width > 0 and abs(e["p50"] - central) > 0.1 * width:
+            out["confidence_assessment"].append(
+                f"The typical sampled run of {p['labels'][v]} ({_f(e['p50'])}) sits "
+                f"{'above' if e['p50'] > central else 'below'} the central-value run ({_f(central)}) because some "
+                "uncertainty ranges are lopsided; quote the range, not the central value, as the expected outcome."
+            )
         drivers = [r for r in p["influence"][v] if r["rho"] is not None and abs(r["rho"]) >= 0.3]
         if drivers:
             top = drivers[0]
@@ -95,6 +105,26 @@ def _monte_carlo(p: dict[str, Any], out: dict[str, list[str]]) -> None:
                     f"How wide is {top['label']} really? Its uncertainty range drives most of the spread in "
                     f"{p['labels'][v]} but is {_who(prm.get('origin'))} and not yet reviewed."
                 )
+
+
+def _options(p: dict[str, Any], out: dict[str, list[str]]) -> None:
+    from latris.operations.sd_montecarlo import describe_option
+
+    intro = (f"Options compared on {p['label']} ({p['metric_label']}), {p['succeeded']} paired draws of the "
+             f"uncertain values")
+    out["answer_to_question"].append(intro + ":")
+    for r in p["options"]:
+        claim = "  - " + describe_option(p, r)
+        out["answer_to_question"].append(claim)
+    for r in p["options"][1:]:
+        d = r["difference"]
+        if 0.1 < d["share_lower"] < 0.9:
+            out["confidence_assessment"].append(
+                f"Whether {r['name']} lowers {p['label']} is uncertain: lower in {d['share_lower']:.0%} of draws, "
+                f"higher in {d['share_higher']:.0%}."
+            )
+        else:
+            out["implications"].append(describe_option(p, r) + ".")
 
 
 def _sensitivity(p: dict[str, Any], out: dict[str, list[str]]) -> None:
@@ -146,6 +176,8 @@ def claims_by_section(model_type: str, paths: ProjectPaths) -> dict[str, list[st
                 _simulation(p, out)
             elif kind == "sd-monte-carlo":
                 _monte_carlo(p, out)
+            elif kind == "sd-options":
+                _options(p, out)
             elif kind == "sd-sensitivity":
                 _sensitivity(p, out)
             elif kind == "sd-loops":

@@ -747,11 +747,55 @@ def monte_carlo(
         console.print(f"\n[green]recorded[/green] · run [cyan]{recorded[1][:18]}…[/cyan] · {_sha(recorded[0])}")
 
 
+@app.command("compare")
+@handle_cli_errors
+def compare(
+    variable: str = typer.Argument(..., help="The result to compare the options on: a stock, flow or auxiliary."),
+    scenario: list[str] = typer.Option(..., "--scenario", "-s", help="A saved scenario (an option); repeat."),
+    metric: str = typer.Option("final", "--metric", "-m",
+                               help="final | peak | peak-time | min | mean | total | at:T"),
+    runs: int = typer.Option(200, "--runs", help="Sampled draws (each option runs on every draw)."),
+    seed: int = typer.Option(1234, "--seed"),
+    sampling: str = typer.Option("lhs", "--sampling", help="lhs | random"),
+    max_seconds: float = typer.Option(60.0, "--max-seconds", help="Refuse a run that would take longer."),
+    final_time: float | None = typer.Option(None, "--final-time", help="End time (default 100)."),
+    dt: float | None = typer.Option(None, "--dt", help="Time step (default 0.25)."),
+    method: str | None = typer.Option(None, "--method", help="euler | rk2 | rk4 (default) | adaptive."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
+    """Compare options under uncertainty: the baseline and each scenario on the same sampled draws.
+
+    Each option's result (median, 95% of draws, the central-value run) and its difference from the
+    baseline, measured draw by draw, with the share of draws where it is lower or higher.
+    """
+    from latris.operations import sd as sd_ops
+    from latris.operations.sd_montecarlo import describe_option
+
+    payload = sd_ops.run_compare(
+        scenario, variable, metric=metric, runs=runs, seed=seed, sampling=sampling, max_seconds=max_seconds,
+        settings=_run_settings(final_time, dt, None, method),
+    )
+    recorded = sd_ops.record_compare(payload) if record else None
+    if json_mode():
+        emit({
+            "variable": payload["label"], "metric": payload["metric_label"], "units": payload["units"],
+            "draws": payload["succeeded"], "uncertain": payload["uncertain"],
+            "options": [{k: v for k, v in r.items()} for r in payload["options"]],
+            "summary": [describe_option(payload, r) for r in payload["options"]],
+            "run_id": recorded[1] if recorded else None,
+        }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
+        return
+    console.print(f"[bold]{escape(payload['label'])}[/bold] — {payload['metric_label']} ({escape(payload['units'])}), "
+                  f"{payload['succeeded']} paired draws\n")
+    for r in payload["options"]:
+        console.print(f"  {escape(describe_option(payload, r))}")
+
+
 @app.command("sensitivity")
 @handle_cli_errors
 def sensitivity(
     variable: str = typer.Argument(..., help="The result to explain: a stock, flow or auxiliary."),
-    metric: str = typer.Option("final", "--metric", "-m", help="final | peak | peak-time | min | mean | at:T"),
+    metric: str = typer.Option("final", "--metric", "-m", help="final | peak | peak-time | min | mean | total | at:T"),
     pct: float = typer.Option(10.0, "--pct", help="± percentage for values without an uncertainty range."),
     scenario: str | None = typer.Option(None, "--scenario", "-s", help="Use a saved scenario, not the baseline."),
     final_time: float | None = typer.Option(None, "--final-time", help="End time (default 100)."),
