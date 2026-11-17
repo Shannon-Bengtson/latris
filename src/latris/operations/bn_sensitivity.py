@@ -155,10 +155,14 @@ def record_sensitivity(result: SensitivityResult, *, root: Path | None = None) -
     from latris.operations.analysis_results import record_result
 
     evidence = ",".join(f"{k}={v}" for k, v in sorted((result.evidence or {}).items()))
+    payload = result.model_dump(mode="json")
+    # Bake labels in: the report renderer and claims hooks see only the payload.
+    paths = require_project(root)
+    payload["labels"] = {e.id: e.label for e in load_model(Substrate, paths.conceptual_yaml).entities}
     sha, run = record_result(
         kind="bn-sensitivity",
         key=f"bn-sensitivity|{result.target_id}={result.target_state}|{evidence}",
-        payload=result.model_dump(mode="json"),
+        payload=payload,
         purpose="sensitivity-analysis",
         algorithm="one-way-tornado",
         library_version=f"pgmpy {pgmpy.__version__}",
