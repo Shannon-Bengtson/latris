@@ -31,14 +31,15 @@ from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 
-# Order results appear in reports (registered formalisms' kinds last), and the most of each kind a client
-# report shows.
+# Order results appear in reports (SD's kinds first — it hasn't migrated to the registry yet —
+# then registered formalisms' in registration order), and the most of each kind a client report shows.
 KIND_ORDER: tuple[str, ...] = (
     "sd-simulation", "sd-monte-carlo", "sd-sensitivity", "sd-loops",
-    "bn-query", "bn-explanation", "bn-monte-carlo", "bn-sensitivity",
     *(r.kind for r in formalisms.result_kinds()),
 )
-REPORT_LIMIT: dict[str, int] = {"bn-query": 6}
+REPORT_LIMIT: dict[str, int] = {
+    r.kind: r.report_limit for r in formalisms.result_kinds() if r.report_limit is not None
+}
 _DEFAULT_LIMIT = 4
 
 KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | formalisms.kind_model_types()

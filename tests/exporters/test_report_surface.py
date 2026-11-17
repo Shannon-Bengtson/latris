@@ -99,7 +99,11 @@ def test_every_plugin_result_kind_with_charts_is_namespaced():
             continue
         for chart, _ in _safe_charts(r):
             assert chart.startswith(("mcda-", "ach-", "dt-", "markov-", "impact-", "estimate-",
-                                     "trace-", "ft-", "et-", "bt-", "mc-")), chart
+                                     "trace-", "ft-", "et-", "bt-", "mc-",
+                                     # BN migrated with its chart kinds unchanged — they are the
+                                     # app's existing renderer contract ("posterior" predates the
+                                     # namespacing rule and stays so the app keeps working).
+                                     "bn-", "posterior")), chart
 
 
 def _safe_charts(r) -> list[tuple[str, dict]]:

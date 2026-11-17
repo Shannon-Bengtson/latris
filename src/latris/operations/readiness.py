@@ -414,8 +414,9 @@ def _formalism_validators() -> dict[str, object]:
 _STRUCTURAL_VALIDATORS: dict[str, object] = {
     "acyclicity": _check_acyclicity,
     "loops_present": _check_loops_present,
-    "state_space_defined": _check_state_space_defined,
-    "cpt_complete": _check_cpt_complete,
+    # BN's state_space_defined / cpt_complete come from its formalism plugin
+    # (operations/formalisms/bn.py), which wraps the checks above via
+    # bn.structure_problems.
     "sd_classification_complete": _check_sd_classification_complete,
     "sd_flow_connects_stock": _check_sd_flow_connects_stock,
     "sd_no_algebraic_loops": _check_sd_no_algebraic_loops,

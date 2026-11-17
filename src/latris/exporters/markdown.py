@@ -357,7 +357,6 @@ def render(
                 model_types=[model_type] if model_type else None,
                 chart_markers=chart_markers,
                 show_ids=show_ids,
-                labels={e.id: e.label for e in substrate.entities},
             )
         )
 

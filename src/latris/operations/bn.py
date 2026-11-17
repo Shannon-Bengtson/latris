@@ -13,6 +13,7 @@ Storage:
 from __future__ import annotations
 
 import itertools
+from dataclasses import dataclass
 from pathlib import Path
 
 from latris.operations._bn_canonical import effective_cpt_map
@@ -328,6 +329,37 @@ def check(*, root: Path | None = None):
     gaps.extend(_check_state_space_defined(ctx))
     gaps.extend(_check_cpt_complete(ctx))
     return gaps
+
+
+@dataclass(frozen=True)
+class BNProblem:
+    """One structural problem of the BN view (a readiness gap, without the label)."""
+
+    target_id: str | None
+    gap_type: str
+    message: str
+
+
+def structure_problems(*, root: Path | None = None) -> list[BNProblem]:
+    """The BN view's structural problems: cycles, missing state spaces, incomplete CPTs.
+
+    Readiness reports them through the formalism plugin's validators; the
+    interpretation's claims quote them. A model with no BN nodes yet reports
+    one problem — an empty network is not a complete one.
+    """
+    problems = [
+        BNProblem(target_id=g.element_id or None, gap_type=g.gap_type, message=g.message)
+        for g in check(root=root)
+    ]
+    substrate = load_model(Substrate, require_project(root).conceptual_yaml)
+    if not any(e.kind == "causal" for e in substrate.edges):
+        problems.append(BNProblem(
+            target_id=None,
+            gap_type="bn_no_nodes",
+            message="No Bayesian-network nodes yet — a BN node is a factor on a causal link; "
+            "add factors, link them, then give each a state space.",
+        ))
+    return problems
 
 
 # ── inference ────────────────────────────────────────────────────────
