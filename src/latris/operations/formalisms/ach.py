@@ -90,7 +90,7 @@ def _mermaid(paths, entities, edges) -> str:
     lines = ["flowchart LR"]
     hid = {h: f"h{i}" for i, h in enumerate(p["hypotheses"])}
     for r in p["ranking"]:
-        lines.append(f'    {hid[r["hypothesis"]}(["{_mermaid_text(r["hypothesis"])}<br/>against: '
+        lines.append(f'    {hid[r["hypothesis"]]}(["{_mermaid_text(r["hypothesis"])}<br/>against: '
                      f'{r["inconsistency"]:.2f}"])')
     for j, m in enumerate(p["matrix"]):
         against = [(h, v) for h, v in m["ratings"].items() if v in ("I", "II")]
