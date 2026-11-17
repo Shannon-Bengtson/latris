@@ -175,7 +175,7 @@ def test_claims_name_the_metric_reference_and_world(options_root):
     text = describe_option(p, row)
     assert "Water, final value:" in text
     assert "vs the baseline (no scenario changes)" in text
-    assert "[in every run: Drain Rate=0.1" in text
+    assert "; in every run: Drain Rate=0.1" in text
     base = next(r for r in p["options"] if r["name"] == "baseline")
     assert describe_option(p, base).startswith("Baseline (no scenario changes) — Water")
 

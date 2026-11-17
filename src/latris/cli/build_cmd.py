@@ -52,8 +52,11 @@ def build(
       impact; in a fault tree or bow-tie, the top event)
     - ``sd``: roles, stocks, constants, equations, tables, uncertainty
       (node, distribution, params, reason), scenarios (name, set:
-      ["Variable=value units"], description, reason)
-    - ``bn``: states, tables (node, parents, probabilities), noisy_or
+      ["Variable=value units"], extends, description, reason)
+    - ``bn``: states, tables (node, parents, probabilities), noisy_or,
+      uncertainty, scenarios (name, extends, observe / set: {node: state},
+      soft / likelihood: {node: {state: value}}, tables:
+      ["Node[Parent=state]=p1,p2"], description, reason)
     - ``toc``: levels (node, level: input | activity | output |
       short_term_outcome | long_term_outcome | impact)
     - ``ft``: events (node, type: top_event | intermediate_event |
@@ -85,7 +88,7 @@ def build(
       source, …), rewards (state, strategy, cost, utility, source, …), start
       (state, proportion)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
-      bn_query | bn_explain | bn_monte_carlo | bn_sensitivity | toc_check |
+      bn_query | bn_explain | bn_monte_carlo | bn_compare | bn_sensitivity | toc_check |
       ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
       outcome, dataset, adjust, columns, estimator | mcda_analyse |
       ach_analyse | dt_analyse | markov_analyse)

@@ -51,6 +51,12 @@ class BNInferenceResult:
     interventions: dict[str, str] = field(default_factory=dict)
     """Factors SET to a state (do-operator): their own causes no longer matter. node_id → state."""
 
+    scenario: str | None = None
+    """The saved BN scenario applied, if any (its evidence and settings are in the fields above)."""
+
+    scenario_changes: list[str] = field(default_factory=list)
+    """What the scenario changed, in words (observations, settings, table overrides)."""
+
 
 def _check_distribution(node: str, dist: dict[str, float], states: list[str], what: str) -> None:
     unknown = [s for s in dist if s not in states]

@@ -1162,6 +1162,27 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("A factor leaves the network without being deleted: its states and table go; it stays on the map.")
     ex.run(["bn", "remove-states", "Clinic Visits"])
 
+    # ── 7.8d BN scenarios and comparing options ───────────────────────
+    ex.section(
+        "Bayesian Network — Scenarios and Comparing Options",
+        "A what-if that changes probabilities is a scenario, not an edit to the model: it saves "
+        "new values for some rows of a table (and any observations or settings that define it), "
+        "and the model's own tables stay as they are — nothing to revert afterwards. A scenario "
+        "can build on another (--extends). `bn compare` then asks every option the same question "
+        "on the same draws of the uncertain tables, so each difference is paired, and names what "
+        "each option is measured against.",
+    )
+    ex.run(["bn", "set-scenario", "Street trees", "--table", "Green Infrastructure=0.2,0.8",
+            "--reason", "Canopy programme: most districts reach high green infrastructure"])
+    ex.run(["bn", "set-scenario", "Street trees and filters", "--extends", "Street trees",
+            "--table", "Air Quality Index[Vehicle Emissions=high]=0.5,0.35,0.15",
+            "--reason", "Roadside filters: high-emission streets get the air of low-emission ones"])
+    ex.run(["bn", "scenarios"])
+    ex.run(["bn", "query", "--scenario", "Street trees", "--query", "Respiratory Health", "--no-record"])
+    ex.note("Under a lax transport policy (the evidence holds for every option, the baseline included):")
+    ex.run(["bn", "compare", "Respiratory Health", "--state", "poor", "-S", "Street trees",
+            "-S", "Street trees and filters", "-e", "Transport Policy=lax", "--runs", "200"])
+
     # ── 7.9 System Dynamics ───────────────────────────────────────────
     ex.section(
         "System Dynamics",

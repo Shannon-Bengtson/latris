@@ -582,11 +582,29 @@ class SpecBNUncertainty(_SpecParam):
     reason: str = ""
 
 
+class SpecBNScenario(_Spec):
+    """A named what-if over the network. ``observe``/``set``: {factor: state}; ``soft``/``likelihood``:
+    {factor: {state: value}}; ``tables``: 'Factor[Parent=state,…]=p1,p2,…' or 'Factor=p1,p2,…'."""
+
+    name: str
+    extends: str | None = None
+    observe: dict[str, str] = Field(default_factory=dict)
+    soft: dict[str, dict[str, float]] = Field(default_factory=dict)
+    likelihood: dict[str, dict[str, float]] = Field(default_factory=dict)
+    set: dict[str, str] = Field(default_factory=dict)
+    tables: list[str] = Field(default_factory=list)
+    description: str = ""
+    reason: str = ""
+    origin: ProvenanceOrigin | None = None
+    source: str | None = None
+
+
 class SpecBN(_Spec):
     states: list[SpecBNStates] = Field(default_factory=list)
     tables: list[SpecBNTable] = Field(default_factory=list)
     noisy_or: list[SpecNoisyOr] = Field(default_factory=list)
     uncertainty: list[SpecBNUncertainty] = Field(default_factory=list)
+    scenarios: list[SpecBNScenario] = Field(default_factory=list)
 
 
 class SpecAnalysis(_Spec):
@@ -597,7 +615,9 @@ class SpecAnalysis(_Spec):
       reference — 'baseline' or a compared scenario every option is measured against)
     | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
-    | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
+    | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed; scenario)
+    | bn_compare (BN options on the same table draws: target, state, scenarios, evidence, soft, likelihood,
+      reference, runs, seed; bn_query also takes scenario)
     | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
     | toc_trace (process tracing: each link's posterior from its tests, pathway confidence; no options)
     | ft_monte_carlo / bowtie_monte_carlo / et_monte_carlo (uncertainty in the top-event probability or the
@@ -618,6 +638,7 @@ class SpecAnalysis(_Spec):
 
     kind: Literal[
         "simulate", "monte_carlo", "compare", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
+        "bn_compare",
         "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
         "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace", "toc_impact",
         "ft_monte_carlo", "bowtie_monte_carlo", "et_monte_carlo",

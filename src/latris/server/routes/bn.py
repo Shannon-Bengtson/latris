@@ -216,6 +216,8 @@ class QueryRequest(BaseModel):
     evidence: dict[str, str] | None = None
     soft: dict[str, dict[str, float]] | None = None  # certainty: {node: {state: probability}}
     likelihood: dict[str, dict[str, float]] | None = None  # {node: {state: weight}}
+    interventions: dict[str, str] | None = None  # factors SET to a state (do-operator)
+    scenario: str | None = None  # a saved BN scenario to apply
     record: bool = False  # the GUI queries on every click; record explicitly for reports
 
 
@@ -223,11 +225,13 @@ class QueryRequest(BaseModel):
 def query(body: QueryRequest, root: Root) -> dict[str, Any]:
     try:
         result = bn_ops.infer(query=body.query, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
-                              root=root)
+                              interventions=body.interventions, scenario=body.scenario, root=root)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     out: dict[str, Any] = {"marginals": result.marginals, "evidence": result.evidence, "method": result.method,
-                           "soft": result.soft, "likelihood": result.likelihood}
+                           "soft": result.soft, "likelihood": result.likelihood,
+                           "interventions": result.interventions, "scenario": result.scenario,
+                           "scenario_changes": result.scenario_changes}
     if body.record and result.marginals:
         out["commit_sha"], out["run_id"] = bn_ops.record_query(result, root=root)
     return out
@@ -250,6 +254,7 @@ class MonteCarloRequest(EvidenceRequest):
     runs: int = 500
     seed: int = 1234
     max_seconds: float = 60.0
+    scenario: str | None = None
 
 
 class TableUncertaintyRequest(BaseModel):
@@ -279,13 +284,90 @@ def monte_carlo(body: MonteCarloRequest, root: Root) -> dict[str, Any]:
     try:
         out = bn_ops.run_monte_carlo(
             body.target, state=body.state, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
-            runs=body.runs, seed=body.seed, max_seconds=body.max_seconds, root=root,
+            runs=body.runs, seed=body.seed, max_seconds=body.max_seconds, scenario=body.scenario, root=root,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     resp: dict[str, Any] = {"result": out}
     if body.record:
         resp["commit_sha"], resp["run_id"] = bn_ops.record_monte_carlo(out, root=root)
+    return resp
+
+
+# ── scenarios and comparing options ──────────────────────────────────
+
+
+class ScenarioRequest(BaseModel):
+    name: str
+    observe: list[str] = []  # "Node=state"
+    soft: list[str] = []  # "Node=state:0.8"
+    likelihood: list[str] = []  # "Node=yes:4,no:1"
+    set: list[str] = []  # "Node=state" (do-operator)
+    tables: list[str] = []  # "Node[Parent=state]=0.1,0.9" or "Node=0.1,0.9"
+    extends: str | None = None
+    description: str = ""
+    reason: str = ""
+    source_id: str | None = None
+    origin: str = "human-direct"
+
+
+@router.get("/scenarios")
+def list_scenarios(root: Root) -> dict[str, Any]:
+    from latris.operations import bn_scenarios
+
+    items = bn_scenarios.list_scenarios(root=root)
+    return {"scenarios": [s.model_dump(mode="json") for s in items], "count": len(items)}
+
+
+@router.post("/scenario")
+def set_scenario(body: ScenarioRequest, root: Root) -> dict[str, Any]:
+    from latris.operations import bn_scenarios
+
+    try:
+        scenario, sha = bn_scenarios.set_scenario(
+            body.name, observe=body.observe, soft=body.soft, likelihood=body.likelihood, set_=body.set,
+            tables=body.tables, extends=body.extends, description=body.description, reason=body.reason,
+            source_id=body.source_id, origin=body.origin, root=root,  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"result": scenario.model_dump(mode="json"), "commit_sha": sha}
+
+
+@router.delete("/scenario/{name}")
+def remove_scenario(name: str, root: Root) -> dict[str, Any]:
+    from latris.operations import bn_scenarios
+
+    try:
+        sha = bn_scenarios.remove_scenario(name, root=root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"result": {"removed": name}, "commit_sha": sha}
+
+
+class CompareRequest(EvidenceRequest):
+    target: str
+    scenarios: list[str]
+    state: str | None = None
+    reference: str | None = None
+    runs: int = 500
+    seed: int = 1234
+    max_seconds: float = 60.0
+
+
+@router.post("/compare")
+def compare(body: CompareRequest, root: Root) -> dict[str, Any]:
+    try:
+        out = bn_ops.run_compare(
+            body.target, body.scenarios, state=body.state, evidence=body.evidence, soft=body.soft,
+            likelihood=body.likelihood, reference=body.reference, runs=body.runs, seed=body.seed,
+            max_seconds=body.max_seconds, root=root,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    resp: dict[str, Any] = {"result": out}
+    if body.record:
+        resp["commit_sha"], resp["run_id"] = bn_ops.record_compare(out, root=root)
     return resp
 
 

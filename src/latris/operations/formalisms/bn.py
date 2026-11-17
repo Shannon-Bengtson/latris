@@ -30,10 +30,15 @@ def _given(p: dict[str, Any]) -> str:
     labels = p.get("labels", {})
     observed = evidence_description(p.get("evidence", {}), p.get("soft"), p.get("likelihood"), labels)
     do = p.get("interventions") or {}
-    if not do:
-        return observed
-    set_text = "we set " + ", ".join(f"{labels.get(k, k)} = {v}" for k, v in sorted(do.items()))
-    return f"{set_text} and {observed}" if observed else set_text
+    text = observed
+    if do:
+        set_text = "we set " + ", ".join(f"{labels.get(k, k)} = {v}" for k, v in sorted(do.items()))
+        text = f"{set_text} and {observed}" if observed else set_text
+    if p.get("scenario"):
+        tables = [c for c in p.get("scenario_changes", []) if c.startswith("P(")]
+        what = f"scenario {p['scenario']}" + (f" ({'; '.join(tables)})" if tables else "")
+        text = f"{what}: {text}" if text else what
+    return text
 
 
 def _subtitle_given(p: dict[str, Any]) -> str:
@@ -138,6 +143,77 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
         listed = ", ".join(f"{d['label']} (rank correlation {d['rho']:+.2f})" for d in drivers)
         out += [f"What drives the spread: {listed}.", ""]
     return out
+
+
+def _render_options(p: dict[str, Any]) -> list[str]:
+    from latris.exporters.results import _table
+
+    given = _given(p)
+    draws = (f"Every option was asked on the same {p['runs']} draws of the uncertain tables "
+             f"({', '.join(p['uncertain'])}; seed {p['seed']}), so each difference from its reference is "
+             "measured draw by draw." if p["runs"] else
+             "Point probabilities: no table has a stated uncertainty, so there is no spread to show.")
+    out = [
+        f"P({p['label']} = {p['focus_state']}){' given ' + given if given else ''}. {draws} Differences are in "
+        "percentage points (positive: higher than the reference). The baseline is the network with no scenario "
+        "changes; a scenario's overridden rows and the factors it sets are held at its values.",
+        "",
+    ]
+    rows = []
+    for r in p["options"]:
+        d = r.get("difference")
+        row = ["Baseline (no scenario changes)" if r["name"] == "baseline" else r["name"], _pct(r["point"])]
+        if p["runs"]:
+            row.append(f"{_pct(r['p2.5'])}–{_pct(r['p97.5'])}")
+        row.append(r.get("reference", "baseline") if d else "—")
+        if d:
+            diff = f"{d['point'] * 100:+.3g}"
+            if "p2.5" in d:
+                diff += f" ({d['p2.5'] * 100:+.3g} to {d['p97.5'] * 100:+.3g})"
+            row.append(diff)
+        else:
+            row.append("—")
+        if p["runs"]:
+            row.append(f"{d['share_lower']:.0%} / {d['share_higher']:.0%}" if d else "—")
+        row.append("; ".join(r.get("changes", [])) or "—")
+        rows.append(row)
+    headers = ["Option", "Probability"] + (["95% of draws"] if p["runs"] else []) + ["Compared with",
+               "Difference (points" + (", 95%)" if p["runs"] else ")")]
+    headers += (["Draws lower / higher"] if p["runs"] else []) + ["What it changes"]
+    out += _table(headers, rows)
+    for w in p.get("warnings", []):
+        out += [f"> ⚠ {w}", ""]
+    return out
+
+
+def _claims_options(p: dict[str, Any], out: dict[str, list[str]]) -> None:
+    from latris.operations._compare import arm_label
+    from latris.operations.bn_compare import describe_option
+
+    head = f"Options compared on P({p['label']} = {p['focus_state']})"
+    head += f", {p['runs']} paired draws of the uncertain tables" if p["runs"] else ", point probabilities"
+    out["answer_to_question"].append(head + ". Each difference is measured against the arm named after 'vs':")
+    for r in p["options"]:
+        out["answer_to_question"].append("  - " + describe_option(p, r))
+    for r in p["options"]:
+        d = r.get("difference")
+        if not d:
+            continue
+        if "share_lower" in d and 0.1 < d["share_lower"] < 0.9:
+            out["confidence_assessment"].append(
+                f"Whether {r['name']} gives a lower P({p['label']} = {p['focus_state']}) than "
+                f"{arm_label(r.get('reference', 'baseline'))} is uncertain: lower in {d['share_lower']:.0%} of "
+                f"draws, higher in {d['share_higher']:.0%}."
+            )
+        else:
+            out["implications"].append(describe_option(p, r) + ".")
+    if not p["runs"]:
+        out["confidence_assessment"].append(
+            f"The comparison on P({p['label']} = {p['focus_state']}) uses point probabilities: no table has a "
+            "stated uncertainty, so how sure the differences are isn't shown."
+        )
+    for w in p.get("warnings", []):
+        out["open_questions"].append(w)
 
 
 def _render_sensitivity(p: dict[str, Any]) -> list[str]:
@@ -269,7 +345,8 @@ def _run_query(a, root: Path) -> str:
     from latris.operations import bn as bn_ops
 
     result = bn_ops.infer(query=a.query or None, evidence=a.evidence or None, soft=a.soft or None,
-                          likelihood=a.likelihood or None, interventions=a.interventions or None, root=root)
+                          likelihood=a.likelihood or None, interventions=a.interventions or None,
+                          scenario=a.scenario, root=root)
     return bn_ops.record_query(result, root=root)[1]
 
 
@@ -289,9 +366,22 @@ def _run_monte_carlo(a, root: Path) -> str:
     out = bn_ops.run_monte_carlo(
         a.target, state=a.state, evidence=a.evidence or None, soft=a.soft or None,
         likelihood=a.likelihood or None, runs=a.runs or 500, seed=a.seed if a.seed is not None else 1234,
-        root=root,
+        scenario=a.scenario, root=root,
     )
     return bn_ops.record_monte_carlo(out, root=root)[1]
+
+
+def _run_compare(a, root: Path) -> str:
+    from latris.operations import bn as bn_ops
+
+    if not a.target or not a.scenarios:
+        raise ValueError("a BN comparison needs a target and at least one scenario")
+    out = bn_ops.run_compare(
+        a.target, a.scenarios, state=a.state, evidence=a.evidence or None, soft=a.soft or None,
+        likelihood=a.likelihood or None, reference=a.reference, runs=a.runs if a.runs is not None else 500,
+        seed=a.seed if a.seed is not None else 1234, root=root,
+    )
+    return bn_ops.record_compare(out, root=root)[1]
 
 
 def _run_sensitivity(a, root: Path) -> str:
@@ -326,6 +416,7 @@ def _def_query(p: dict[str, Any]):
         likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
         interventions={labels.get(k, k): v for k, v in (p.get("interventions") or {}).items()},
         query=[labels.get(n, n) for n in p["posteriors"]],
+        scenario=p.get("scenario"),
     )
 
 
@@ -351,7 +442,20 @@ def _def_monte_carlo(p: dict[str, Any]):
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
         likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
-        runs=p["runs"], seed=p["seed"],
+        runs=p["runs"], seed=p["seed"], scenario=p.get("scenario"),
+    )
+
+
+def _def_compare(p: dict[str, Any]):
+    from latris.schema.build_spec import SpecAnalysis
+
+    labels = p.get("labels", {})
+    return SpecAnalysis(
+        kind="bn_compare", target=p["label"], state=p["focus_state"], scenarios=list(p["scenarios"]),
+        evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
+        soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
+        likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
+        reference=p.get("reference"), runs=p["runs"], seed=p["seed"],
     )
 
 
@@ -411,6 +515,8 @@ def _check(block, known, outcome: str | None) -> list[str]:
         + [("bn noisy-or", n.node) for n in block.noisy_or]
         + [("bn noisy-or cause", c.parent) for n in block.noisy_or for c in n.causes]
         + [("bn uncertainty", u.node) for u in block.uncertainty]
+        + [("bn scenario", n) for sc in block.scenarios
+           for n in [*sc.observe, *sc.soft, *sc.likelihood, *sc.set]]
     )
     return [f"{where}: no factor named {n!r}" for where, n in names if not known(n)]
 
@@ -437,6 +543,20 @@ def _apply(block, verified_by: str, root: Path) -> int:
     for u in block.uncertainty:
         uncertainty.set_table_uncertainty(u.node, u.n, row=u.row, reason=u.reason, source_id=u.source,
                                           origin=u.origin or origin, root=root)  # type: ignore[arg-type]
+        n += 1
+    from latris.operations import bn_scenarios
+    from latris.operations.build import _parents_first
+
+    def dist(block: dict[str, dict[str, float]]) -> list[str]:
+        return [f"{k}=" + ",".join(f"{st}:{v:g}" for st, v in d.items()) for k, d in block.items()]
+
+    for sc in _parents_first(block.scenarios):
+        bn_scenarios.set_scenario(
+            sc.name, observe=[f"{k}={v}" for k, v in sc.observe.items()], soft=dist(sc.soft),
+            likelihood=dist(sc.likelihood), set_=[f"{k}={v}" for k, v in sc.set.items()], tables=sc.tables,
+            extends=sc.extends, description=sc.description, reason=sc.reason,
+            origin=sc.origin or origin, source_id=sc.source, root=root,  # type: ignore[arg-type]
+        )
         n += 1
     return n
 
@@ -496,7 +616,28 @@ def _export(paths, labels: dict[str, str]):
                 row = ",".join(f"{labels.get(pid, pid)}={state}" for pid, state in pairs)
             ranges.append(SpecBNUncertainty(node=labels[node], n=e.params["n"], row=row, reason=e.reason,
                                             origin=e.origin, source=e.source_id))
-    return SpecBN(states=states, tables=tables, noisy_or=noisy, uncertainty=ranges)
+    from latris.operations import bn_scenarios
+    from latris.schema.build_spec import SpecBNScenario
+
+    def named(block: dict) -> bool:
+        return all(k in labels for k in block)
+
+    def table_text(o) -> str:  # noqa: ANN001
+        cond = ",".join(f"{labels[k]}={v}" for k, v in o.parent_states.items())
+        return f"{labels[o.target_id]}{'[' + cond + ']' if cond else ''}=" + ",".join(f"{x!r}" for x in o.p)
+
+    scenarios = [
+        SpecBNScenario(
+            name=s.name, extends=s.extends, description=s.description, reason=s.reason, origin=s.origin,
+            source=s.source_id, observe={labels[k]: v for k, v in s.evidence.items()},
+            soft={labels[k]: v for k, v in s.soft.items()}, likelihood={labels[k]: v for k, v in s.likelihood.items()},
+            set={labels[k]: v for k, v in s.interventions.items()}, tables=[table_text(o) for o in s.tables],
+        )
+        for s in bn_scenarios.load(paths).scenarios
+        if all(named(b) for b in (s.evidence, s.soft, s.likelihood, s.interventions))
+        and all(o.target_id in labels and named(o.parent_states) for o in s.tables)
+    ]
+    return SpecBN(states=states, tables=tables, noisy_or=noisy, uncertainty=ranges, scenarios=scenarios)
 
 
 # ── diagram ──────────────────────────────────────────────────────────
@@ -571,6 +712,10 @@ register(Formalism(
                    render=_render_monte_carlo, analysis="bn_monte_carlo", run=_run_monte_carlo,
                    definition=_def_monte_carlo, claims=_claims_monte_carlo,
                    charts=lambda p: [("bn-interval", {})], subtitle=_subtitle_target),
+        ResultKind(kind="bn-options", title="Options compared", render=_render_options,
+                   analysis="bn_compare", run=_run_compare, definition=_def_compare, claims=_claims_options,
+                   subtitle=lambda p: f"P({p['label']} = {p['focus_state']})"
+                   + (f" given {_given(p)}" if _given(p) else "")),
         ResultKind(kind="bn-sensitivity", title="Probability sensitivity", render=_render_sensitivity,
                    analysis="bn_sensitivity", run=_run_sensitivity, definition=_def_sensitivity,
                    claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})], subtitle=_subtitle_target),

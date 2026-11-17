@@ -102,10 +102,7 @@ def fingerprint(
             if f != scenario_file:
                 h.update(f.name.encode() + b"\n" + f.read_bytes())
     if scenarios:
-        from latris.operations import sd_scenarios
-
-        defs = {s.name: s.model_dump(mode="json") for s in sd_scenarios.load(paths).scenarios}
-        h.update(json.dumps({n: defs.get(n) for n in sorted(scenarios)}, sort_keys=True).encode())
+        h.update(json.dumps(_scenario_defs(model_type, scenarios, paths), sort_keys=True).encode())
     if uncertainty:
         # Only this model type's ranges (cells "sd:..." / "bn:..."), so a BN range doesn't age an SD run.
         from latris.operations import uncertainty as unc
@@ -114,6 +111,30 @@ def fingerprint(
                if (e.parameter_cell_id or "").startswith(f"{model_type}:")]
         h.update(json.dumps(own, sort_keys=True).encode())
     return h.hexdigest()[:16]
+
+
+def _scenario_defs(model_type: str, names: list[str], paths: ProjectPaths) -> dict[str, Any]:
+    """Each named scenario's definition with every scenario it extends, so a change to a parent ages the
+    results of the scenarios built on it. A name no longer saved hashes as None (the result goes stale)."""
+    if model_type == "bn":
+        from latris.operations import bn_scenarios as store
+    else:
+        from latris.operations import sd_scenarios as store
+    def dump(s: Any) -> dict[str, Any]:
+        # Without ``extends`` a scenario dumps exactly as before the field existed, so results recorded
+        # earlier keep their fingerprint.
+        return s.model_dump(mode="json", exclude={"extends"} if s.extends is None else None)
+
+    saved = store.load(paths).scenarios
+    out: dict[str, Any] = {}
+    for n in sorted(names):
+        try:
+            links = store.chain(n, saved)
+        except ValueError:
+            out[n] = None
+            continue
+        out[n] = dump(links[0]) if len(links) == 1 else [dump(s) for s in links]
+    return out
 
 
 def _fingerprint_inputs(run: AnalysisRun) -> dict[str, Any]:
