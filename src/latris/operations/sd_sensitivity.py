@@ -139,6 +139,9 @@ def tornado(
             "low": _r(lo),
             "high": _r(hi),
             "range_source": range_source,
+            # "uncertainty": swung across its stated range; "pct": an arbitrary ±pct% — the two aren't
+            # comparable, so rankings and claims keep them apart.
+            "range_kind": "uncertainty" if spec is not None else "pct",
             "origin": prov.get("origin", "human-direct"),
             "verification": verification,
             "source_id": prov.get("source_id"),
@@ -150,16 +153,23 @@ def tornado(
         if error is not None:
             row.update({"error": error, "swing": None})
         else:
+            swing = abs(outcome["high"] - outcome["low"])
             row.update(
                 {
                     "result_low": _r(outcome["low"]),
                     "result_high": _r(outcome["high"]),
-                    "swing": _r(abs(outcome["high"] - outcome["low"])),
+                    "swing": _r(swing),
+                    # No effect in this run (e.g. an option switched off): nothing to be weakly grounded about.
+                    "inactive": swing == 0,
                 }
             )
+            if swing == 0:
+                row["weak"] = False
         rows.append(row)
 
-    rows.sort(key=lambda r: -(r["swing"] if r["swing"] is not None else -1.0))
+    # Values with a stated range first, then the ±pct ones; inactive and failed values last.
+    rows.sort(key=lambda r: (r.get("inactive", False) or r["swing"] is None, r["range_kind"] != "uncertainty",
+                             -(r["swing"] or 0.0)))
     return {
         "variable": vid,
         "label": base.labels[vid],

@@ -131,11 +131,23 @@ def _sensitivity(p: dict[str, Any], out: dict[str, list[str]]) -> None:
     rows = [r for r in p["parameters"] if r.get("swing")]
     if not rows:
         return
-    top = rows[:3]
-    listed = ", ".join(f"{r['label']} (moves it by {_f(r['swing'])} {p['units']})" for r in top)
     on = f" on scenario {p['scenario']}" if p.get("scenario") else ""
-    out["sensitivity"].append(f"{p['label']}'s {p['metric_label']}{on} is most sensitive to {listed}.")
-    for r in top:
+    ranged = [r for r in rows if r.get("range_kind", "uncertainty") == "uncertainty"]
+    nudged = [r for r in rows if r.get("range_kind") == "pct"]
+    top = ranged[:3]
+    if top:
+        listed = ", ".join(f"{r['label']} (moves it by {_f(r['swing'])} {p['units']})" for r in top)
+        out["sensitivity"].append(
+            f"Across their stated uncertainty ranges, {p['label']}'s {p['metric_label']}{on} is most sensitive to "
+            f"{listed}."
+        )
+    if nudged:
+        listed = ", ".join(f"{r['label']} ({_f(r['swing'])} {p['units']})" for r in nudged[:3])
+        out["sensitivity"].append(
+            f"Values with no stated range, each moved ±{p['pct']:g}% (a probe, not their real uncertainty): "
+            f"{listed}."
+        )
+    for r in top + nudged[:2]:
         if r.get("weak"):
             out["open_questions"].append(
                 f"{r['label']} strongly affects {p['label']} but its value is {_who(r.get('origin'))} and not yet "
