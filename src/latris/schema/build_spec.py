@@ -200,6 +200,7 @@ class SpecScenario(_Spec):
 
     name: str
     set: list[str] = Field(min_length=1)
+    extends: str | None = None  # another scenario this one builds on (its values apply first)
     description: str = ""
     reason: str = ""
     origin: ProvenanceOrigin | None = None
@@ -592,7 +593,8 @@ class SpecAnalysis(_Spec):
     """An analysis to run (and record, so the report shows it) once the model is built.
 
     kind: simulate (scenarios, set) | monte_carlo (runs, seed, sampling, variables, scenario)
-    | compare (options under uncertainty, on the same draws: scenarios, variable, metric, runs, seed, sampling)
+    | compare (options under uncertainty, on the same draws: scenarios, variable, metric, runs, seed, sampling,
+      reference — 'baseline' or a compared scenario every option is measured against)
     | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
     | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
     | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed)
@@ -632,6 +634,7 @@ class SpecAnalysis(_Spec):
     variables: list[str] = Field(default_factory=list)
     variable: str | None = None
     metric: str | None = None
+    reference: str | None = None  # compare: the arm every option is measured against
     pct: float | None = None
     start: float | None = None
     end: float | None = None

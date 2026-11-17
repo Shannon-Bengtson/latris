@@ -52,12 +52,50 @@ def list_scenarios(*, root: Path | None = None) -> list[SDScenario]:
     return load(require_project(root)).scenarios
 
 
-def get(name: str, paths: ProjectPaths) -> SDScenario:
-    for s in load(paths).scenarios:
+def _find(name: str, scenarios: list[SDScenario]) -> SDScenario:
+    for s in scenarios:
         if s.name.lower() == name.strip().lower():
             return s
-    known = ", ".join(s.name for s in load(paths).scenarios) or "(none yet)"
+    if name.strip().lower() == BASELINE:
+        raise ValueError("'baseline' is the unchanged model, not a saved scenario")
+    known = ", ".join(s.name for s in scenarios) or "(none yet)"
     raise ValueError(f"no scenario named {name!r}; saved scenarios: {known}")
+
+
+def chain(name: str, scenarios: list[SDScenario]) -> list[SDScenario]:
+    """The scenario and the ones it extends, root first. Refuses a cycle."""
+    out: list[SDScenario] = []
+    seen: set[str] = set()
+    current: str | None = name
+    while current is not None:
+        s = _find(current, scenarios)
+        if s.name.lower() in seen:
+            path = " → ".join([x.name for x in reversed(out)] + [s.name])
+            raise ValueError(f"scenario {name!r} extends itself in a loop ({path})")
+        seen.add(s.name.lower())
+        out.append(s)
+        current = s.extends
+    return list(reversed(out))
+
+
+def effective_overrides(chain_: list[SDScenario]) -> list[SDOverride]:
+    """Overrides of a scenario chain (root first), a later value replacing an earlier one."""
+    merged: dict[tuple[str, str], SDOverride] = {}
+    for s in chain_:
+        for o in s.overrides:
+            merged[(o.target_id, o.attribute)] = o
+    return list(merged.values())
+
+
+def get(name: str, paths: ProjectPaths) -> SDScenario:
+    """A saved scenario ready to run: if it extends another, its ``overrides`` are the merged set
+    (the parent's values first, its own on top). ``extends`` is kept so comparisons can find the parent."""
+    scenarios = load(paths).scenarios
+    links = chain(name, scenarios)
+    s = links[-1]
+    if len(links) == 1:
+        return s
+    return s.model_copy(update={"overrides": effective_overrides(links)})
 
 
 # ── overrides ────────────────────────────────────────────────────────
@@ -137,12 +175,17 @@ def set_scenario(
     assignments: list[str],
     *,
     description: str = "",
+    extends: str | None = None,
     reason: str = "",
     origin: ProvenanceOrigin = "human-direct",
     source_id: str | None = None,
     root: Path | None = None,
 ) -> tuple[SDScenario, str]:
-    """Create or replace a named scenario from ``Variable=value [units]`` assignments."""
+    """Create or replace a named scenario from ``Variable=value [units]`` assignments.
+
+    With ``extends``, the scenario builds on another saved one: the parent's values apply first and
+    these assignments on top, and comparisons measure it against the parent when both are compared.
+    """
     paths = require_project(root)
     if not assignments:
         raise ValueError("a scenario needs at least one change, e.g. --set 'Tax Rate=0.2'")
@@ -150,12 +193,18 @@ def set_scenario(
     for a in assignments:
         o = parse_assignment(a, paths)
         overrides[(o.target_id, o.attribute)] = o
+    store = load(paths)
+    parent: str | None = None
+    if extends and extends.strip():
+        parent = _find(extends, store.scenarios).name  # canonical spelling; refuses an unknown name
     scenario = SDScenario(
-        name=name, description=description, overrides=list(overrides.values()), reason=reason,
+        name=name, description=description, extends=parent, overrides=list(overrides.values()), reason=reason,
         origin=origin, source_id=source_id,
     )
-    store = load(paths)
+    if parent is not None and parent.lower() == scenario.name.lower():
+        raise ValueError(f"scenario {scenario.name!r} can't extend itself")
     store.scenarios = [s for s in store.scenarios if s.name.lower() != scenario.name.lower()] + [scenario]
+    chain(scenario.name, store.scenarios)  # refuses a loop (A extends B extends A)
     p = path(paths)
     p.parent.mkdir(parents=True, exist_ok=True)
     dump_model(store, p)
@@ -163,7 +212,8 @@ def set_scenario(
     sha = auto_commit(
         paths.root,
         subject=f"Set SD scenario {scenario.name}",
-        body=f"changes: {changes}\norigin: {origin}\nsource_id: {source_id}\nreason: {reason}",
+        body=(f"changes: {changes}\n" + (f"extends: {parent}\n" if parent else "")
+              + f"origin: {origin}\nsource_id: {source_id}\nreason: {reason}"),
         paths=[p],
     )
     return scenario, sha
@@ -171,8 +221,14 @@ def set_scenario(
 
 def remove_scenario(name: str, *, root: Path | None = None) -> str:
     paths = require_project(root)
-    scenario = get(name, paths)
     store = load(paths)
+    scenario = _find(name, store.scenarios)
+    children = [s.name for s in store.scenarios if (s.extends or "").lower() == scenario.name.lower()]
+    if children:
+        raise ValueError(
+            f"{', '.join(children)} extend{'s' if len(children) == 1 else ''} {scenario.name!r}; "
+            "remove or re-save those first"
+        )
     store.scenarios = [s for s in store.scenarios if s.name != scenario.name]
     p = path(paths)
     dump_model(store, p)

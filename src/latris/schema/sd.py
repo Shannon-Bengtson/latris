@@ -165,10 +165,17 @@ class SDScenario(_Base):
 
     Saved with the model (``views/parameters/sd-scenarios.yaml``) so a report
     can say exactly what each scenario changed, who proposed it and why.
+
+    ``extends`` names another scenario this one builds on: its overrides apply
+    first and this scenario's own ``overrides`` on top (e.g. "Programme delayed
+    1 year" extends "Programme" and changes only the start year). A comparison
+    measures a scenario against the one it extends when both are compared, so
+    "the cost of waiting" is delayed-vs-undelayed, not delayed-vs-do-nothing.
     """
 
     name: str
     description: str = ""
+    extends: str | None = None
     overrides: list[SDOverride] = Field(default_factory=list)
     reason: str = ""
     origin: ProvenanceOrigin = "human-direct"

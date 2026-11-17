@@ -53,7 +53,7 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
         payload = sd_ops.run_compare(
             a.scenarios, a.variable, metric=a.metric or "final", runs=a.runs or 200,
             seed=a.seed if a.seed is not None else 1234, sampling=a.sampling or "lhs", settings=s,
-            apply_to_all=a.apply_to_all or None, root=paths.root,
+            apply_to_all=a.apply_to_all or None, reference=a.reference, root=paths.root,
         )
         return sd_ops.record_compare(payload, root=paths.root)[1]
     if a.kind == "sensitivity":
@@ -108,6 +108,7 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
             out.append(SpecAnalysis(
                 kind="compare", settings=s, scenarios=p["scenarios"], variable=p["label"], metric=metric,
                 runs=p["runs"], seed=p["seed"], sampling=p["sampling"], apply_to_all=p.get("world") or [],
+                reference=p.get("reference"),
             ))
         elif kind == "sd-sensitivity":
             metric = p["metric"] if p.get("at") is None else f"at:{p['at']:g}"

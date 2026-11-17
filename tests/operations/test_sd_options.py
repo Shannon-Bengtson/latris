@@ -70,7 +70,8 @@ def test_recorded_comparison_reaches_report_and_claims(options_root):
     assert "### Options compared under uncertainty: Water, final value" in lines
     claims = extract_claims("answer_to_question", "sd", root=options_root)
     assert any(c.startswith("Options compared on Water") for c in claims)
-    assert any("More inflow:" in c and "higher than the baseline" in c for c in claims)
+    assert any("More inflow — Water, final value:" in c and "higher in the median draw" in c
+               and "vs the baseline (no scenario changes)" in c for c in claims)
 
 
 def test_comparison_replays_from_its_definition(options_root):
@@ -102,3 +103,115 @@ def test_a_world_is_named_in_the_heading_and_kept_apart(options_root):
     headings = [h for h in render_results(ProjectPaths(options_root)) if h.startswith("### Simulation")]
     assert len(headings) == 2
     assert any("in every run: Inflow Rate=20" in h for h in headings)
+
+
+# ── references: what each option is measured against ────────────────
+
+
+def _delayed(root: Path) -> None:
+    from latris.operations import sd_scenarios
+
+    sd_scenarios.set_scenario("More inflow later", ["Water=40"], extends="More inflow", root=root)
+
+
+def test_an_option_extending_a_compared_option_is_measured_against_it(options_root):
+    _delayed(options_root)
+    p = sd_ops.run_compare(["More inflow", "More inflow later"], "Water", runs=40,
+                           settings={"final_time": 20}, root=options_root)
+    by = {r["name"]: r for r in p["options"]}
+    later = by["More inflow later"]
+    assert later["extends"] == "More inflow"
+    assert later["reference"] == "More inflow"
+    assert later["difference"]["share_lower"] == 1.0  # less water to start than the undelayed option
+    assert "vs_baseline" in later  # the do-nothing comparison stays available, labelled
+    assert by["More inflow"]["reference"] == "baseline"
+    assert p["warnings"] == []
+
+
+def test_an_extending_scenario_inherits_its_parents_values(options_root):
+    from latris.operations import sd_scenarios
+    from latris.repo.project import require_project
+
+    _delayed(options_root)
+    merged = sd_scenarios.get("More inflow later", require_project(options_root))
+    assert {o.attribute for o in merged.overrides} == {"constant", "initial_value"}
+    stored = next(s for s in sd_scenarios.list_scenarios(root=options_root) if s.name == "More inflow later")
+    assert len(stored.overrides) == 1  # only its own change is stored
+
+
+def test_extending_without_the_parent_warns(options_root):
+    _delayed(options_root)
+    p = sd_ops.run_compare(["More inflow later"], "Water", runs=20, settings={"final_time": 20}, root=options_root)
+    (row,) = [r for r in p["options"] if r["name"] == "More inflow later"]
+    assert row["reference"] == "baseline"
+    assert any("isn't in this comparison" in w for w in p["warnings"])
+
+
+def test_a_delay_sounding_option_against_the_baseline_warns(options_root):
+    from latris.operations import sd_scenarios
+
+    sd_scenarios.set_scenario("Inflow delayed", ["Inflow Rate=8"], root=options_root)
+    p = sd_ops.run_compare(["Inflow delayed"], "Water", runs=20, settings={"final_time": 20}, root=options_root)
+    assert any("cost of waiting" in w for w in p["warnings"])
+
+
+def test_an_explicit_reference_applies_to_every_option(options_root):
+    p = _run(options_root, reference="more INFLOW")
+    by = {r["name"]: r for r in p["options"]}
+    assert p["reference"] == "More inflow"
+    assert by["baseline"]["reference"] == "More inflow"
+    assert by["Faster drain"]["reference"] == "More inflow"
+    assert "difference" not in by["More inflow"]
+    with pytest.raises(ValueError, match="must be 'baseline' or one of the compared"):
+        _run(options_root, reference="Nope")
+
+
+def test_claims_name_the_metric_reference_and_world(options_root):
+    from latris.operations.sd_montecarlo import describe_option
+
+    p = sd_ops.run_compare(["More inflow"], "Water", runs=20, settings={"final_time": 20},
+                           apply_to_all=["Drain Rate=0.1"], root=options_root)
+    row = next(r for r in p["options"] if r["name"] == "More inflow")
+    text = describe_option(p, row)
+    assert "Water, final value:" in text
+    assert "vs the baseline (no scenario changes)" in text
+    assert "[in every run: Drain Rate=0.1" in text
+    base = next(r for r in p["options"] if r["name"] == "baseline")
+    assert describe_option(p, base).startswith("Baseline (no scenario changes) — Water")
+
+
+def test_scenario_loops_and_orphans_are_refused(options_root):
+    from latris.operations import sd_scenarios
+
+    with pytest.raises(ValueError, match="no scenario named"):
+        sd_scenarios.set_scenario("X", ["Inflow Rate=3"], extends="Missing", root=options_root)
+    _delayed(options_root)
+    with pytest.raises(ValueError, match="in a loop"):
+        sd_scenarios.set_scenario("More inflow", ["Inflow Rate=8"], extends="More inflow later", root=options_root)
+    with pytest.raises(ValueError, match="extends 'More inflow'"):
+        sd_scenarios.remove_scenario("More inflow", root=options_root)
+
+
+def test_extends_and_reference_survive_a_spec_round_trip(options_root):
+    from latris.operations.build import build_from_spec
+    from latris.operations.init import init_project
+    from latris.operations.share_link import export_spec
+
+    _delayed(options_root)
+    sd_ops.record_compare(sd_ops.run_compare(["More inflow", "More inflow later"], "Water", runs=20,
+                                             settings={"final_time": 20}, reference="baseline", root=options_root),
+                          root=options_root)
+    _, spec = export_spec(model_type="sd", root=options_root)
+    by = {s.name: s for s in spec.sd.scenarios}
+    assert by["More inflow later"].extends == "More inflow"
+    (cmp,) = [a for a in spec.analyses if a.kind == "compare"]
+    assert cmp.reference == "baseline"
+    # the child listed before its parent still builds (parents are applied first)
+    spec.sd.scenarios.sort(key=lambda s: s.name != "More inflow later")
+    other = options_root.parent / "rebuilt"
+    init_project(other, statement="Q?")
+    build_from_spec(spec, root=other)
+    from latris.operations import sd_scenarios
+
+    rebuilt = {s.name: s for s in sd_scenarios.list_scenarios(root=other)}
+    assert rebuilt["More inflow later"].extends == "More inflow"

@@ -108,23 +108,29 @@ def _monte_carlo(p: dict[str, Any], out: dict[str, list[str]]) -> None:
 
 
 def _options(p: dict[str, Any], out: dict[str, list[str]]) -> None:
-    from latris.operations.sd_montecarlo import describe_option
+    from latris.operations.sd_montecarlo import arm_label, describe_option
 
+    world = f"; in every run: {'; '.join(p['world'])}" if p.get("world") else ""
     intro = (f"Options compared on {p['label']} ({p['metric_label']}), {p['succeeded']} paired draws of the "
-             f"uncertain values")
+             f"uncertain values{world}. Each difference is measured against the arm named after 'vs'")
     out["answer_to_question"].append(intro + ":")
     for r in p["options"]:
         claim = "  - " + describe_option(p, r)
         out["answer_to_question"].append(claim)
-    for r in p["options"][1:]:
-        d = r["difference"]
+    for r in p["options"]:
+        d = r.get("difference")
+        if not d:
+            continue
+        ref = arm_label(r.get("reference", "baseline"))
         if 0.1 < d["share_lower"] < 0.9:
             out["confidence_assessment"].append(
-                f"Whether {r['name']} lowers {p['label']} is uncertain: lower in {d['share_lower']:.0%} of draws, "
-                f"higher in {d['share_higher']:.0%}."
+                f"Whether {r['name']} gives a lower {p['label']} ({p['metric_label']}) than {ref} is uncertain: "
+                f"lower in {d['share_lower']:.0%} of draws, higher in {d['share_higher']:.0%}{world}."
             )
         else:
             out["implications"].append(describe_option(p, r) + ".")
+    for w in p.get("warnings", []):
+        out["open_questions"].append(w)
 
 
 def _sensitivity(p: dict[str, Any], out: dict[str, list[str]]) -> None:

@@ -46,6 +46,24 @@ The app should translate Git mechanics into modelling language:
 | Revert | Undo |
 | Pull/push | Sync with shared project location |
 
+### Versions are not scenarios
+
+A branch (alternative version) holds a different **structure or theory**: other
+links, equations or framings. Options to compare (a policy, a delayed start, a
+high-load world) are **scenarios**: value overlays saved in one version
+(`views/parameters/sd-scenarios.yaml`), compared in one run on the same
+sampled draws so their differences are paired. Putting options on branches
+would break the pairing, force every model fix to be merged into each option,
+and multiply branches (options × delays × worlds). Rule of thumb: change a
+value → scenario; change the structure → version. A scenario can `extend`
+another (a delayed option extends the undelayed one), and a comparison names
+the reference each option is measured against.
+
+Comparing versions means re-running the same analysis definitions on each
+branch (results are recomputed from definitions, never copied) alongside the
+semantic diff; a report renders one version at a pinned commit and includes
+other versions only explicitly, each claim naming its version.
+
 When Git errors occur, the product should explain the modelling consequence
 first ("this project could not save a versioned change") and only then
 show the underlying Git detail for users who can act on it.
