@@ -181,6 +181,12 @@ def analyse(
         if m and m["unverified_scores"]:
             console.print(f"[yellow]The margin rests on unverified scores:[/yellow] "
                           f"{escape(', '.join(m['unverified_scores']))}")
+        if payload["flat"]:
+            console.print("[yellow]Every option scores the same on:[/yellow] "
+                          f"{escape(', '.join(payload['flat']))} — it can't separate them.")
+        if payload["outside"]:
+            console.print("[yellow]Scores outside the stated scale (clamped to its end):[/yellow] "
+                          f"{escape(', '.join(payload['outside']))}")
         if any(w["local_scale"] for w in payload["weights"]):
             console.print("[dim]Some criteria use the options' own range as their scale; adding an option shifts it "
                           "and the weights would need revisiting (set --worst/--best).[/dim]")

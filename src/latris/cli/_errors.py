@@ -7,6 +7,7 @@ from functools import wraps
 from typing import TypeVar
 
 import typer
+from pydantic import ValidationError
 from rich.console import Console
 
 from latris.ai.adapters.base import LLMCallError
@@ -29,6 +30,38 @@ def _fail(label: str, exc: Exception, code: int) -> typer.Exit:
     else:
         console.print(f"[red]{label}:[/red] {exc}")
     return typer.Exit(code=code)
+
+
+def _validation_message(exc: ValidationError) -> str:
+    """One clean line per pydantic error — field, what went wrong, what was given — without pydantic's
+    internals or its documentation URLs."""
+    parts = []
+    for err in exc.errors():
+        loc = ". ".join(str(x) for x in err["loc"])
+        msg = err["msg"]
+        if msg.startswith("Value error, "):
+            msg = msg[len("Value error, "):]
+        msg = msg[0].lower() + msg[1:] if msg else msg
+        if err["type"] == "extra_forbidden":
+            msg = "not a known field"
+        elif err["type"] == "missing":
+            msg = "required"
+        detail = f"{loc}: {msg}" if loc else msg
+        given = err.get("input")
+        if err["type"] != "missing" and isinstance(given, (str, int, float)) and len(str(given)) <= 40:
+            detail += f" (got {given!r})"
+        parts.append(detail)
+    return "; ".join(parts) if parts else str(exc)
+
+
+class FriendlyValidationError:
+    """Wrapper so ``str()`` of a pydantic error reads like a user-facing message."""
+
+    def __init__(self, exc: ValidationError):
+        self._exc = exc
+
+    def __str__(self) -> str:
+        return _validation_message(self._exc)
 
 
 def handle_cli_errors(fn: F) -> F:
@@ -56,6 +89,8 @@ def handle_cli_errors(fn: F) -> F:
             # provider exception (which may contain the key in a URL) doesn't
             # get printed by rich.
             raise _fail("AI call failed", exc, 1) from None
+        except ValidationError as exc:
+            raise _fail("error", FriendlyValidationError(exc), 2) from None
         except ValueError as exc:
             raise _fail("error", exc, 2) from None
 
