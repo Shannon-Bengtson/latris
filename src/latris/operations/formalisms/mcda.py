@@ -19,9 +19,17 @@ def _reversal_lines(p: dict[str, Any]) -> list[str]:
     for r in p["rank_reversal"]:
         moves = []
         if r["down"]:
-            moves.append(f"falls to {r['down']['weight']:.0%} ({r['down']['option']} first)")
+            if r["down"].get("tie"):
+                moves.append(f"ties with {r['down']['option']} at {r['down']['weight']:.0%} (the top choice holds "
+                             "to the limit)")
+            else:
+                moves.append(f"falls to {r['down']['weight']:.0%} ({r['down']['option']} first)")
         if r["up"]:
-            moves.append(f"rises to {r['up']['weight']:.0%} ({r['up']['option']} first)")
+            if r["up"].get("tie"):
+                moves.append(f"ties with {r['up']['option']} at {r['up']['weight']:.0%} (the top choice holds "
+                             "to the limit)")
+            else:
+                moves.append(f"rises to {r['up']['weight']:.0%} ({r['up']['option']} first)")
         out.append(f"{r['criterion']} (weight {r['weight']:.0%}): "
                    + (" or ".join(moves) if moves else "no weight from 0 to 100% changes the top choice"))
     return out
@@ -52,6 +60,11 @@ def _render(p: dict[str, Any]) -> list[str]:
     if p["margin"] and p["margin"]["unverified_scores"]:
         out += [f"The margin of {p['margin']['first']} over {p['margin']['second']} rests on scores nobody has "
                 f"verified: {', '.join(p['margin']['unverified_scores'])}.", ""]
+    if p["flat"]:
+        out += ["Every option scores the same on " + ", ".join(p["flat"]) + ", so it can't separate them.", ""]
+    if p["outside"]:
+        out += ["Scores outside the stated scale, clamped to its end: " + ", ".join(p["outside"]) + ". "
+                "Check the score or widen the scale.", ""]
     if any(w["local_scale"] for w in p["weights"]):
         out += ["Scales taken from the options' own range change when an option is added or removed, and the "
                 "weights then need revisiting.", ""]
@@ -85,7 +98,10 @@ def _claims(paths, section: str) -> list[str]:
             weak = ", ".join(p["margin"]["unverified_scores"])
             claims.append(f"The winning margin rests on unverified scores: {weak}.")
     elif section == "implications":
-        if near and near["gap"] < 0.1:
+        if near and near.get("tie"):
+            claims.append(f"{near['option']} only draws level if the weight on {near['criterion']} reaches "
+                          f"{near['to']:.0%} — the choice holds across the whole range.")
+        elif near and near["gap"] < 0.1:
             claims.append(f"The choice is fragile: a {near['gap']:.0%} shift in the weight on {near['criterion']} "
                           f"puts {near['option']} first — agree that weight before deciding.")
         elif near:
@@ -108,6 +124,8 @@ def _claims(paths, section: str) -> list[str]:
         if p["flat"]:
             claims.append(f"Criteria on which every option scores the same (they can't separate them): "
                           f"{', '.join(p['flat'])}.")
+        if p["outside"]:
+            claims.append(f"Scores outside the stated scale, clamped to its end: {', '.join(p['outside'])}.")
     return claims
 
 

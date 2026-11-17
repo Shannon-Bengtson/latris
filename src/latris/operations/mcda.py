@@ -242,6 +242,8 @@ def values(scores: dict[tuple[str, str], float], options: list[str], criteria: l
             if raw < 0 or raw > 1:
                 notes.append(f"outside:{o}:{c}")
             v[(o, c)] = min(1.0, max(0.0, raw))
+        if len({v[(o, c)] for o in options}) == 1:  # identical scores (or clamped identical): can't separate
+            notes.append(f"flat:{c}")
     return v, used, notes
 
 
@@ -276,8 +278,11 @@ def rank_reversal(v: dict[tuple[str, str], float], options: list[str], criteria:
                 up = (t, a)
             if slope < 0 and t < t0 and (down is None or t > down[0]):
                 down = (t, a)
-        out[i] = {"weight": t0, "up": {"weight": up[0], "option": up[1]} if up else None,
-                  "down": {"weight": down[0], "option": down[1]} if down else None}
+        # A crossing exactly at 0% or 100% is a tie at the limit: the top choice never changes within the
+        # valid range, so report it as a tie, not as a different option coming first.
+        out[i] = {"weight": t0,
+                  "up": {"weight": up[0], "option": up[1], "tie": up[0] >= 1 - 1e-9} if up else None,
+                  "down": {"weight": down[0], "option": down[1], "tie": down[0] <= 1e-9} if down else None}
     return out
 
 
@@ -332,8 +337,10 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
                   "scores": {lab[c]: x[(o, c)] for c in m.criteria}} for o in order],
         dominated=dominated,
         rank_reversal=[{"criterion": lab[c], "weight": r["weight"],
-                        "up": {"weight": r["up"]["weight"], "option": lab[r["up"]["option"]]} if r["up"] else None,
-                        "down": {"weight": r["down"]["weight"], "option": lab[r["down"]["option"]]}
+                        "up": {"weight": r["up"]["weight"], "option": lab[r["up"]["option"]],
+                               "tie": r["up"].get("tie", False)} if r["up"] else None,
+                        "down": {"weight": r["down"]["weight"], "option": lab[r["down"]["option"]],
+                                 "tie": r["down"].get("tie", False)}
                         if r["down"] else None} for c, r in rr.items()],
         margin=margin,
         flat=[lab[n.split(":")[1]] for n in notes if n.startswith("flat:")],
@@ -344,7 +351,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
 
 
 def closest_reversal(payload: dict[str, Any]) -> dict[str, Any] | None:
-    """The smallest weight change, over all criteria, that changes the top option."""
+    """The smallest weight change, over all criteria, that changes the top option (or ties at the limit)."""
     best = None
     for r in payload.get("rank_reversal", []):
         for side in ("up", "down"):
@@ -352,7 +359,7 @@ def closest_reversal(payload: dict[str, Any]) -> dict[str, Any] | None:
                 gap = abs(r[side]["weight"] - r["weight"])
                 if best is None or gap < best["gap"]:
                     best = {"criterion": r["criterion"], "from": r["weight"], "to": r[side]["weight"],
-                            "option": r[side]["option"], "gap": gap}
+                            "option": r[side]["option"], "gap": gap, "tie": r[side].get("tie", False)}
     return best
 
 
@@ -364,7 +371,10 @@ def describe(p: dict[str, Any]) -> str:
     if len(r) > 1:
         parts.append(f"{r[1]['option']} second ({r[1]['total']:.0f})")
     near = closest_reversal(p)
-    if near:
+    if near and near["tie"]:
+        parts.append(f"{near['option']} only draws level if the weight on {near['criterion']} reaches "
+                     f"{near['to']:.0%}")
+    elif near:
         parts.append(f"the top choice changes if the weight on {near['criterion']} moves from "
                      f"{near['from']:.0%} to {near['to']:.0%} ({near['option']} first)")
     else:
@@ -393,4 +403,3 @@ def record(payload: dict[str, Any], *, root: Path | None = None) -> tuple[str, s
         root=root,
     )
     return sha, run.id
-

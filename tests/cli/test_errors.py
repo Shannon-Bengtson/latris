@@ -65,6 +65,53 @@ def test_value_error_exits_2():
     assert exc_info.value.exit_code == 2
 
 
+def test_pydantic_validation_error_is_friendly(capsys):
+    """A pydantic error reads as 'field: what went wrong (got x)' — no pydantic internals or URLs."""
+    from typing import Literal
+
+    from pydantic import BaseModel, Field, ValidationError
+
+    class M(BaseModel):
+        direction: Literal["higher", "lower"]
+        weight: float = Field(gt=0)
+
+    try:
+        M(direction="minimise", weight=0)
+    except ValidationError as exc:
+        raised = exc
+
+    with pytest.raises(typer.Exit) as exc_info:
+        _make_raiser(raised)()
+    assert exc_info.value.exit_code == 2
+    out = capsys.readouterr().out
+    assert "pydantic" not in out and "http" not in out
+    assert "direction" in out and "'higher' or 'lower'" in out and "'minimise'" in out
+    assert "weight" in out and "greater than 0" in out
+
+
+def test_pydantic_value_error_prefix_stripped(capsys):
+    """Custom validators' messages lose pydantic's 'Value error, ' prefix."""
+    from pydantic import BaseModel, ValidationError, field_validator
+
+    class M(BaseModel):
+        k: int | None = None
+
+        @field_validator("k")
+        @classmethod
+        def needs_k(cls, v):
+            raise ValueError("a vote gate needs k")
+
+    try:
+        M(k=1)
+    except ValidationError as exc:
+        raised = exc
+
+    with pytest.raises(typer.Exit):
+        _make_raiser(raised)()
+    out = capsys.readouterr().out
+    assert "Value error," not in out and "a vote gate needs k" in out
+
+
 def test_unhandled_exception_propagates():
     """Exceptions not listed in the decorator should propagate normally."""
     with pytest.raises(RuntimeError, match="unexpected"):

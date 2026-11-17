@@ -129,7 +129,7 @@ def _problems(root: Path) -> list:
 def _check(block, known, outcome: str | None) -> list[str]:
     from latris.operations.build import split_link
 
-    problems = [f"dt node: no factor named {x.node!r}" for x in block.nodes if not known(x.node)]
+    problems = [f"dt node: no factor named {x.node!r}" for x in block.elements if not known(x.node)]
     problems += [f"dt payoff: no factor named {x.node!r}" for x in block.payoffs if not known(x.node)]
     problems += [f"dt uncertainty: no factor named {x.node!r}" for x in block.uncertainties if not known(x.node)]
     for b in block.branches:
@@ -148,11 +148,11 @@ def _apply(block, verified_by: str, root: Path) -> int:
     if block.objective or block.units:
         dt.set_settings(objective=block.objective, units=block.units, root=root)
         n += 1
-    for x in block.nodes:
+    for x in block.elements:
         dt.set_element(x.node, x.type, root=root)
         n += 1
     for x in block.uncertainties:
-        dt.set_uncertainty(x.node, x.uncertainty, root=root)
+        dt.set_uncertainty(x.node, x.name, root=root)
         n += 1
     for b in block.branches:
         fields = {k: v for k, v in (("label", b.label), ("probability", b.probability), ("value", b.value),
@@ -187,10 +187,10 @@ def _export(paths, labels: dict[str, str]):
     payoffs = [SpecDTPayoff(node=labels[x.target_id], value=x.value, notes=x.notes, source=x.source_id,
                             origin=x.origin, verified=x.verification == "human-verified")
                for x in dt.get_payoffs(root=paths.root).entries if x.target_id in labels]
-    unc = [SpecDTUncertainty(node=labels[x.target_id], uncertainty=x.uncertainty)
+    unc = [SpecDTUncertainty(node=labels[x.target_id], name=x.uncertainty)
            for x in dt.get_chances(root=paths.root).entries if x.target_id in labels]
     s = dt.get_settings(root=paths.root)
-    return SpecDT(objective=s.objective, units=s.units, nodes=nodes, branches=branches, payoffs=payoffs,
+    return SpecDT(objective=s.objective, units=s.units, elements=nodes, branches=branches, payoffs=payoffs,
                   uncertainties=unc)
 
 
