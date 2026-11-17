@@ -10,10 +10,13 @@ Guarantees:
 
 from __future__ import annotations
 
+import copy
 import io
 import json
 import os
+import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import TypeVar
 
@@ -132,8 +135,38 @@ def load_model(cls: type[T], path: Path) -> T:
     Creates a fresh YAML parser per call to avoid thread-safety issues
     when uvicorn serves concurrent requests (ruamel.yaml's internal
     parser state is not safe to share across threads).
+
+    Parsing is the expensive part (the pure-Python parser; validation is
+    cheap), and one operation often reads the same file many times — a
+    report render reads the conceptual model dozens of times — so parsed
+    text is cached (see :func:`_parse`). Every call still validates a fresh
+    copy: callers own what they get back.
     """
-    return load_model_from_string(cls, path.read_text(encoding="utf-8"))
+    return cls.model_validate(_parse(path.read_text(encoding="utf-8")))
+
+
+# Parsed YAML keyed on the text itself, so a hit is exactly what parsing would
+# give — no reliance on file timestamps, which are too coarse to see two quick
+# writes. Reading a file is cheap; parsing it is what costs.
+_PARSE_CACHE_MAX = 128
+_parse_cache: OrderedDict[str, object] = OrderedDict()
+_parse_cache_lock = threading.Lock()
+
+
+def _parse(text: str) -> object:
+    """``text`` parsed (a deep copy, safe to mutate); ``{}`` for an empty document."""
+    with _parse_cache_lock:
+        if text in _parse_cache:
+            _parse_cache.move_to_end(text)
+            return copy.deepcopy(_parse_cache[text])
+    data = _make_yaml().load(text)
+    if data is None:
+        data = {}
+    with _parse_cache_lock:
+        _parse_cache[text] = data
+        while len(_parse_cache) > _PARSE_CACHE_MAX:
+            _parse_cache.popitem(last=False)
+    return copy.deepcopy(data)
 
 
 def load_model_from_string(cls: type[T], text: str) -> T:
@@ -142,11 +175,7 @@ def load_model_from_string(cls: type[T], text: str) -> T:
     Used by lineage operations to parse ``git show`` output without
     writing to a temp file.
     """
-    y = _make_yaml()
-    data = y.load(text)
-    if data is None:
-        data = {}
-    return cls.model_validate(data)
+    return cls.model_validate(_parse(text))
 
 
 def dump_jsonl_append(record: BaseModel, path: Path) -> None:

@@ -7,6 +7,7 @@ data, never on file paths.
 
 from __future__ import annotations
 
+import hashlib
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -306,14 +307,75 @@ def group_loop_mechanisms(loops: list[Loop]) -> list[list[Loop]]:
             i = parent[i]
         return i
 
-    node_sets = [set(loop.node_ids) for loop in loops]
-    for i in range(len(loops)):
-        for j in range(i + 1, len(loops)):
-            if loops[i].classification != loops[j].classification:
-                continue
-            a, b = node_sets[i], node_sets[j]
-            if len(a & b) >= 2 and len(a ^ b) <= 2:
-                parent[find(i)] = find(j)
+    def union(i: int, j: int) -> None:
+        parent[find(i)] = find(j)
+
+    # Pairs to merge, found without comparing every pair (loop counts run to
+    # thousands). Two sets with |a ^ b| <= 2 come down to their common part
+    # a & b by dropping r_a elements from a and r_b from b, r_a + r_b <= 2.
+    # So index every loop under each "core" left by dropping 0, 1 or 2 of its
+    # nodes; two loops pair exactly when they share a core of size >= 2 (that
+    # is the |a & b| >= 2 condition) with drop counts summing to <= 2.
+    # A core is indexed by an O(1) hash of its nodes (XOR and sum of per-node
+    # hashes, updated by subtraction); the real node set is built only for
+    # buckets holding more than one loop, so a hash collision can't merge.
+    node_sets = [frozenset(loop.node_ids) for loop in loops]
+    node_hash: dict[str, int] = {}
+
+    def h(node: str) -> int:
+        if node not in node_hash:
+            node_hash[node] = int.from_bytes(hashlib.blake2b(node.encode(), digest_size=8).digest(), "big")
+        return node_hash[node]
+
+    mask = (1 << 64) - 1
+    # key -> [(loop index, dropped nodes)]
+    buckets: dict[tuple[str, int, int, int], list[tuple[int, tuple[str, ...]]]] = defaultdict(list)
+    hashed: list[tuple[str, list[str], list[int], int, int]] = []
+    for idx, nodes in enumerate(node_sets):
+        cls = loops[idx].classification
+        members = sorted(nodes)
+        hs = [h(x) for x in members]
+        x_all, s_all, n = 0, 0, len(members)
+        for v in hs:
+            x_all ^= v
+            s_all = (s_all + v) & mask
+        hashed.append((cls, members, hs, x_all, s_all))
+        if n >= 2:
+            buckets[(cls, n, x_all, s_all)].append((idx, ()))
+        if n - 1 >= 2:
+            for i in range(n):
+                buckets[(cls, n - 1, x_all ^ hs[i], (s_all - hs[i]) & mask)].append((idx, (members[i],)))
+    # Dropping two nodes only ever pairs with a loop that *is* that core, so
+    # those keys are looked up, not stored.
+    for idx, (cls, members, hs, x_all, s_all) in enumerate(hashed):
+        n = len(members)
+        if n - 2 < 2:
+            continue
+        for i in range(n):
+            xi, si = x_all ^ hs[i], (s_all - hs[i]) & mask
+            for j in range(i + 1, n):
+                key = (cls, n - 2, xi ^ hs[j], (si - hs[j]) & mask)
+                if key in buckets:
+                    buckets[key].append((idx, (members[i], members[j])))
+
+    for entries in buckets.values():
+        if len(entries) < 2:
+            continue
+        # Split the bucket by its real core (almost always one), and by how
+        # many nodes each loop dropped to reach it.
+        by_core: dict[frozenset[str], tuple[list[int], list[int], list[int]]] = {}
+        for idx, dropped in entries:
+            by_core.setdefault(node_sets[idx].difference(dropped), ([], [], []))[len(dropped)].append(idx)
+        for whole, one, two in by_core.values():
+            if whole:
+                # A loop that is the whole core pairs with every loop here.
+                for idx in whole[1:] + one + two:
+                    union(whole[0], idx)
+            else:
+                # Each has one node beyond the core: one step apart. (Two loops
+                # that each dropped two nodes differ by four: not a pair.)
+                for idx in one[1:]:
+                    union(one[0], idx)
 
     groups: dict[int, list[Loop]] = defaultdict(list)
     for i, loop in enumerate(loops):
