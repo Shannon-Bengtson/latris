@@ -478,6 +478,9 @@ def simulate(
             "success": success, "message": base.message, "algorithm": base.algorithm,
             "time_units": base.time_units, "times": base.times[::step],
             "variables": variables(base), "scenarios": scenarios,
+            # The clock the run used — set it with `sd set-settings` (a seasonal cycle needs a short dt).
+            "clock": {k: base.settings.get(k) for k in ("time_units", "initial_time", "final_time", "dt",
+                                                         "integration_method")},
             "warnings": base.warnings, "run_id": recorded[1] if recorded else None,
         }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
     elif json_output:
