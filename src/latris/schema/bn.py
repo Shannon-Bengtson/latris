@@ -8,6 +8,7 @@ Stored (one file each, via the generic view-attribute path convention):
 
 - ``views/parameters/bn-state_space.yaml`` — :class:`StateSpaceSet`
 - ``views/parameters/bn-cpt.yaml``          — :class:`CPTSet`
+- ``views/parameters/bn-scenarios.yaml``    — :class:`BNScenarioSet` (named what-ifs)
 
 Each CPT row carries its own provenance (origin / verification / source), so a
 single elicited conditional distribution is independently attributable — and a
@@ -236,3 +237,78 @@ class SensitivityResult(_Base):
     baseline: float
     inference_runs: int
     findings: list[SensitivityFinding] = Field(default_factory=list)
+
+
+# ── scenarios (named what-ifs over the network) ──────────────────────
+#
+# Stored at ``views/parameters/bn-scenarios.yaml``. A scenario changes the
+# question or the tables without touching the model: observations that define
+# a situation ("a hot week"), factors SET to a state (do-operator), and
+# probability-table overrides ("with the barrier upgraded"). The model's own
+# tables stay as they are, so a what-if never needs a revert.
+
+
+class BNTableOverride(_Base):
+    """New probabilities for the rows of ``target_id``'s table that match ``parent_states``.
+
+    ``parent_states`` selects rows: every row whose parents are in those states
+    (a subset of the parents, or empty for every row — a root node's single row,
+    or the same distribution whatever the parents). ``p`` is in the node's state
+    order and must sum to 1.
+    """
+
+    target_id: str
+    parent_states: dict[str, str] = Field(default_factory=dict)
+    p: list[float]
+
+    @model_validator(mode="after")
+    def _check_probs(self) -> BNTableOverride:
+        if not self.p:
+            raise ValueError("a table override needs at least one probability")
+        if any(not (0.0 <= v <= 1.0) for v in self.p):
+            raise ValueError(f"probabilities must be in [0, 1], got {self.p!r}")
+        if abs(sum(self.p) - 1.0) > 1e-6:
+            raise ValueError(f"probabilities must sum to 1, got {sum(self.p):g} ({self.p!r})")
+        return self
+
+
+class BNScenario(_Base):
+    """A named what-if over the network: observations, interventions and table overrides.
+
+    ``extends`` names another scenario this one builds on (its changes apply
+    first, this one's on top), and comparisons measure a scenario against the
+    one it extends when both are compared — as for SD scenarios.
+    """
+
+    name: str
+    description: str = ""
+    extends: str | None = None
+    evidence: dict[str, str] = Field(default_factory=dict)
+    soft: dict[str, dict[str, float]] = Field(default_factory=dict)
+    likelihood: dict[str, dict[str, float]] = Field(default_factory=dict)
+    interventions: dict[str, str] = Field(default_factory=dict)
+    tables: list[BNTableOverride] = Field(default_factory=list)
+    reason: str = ""
+    origin: ProvenanceOrigin = "human-direct"
+    verification: ProvenanceVerification = "unverified"
+    source_id: str | None = None
+
+    @model_validator(mode="after")
+    def _check(self) -> BNScenario:
+        if not self.name.strip():
+            raise ValueError("a scenario needs a name")
+        if self.name.strip().lower() == "baseline":
+            raise ValueError("'baseline' is the unchanged network; give the scenario another name")
+        blocks = {"observed": set(self.evidence), "soft evidence": set(self.soft),
+                  "likelihood evidence": set(self.likelihood), "set": set(self.interventions)}
+        names = list(blocks)
+        for i, a in enumerate(names):
+            for b in names[i + 1:]:
+                both = blocks[a] & blocks[b]
+                if both:
+                    raise ValueError(f"{', '.join(sorted(both))}: both {a} and {b} in one scenario; give one")
+        return self
+
+
+class BNScenarioSet(_Base):
+    scenarios: list[BNScenario] = Field(default_factory=list)

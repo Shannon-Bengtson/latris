@@ -360,6 +360,9 @@ def query(
         None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1' (the observation favours yes 4:1)."),
     set_: list[str] | None = typer.Option(
         None, "--set", help="An intervention 'Node=state': SET it (what if we make it so?), not observe it."),
+    scenario: str | None = typer.Option(
+        None, "--scenario", "-S", help="Apply a saved BN scenario (its observations, settings and table "
+        "overrides); evidence given here about a factor replaces the scenario's."),
     record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
 ) -> None:
     """Compute posterior marginals given evidence (recorded, so reports can show the posteriors).
@@ -375,12 +378,14 @@ def query(
 
     ev = _evidence(evidence)
     result = bn_ops.infer(query=query_nodes or None, evidence=ev or None, soft=_dists(soft) or None,
-                          likelihood=_dists(likelihood) or None, interventions=_evidence(set_) or None)
+                          likelihood=_dists(likelihood) or None, interventions=_evidence(set_) or None,
+                          scenario=scenario)
     # result.evidence is keyed by resolved node ID, so labels resolve cleanly
     # in the header (the raw ``ev`` keys are user input — IDs, prefixes, or
     # labels — and wouldn't match the node-ID-keyed label map).
     recorded = bn_ops.record_query(result) if record and result.marginals else None
-    _print_marginals(result, header="Posterior marginals", evidence=result.evidence, recorded=recorded)
+    header = f"Posterior marginals — scenario {result.scenario}" if result.scenario else "Posterior marginals"
+    _print_marginals(result, header=header, evidence=result.evidence, recorded=recorded)
 
 
 def _evidence(items: list[str] | None) -> dict[str, str]:
@@ -542,6 +547,9 @@ def monte_carlo(
     runs: int = typer.Option(500, "--runs", "-n", help="Number of draws (2–2000)."),
     seed: int = typer.Option(1234, "--seed", help="Random seed; the same seed gives the same draws."),
     max_seconds: float = typer.Option(60.0, "--max-seconds", help="Stop early if the draws would take longer."),
+    scenario: str | None = typer.Option(
+        None, "--scenario", "-S", help="Apply a saved BN scenario; its overridden rows and set factors are held "
+        "at its values."),
     record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
 ) -> None:
     """How sure is this probability? Re-asks the query while sampling the uncertain tables.
@@ -555,7 +563,7 @@ def monte_carlo(
 
     out = bn_ops.run_monte_carlo(target, state=state, evidence=_evidence(evidence) or None, soft=_dists(soft) or None,
                                  likelihood=_dists(likelihood) or None, runs=runs, seed=seed,
-                                 max_seconds=max_seconds)
+                                 max_seconds=max_seconds, scenario=scenario)
     recorded = bn_ops.record_monte_carlo(out) if record else None
     if json_mode():
         emit({
@@ -566,7 +574,8 @@ def monte_carlo(
             "run_id": recorded[1] if recorded else None,
         }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
         return
-    console.print(f"[bold]{escape(describe(out))}[/bold]\n")
+    on = f" — scenario {out['scenario']}" if out.get("scenario") else ""
+    console.print(f"[bold]{escape(describe(out))}{escape(on)}[/bold]\n")
     table = Table(show_header=True, header_style="bold")
     for col, justify in (("State", "left"), ("Point", "right"), ("Median", "right"), ("50% of draws", "right"),
                          ("95% of draws", "right")):
@@ -677,6 +686,8 @@ def _print_marginals(
             "soft": {labels.get(k, k): v for k, v in result.soft.items()},
             "likelihood": {labels.get(k, k): v for k, v in result.likelihood.items()},
             "set": {labels.get(k, k): v for k, v in getattr(result, "interventions", {}).items()},
+            **({"scenario": result.scenario, "scenario_changes": result.scenario_changes}
+               if getattr(result, "scenario", None) else {}),
             "marginals": {labels.get(nid, nid): {s: round(p, 4) for s, p in dist.items()}
                           for nid, dist in result.marginals.items()},
             "run_id": recorded[1] if recorded else None,
@@ -699,6 +710,138 @@ def _print_marginals(
         cells = "   ".join(f"{state} {prob:.3f}" for state, prob in dist.items())
         table.add_row(labels.get(node_id, node_id[:12]), cells)
     console.print(table)
+    if recorded:
+        sha, run_id = recorded
+        console.print(f"\n[green]recorded[/green] · run [cyan]{run_id[:18]}…[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
+
+
+# ── scenarios ────────────────────────────────────────────────────────
+
+
+@app.command("set-scenario")
+@handle_cli_errors
+def set_scenario(
+    name: str = typer.Argument(..., help="Scenario name, e.g. 'Barrier upgraded' or 'Hot week'."),
+    observe: list[str] | None = typer.Option(None, "--observe", "-e", help="Observed 'Node=state' (repeatable)."),
+    soft: list[str] | None = typer.Option(None, "--soft", "-s", help="Soft evidence 'Node=state:0.8' (repeatable)."),
+    likelihood: list[str] | None = typer.Option(None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1'."),
+    set_: list[str] | None = typer.Option(None, "--set", help="An intervention 'Node=state': SET it (do-operator)."),
+    table: list[str] | None = typer.Option(
+        None, "--table", "-t", help="New probabilities for some rows: 'Node[Parent=state]=0.1,0.9' (rows with "
+        "those parent states) or 'Node=0.1,0.9' (every row). The model's own table is unchanged."),
+    extends: str | None = typer.Option(
+        None, "--extends", help="Build on another saved BN scenario: its changes apply first, these on top."),
+    description: str = typer.Option("", "--description", "-d", help="What the scenario represents."),
+    reason: str = typer.Option("", "--reason", help="Why these values (assumption, policy, source)."),
+    source: str | None = typer.Option(None, "--source", help="Source ID backing the values."),
+    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+) -> None:
+    """Save a named BN what-if: observations, settings and table overrides, without changing the model.
+
+    Use it to test a barrier upgrade or a policy (--table, --set) or to define a situation (--observe):
+    `bn query --scenario NAME`, `bn monte-carlo --scenario NAME`, and `bn compare` to compare options.
+    """
+    from latris.operations import bn_scenarios
+
+    scenario, sha = bn_scenarios.set_scenario(
+        name, observe=observe, soft=soft, likelihood=likelihood, set_=set_, tables=table, extends=extends,
+        description=description, reason=reason, source_id=source, origin=origin,  # type: ignore[arg-type]
+    )
+    changes = bn_scenarios.describe_changes(scenario, _labels())
+    if json_mode():
+        emit({"name": scenario.name, "extends": scenario.extends, "description": scenario.description,
+              "origin": scenario.origin, "changes": changes}, human=lambda: None, commit_sha=sha)
+        return
+    on = f" (extends {escape(scenario.extends)})" if scenario.extends else ""
+    console.print(f"[green]scenario[/green] {escape(scenario.name)}{on}: {escape('; '.join(changes))} "
+                  f"· commit [cyan]{sha[:10]}[/cyan]")
+
+
+@app.command("scenarios")
+@handle_cli_errors
+def scenarios() -> None:
+    """List saved BN scenarios and what each one changes."""
+    from latris.operations import bn_scenarios
+
+    items = bn_scenarios.list_scenarios()
+    labels = _labels()
+    if json_mode():
+        emit([{"name": s.name, "extends": s.extends, "description": s.description, "reason": s.reason,
+               "origin": s.origin, "verification": s.verification, "source_id": s.source_id,
+               "changes": bn_scenarios.describe_changes(s, labels)} for s in items], human=lambda: None)
+        return
+    if not items:
+        console.print("No BN scenarios yet. Add one with `latris bn set-scenario NAME --table 'Node=0.1,0.9'`.")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for col in ("Scenario", "Changes", "Description", "Origin"):
+        table.add_column(col)
+    for s in items:
+        changes = "; ".join(bn_scenarios.describe_changes(s, labels))
+        if s.extends:
+            changes = f"{s.extends}, plus: {changes}"
+        table.add_row(escape(s.name), escape(changes), escape(s.description), s.origin)
+    console.print(table)
+
+
+@app.command("remove-scenario")
+@handle_cli_errors
+def remove_scenario(name: str = typer.Argument(..., help="Scenario name.")) -> None:
+    """Remove a saved BN scenario (not one another scenario extends)."""
+    from latris.operations import bn_scenarios
+
+    sha = bn_scenarios.remove_scenario(name)
+    if json_mode():
+        emit({"removed": name}, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]removed[/green] scenario {escape(name)} · commit [cyan]{sha[:10]}[/cyan]")
+
+
+@app.command("compare")
+@handle_cli_errors
+def compare(
+    target: str = typer.Argument(..., help="The node whose probability the options are compared on."),
+    scenario: list[str] = typer.Option(..., "--scenario", "-S", help="A saved BN scenario (an option); repeat."),
+    state: str | None = typer.Option(None, "--state", help="The state to compare (default: the first state)."),
+    reference: str | None = typer.Option(
+        None, "--reference", "-r", help="What every option is measured against: 'baseline' or a compared "
+        "scenario. Default: the scenario an option extends, if compared; otherwise the baseline."),
+    evidence: list[str] | None = typer.Option(
+        None, "--evidence", "-e", help="Observed 'Node=state' that holds for every option, the baseline included."),
+    soft: list[str] | None = typer.Option(None, "--soft", "-s", help="Soft evidence for every option."),
+    likelihood: list[str] | None = typer.Option(None, "--likelihood", help="Likelihood evidence for every option."),
+    runs: int = typer.Option(500, "--runs", "-n", help="Draws of the uncertain tables (0: point values only)."),
+    seed: int = typer.Option(1234, "--seed", help="Random seed; the same seed gives the same draws."),
+    max_seconds: float = typer.Option(60.0, "--max-seconds", help="Refuse a run that would take longer."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
+) -> None:
+    """Compare options: P(target = state) under the baseline network and each saved BN scenario.
+
+    With table uncertainty (`bn set-uncertainty`), every option is asked on the same draws of the
+    tables, so each difference is measured draw by draw. Each row names its reference: an option
+    that extends a compared scenario is measured against it, the rest against the baseline (the
+    network with no scenario changes).
+    """
+    from latris.operations import bn as bn_ops
+    from latris.operations.bn_compare import describe_option
+
+    out = bn_ops.run_compare(target, scenario, state=state, evidence=_evidence(evidence) or None,
+                             soft=_dists(soft) or None, likelihood=_dists(likelihood) or None, reference=reference,
+                             runs=runs, seed=seed, max_seconds=max_seconds)
+    recorded = bn_ops.record_compare(out) if record else None
+    if json_mode():
+        emit({"target": out["label"], "state": out["focus_state"], "draws": out["runs"],
+              "uncertain": out["uncertain"], "options": out["options"],
+              "summary": [describe_option(out, r) for r in out["options"]], "warnings": out["warnings"],
+              "run_id": recorded[1] if recorded else None},
+             human=lambda: None, commit_sha=recorded[0] if recorded else None)
+        return
+    draws = f"{out['runs']} paired draws of the tables" if out["runs"] else "point probabilities (no table uncertainty)"
+    console.print(f"[bold]P({escape(out['label'])} = {escape(out['focus_state'])})[/bold] — {draws}\n")
+    for r in out["options"]:
+        console.print(f"  {escape(describe_option(out, r))}")
+    for w in out["warnings"]:
+        console.print(f"[yellow]⚠ {escape(w)}[/yellow]")
     if recorded:
         sha, run_id = recorded
         console.print(f"\n[green]recorded[/green] · run [cyan]{run_id[:18]}…[/cyan] · commit [cyan]{sha[:10]}[/cyan]")

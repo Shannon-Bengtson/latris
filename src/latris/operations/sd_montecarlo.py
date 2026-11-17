@@ -18,6 +18,9 @@ import math
 import time
 from typing import Any
 
+from latris.operations._compare import arm_label
+from latris.operations._compare import references as _references
+from latris.operations._compare import share_text as _share
 from latris.operations._sampling import PERCENTILES, percentile, sample, spearman
 from latris.operations._sd_eval import EquationError
 from latris.operations._units import Quantity
@@ -349,74 +352,13 @@ def compare_options(
     }
 
 
-_DEFERRAL = ("delay", "defer", "later", "postpone", "wait")
-
-
-def _references(
-    options: list[SDScenario], reference: str | None,
-) -> tuple[dict[str, str], list[str], str | None]:
-    """Each arm's reference, warnings about comparisons likely to be misread, and the explicit reference
-    in its canonical spelling."""
-    names = {sc.name.lower(): sc.name for sc in options}
-    warnings: list[str] = []
-    if reference is not None:
-        if reference.strip().lower() == "baseline":
-            reference = "baseline"
-        elif reference.strip().lower() in names:
-            reference = names[reference.strip().lower()]
-        else:
-            raise ValueError(
-                f"the reference {reference!r} must be 'baseline' or one of the compared scenarios: "
-                + ", ".join(sc.name for sc in options)
-            )
-    out: dict[str, str] = {}
-    if reference is not None and reference != "baseline":
-        out["baseline"] = reference
-    for sc in options:
-        if sc.name == reference:
-            continue
-        parent = names.get((sc.extends or "").lower())
-        if reference is not None:
-            out[sc.name] = reference
-        elif parent:
-            out[sc.name] = parent
-        else:
-            out[sc.name] = "baseline"
-        if sc.extends and not parent and reference is None:
-            warnings.append(
-                f"{sc.name} extends {sc.extends}, which isn't in this comparison, so it is measured against the "
-                f"baseline (no scenario changes), not against {sc.extends}. Add {sc.extends} to compare them directly."
-            )
-        elif not sc.extends and out[sc.name] == "baseline" and any(w in sc.name.lower() for w in _DEFERRAL):
-            warnings.append(
-                f"{sc.name} sounds like a delayed or deferred option but is measured against the baseline "
-                "(no scenario changes). For the cost of waiting, save it with extends=<the undelayed option> "
-                "and compare both."
-            )
-    return out, warnings, reference
-
-
-def arm_label(name: str) -> str:
-    """How an arm is named in prose: the baseline says what it is."""
-    return "the baseline (no scenario changes)" if name == "baseline" else name
-
-
-def _share(d: dict[str, float]) -> str:
-    lo, hi = d["share_lower"], d["share_higher"]
-    same = max(0.0, 1 - lo - hi)
-    parts = [f"lower in {lo:.0%} of draws", f"higher in {hi:.0%}"]
-    if same >= 0.005:
-        parts.append(f"unchanged in {same:.0%}")
-    return ", ".join(parts)
-
-
 def describe_option(p: dict[str, Any], row: dict[str, Any]) -> str:
     """One self-contained claim: the option, the result and metric, the value, the reference it is measured
     against with the sign spelled out, and the world it holds in, e.g.
 
     'Programme delayed 1 year — Bloom Weeks, total over the run: 48 week (95% of draws 40–57); vs Programme:
-    31 week higher in the median draw (95% of draws: +22 to +40), lower in 0% of draws, higher in 100%
-    [in every run: Internal Share=0.7]'."""
+    31 week higher in the median draw (95% of draws: +22 to +40), lower in 0% of draws, higher in 100%;
+    in every run: Internal Share=0.7'."""
     u = p["units"]
     name = "Baseline (no scenario changes)" if row["name"] == "baseline" else row["name"]
     head = (f"{name} — {p['label']}, {p['metric_label']}: {row['p50']:.4g} {u} "
@@ -434,5 +376,5 @@ def describe_option(p: dict[str, Any], row: dict[str, Any]) -> str:
             head += f"; vs the baseline: {abs(b['p50']):.4g} {u} {bword} in the median draw"
     world = p.get("world")
     if world:
-        head += f" [in every run: {'; '.join(world)}]"
+        head += f"; in every run: {', '.join(world)}"
     return head

@@ -501,6 +501,52 @@ def intervene(cpt_map: dict[str, CPTEntry], ss_map: dict[str, list[str]],
     return out
 
 
+@dataclasses.dataclass(frozen=True)
+class ScenarioApplied:
+    """A scenario applied to the network: the tables to compute on and the combined evidence."""
+
+    name: str | None
+    tables: dict[str, CPTEntry]
+    evidence: dict[str, str]
+    soft: dict[str, dict[str, float]]
+    likelihood: dict[str, dict[str, float]]
+    interventions: dict[str, str]
+    fixed_rows: dict[str, set[int]]
+    changes: list[str]
+    overrides: list = dataclasses.field(default_factory=list)  # the scenario's BNTableOverrides
+    extends: str | None = None
+
+
+def with_scenario(
+    name: str | None,
+    paths,  # noqa: ANN001
+    cpt_map: dict[str, CPTEntry],
+    *,
+    evidence: dict[str, str] | None = None,
+    soft: dict[str, dict[str, float]] | None = None,
+    likelihood: dict[str, dict[str, float]] | None = None,
+    interventions: dict[str, str] | None = None,
+    labels: dict[str, str] | None = None,
+) -> ScenarioApplied:
+    """Apply a saved BN scenario (by name; None for none) under evidence given in the call (resolved ids).
+
+    What the call says about a factor replaces what the scenario says about it, whichever kind."""
+    from latris.operations import bn_scenarios
+
+    call = {"evidence": dict(evidence or {}), "soft": dict(soft or {}), "likelihood": dict(likelihood or {}),
+            "interventions": dict(interventions or {})}
+    if not name:
+        return ScenarioApplied(None, cpt_map, call["evidence"], call["soft"], call["likelihood"],
+                               call["interventions"], {}, [])
+    sc = bn_scenarios.get(name, paths)
+    named = {n for block in call.values() for n in block}
+    merged = {b: {k: v for k, v in getattr(sc, b).items() if k not in named} | call[b] for b in call}
+    tables, fixed = bn_scenarios.apply_tables(cpt_map, sc.tables, labels)
+    return ScenarioApplied(sc.name, tables, merged["evidence"], merged["soft"], merged["likelihood"],
+                           merged["interventions"], fixed, bn_scenarios.describe_changes(sc, labels or {}),
+                           overrides=list(sc.tables), extends=sc.extends)
+
+
 def infer(
     *,
     query: list[str] | None = None,
@@ -508,13 +554,16 @@ def infer(
     soft: dict[str, dict[str, float]] | None = None,
     likelihood: dict[str, dict[str, float]] | None = None,
     interventions: dict[str, str] | None = None,
+    scenario: str | None = None,
     root: Path | None = None,
 ) -> BNInferenceResult:
     """Load the BN and compute exact posterior marginals.
 
     ``query`` and the keys of ``evidence``, ``soft`` and ``likelihood`` accept
     node IDs, ID prefixes, or labels; they are resolved to IDs before inference.
-    The result is keyed by node ID.
+    The result is keyed by node ID. ``scenario`` applies a saved BN scenario (its
+    observations, settings and table overrides); evidence given here about a
+    factor replaces the scenario's.
     """
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
@@ -526,19 +575,27 @@ def infer(
         return {resolve_target(k, substrate): v for k, v in block.items()} if block else None
 
     query_ids = [resolve_target(q, substrate) for q in query] if query else None
-    do = ids(interventions) or {}
+    applied = with_scenario(scenario, paths, cpt_map, evidence=ids(evidence), soft=ids(soft),
+                            likelihood=ids(likelihood), interventions=ids(interventions),
+                            labels={e.id: e.label for e in substrate.entities})
+    cpt_map = applied.tables
+    evidence, soft, likelihood = applied.evidence, applied.soft, applied.likelihood
+    do = applied.interventions
     if do:
         for node in do:
             if node not in cpt_map:
                 raise ValueError(f"{node!r} is not in the network, so it can't be set")
-        overlap = set(do) & set((ids(evidence) or {}) | (ids(soft) or {}) | (ids(likelihood) or {}))
+        overlap = set(do) & set(evidence | soft | likelihood)
         if overlap:
             raise ValueError("a factor can be set or observed, not both: " + ", ".join(sorted(overlap)))
         cpt_map = intervene(cpt_map, ss_map, do)
     result = bn_infer(
-        ss_map, cpt_map, query=query_ids, evidence=ids(evidence), soft=ids(soft), likelihood=ids(likelihood)
+        ss_map, cpt_map, query=query_ids, evidence=evidence or None, soft=soft or None, likelihood=likelihood or None
     )
-    return dataclasses.replace(result, interventions=do) if do else result
+    result = dataclasses.replace(result, interventions=do) if do else result
+    if applied.name:
+        result = dataclasses.replace(result, scenario=applied.name, scenario_changes=applied.changes)
+    return result
 
 
 def parse_distribution(text: str) -> tuple[str, dict[str, float]]:
@@ -576,6 +633,8 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
     if result.interventions:
         set_text = "set " + ", ".join(f"{labels.get(k, k)} = {v}" for k, v in sorted(result.interventions.items()))
         evidence_text = f"{set_text}; {evidence_text}" if evidence_text else set_text
+    if result.scenario:
+        evidence_text = f"scenario {result.scenario}" + (f"; {evidence_text}" if evidence_text else "")
 
     def top(node: str) -> str:
         dist = result.marginals[node]
@@ -586,10 +645,12 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
         kind="bn-query",
         key="bn-query|" + ",".join(nodes) + "|" + evidence_key(result.evidence, result.soft, result.likelihood)
         + ("|do:" + ",".join(f"{k}={v}" for k, v in sorted(result.interventions.items()))
-           if result.interventions else ""),
+           if result.interventions else "")
+        + (f"|scenario:{result.scenario}" if result.scenario else ""),
         payload={
             "evidence": result.evidence, "soft": result.soft, "likelihood": result.likelihood,
             "interventions": result.interventions,
+            **({"scenario": result.scenario, "scenario_changes": result.scenario_changes} if result.scenario else {}),
             "posteriors": result.marginals, "priors": priors,
             "labels": {n: labels.get(n, n) for n in {*nodes, *result.evidence, *result.soft, *result.likelihood,
                                                        *result.interventions}},
@@ -601,7 +662,9 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
         summary=f"P(· | {evidence_text or 'no evidence'}): " + "; ".join(top(n) for n in nodes[:8]),
         model_type=_MODEL_TYPE,
         hyperparameters={"query": nodes, "evidence": result.evidence, "soft": result.soft,
-                         "likelihood": result.likelihood, "interventions": result.interventions},
+                         "likelihood": result.likelihood, "interventions": result.interventions,
+                         **({"scenario": result.scenario} if result.scenario else {})},
+        scenarios=[result.scenario] if result.scenario else None,
         affected_target_ids=nodes,
         commit_subject=f"BN query: {len(nodes)} node(s) given {evidence_text or 'no evidence'}"[:120],
         root=paths.root,
@@ -711,9 +774,13 @@ def run_monte_carlo(
     runs: int = 500,
     seed: int = 1234,
     max_seconds: float = 60.0,
+    scenario: str | None = None,
     root: Path | None = None,
 ) -> dict:
-    """Re-ask P(target | evidence) under draws of every table that has an uncertainty ("worth n")."""
+    """Re-ask P(target | evidence) under draws of every table that has an uncertainty ("worth n").
+
+    ``scenario`` applies a saved BN scenario: its overridden rows and the factors it sets are held at the
+    scenario's values (they carry no sampled uncertainty of their own)."""
     from latris.operations import bn_montecarlo, uncertainty
 
     paths = require_project(root)
@@ -721,12 +788,19 @@ def run_monte_carlo(
     ss_map = {e.target_id: e.states for e in _load_state_spaces(paths).entries}
     labels = {e.id: e.label for e in substrate.entities}
     noisy = {e.target_id: e for e in _load_noisy_or(paths).entries}
-    return bn_montecarlo.monte_carlo(
-        ss_map, _effective_cpt_map(paths), noisy, uncertainty.bn_specs(paths), resolve_target(target, substrate),
-        state=state, evidence=_resolve_block(evidence, substrate), soft=_resolve_block(soft, substrate),
-        likelihood=_resolve_block(likelihood, substrate), runs=runs, seed=seed, max_seconds=max_seconds,
-        labels=labels,
+    applied = with_scenario(scenario, paths, _effective_cpt_map(paths), evidence=_resolve_block(evidence, substrate),
+                            soft=_resolve_block(soft, substrate), likelihood=_resolve_block(likelihood, substrate),
+                            labels=labels)
+    tables = intervene(applied.tables, ss_map, applied.interventions) if applied.interventions else applied.tables
+    out = bn_montecarlo.monte_carlo(
+        ss_map, tables, noisy, uncertainty.bn_specs(paths), resolve_target(target, substrate),
+        state=state, evidence=applied.evidence, soft=applied.soft, likelihood=applied.likelihood, runs=runs,
+        seed=seed, max_seconds=max_seconds, labels=labels, fixed_rows=applied.fixed_rows,
+        held=set(applied.interventions),
     )
+    if applied.name:
+        out.update(scenario=applied.name, scenario_changes=applied.changes, interventions=applied.interventions)
+    return out
 
 
 def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
@@ -738,7 +812,8 @@ def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str,
     sha, run = record_result(
         kind="bn-monte-carlo",
         key=f"bn-monte-carlo|{payload['target']}={payload['focus_state']}|"
-            + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"]),
+            + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"])
+            + (f"|scenario:{payload['scenario']}" if payload.get("scenario") else ""),
         payload=payload,
         purpose="sensitivity-analysis",
         algorithm="monte-carlo[dirichlet]; variable_elimination",
@@ -747,13 +822,95 @@ def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str,
         model_type=_MODEL_TYPE,
         hyperparameters={"target": payload["target"], "state": payload["focus_state"],
                          "evidence": payload["evidence"], "soft": payload["soft"],
-                         "likelihood": payload["likelihood"], "runs": payload["runs"]},
+                         "likelihood": payload["likelihood"], "runs": payload["runs"],
+                         **({"scenario": payload["scenario"]} if payload.get("scenario") else {})},
+        scenarios=[payload["scenario"]] if payload.get("scenario") else None,
         uncertainty=True,
         seed=payload["seed"],
         metrics={"runs": payload["runs"], "seconds": payload["seconds"]},
         affected_target_ids=[payload["target"]],
         duration_seconds=payload["seconds"],
         commit_subject=f"BN Monte Carlo: {payload['runs']} draws"[:120],
+        root=root,
+    )
+    return sha, run.id
+
+
+# ── comparing options (scenarios) on the same draws ──────────────────
+
+
+def run_compare(
+    target: str,
+    scenarios: list[str],
+    *,
+    state: str | None = None,
+    evidence: dict[str, str] | None = None,
+    soft: dict[str, dict[str, float]] | None = None,
+    likelihood: dict[str, dict[str, float]] | None = None,
+    reference: str | None = None,
+    runs: int = 500,
+    seed: int = 1234,
+    max_seconds: float = 60.0,
+    root: Path | None = None,
+) -> dict:
+    """P(target = state) under the baseline network and each saved BN scenario, on the same table draws.
+
+    ``evidence``/``soft``/``likelihood`` hold for every option, the baseline included (a scenario's own
+    say about a factor gives way to it). ``reference``: 'baseline' or a compared scenario every option
+    is measured against; left out, an option extending a compared scenario is measured against it.
+    ``runs=0`` (or no table uncertainty) compares point probabilities only."""
+    from latris.operations import bn_compare, uncertainty
+
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    ss_map = {e.target_id: e.states for e in _load_state_spaces(paths).entries}
+    labels = {e.id: e.label for e in substrate.entities}
+    cpt_map = _effective_cpt_map(paths)
+    given = {"evidence": _resolve_block(evidence, substrate), "soft": _resolve_block(soft, substrate),
+             "likelihood": _resolve_block(likelihood, substrate)}
+    names = list(dict.fromkeys(scenarios))
+    arms = [with_scenario(n, paths, cpt_map, labels=labels, **given) for n in [None, *names]]
+    noisy = {e.target_id: e for e in _load_noisy_or(paths).entries}
+    return bn_compare.compare_options(
+        ss_map, cpt_map, noisy, uncertainty.bn_specs(paths), arms, resolve_target(target, substrate),
+        state=state, runs=runs, seed=seed, reference=reference, max_seconds=max_seconds, labels=labels,
+        intervene=lambda tables, do: intervene(tables, ss_map, do),
+    )
+
+
+def record_compare(payload: dict, *, root: Path | None = None) -> tuple[str, str]:
+    import json
+
+    import pgmpy
+
+    from latris.operations.analysis_results import record_result
+    from latris.operations.bn_compare import describe_option
+
+    summary = (f"Options compared on P({payload['label']} = {payload['focus_state']})"
+               + (f", {payload['runs']} paired draws of the tables" if payload["runs"] else "") + ": "
+               + "; ".join(describe_option(payload, r) for r in payload["options"]))
+    sha, run = record_result(
+        kind="bn-options",
+        key=f"bn-options|{payload['target']}={payload['focus_state']}|" + json.dumps(sorted(payload["scenarios"]))
+            + (f"|ref:{payload['reference']}" if payload.get("reference") else "") + "|"
+            + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"]),
+        payload=payload,
+        purpose="inference",
+        algorithm=("paired monte-carlo[dirichlet]; " if payload["runs"] else "") + "variable_elimination",
+        library_version=f"pgmpy {pgmpy.__version__}",
+        summary=summary[:2000],
+        model_type=_MODEL_TYPE,
+        hyperparameters={"target": payload["target"], "state": payload["focus_state"],
+                         "scenarios": payload["scenarios"], "evidence": payload["evidence"],
+                         "soft": payload["soft"], "likelihood": payload["likelihood"], "runs": payload["runs"],
+                         **({"reference": payload["reference"]} if payload.get("reference") else {})},
+        scenarios=payload["scenarios"],
+        uncertainty=bool(payload["runs"]),
+        seed=payload["seed"] if payload["runs"] else None,
+        metrics={"runs": payload["runs"], "seconds": payload["seconds"]},
+        affected_target_ids=[payload["target"]],
+        duration_seconds=payload["seconds"],
+        commit_subject=f"BN options compared: {', '.join(payload['scenarios'])}"[:120],
         root=root,
     )
     return sha, run.id

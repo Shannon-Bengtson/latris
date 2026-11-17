@@ -44,6 +44,67 @@ def _row_n(specs: dict[str, ParameterUncertainty], parents: list[str], parent_st
     return spec.params["n"] if spec else None
 
 
+def sampled_tables(
+    specs: dict[str, dict[str, ParameterUncertainty]],
+    cpts: dict[str, CPTEntry],
+    noisy: dict[str, NoisyOrEntry],
+    fixed_rows: dict[str, set[int]] | None = None,
+    held: set[str] | None = None,
+) -> dict[str, dict[str, ParameterUncertainty]]:
+    """The tables a draw samples: those with an uncertainty, less any held whole. A Noisy-OR table with a
+    fixed row is held whole (its rows come from shared cause strengths, so one can't be fixed alone)."""
+    held = set(held or ())
+    held |= {n for n, rows in (fixed_rows or {}).items() if rows and n in noisy}
+    return {k: v for k, v in specs.items() if k in cpts and k not in held}
+
+
+def draw_tables(
+    rng: random.Random,
+    state_spaces: dict[str, list[str]],
+    cpts: dict[str, CPTEntry],
+    noisy: dict[str, NoisyOrEntry],
+    uncertain: dict[str, dict[str, ParameterUncertainty]],
+    order: list[str],
+    *,
+    fixed_rows: dict[str, set[int]] | None = None,
+    sampled: dict[str, dict[str, list[float]]] | None = None,
+) -> dict[str, CPTEntry]:
+    """One draw of every uncertain table (rows in ``fixed_rows`` kept as given). The rng is consumed in
+    the same order whatever is fixed, so arms compared on the same seed share their draws."""
+    fixed_rows = fixed_rows or {}
+    tables = dict(cpts)
+    for node in order:
+        node_specs = uncertain[node]
+        if node in noisy:
+            n = node_specs[BN_TABLE].params["n"]
+            ne = noisy[node]
+            drawn = ne.model_copy(
+                update={
+                    "leak": beta_around(rng, ne.leak, n),
+                    "links": [lk.model_copy(update={"prob": beta_around(rng, lk.prob, n)}) for lk in ne.links],
+                }
+            )
+            tables[node] = expand_noisy_or(drawn, state_spaces)
+            if sampled is not None:
+                sampled[node].setdefault("leak", []).append(drawn.leak)
+                for lk in drawn.links:
+                    sampled[node].setdefault(lk.parent_id, []).append(lk.prob)
+            continue
+        entry = cpts[node]
+        keep = fixed_rows.get(node, set())
+        rows = []
+        for j, row in enumerate(entry.rows):
+            n = _row_n(node_specs, entry.parents, row.parent_states)
+            p = dirichlet(rng, row.p, n) if n else list(row.p)
+            if j in keep:
+                p = list(row.p)
+            rows.append(row.model_copy(update={"p": p}))
+            if n and j not in keep and sampled is not None:
+                sampled[node].setdefault(str(j), []).append(p[0])
+        tables[node] = entry.model_copy(update={"rows": rows})
+    return tables
+
+
 def monte_carlo(
     state_spaces: dict[str, list[str]],
     cpts: dict[str, CPTEntry],
@@ -59,8 +120,13 @@ def monte_carlo(
     seed: int = DEFAULT_SEED,
     max_seconds: float = 60.0,
     labels: dict[str, str] | None = None,
+    fixed_rows: dict[str, set[int]] | None = None,
+    held: set[str] | None = None,
 ) -> dict[str, Any]:
-    """Re-ask P(target | evidence) under ``runs`` draws of the uncertain tables."""
+    """Re-ask P(target | evidence) under ``runs`` draws of the uncertain tables.
+
+    ``fixed_rows`` (node → row indices) and ``held`` (whole tables) are kept as given — a scenario's
+    table overrides and the factors it sets carry no sampled uncertainty of their own."""
     if not 2 <= runs <= MAX_RUNS:
         raise ValueError(f"runs must be between 2 and {MAX_RUNS}")
     evidence = dict(evidence or {})
@@ -69,7 +135,7 @@ def monte_carlo(
         raise ValueError(f"{labels.get(target, target)!r} is not in the network")
     if target in evidence:
         raise ValueError(f"{labels.get(target, target)} is observed; ask about a node that isn't")
-    uncertain = {k: v for k, v in specs.items() if k in cpts}
+    uncertain = sampled_tables(specs, cpts, noisy, fixed_rows, held)
     if not uncertain:
         raise ValueError(
             "no probability table has an uncertainty yet — say how many observations one is worth, "
@@ -96,32 +162,8 @@ def monte_carlo(
                 raise ValueError(
                     f"{runs} draws would take about {estimate:.0f} s (limit {max_seconds:g} s); use fewer --runs"
                 )
-        tables = dict(cpts)
-        for node in order:
-            node_specs = uncertain[node]
-            if node in noisy:
-                n = node_specs[BN_TABLE].params["n"]
-                ne = noisy[node]
-                drawn = ne.model_copy(
-                    update={
-                        "leak": beta_around(rng, ne.leak, n),
-                        "links": [lk.model_copy(update={"prob": beta_around(rng, lk.prob, n)}) for lk in ne.links],
-                    }
-                )
-                tables[node] = expand_noisy_or(drawn, state_spaces)
-                sampled[node].setdefault("leak", []).append(drawn.leak)
-                for lk in drawn.links:
-                    sampled[node].setdefault(lk.parent_id, []).append(lk.prob)
-                continue
-            entry = cpts[node]
-            rows = []
-            for j, row in enumerate(entry.rows):
-                n = _row_n(node_specs, entry.parents, row.parent_states)
-                p = dirichlet(rng, row.p, n) if n else list(row.p)
-                rows.append(row.model_copy(update={"p": p}))
-                if n:
-                    sampled[node].setdefault(str(j), []).append(p[0])
-            tables[node] = entry.model_copy(update={"rows": rows})
+        tables = draw_tables(rng, state_spaces, cpts, noisy, uncertain, order, fixed_rows=fixed_rows,
+                             sampled=sampled)
         answers.append(query(tables))
     seconds = time.perf_counter() - started
 
