@@ -30,6 +30,20 @@ def _given(p: dict[str, Any]) -> str:
     return evidence_description(p.get("evidence", {}), p.get("soft"), p.get("likelihood"), p.get("labels", {}))
 
 
+def _subtitle_given(p: dict[str, Any]) -> str:
+    given = _given(p)
+    return f"given {given}" if given else "no evidence (prior)"
+
+
+def _subtitle_target(p: dict[str, Any]) -> str:
+    labels = p.get("labels", {})
+    target = p.get("target") or p.get("target_id")
+    state = p.get("focus_state") or p.get("target_state")
+    head = f"P({labels.get(target, target)} = {state})" if target and state else ""
+    given = _given(p)
+    return f"{head} given {given}" if given and head else head
+
+
 def _render_query(p: dict[str, Any]) -> list[str]:
     from latris.exporters.results import _MAX_ROWS, _table
 
@@ -542,17 +556,17 @@ register(Formalism(
     results=(
         ResultKind(kind="bn-query", title="Probabilities", render=_render_query, analysis="bn_query",
                    run=_run_query, definition=_def_query, claims=_claims_query, report_limit=6,
-                   charts=lambda p: [("posterior", {})]),
+                   charts=lambda p: [("posterior", {})], subtitle=_subtitle_given),
         ResultKind(kind="bn-explanation", title="Most likely explanation", render=_render_explanation,
                    analysis="bn_explain", run=_run_explain, definition=_def_explanation,
-                   claims=_claims_explanation),
+                   claims=_claims_explanation, subtitle=_subtitle_given),
         ResultKind(kind="bn-monte-carlo", title="How sure the probability is (Monte Carlo)",
                    render=_render_monte_carlo, analysis="bn_monte_carlo", run=_run_monte_carlo,
                    definition=_def_monte_carlo, claims=_claims_monte_carlo,
-                   charts=lambda p: [("bn-interval", {})]),
+                   charts=lambda p: [("bn-interval", {})], subtitle=_subtitle_target),
         ResultKind(kind="bn-sensitivity", title="Probability sensitivity", render=_render_sensitivity,
                    analysis="bn_sensitivity", run=_run_sensitivity, definition=_def_sensitivity,
-                   claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})]),
+                   claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})], subtitle=_subtitle_target),
     ),
     spec_field="bn",
     spec_check=_check,

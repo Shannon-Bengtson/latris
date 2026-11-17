@@ -290,3 +290,22 @@ def test_records_about_a_removed_factor_are_listed(mixed_root):
     entity, edges, _ = remove_node("Bottom-water anoxia", root=mixed_root)
     left = records_about(ProjectPaths(mixed_root), [entity.id, *edges])
     assert left == ["finding: Internal release and blooms reinforce each other (R1)."]
+
+
+# ── report labelling ─────────────────────────────────────────────────
+
+
+def test_result_headings_say_which_run_is_which(mixed_root):
+    from latris.exporters.results import render_results
+    from latris.operations import bn as bn_ops
+
+    payload, runs = sd_ops.simulate_scenarios(assignments=["Release rate=0.3"], final_time=5, root=mixed_root)
+    sd_ops.record_comparison(payload, runs, root=mixed_root)
+    bn_ops.record_query(bn_ops.infer(root=mixed_root), root=mixed_root)
+    bn_ops.record_query(bn_ops.infer(evidence={"Hot week": "yes"}, root=mixed_root), root=mixed_root)
+    lines = render_results(ProjectPaths(mixed_root))
+    headings = [line for line in lines if line.startswith("### ")]
+    assert "### Simulation: baseline vs unsaved what-if (Release rate=0.3)" in headings
+    assert "### Probabilities: no evidence (prior)" in headings
+    assert "### Probabilities: given Hot week = yes" in headings
+    assert any(line.startswith("_Run 20") for line in lines)

@@ -54,6 +54,15 @@ def _marker(run_id: str, chart: str, **extra: Any) -> list[str]:
     return ["```latris-chart", json.dumps({"run": run_id, "chart": chart, **extra}), "```", ""]
 
 
+def _run_date(run_id: str) -> str:
+    from latris.schema.ids import id_timestamp
+
+    try:
+        return id_timestamp(run_id).strftime("%Y-%m-%d %H:%M UTC")
+    except (ValueError, TypeError):
+        return "date unknown"
+
+
 def _stale_note(stale: bool, run_id: str, show_ids: bool) -> list[str]:
     if not stale:
         return []
@@ -207,6 +216,29 @@ _TITLES = {
 }
 
 
+def _sd_subtitle(kind: str, p: dict[str, Any]) -> str:
+    """What an SD run was of: which scenarios it compared, or which one it ran on."""
+    if kind == "sd-simulation":
+        shown = [("unsaved what-if (" + "; ".join(f"{o['label']}={o['value']:g}" for o in sc.get("overrides", []))
+                  + ")") if sc["name"] == "what-if" else sc["name"] for sc in p.get("scenarios", [])[1:]]
+        return "baseline vs " + ", ".join(shown) if shown else "baseline"
+    scenario = p.get("scenario")
+    return f"scenario {scenario}" if scenario else "baseline"
+
+
+def _heading(kind: str, title: str, p: dict[str, Any], plugin_kind: Any) -> str:
+    try:
+        if plugin_kind is not None and plugin_kind.subtitle:
+            sub = plugin_kind.subtitle(p)
+        elif kind in _TITLES:
+            sub = _sd_subtitle(kind, p)
+        else:
+            sub = ""
+    except (KeyError, TypeError, ValueError, IndexError):
+        sub = ""
+    return f"{title}: {sub}" if sub else title
+
+
 def _charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """The ``latris-chart`` markers for one result: the plugin's own ``charts`` hook when it has one,
     else the legacy sd mapping (which moves to the sd plugin when that type registers)."""
@@ -256,8 +288,9 @@ def render_results(
         title = _TITLES.get(kind) or (plugin_kind.title if plugin_kind else kind)
         if kind == "sd-sensitivity":
             title = f"Sensitivity of {p['label']}"
-        out.append(f"### {title}")
+        out.append(f"### {_heading(kind, title, p, plugin_kind)}")
         out.append("")
+        out += [f"_Run {_run_date(res.run.id)}._", ""]
         out += _stale_note(res.stale, res.run.id, show_ids)
         if chart_markers:
             for chart, extra in _charts(kind, p):

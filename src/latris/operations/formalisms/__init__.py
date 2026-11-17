@@ -50,6 +50,9 @@ class ResultKind:
     charts: Callable[[dict[str, Any]], list[tuple[str, dict[str, Any]]]] | None = None
     # The most runs of this kind a report shows (default 4) — e.g. a BN query per evidence set.
     report_limit: int | None = None
+    # payload → what this run was of, for its heading ("given Hot week = yes"), so repeated
+    # headings say which run is which.
+    subtitle: Callable[[dict[str, Any]], str] | None = None
 
 
 @dataclass(frozen=True)
