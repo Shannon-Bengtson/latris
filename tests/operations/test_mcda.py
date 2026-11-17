@@ -23,7 +23,8 @@ def test_values_rank_reversal_kernel():
     opts, crits = ["a", "b"], ["x", "y"]
     v = {("a", "x"): 1.0, ("a", "y"): 0.0, ("b", "x"): 0.0, ("b", "y"): 1.0}
     rr = mcda.rank_reversal(v, opts, crits, {"x": 0.6, "y": 0.4})
-    assert rr["x"]["down"] == {"weight": pytest.approx(0.5), "option": "b"} and rr["x"]["up"] is None
+    assert rr["x"]["down"] == {"weight": pytest.approx(0.5), "option": "b", "tie": False} \
+        and rr["x"]["up"] is None
     vals, used, notes = mcda.values({("a", "x"): 5, ("b", "x"): 5}, opts, ["x"], {"x": "higher"}, {"x": None})
     assert notes == ["flat:x"] and vals[("a", "x")] == 1.0
     vals, used, notes = mcda.values({("a", "x"): 12, ("b", "x"): 0}, opts, ["x"], {"x": "lower"}, {"x": (10, 0)})
@@ -208,3 +209,61 @@ def test_cli(project):
     out = runner.invoke(app, ["mcda", "analyse"])
     assert out.exit_code == 0, out.output
     assert "ranks first" in out.output and "Dominated" in out.output and "recorded" in out.output
+
+
+def test_flat_criterion_reversal_is_a_boundary_tie(project):
+    """A flat criterion can only tie at 100%, never take the lead — reported as a tie, not a winner."""
+    _build(project)
+    for o in SCORES:
+        mcda.set_score(o, "Capacity", 300, root=project)  # flat: every option identical
+    p = mcda.analyse(root=project)
+    assert p["flat"] == ["Capacity"]
+    cap = next(r for r in p["rank_reversal"] if r["criterion"] == "Capacity")
+    side = cap["up"] or cap["down"]
+    assert side and side["tie"] is True
+
+    from latris.operations.formalisms.mcda import _reversal_lines
+
+    line = next(x for x in _reversal_lines(p) if x.startswith("Capacity"))
+    assert "ties with" in line and "first" not in line
+
+
+def test_outside_scale_scores_surfaced(project):
+    """Scores beyond a stated scale are clamped and named, not silently swallowed."""
+    _build(project)
+    mcda.set_criterion("Capacity", worst=0, best=350, root=project)
+    mcda.set_score("Site A", "Capacity", 500, root=project)
+    p = mcda.analyse(root=project)
+    assert p["outside"] == ["Site A on Capacity"]
+
+    from typer.testing import CliRunner
+
+    from latris.cli.app import app
+
+    out = CliRunner().invoke(app, ["mcda", "analyse", "--no-record"])
+    assert out.exit_code == 0, out.output
+    assert "outside the stated scale" in out.output and "Site A on Capacity" in out.output
+
+
+def test_report_render_mentions_flat_and_outside(project):
+    from latris.operations.formalisms.mcda import _render
+
+    _build(project)
+    mcda.set_criterion("Capacity", worst=0, best=350, root=project)
+    for o in SCORES:
+        mcda.set_score(o, "Capacity", 500, root=project)  # flat, and beyond the stated scale
+    p = mcda.analyse(root=project)
+    text = "\n".join(_render(p))
+    assert "can't separate them" in text
+    assert "outside the stated scale" in text and "Site A on Capacity" in text
+
+
+def test_describe_reports_boundary_tie_as_tie():
+    """When the nearest 'reversal' is a boundary tie, describe says so instead of naming a winner."""
+    payload = {"problems": [],
+               "ranking": [{"option": "a", "total": 100.0}, {"option": "b", "total": 50.0}],
+               "rank_reversal": [{"criterion": "y", "weight": 0.1,
+                                  "up": {"weight": 1.0, "option": "b", "tie": True}, "down": None}],
+               "dominated": []}
+    text = mcda.describe(payload)
+    assert "only draws level" in text and "b first" not in text

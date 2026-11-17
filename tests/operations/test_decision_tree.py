@@ -140,7 +140,7 @@ links:
 decision_tree:
   objective: maximise
   units: $k
-  nodes:
+  elements:
     - {node: Strategy, type: decision}
     - {node: Demand, type: chance}
     - {node: Launch high, type: terminal}
@@ -154,6 +154,8 @@ decision_tree:
     - {node: Launch high, value: 400, verified: true}
     - {node: Launch low, value: 20}
     - {node: Stay out, value: 0}
+  uncertainties:
+    - {node: Demand, name: Market demand}
 analyses:
   - kind: dt_analyse
 """
@@ -183,6 +185,7 @@ def test_build_spec_share_link_report(built, tmp_path, git_identity):
     assert p["best"] == "Launch" and p["ev"] == pytest.approx(0.3 * 400 + 0.7 * 20 - 50)
     _, spec = export_spec(model_type="decision_tree", root=root)
     assert spec.decision_tree and spec.decision_tree.units == "$k" and len(spec.decision_tree.branches) == 3
+    assert spec.decision_tree.elements and spec.decision_tree.uncertainties[0].name == "Market demand"
     copy = tmp_path / "copy"
     init_project(copy, statement="copy")
     build_from_spec(spec, root=copy)
@@ -192,7 +195,7 @@ def test_build_spec_share_link_report(built, tmp_path, git_identity):
     src = mermaid(ProjectPaths(root), model_type="decision_tree")
     assert src.startswith("flowchart LR") and "linkStyle" in src and '|"High 0.3"|' in src
     impl = extract_claims("implications", "decision_tree", root=root)
-    assert any("Finding out Demand before choosing is worth up to" in c for c in impl)
+    assert any("Finding out Market demand before choosing is worth up to" in c for c in impl)
     answer = extract_claims("answer_to_question", "decision_tree", root=root)
     assert any("Best first choice: Launch" in c for c in answer)
 
