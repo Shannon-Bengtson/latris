@@ -34,9 +34,7 @@ def _resolve(query: str) -> str:
 @handle_cli_errors
 def loops() -> None:
     """List all feedback loops with R/B classification."""
-    from latris.operations.analysis import analyse_loops
-
-    from latris.operations.analysis import loop_model_types
+    from latris.operations.analysis import analyse_loops, loop_model_types
 
     classified = analyse_loops()
     if json_mode():

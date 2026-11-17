@@ -9,7 +9,7 @@ import pytest
 from latris.operations import sd as sd_ops
 from latris.operations import uncertainty
 from latris.repo.layout import ProjectPaths
-from tests.conftest import build_with_template_identity, build_sd_bathtub, clone_project
+from tests.conftest import build_sd_bathtub, build_with_template_identity, clone_project
 
 
 def _build(root: Path) -> Path:

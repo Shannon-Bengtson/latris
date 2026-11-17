@@ -12,10 +12,10 @@ Storage:
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import math
 from dataclasses import dataclass
-import dataclasses
 from pathlib import Path
 
 from latris.operations._bn_canonical import effective_cpt_map
@@ -412,6 +412,7 @@ def check(*, root: Path | None = None):
 
     Bypasses ``assess_readiness`` (which short-circuits while BN is "planned").
     """
+    from latris.operations.membership import check_scope
     from latris.operations.readiness import (
         ValidationContext,
         _check_acyclicity,
@@ -420,8 +421,6 @@ def check(*, root: Path | None = None):
     )
     from latris.schema.model_types import get_model_type
     from latris.schema.roles import RoleSet
-
-    from latris.operations.membership import check_scope
 
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)

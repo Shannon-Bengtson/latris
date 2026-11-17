@@ -506,7 +506,7 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
     empty model has nothing to be uncited about, so it should not
     auto-trigger hedge mode on coverage grounds alone).
     """
-    from latris.schema import EvidenceLinkSet, Substrate
+    from latris.schema import EvidenceLinkSet
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
@@ -648,7 +648,6 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
         compute_centrality,
         find_all_loops,
     )
-    from latris.schema import Substrate
 
     substrate = _scoped_substrate(paths, model_type)
     claims: list[str] = []
@@ -725,7 +724,6 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
         compute_centrality,
         find_all_loops,
     )
-    from latris.schema import Substrate
 
     substrate = _scoped_substrate(paths, model_type)
     claims: list[str] = []
@@ -815,7 +813,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
     ``support_verdict == "supports"``. Conflating these inflates apparent
     coverage when most links are unverified title-only inferences.
     """
-    from latris.schema import EvidenceLinkSet, Substrate
+    from latris.schema import EvidenceLinkSet
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
@@ -846,7 +844,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
 
 def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     """Cross-reference audit: uncited elements AND unused references."""
-    from latris.schema import EvidenceLinkSet, ReferenceLibrary, Substrate
+    from latris.schema import EvidenceLinkSet, ReferenceLibrary
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
@@ -912,7 +910,6 @@ def _extract_answer(model_type: str, paths) -> list[str]:
         find_all_loops,
         group_loop_mechanisms,
     )
-    from latris.schema import Substrate
 
     foundation = load_model(ProjectFoundation, paths.project_yaml)
     substrate = _scoped_substrate(paths, model_type)
@@ -968,7 +965,6 @@ def _extract_answer(model_type: str, paths) -> list[str]:
 def _extract_implications(model_type: str, paths) -> list[str]:
     """Claims about intervention points — leverage nodes + recommendation findings."""
     from latris.operations.graph_analysis import causal_edges, compute_centrality
-    from latris.schema import Substrate
 
     substrate = _scoped_substrate(paths, model_type)
     claims: list[str] = []
@@ -1007,7 +1003,7 @@ def _extract_implications(model_type: str, paths) -> list[str]:
 
 def _extract_confidence(model_type: str, paths) -> list[str]:
     """Compute confidence indicators from evidence density and finding maturity."""
-    from latris.schema import EvidenceLinkSet, Substrate
+    from latris.schema import EvidenceLinkSet
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
@@ -1064,7 +1060,7 @@ def _extract_open_questions(model_type: str, paths) -> list[str]:
         if open_qs:
             claims.extend([f"Open question: {q.question}" for q in open_qs[:6]])
 
-    from latris.schema import ChallengeLog, EvidenceLinkSet, Substrate
+    from latris.schema import ChallengeLog, EvidenceLinkSet
 
     substrate = _scoped_substrate(paths, model_type)
     if paths.challenges_yaml.exists():
