@@ -357,22 +357,34 @@ Tips for agents:
   show, check, analyse, interpret, bn, sd, fcm and results commands — no
   output parsing needed.
 - **One model, several views.** `latris project select-models cld fcm` (or
-  `bn`, `dag`) keeps the same factors and links and adds a quantitative view —
-  set FCM weights or BN probability tables on the diagram you already have
-  instead of starting again.
+  `bn`, `dag`, `sd`) keeps the same factors and links and adds a quantitative
+  view — set FCM weights or BN probability tables on the diagram you already
+  have instead of starting again. A factor joins a simulation when it gets an
+  SD role and a network when it gets states; the rest stays in the loop map,
+  and loop-map links into them need no parameters (`sd check` lists them as
+  advisories). Convert factors in place rather than duplicating them;
+  `sd unset-role` / `bn remove-states` take one back out. A model of several
+  types gets one answer in its report, with claims labelled by source.
 - **Quantified answers carry their evidence.** For system dynamics: save
   what-ifs (`latris sd set-scenario "Low emissions" --set "Emission Rate=80"`)
   and compare them (`sd simulate --scenario ...`); give uncertain values a
   range (`sd set-uncertainty "Emission Rate" triangular --min 90 --mode 120
   --max 140 --reason "..."`), then `sd monte-carlo` (how sure: bands),
+  `sd compare <variable> -s A -s B` (which option, on the same draws, with
+  paired differences; `--metric total` sums over the run),
   `sd sensitivity <variable>` (which values matter, flagging unreviewed ones)
-  and `sd loops` (which feedback loop drives it). These and `bn query` are
+  and `sd loops` (which feedback loop drives it). `--apply-to-all
+  "Variable=value"` holds a value in every run (a "world"); the clock is
+  yours (`sd set-settings --dt 0.02` for seasons in a yearly model, with
+  `SIN`/`COS`/`MODULO` in equations). These and `bn query` are
   recorded: the client report's Results section shows the latest of each,
   and `latris interpret refresh-claims` turns them into claims the
   interpretation can use. `latris results list` / `results hide <run>`
   choose what the report shows. Values an agent sets are recorded as
   AI-proposed; the report says so. For Bayesian
   networks: `bn query -s "Heavy Rain=yes:0.8"` (soft evidence: 80% sure),
+  `bn query --set "Levee=raised"` (an intervention: what if we make it so),
+  `bn set-weighted` (a table from a weight per parent state),
   `bn explain -e "Road Closed=yes"` (the most likely combination of causes),
   and `bn set-uncertainty Flood --n 10` + `bn monte-carlo Flood` (how sure
   the probability is when the tables are estimates) — all recorded.

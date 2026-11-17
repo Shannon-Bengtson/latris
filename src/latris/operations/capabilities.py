@@ -87,8 +87,9 @@ INSTALL = 'pip install "latris[data,quant]"'
 WHAT_YOU_GET_WHERE = {
     "library": (
         "The open-source library (pip install latris; Apache-2.0): the modelling engine and CLI, every "
-        "analysis (loops, DAG identification, BN inference, explanation and Monte Carlo, SD simulation, "
-        "scenarios, uncertainty bands, sensitivity, loop dominance, FCM), the Markdown report with a Mermaid "
+        "analysis (loops, DAG identification, BN inference, interventions, explanation and Monte Carlo, SD "
+        "simulation, scenarios, uncertainty bands, options compared under uncertainty, sensitivity, loop "
+        "dominance, FCM), the Markdown report with a Mermaid "
         "sketch, and `latris link`."
     ),
     "app": (
