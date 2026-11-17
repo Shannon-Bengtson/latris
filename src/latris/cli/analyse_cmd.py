@@ -36,13 +36,17 @@ def loops() -> None:
     """List all feedback loops with R/B classification."""
     from latris.operations.analysis import analyse_loops
 
+    from latris.operations.analysis import loop_model_types
+
     classified = analyse_loops()
     if json_mode():
         labels = _labels()
+        tags = loop_model_types(classified)
         emit([
             {"type": loop.classification, "length": len(loop.node_ids),
-             "variables": [labels.get(n, n) for n in loop.node_ids], "ids": list(loop.node_ids)}
-            for loop in classified
+             "variables": [labels.get(n, n) for n in loop.node_ids], "ids": list(loop.node_ids),
+             "model_types": tag}
+            for loop, tag in zip(classified, tags, strict=True)
         ], human=lambda: None)
         return
     if not classified:
@@ -75,11 +79,18 @@ def propagate(
     effects = analyse_propagation(target_id)
     if json_mode():
         labels = _labels()
+        ambiguous = sum(e.effect == "ambiguous" for e in effects)
         emit({"from": labels.get(target_id, target_id), "effects": [
             {"variable": labels.get(e.entity_id, e.entity_id), "effect": e.effect,
-             "positive_paths": e.paths_positive, "negative_paths": e.paths_negative}
+             "positive_paths": e.paths_positive, "negative_paths": e.paths_negative,
+             "direct_effect": e.direct_effect, "direct_steps": e.direct_steps}
             for e in effects
-        ]}, human=lambda: None)
+        ], **({"note": (
+            f"{ambiguous} of {len(effects)} effects are ambiguous: routes of both signs reach them, usually "
+            "because feedback loops carry the change back round. direct_effect is the sign along the shortest "
+            "route — what happens first, before the loops respond; which wins later depends on strengths and "
+            "delays, which only a quantified model (a simulation) can say."
+        )} if ambiguous else {})}, human=lambda: None)
         return
     if not effects:
         console.print("[dim](no reachable nodes with known polarity)[/dim]")

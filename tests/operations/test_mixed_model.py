@@ -349,3 +349,30 @@ def test_a_factor_cant_be_set_and_observed(mixed_root):
 
     with pytest.raises(ValueError, match="set or observed"):
         bn_ops.infer(evidence={"Bloom": "yes"}, interventions={"Bloom": "no"}, root=mixed_root)
+
+
+# ── loops and effects ────────────────────────────────────────────────
+
+
+def test_loops_say_which_model_types_they_lie_in(mixed_root):
+    from latris.operations.analysis import analyse_loops, loop_model_types
+
+    loops = analyse_loops(root=mixed_root)
+    tags = loop_model_types(loops, root=mixed_root)
+    by_members = {frozenset(_labels(mixed_root, lp.node_ids)): tag for lp, tag in zip(loops, tags, strict=True)}
+    r1 = frozenset({"Bottom-water anoxia", "Internal P release", "Water-column phosphorus", "Cyanobacteria biomass"})
+    assert by_members[r1] == ["cld"]  # passes through loop-map factors
+    assert any(tag == ["cld", "sd"] for tag in tags)  # the settling/release loop through the two stocks
+
+
+def test_an_ambiguous_effect_says_what_happens_first():
+    from types import SimpleNamespace as Edge
+
+    from latris.operations.graph_analysis import propagate_polarity
+
+    # A → B (+); B → C (+); C → B (−): B is reached by + first, then − round the loop
+    edges = [Edge(id="e1", from_id="A", to_id="B", kind="causal"), Edge(id="e2", from_id="B", to_id="C", kind="causal"),
+             Edge(id="e3", from_id="C", to_id="B", kind="causal")]
+    effects = {e.entity_id: e for e in propagate_polarity("A", edges, {"e1": "+", "e2": "+", "e3": "-"})}
+    assert effects["B"].effect == "ambiguous"
+    assert effects["B"].direct_effect == "+" and effects["B"].direct_steps == 1

@@ -65,6 +65,10 @@ class PropagationEffect:
     effect: Literal["+", "-", "ambiguous"]
     paths_positive: int = 0
     paths_negative: int = 0
+    # The sign along the shortest route(s) — the first-order effect, before feedback brings it back
+    # round. "ambiguous" only when equally short routes disagree. ``None`` when not computed.
+    direct_effect: Literal["+", "-", "ambiguous"] | None = None
+    direct_steps: int | None = None
 
 
 @dataclass(frozen=True)
@@ -358,6 +362,8 @@ def propagate_polarity(
     # BFS with sign tracking
     # Queue: (current_node, cumulative_sign)  where sign is +1 or -1
     queue: list[tuple[str, int]] = [(from_id, 1)]  # start with positive
+    depth: dict[tuple[str, int], int] = {(from_id, 1): 0}
+    first: dict[str, tuple[int, set[int]]] = {}  # node → (shortest steps, signs at that length)
 
     # Use BFS but track all paths (allow revisiting via different edges)
     # To avoid infinite loops in cyclic graphs, track visited (node, sign) pairs
@@ -379,9 +385,17 @@ def propagate_polarity(
             else:
                 neg_paths[neighbour] += 1
 
+            steps = depth[(current, current_sign)] + 1
+            best = first.get(neighbour)
+            if best is None or steps < best[0]:
+                first[neighbour] = (steps, {next_sign})
+            elif steps == best[0]:
+                best[1].add(next_sign)
+
             state = (neighbour, next_sign)
             if state not in seen:
                 seen.add(state)
+                depth[state] = steps
                 queue.append((neighbour, next_sign))
 
     # Build results
@@ -396,12 +410,18 @@ def propagate_polarity(
             effect = "+"
         else:
             effect = "-"
+        steps, signs = first.get(nid, (None, set()))
+        direct: Literal["+", "-", "ambiguous"] | None = (
+            "ambiguous" if len(signs) > 1 else "+" if signs == {1} else "-" if signs == {-1} else None
+        )
         results.append(
             PropagationEffect(
                 entity_id=nid,
                 effect=effect,
                 paths_positive=p,
                 paths_negative=n,
+                direct_effect=direct,
+                direct_steps=steps,
             )
         )
     return results

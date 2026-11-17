@@ -51,6 +51,21 @@ def analyse_loops(root: Path | None = None) -> list[ga.Loop]:
     return [ga.classify_loop(loop, polarity) for loop in raw]
 
 
+def loop_model_types(loops: list[ga.Loop], root: Path | None = None) -> list[list[str]]:
+    """For each loop, the selected model types it lies in: the whole-map types always, a simulation or
+    network only when every factor on the loop belongs to it (``operations/membership.py``)."""
+    from latris.operations.membership import members
+    from latris.schema import ProjectFoundation
+
+    paths = require_project(root)
+    selected = load_model(ProjectFoundation, paths.project_yaml).selected_model_types or ["cld"]
+    scopes = {mt: members(paths, mt) for mt in selected}
+    return [
+        [mt for mt, scope in scopes.items() if scope is None or set(loop.node_ids) <= scope.entity_ids]
+        for loop in loops
+    ]
+
+
 def analyse_propagation(entity_id: str, root: Path | None = None) -> list[ga.PropagationEffect]:
     """Qualitative impact of an increase in ``entity_id`` across the causal subgraph."""
     paths = require_project(root)
