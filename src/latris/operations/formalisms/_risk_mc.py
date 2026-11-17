@@ -65,6 +65,10 @@ def _claims(p: dict[str, Any], out: dict[str, list[str]]) -> None:
         )
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("mc-strip", {})] if p.get("outputs") else []
+
+
 def result_kind(model_type: str) -> ResultKind:
     from latris.operations.risk_uncertainty import KINDS
 
@@ -82,7 +86,8 @@ def result_kind(model_type: str) -> ResultKind:
                             sampling=p["sampling"], target=p["primary"])
 
     return ResultKind(kind=KINDS[model_type], title=_TITLE[model_type], render=_render,
-                      analysis=_ANALYSIS[model_type], run=run, definition=definition, claims=_claims)
+                      analysis=_ANALYSIS[model_type], run=run, definition=definition, claims=_claims,
+                      charts=_charts)
 
 
 # ── build spec ───────────────────────────────────────────────────────

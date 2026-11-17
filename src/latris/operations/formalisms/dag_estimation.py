@@ -41,6 +41,10 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("estimate-forest", {})]
+
+
 def _claims(p: dict[str, Any], out: dict[str, list[str]]) -> None:
     from latris.operations.estimation import describe
 
@@ -94,6 +98,6 @@ def _fingerprint(paths) -> list[Path]:
 register_analysis(Analysis(
     model_type="dag",
     result=ResultKind(kind="dag-estimate", title="Effect estimate", render=_render, analysis="dag_estimate",
-                      run=_run, definition=_definition, claims=_claims),
+                      run=_run, definition=_definition, claims=_claims, charts=_charts),
     fingerprint_files=_fingerprint,
 ))
