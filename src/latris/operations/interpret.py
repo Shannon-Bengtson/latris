@@ -11,6 +11,9 @@ from pathlib import Path
 from latris.operations import formalisms
 from latris.operations.commit import auto_commit
 from latris.operations.interpret_registry import (
+    MODEL_WIDE,
+    MODEL_WIDE_SECTIONS,
+    SOURCE_LABEL,
     get_sections_for_model_types,
 )
 from latris.repo import git
@@ -108,14 +111,18 @@ def initialise_sections(
     specs = get_sections_for_model_types(viable)
 
     store = load_interpretation(root=paths.root)
+    model_wide = len(viable) >= 2
+    if model_wide:
+        _merge_into_model_wide(store, paths)
     existing = {(s.section_type, s.model_type) for s in store.sections}
 
     for spec in specs:
-        for model_type in viable:
-            if model_type not in spec.applicable_model_types:
-                continue
+        owners = [MODEL_WIDE] if model_wide and spec.section_type in MODEL_WIDE_SECTIONS else [
+            mt for mt in viable if mt in spec.applicable_model_types]
+        for model_type in owners:
             if (spec.section_type, model_type) in existing:
                 continue
+            existing.add((spec.section_type, model_type))
             section = InterpretSection(
                 id=new_id("interpret-section"),
                 section_type=spec.section_type,
@@ -136,6 +143,57 @@ def initialise_sections(
     return store, sha, skipped
 
 
+def _merge_into_model_wide(store: InterpretationStore, paths) -> None:
+    """Fold per-type copies of a model-wide section into one (a model that gained a second type).
+
+    The most recently updated prose becomes the section's prose; every other copy's prose is kept in
+    its versions, so nothing written is lost.
+    """
+    for section_type in MODEL_WIDE_SECTIONS:
+        per_type = [s for s in store.sections if s.section_type == section_type and s.model_type != MODEL_WIDE]
+        if not per_type:
+            continue
+        merged = next((s for s in store.sections if s.section_type == section_type and s.model_type == MODEL_WIDE),
+                      None)
+        if merged is None:
+            merged = InterpretSection(id=new_id("interpret-section"), section_type=section_type,
+                                      model_type=MODEL_WIDE)
+            store.sections.append(merged)
+        written = sorted((s for s in per_type if s.prose.strip()), key=lambda s: s.updated_at)
+        for s in written:
+            merged.prose_versions.extend(s.prose_versions)
+        if written and not merged.prose.strip():
+            latest = written[-1]
+            merged.prose, merged.generation_state = latest.prose, latest.generation_state
+            merged.claims_at_generation = []  # written against one type's claims: can't be judged stale
+            merged.updated_at = latest.updated_at
+        store.sections = [s for s in store.sections if s not in per_type]
+        merged.claims = extract_claims(section_type, MODEL_WIDE, root=paths.root)
+        merged.model_commit = git.head_sha(paths.root)
+        if merged.generation_state == "empty":
+            merged.generation_state = "claims_only"
+
+
+def _model_wide_claims(section_type: InterpretSectionId, paths) -> list[str]:
+    """Every selected type's claims for a model-wide section, labelled by source, duplicates dropped."""
+    from latris.schema import ProjectFoundation
+
+    selected = load_model(ProjectFoundation, paths.project_yaml).selected_model_types
+    placeholders = ("Insufficient model structure", "No open questions, challenges", "Model structure is minimal")
+    out: list[str] = []
+    seen: set[str] = set()
+    for mt in selected:
+        for claim in extract_claims(section_type, mt, root=paths.root):
+            if claim.startswith(placeholders) or claim in seen:
+                continue
+            seen.add(claim)
+            if claim.startswith("  - "):
+                out.append(claim)  # an item of the claim before it
+            else:
+                out.append(f"{SOURCE_LABEL.get(mt, mt.upper())}: {claim}")
+    return out
+
+
 # ── Claim extraction ────────────────────────────────────────────────────
 
 
@@ -147,6 +205,8 @@ def extract_claims(
 ) -> list[str]:
     """Extract template-based claims for a section. Pure from project state."""
     paths = require_project(root)
+    if model_type == MODEL_WIDE:
+        return _model_wide_claims(section_type, paths)
     extractors = {
         "structural_summary": _extract_structural_summary,
         "key_findings": _extract_key_findings,
@@ -288,7 +348,30 @@ def _load_findings(paths, model_type: str | None = None) -> list[Finding]:
     return list_findings(model_type=model_type, root=paths.root)
 
 
-def _coverage_ids(substrate, paths=None) -> tuple[set[str], str]:
+# What a quantified model type's own factors are called in claims ("12 of 18 simulation links ...").
+SCOPE_NOUN = {"sd": "simulation", "bn": "network"}
+
+
+def _scoped_substrate(paths, model_type: str | None):
+    """The map restricted to what ``model_type`` is made of (``operations/membership.py``).
+
+    A simulation or network that shares its map with a loop map is described by its own factors and
+    links, so its claims don't count — or rank — the loop map's.
+    """
+    from latris.operations.membership import members
+    from latris.schema import Substrate
+
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    scope = members(paths, model_type) if model_type else None
+    if scope is None:
+        return substrate
+    return substrate.model_copy(update={
+        "entities": [e for e in substrate.entities if e.id in scope.entity_ids],
+        "edges": [e for e in substrate.edges if e.id in scope.edge_ids],
+    })
+
+
+def _coverage_ids(substrate, paths=None, model_type: str | None = None) -> tuple[set[str], str]:
     """The elements evidence coverage is measured over, and their name.
 
     Links are the model's claims, so coverage is "how many links have a
@@ -298,10 +381,18 @@ def _coverage_ids(substrate, paths=None) -> tuple[set[str], str]:
     ``by-definition`` (e.g. departures reduce the number of volunteers)
     need no source, so they aren't counted.
     """
+    prefix = f"{SCOPE_NOUN[model_type]} " if model_type in SCOPE_NOUN and paths is not None and _is_scoped(
+        paths, model_type) else ""
     edge_ids = {e.id for e in substrate.edges}
     if edge_ids:
-        return edge_ids - (_by_definition_ids(paths) if paths is not None else set()), "links"
-    return {e.id for e in substrate.entities}, "factors"
+        return edge_ids - (_by_definition_ids(paths) if paths is not None else set()), f"{prefix}links"
+    return {e.id for e in substrate.entities}, f"{prefix}factors"
+
+
+def _is_scoped(paths, model_type: str) -> bool:
+    from latris.operations.membership import members
+
+    return members(paths, model_type) is not None
 
 
 def _by_definition_ids(paths) -> set[str]:
@@ -417,13 +508,13 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
     """
     from latris.schema import EvidenceLinkSet, Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
     evidence = (
         load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
     )
 
-    all_ids, _ = _coverage_ids(substrate, paths)
+    all_ids, _ = _coverage_ids(substrate, paths, model_type)
     total = len(all_ids)
     if total == 0:
         return 0, 0, 1.0
@@ -467,12 +558,19 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
     )
     from latris.schema import Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     claims: list[str] = []
 
     n_entities = len(substrate.entities)
     n_edges = len(substrate.edges)
-    claims.append(f"Model contains {n_entities} entities and {n_edges} relationships.")
+    if model_type in SCOPE_NOUN and _is_scoped(paths, model_type):
+        whole = load_model(Substrate, paths.conceptual_yaml)
+        claims.append(
+            f"The {SCOPE_NOUN[model_type]} has {n_entities} factors and {n_edges} links "
+            f"(the whole map: {len(whole.entities)} and {len(whole.edges)})."
+        )
+    else:
+        claims.append(f"Model contains {n_entities} entities and {n_edges} relationships.")
 
     # Loop detection runs over causal edges only — non-causal kinds
     # (decision_rule, governance, flow, ...) inflate loop counts and
@@ -552,7 +650,7 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
     )
     from latris.schema import Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     claims: list[str] = []
 
     # Centrality and loop participation read causal edges only —
@@ -596,7 +694,10 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
     # Add recorded findings (ranked)
     findings = _load_findings(paths, model_type)
     if findings:
-        priority_cats: list[FindingCategory] = ["inference", "sensitivity", "structure"]
+        priority_cats: list[FindingCategory] = (
+            ["dynamics", "inference", "sensitivity", "structure"] if model_type == "sd"
+            else ["inference", "dynamics", "sensitivity", "structure"]
+        )
         accepted = [f for f in findings if f.maturity == "approved"]
         drafts = [f for f in findings if f.maturity == "proposed"]
         ranked = accepted + drafts
@@ -609,6 +710,8 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
 
         ranked.sort(key=sort_key)
         claims.extend([f.statement for f in ranked[:5]])
+        if len(ranked) > 5:
+            claims.append(f"{len(ranked) - 5} more finding(s) are recorded; see Findings.")
 
     if not claims:
         claims = ["Model structure is minimal — add more entities and relationships."]
@@ -624,7 +727,7 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
     )
     from latris.schema import Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     claims: list[str] = []
 
     plugin = formalisms.get(model_type)
@@ -714,13 +817,13 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
     """
     from latris.schema import EvidenceLinkSet, Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
 
     linked_ids = _for_ids(evidence)
     supported_ids = _supported_ids(evidence)
-    all_ids, noun = _coverage_ids(substrate, paths)
+    all_ids, noun = _coverage_ids(substrate, paths, model_type)
 
     total = len(all_ids)
     linked = len(all_ids & linked_ids)
@@ -745,12 +848,12 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     """Cross-reference audit: uncited elements AND unused references."""
     from latris.schema import EvidenceLinkSet, ReferenceLibrary, Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
     refs = load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
 
-    all_ids, noun = _coverage_ids(substrate, paths)
+    all_ids, noun = _coverage_ids(substrate, paths, model_type)
 
     # Elements without evidence — split linked vs supported (verified). A
     # link with support_verdict != "supports" is a proposed citation, not
@@ -812,7 +915,7 @@ def _extract_answer(model_type: str, paths) -> list[str]:
     from latris.schema import Substrate
 
     foundation = load_model(ProjectFoundation, paths.project_yaml)
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     claims = [f"Modelling question: {foundation.statement}"]
 
     entity_labels = {e.id: e.label for e in substrate.entities}
@@ -867,7 +970,7 @@ def _extract_implications(model_type: str, paths) -> list[str]:
     from latris.operations.graph_analysis import causal_edges, compute_centrality
     from latris.schema import Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     claims: list[str] = []
 
     # Centrality is a structural metric — restrict to causal edges so
@@ -906,11 +1009,11 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
     """Compute confidence indicators from evidence density and finding maturity."""
     from latris.schema import EvidenceLinkSet, Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
     evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
 
-    all_ids, noun = _coverage_ids(substrate, paths)
+    all_ids, noun = _coverage_ids(substrate, paths, model_type)
     total_elements = len(all_ids)
     # Links cover an element if at least one EvidenceLink targets it.
     # Supported coverage requires support_verdict == "supports" — i.e. the
@@ -963,7 +1066,7 @@ def _extract_open_questions(model_type: str, paths) -> list[str]:
 
     from latris.schema import ChallengeLog, EvidenceLinkSet, Substrate
 
-    substrate = load_model(Substrate, paths.conceptual_yaml)
+    substrate = _scoped_substrate(paths, model_type)
     if paths.challenges_yaml.exists():
         open_challenges = [c for c in load_model(ChallengeLog, paths.challenges_yaml).entries if c.state == "open"]
         for c in open_challenges[:4]:
@@ -1006,6 +1109,9 @@ def resolve_section(
     if not store.sections:
         raise ValueError("no interpretation sections — run `latris interpret initialise` first")
     candidates = [s for s in store.sections if model_type is None or s.model_type == model_type]
+    if model_type is not None and not any(s.section_type == query or s.id == query for s in candidates):
+        # A model-wide section answers for every type ("answer_to_question" with --model-type sd).
+        candidates = [s for s in store.sections if s.model_type == MODEL_WIDE] or candidates
     for s in candidates:
         if s.id == query:
             return s

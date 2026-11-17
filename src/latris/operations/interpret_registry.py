@@ -181,3 +181,19 @@ _register(
         prompt_name="InterpretOpenQuestions",
     )
 )
+
+
+# ---------------------------------------------------------------------------
+# Model-wide sections
+# ---------------------------------------------------------------------------
+
+# A model that is several types at once (a loop map, a simulation and a network on one map) gets ONE
+# answer, one set of implications, one confidence assessment and one list of open questions — a board
+# reads one answer, not one per formalism. Their claims pool every type's, labelled by source. The
+# technical sections stay per type. Sections use this ``model_type``.
+MODEL_WIDE = "model"
+MODEL_WIDE_SECTIONS: tuple[str, ...] = (
+    "answer_to_question", "implications", "confidence_assessment", "open_questions",
+)
+# How a pooled claim names the model type it came from.
+SOURCE_LABEL = {"cld": "Loop map", "dag": "Causal DAG", "fcm": "FCM", "bn": "Network", "sd": "Simulation"}

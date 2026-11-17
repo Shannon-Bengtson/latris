@@ -178,3 +178,63 @@ def test_remove_states_refuses_a_parent_and_removes_a_leaf(mixed_root):
     _, removed, _ = bn_ops.remove_states("Customer exceedance", root=mixed_root)
     assert removed >= 2  # states + table
     assert len(bn_ops.get_state_spaces(root=mixed_root).entries) == 3
+
+
+# ── one answer for the whole model ───────────────────────────────────
+
+
+def test_a_model_of_several_types_gets_one_answer(mixed_root):
+    from latris.operations.interpret import initialise_sections
+    from latris.operations.interpret_registry import MODEL_WIDE, MODEL_WIDE_SECTIONS
+
+    store, _, _ = initialise_sections(root=mixed_root)
+    answers = [s for s in store.sections if s.section_type == "answer_to_question"]
+    assert [s.model_type for s in answers] == [MODEL_WIDE]
+    for section_type in MODEL_WIDE_SECTIONS:
+        assert sum(s.section_type == section_type for s in store.sections) == 1
+    # technical sections stay per type
+    assert {s.model_type for s in store.sections if s.section_type == "structural_summary"} == {"cld", "sd", "bn"}
+
+
+def test_model_wide_claims_are_labelled_by_source(mixed_root):
+    from latris.operations.interpret import extract_claims
+    from latris.operations.interpret_registry import MODEL_WIDE
+
+    sd_ops.record_simulation(sd_ops.simulate(final_time=10, root=mixed_root), root=mixed_root)
+    claims = extract_claims("answer_to_question", MODEL_WIDE, root=mixed_root)
+    assert any(c.startswith("Simulation: Simulation (baseline): Water-column phosphorus") for c in claims), claims
+
+
+def test_per_type_prose_is_kept_when_a_second_type_arrives(tmp_path, git_identity):
+    from latris.operations.edges import add_edge
+    from latris.operations.init import init_project
+    from latris.operations.interpret import initialise_sections, load_interpretation, update_prose
+    from latris.operations.interpret_registry import MODEL_WIDE
+    from latris.operations.nodes import add_node
+    from latris.operations.project import update_selected_models
+
+    root = tmp_path / "proj"
+    init_project(root, statement="Q?")
+    a, _ = add_node("A", root=root)
+    b, _ = add_node("B", root=root)
+    add_edge(a.id, b.id, kind="causal", root=root)
+    add_edge(b.id, a.id, kind="causal", root=root)
+    update_selected_models(["cld"], root=root)
+    store, _, _ = initialise_sections(root=root)
+    answer = next(s for s in store.sections if s.section_type == "answer_to_question")
+    update_prose(answer.id, "A drives B, which drives A.", source="ai", root=root)
+
+    update_selected_models(["cld", "fcm"], root=root)
+    initialise_sections(root=root)
+    answers = [s for s in load_interpretation(root=root).sections if s.section_type == "answer_to_question"]
+    assert len(answers) == 1 and answers[0].model_type == MODEL_WIDE
+    assert answers[0].prose == "A drives B, which drives A."
+
+
+def test_scoped_claims_describe_the_simulation_not_the_map(mixed_root):
+    from latris.operations.interpret import extract_claims
+
+    claims = extract_claims("structural_summary", "sd", root=mixed_root)
+    assert claims[0].startswith("The simulation has 9 factors"), claims[0]
+    gaps = " ".join(extract_claims("evidence_gaps", "sd", root=mixed_root))
+    assert "simulation links" in gaps

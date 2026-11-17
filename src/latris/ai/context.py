@@ -1593,7 +1593,10 @@ def _build_interpret_section(paths: ProjectPaths, inputs: dict[str, Any]) -> Con
     entity_labels = [e.label for e in substrate.entities[:20]]
 
     # Relevant findings
-    findings = list_findings(model_type=model_type, root=paths.root)
+    from latris.operations.interpret_registry import MODEL_WIDE
+
+    # A model-wide section (a model of several types) reads every type's findings.
+    findings = list_findings(model_type=None if model_type == MODEL_WIDE else model_type, root=paths.root)
     findings_text = "\n".join(f"- [{f.category}] {f.statement}" for f in findings[:15]) or "(no findings recorded)"
 
     # Evidence links summary

@@ -81,7 +81,8 @@ _READER_PACKS = frozenset({"client", "publication"})
 # Where a reader pack's interpretation splits: the answer above, the rest
 # (after the diagram) below. Never reaches the output.
 _INTERPRETATION_REST = "<!-- interpretation continues -->"
-_ANSWER_FIRST = ("answer_to_question", "implications", "confidence_assessment")
+# Findings before what to do about them (a board reads what was found, then the implications).
+_ANSWER_FIRST = ("answer_to_question", "key_findings", "implications", "confidence_assessment", "open_questions")
 
 _CAUSAL_EDGE_KINDS = frozenset({"causal", "temporal", "decomposition", "conditional"})
 _POLICY_EDGE_KINDS = frozenset({"decision_rule", "governance", "definitional"})
@@ -1089,8 +1090,10 @@ def _render_interpretation(
     from latris.schema.interpretation import InterpretationStore
 
     store = load_model(InterpretationStore, interp_path)
+    from latris.operations.interpret_registry import MODEL_WIDE
+
     scoped_sections = [
-        s for s in store.sections if model_type is None or s.model_type == model_type
+        s for s in store.sections if model_type is None or s.model_type in (model_type, MODEL_WIDE)
     ]
     if not scoped_sections:
         return []
@@ -1121,7 +1124,9 @@ def _render_interpretation(
 
             # Disambiguate by model only in the aggregate (unscoped) report.
             multi = len(by_type.get(section_type, [])) > 1 or len(scoped_sections) > 10
-            heading_suffix = f" ({s.model_type.upper()})" if model_type is None and multi else ""
+            heading_suffix = (
+                f" ({s.model_type.upper()})" if model_type is None and multi and s.model_type != MODEL_WIDE else ""
+            )
             if answer_alone and section_type == "answer_to_question":
                 out.append(f"## {title}{heading_suffix}")
             else:
