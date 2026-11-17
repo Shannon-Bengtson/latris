@@ -249,6 +249,10 @@ def _render_trace(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts_trace(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("trace-dumbbell", {})] if p.get("links") else []
+
+
 def _claims_trace(p: dict[str, Any], out: dict[str, list[str]]) -> None:
     for pw in p["pathways"][:3]:
         out["answer_to_question"].append(
@@ -315,7 +319,8 @@ register(Formalism(
     results=(ResultKind(kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
                         analysis="toc_check", run=_run, definition=_definition),
              ResultKind(kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
-                        analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace)),
+                        analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace,
+                        charts=_charts_trace)),
     fingerprint_files=_fingerprint,
     spec_field="toc",
     spec_check=_check,

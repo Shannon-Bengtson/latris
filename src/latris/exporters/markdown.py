@@ -297,20 +297,46 @@ def render(
     if _include("diagram"):
         from latris.exporters import mermaid
 
-        diagram = mermaid.render(paths, model_type=model_type)
-        if diagram:
-            out.append("## Diagram")
-            out.append("")
+        def _emit_diagram(source: str, legend: list[str]) -> None:
             out.append("```mermaid")
-            out.append(diagram.rstrip("\n"))
+            out.append(source.rstrip("\n"))
             out.append("```")
             out.append("")
-            legend = mermaid.loop_legend(paths, model_type=model_type)
             if legend:
                 out.append("Feedback loops:")
                 out.append("")
                 out.extend(f"- {line}" for line in legend)
                 out.append("")
+
+        drew = False
+        if model_type is None:
+            # The aggregate report: one sketch per formalism in use, each drawn by
+            # the formalism's own hook (docs/engineering/REPORT-SURFACE.md). The
+            # whole-substrate sketch follows only when factors sit outside every
+            # formalism in use; when no formalism is in use at all, it is the diagram.
+            parts = _formalism_diagrams(paths)
+            if parts:
+                out.append("## Diagram")
+                out.append("")
+                for title, source, legend in parts:
+                    out.append(f"### {title}")
+                    out.append("")
+                    _emit_diagram(source, legend)
+                drew = True
+                if _has_unmapped_edges(paths):
+                    whole = mermaid.render(paths)
+                    if whole:
+                        out.append("### Whole model")
+                        out.append("")
+                        _emit_diagram(whole, mermaid.loop_legend(paths))
+        if not drew:
+            diagram = mermaid.render(paths, model_type=model_type)
+            if diagram:
+                out.append("## Diagram")
+                out.append("")
+                _emit_diagram(diagram, mermaid.loop_legend(paths, model_type=model_type))
+                drew = True
+        if drew:
             link = _app_link(paths, model_type) if app_link and not report_url else None
             if link:
                 out.append(
@@ -935,6 +961,49 @@ def _in_pack_order(
     head = out[: starts[0][1]] if starts else []
     ranked = [k for k in order if k in chunks] + [k for k, _ in starts if k not in order]
     return head + [line for k in ranked for line in chunks[k]]
+
+
+def _used_model_types(paths: ProjectPaths) -> list[str]:
+    """Formalisms this project genuinely uses, in model-type-registry order.
+
+    Same test as the methods section (`foundations._uses_formalism`): selected in
+    project.yaml, present in the mapping registry, or holding stored
+    view-attribute content.
+    """
+    from latris.operations.foundations import _uses_formalism
+    from latris.schema.model_types import list_model_types
+
+    return [s.id for s in list_model_types() if _uses_formalism(paths, s.id)]
+
+
+def _formalism_diagrams(paths: ProjectPaths) -> list[tuple[str, str, list[str]]]:
+    """(display name, mermaid source, loop legend) per used formalism with a drawable diagram."""
+    from latris.exporters import mermaid
+    from latris.schema.model_types import get_model_type
+
+    parts = []
+    seen: set[str] = set()
+    for mt in _used_model_types(paths):
+        source = mermaid.render(paths, model_type=mt)
+        # Two legacy types with no view mappings both draw the whole substrate —
+        # show it once (the "Whole model" part covers it via _has_unmapped_entities).
+        if source and source not in seen:
+            seen.add(source)
+            parts.append((get_model_type(mt).display_name, source, mermaid.loop_legend(paths, model_type=mt)))
+    return parts
+
+
+def _has_unmapped_edges(paths: ProjectPaths) -> bool:
+    """True if any substrate edge sits outside the views of every formalism in use.
+
+    Edges, not entities: an unmapped node alone draws as an unconnected box, which
+    tells the reader nothing (a pure MCDA project has no edges at all).
+    """
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    mapped: set[str] = set()
+    for mt in _used_model_types(paths):
+        mapped |= view_member_ids(paths, mt) or set()
+    return any(e.id not in mapped for e in substrate.edges)
 
 
 def _render_modelling_approach(paths: ProjectPaths) -> list[str]:
