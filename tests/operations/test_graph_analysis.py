@@ -457,3 +457,39 @@ def test_loops_sharing_one_hub_stay_separate():
     a = Loop(node_ids=("A", "B"), edge_ids=("1", "2"), classification="B")
     b = Loop(node_ids=("A", "C"), edge_ids=("3", "4"), classification="B")
     assert len(group_loop_mechanisms([a, b])) == 2
+
+
+def _group_loop_mechanisms_by_pairs(loops: list[Loop]) -> list[list[Loop]]:
+    """The definition, comparing every pair — what the indexed version must match."""
+    parent = list(range(len(loops)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            i = parent[i]
+        return i
+
+    sets = [set(loop.node_ids) for loop in loops]
+    for i in range(len(loops)):
+        for j in range(i + 1, len(loops)):
+            same = loops[i].classification == loops[j].classification
+            if same and len(sets[i] & sets[j]) >= 2 and len(sets[i] ^ sets[j]) <= 2:
+                parent[find(i)] = find(j)
+    groups: dict[int, list[Loop]] = {}
+    for i, loop in enumerate(loops):
+        groups.setdefault(find(i), []).append(loop)
+    return list(groups.values())
+
+
+def test_group_loop_mechanisms_matches_the_pairwise_definition() -> None:
+    import random
+
+    from latris.operations.graph_analysis import group_loop_mechanisms
+
+    rnd = random.Random(7)
+    for trial in range(300):
+        pool = [f"n{i}" for i in range(rnd.randint(3, 9))]
+        loops = []
+        for k in range(rnd.randint(1, 40)):
+            nodes = rnd.sample(pool, rnd.randint(1, len(pool)))
+            loops.append(Loop(node_ids=nodes, edge_ids=[f"e{trial}_{k}"], classification=rnd.choice("RB")))
+        assert group_loop_mechanisms(loops) == _group_loop_mechanisms_by_pairs(loops), trial
