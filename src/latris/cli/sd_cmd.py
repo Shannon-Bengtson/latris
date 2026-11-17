@@ -549,6 +549,9 @@ def set_scenario(
     assignments: list[str] = typer.Option(
         ..., "--set", help="'Variable=value [units]' for a constant or a stock's initial value (repeatable)."),
     description: str = typer.Option("", "--description", "-d", help="What the scenario represents."),
+    extends: str | None = typer.Option(
+        None, "--extends", help="Build on another saved scenario: its values apply first, these on top. "
+        "Comparisons measure this scenario against it (e.g. a delayed option extends the undelayed one)."),
     reason: str = typer.Option("", "--reason", help="Why these values (assumption, policy, source)."),
     source: str | None = typer.Option(None, "--source", help="Source ID backing the values."),
     origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
@@ -561,16 +564,18 @@ def set_scenario(
     from latris.operations import sd_scenarios
 
     scenario, sha = sd_scenarios.set_scenario(
-        name, assignments, description=description, reason=reason, source_id=source,
+        name, assignments, description=description, extends=extends, reason=reason, source_id=source,
         origin=origin,  # type: ignore[arg-type]
     )
     labels = _labels()
     if json_mode():
-        emit({"name": scenario.name, "description": scenario.description, "origin": scenario.origin,
-              "changes": _changes(scenario.overrides, labels)}, human=lambda: None, commit_sha=sha)
+        emit({"name": scenario.name, "description": scenario.description, "extends": scenario.extends,
+              "origin": scenario.origin, "changes": _changes(scenario.overrides, labels)},
+             human=lambda: None, commit_sha=sha)
         return
     changes = ", ".join(f"{labels.get(o.target_id, o.target_id)} = {o.value:g} {o.units}" for o in scenario.overrides)
-    console.print(f"[green]scenario[/green] {escape(scenario.name)}: {escape(changes)} · {_sha(sha)}")
+    on = f" (extends {escape(scenario.extends)})" if scenario.extends else ""
+    console.print(f"[green]scenario[/green] {escape(scenario.name)}{on}: {escape(changes)} · {_sha(sha)}")
 
 
 @app.command("scenarios")
@@ -582,7 +587,8 @@ def scenarios() -> None:
     items = sd_scenarios.list_scenarios()
     labels = _labels()
     if json_mode():
-        emit([{"name": s.name, "description": s.description, "reason": s.reason, "origin": s.origin,
+        emit([{"name": s.name, "extends": s.extends, "description": s.description, "reason": s.reason,
+               "origin": s.origin,
                "verification": s.verification, "source_id": s.source_id,
                "changes": _changes(s.overrides, labels)} for s in items], human=lambda: None)
         return
@@ -594,6 +600,8 @@ def scenarios() -> None:
         table.add_column(col)
     for s in items:
         changes = "; ".join(f"{labels.get(o.target_id, o.target_id)} = {o.value:g} {o.units}" for o in s.overrides)
+        if s.extends:
+            changes = f"{s.extends}, plus: {changes}"
         table.add_row(escape(s.name), escape(changes), escape(s.description), s.origin)
     console.print(table)
 
@@ -775,6 +783,9 @@ def compare(
         "(repeatable), e.g. a high-load world."),
     variable: str = typer.Argument(..., help="The result to compare the options on: a stock, flow or auxiliary."),
     scenario: list[str] = typer.Option(..., "--scenario", "-s", help="A saved scenario (an option); repeat."),
+    reference: str | None = typer.Option(
+        None, "--reference", "-r", help="What every option is measured against: 'baseline' or a compared "
+        "scenario. Default: the scenario an option extends, if compared; otherwise the baseline."),
     metric: str = typer.Option("final", "--metric", "-m",
                                help="final | peak | peak-time | min | mean | total | at:T"),
     runs: int = typer.Option(200, "--runs", help="Sampled draws (each option runs on every draw)."),
@@ -788,8 +799,9 @@ def compare(
 ) -> None:
     """Compare options under uncertainty: the baseline and each scenario on the same sampled draws.
 
-    Each option's result (median, 95% of draws, the central-value run) and its difference from the
-    baseline, measured draw by draw, with the share of draws where it is lower or higher.
+    Each option's result (median, 95% of draws, the central-value run) and its difference from its
+    reference, measured draw by draw, with the share of draws where it is lower or higher. The
+    baseline is the model with no scenario changes.
     """
     from latris.operations import sd as sd_ops
     from latris.operations.sd_montecarlo import describe_option
@@ -797,6 +809,7 @@ def compare(
     payload = sd_ops.run_compare(
         scenario, variable, metric=metric, runs=runs, seed=seed, sampling=sampling, max_seconds=max_seconds,
         settings=_run_settings(final_time, dt, None, method), apply_to_all=apply_to_all or None,
+        reference=reference,
     )
     recorded = sd_ops.record_compare(payload) if record else None
     if json_mode():
@@ -805,6 +818,7 @@ def compare(
             "draws": payload["succeeded"], "uncertain": payload["uncertain"],
             "options": [{k: v for k, v in r.items()} for r in payload["options"]],
             "summary": [describe_option(payload, r) for r in payload["options"]],
+            "warnings": payload["warnings"], "world": payload.get("world"),
             "run_id": recorded[1] if recorded else None,
         }, human=lambda: None, commit_sha=recorded[0] if recorded else None)
         return
@@ -812,6 +826,8 @@ def compare(
                   f"{payload['succeeded']} paired draws\n")
     for r in payload["options"]:
         console.print(f"  {escape(describe_option(payload, r))}")
+    for w in payload["warnings"]:
+        console.print(f"[yellow]⚠ {escape(w)}[/yellow]")
 
 
 @app.command("sensitivity")

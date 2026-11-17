@@ -1333,6 +1333,17 @@ def build_example(ex: WorkedExample) -> None:
             "--reason", "Canopy target raises dispersal by a fifth"])
     ex.run(["sd", "compare", "PM2.5 Load", "-s", "Clean transport", "-s", "Street trees",
             "--metric", "total", "--runs", "60", *_sd_run])
+    ex.note(
+        "Every difference names what it is measured against. A scenario can build on another with "
+        "`--extends`: its parent's values apply first. Compared together, it is measured against its "
+        "parent — here, what street trees add on top of clean transport — and its difference from "
+        "the baseline (no scenario changes) is kept alongside. A delayed option extending the "
+        "undelayed one gives the cost of waiting the same way; `--reference` sets one reference for all."
+    )
+    ex.run(["sd", "set-scenario", "Clean transport and trees", "--extends", "Clean transport",
+            "--set", "Dispersal Rate=2.4", "--reason", "Both measures together"])
+    ex.run(["sd", "compare", "PM2.5 Load", "-s", "Clean transport", "-s", "Clean transport and trees",
+            "--metric", "total", "--runs", "60", *_sd_run])
     ex.run(["sd", "simulate", "--scenario", "Clean transport", "--apply-to-all", "Dispersal Rate=1.6",
             *_sd_run, "--saveper", "2"])
     ex.run(["node", "add", "Winter Inversion", "--kind", "variable"])
