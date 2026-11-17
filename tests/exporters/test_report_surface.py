@@ -116,3 +116,43 @@ def _safe_charts(r) -> list[tuple[str, dict]]:
         except (KeyError, TypeError, IndexError):
             continue
     return []
+
+
+@pytest.fixture
+def cld_bn_sd_root(tmp_path: Path, git_identity, monkeypatch):
+    """A causal model with a loop; a BN and an SD model each quantify only part of it, with no mappings."""
+    from latris.operations import bn, sd
+    from latris.operations.edges import add_edge
+    from latris.operations.project import update_selected_models
+
+    root = tmp_path / "bloom"
+    init_project(root, statement="What drives algal blooms?")
+    for label in ("Nutrients", "Algae", "Oxygen", "Release", "Bloom", "P mass", "Settling"):
+        add_node(label, root=root)
+    for a, b in (("Nutrients", "Algae"), ("Algae", "Oxygen"), ("Oxygen", "Release"), ("Release", "Nutrients"),
+                 ("Algae", "Bloom"), ("P mass", "Settling"), ("Settling", "P mass")):
+        add_edge(a, b, root=root)
+    update_selected_models(["cld", "bn", "sd"], root=root)
+    bn.set_state_space("Algae", ["low", "high"], root=root)
+    bn.set_state_space("Bloom", ["no", "yes"], root=root)
+    sd.set_role("P mass", "stock", root=root)
+    sd.set_role("Settling", "flow", root=root)
+    monkeypatch.chdir(root)
+    return root
+
+
+def _diagram_part(md: str, title: str) -> str:
+    part = md.split(f"### {title}\n", 1)[1]
+    return part.split("\n### ", 1)[0].split("\n## ", 1)[0]
+
+
+def test_aggregate_diagrams_draw_what_each_formalism_computes_on(cld_bn_sd_root):
+    md = markdown.render(ProjectPaths(cld_bn_sd_root), ai=False)
+    bn_part = _diagram_part(md, "Bayesian Network")
+    assert "Algae" in bn_part and "Bloom" in bn_part
+    assert "Oxygen" not in bn_part and "P mass" not in bn_part  # not in the network
+    assert "Feedback loops" not in bn_part
+    sd_part = _diagram_part(md, "System Dynamics")
+    assert "P mass" in sd_part and "Oxygen" not in sd_part
+    # The CLD already draws every factor, so no "Whole model" repeat.
+    assert "### Whole model" not in md

@@ -992,6 +992,22 @@ def _formalism_diagrams(paths: ProjectPaths) -> list[tuple[str, str, list[str]]]
     return parts
 
 
+def _draws_whole_substrate(paths: ProjectPaths, model_type: str) -> bool:
+    """True if an unscoped formalism's diagram is the generic sketch of the whole model.
+
+    A plugin with its own Mermaid hook (MCDA, ACH, ...) draws only its own elements even with
+    no mappings, so it doesn't stand in for the whole model.
+    """
+    from latris.exporters import mermaid
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+    if not (plugin and plugin.mermaid):
+        return True
+    entities, edges, _ = mermaid._scoped(paths, model_type)
+    return not plugin.mermaid(paths, entities, edges)
+
+
 def _has_unmapped_edges(paths: ProjectPaths) -> bool:
     """True if any substrate edge sits outside the views of every formalism in use.
 
@@ -1001,7 +1017,12 @@ def _has_unmapped_edges(paths: ProjectPaths) -> bool:
     substrate = load_model(Substrate, paths.conceptual_yaml)
     mapped: set[str] = set()
     for mt in _used_model_types(paths):
-        mapped |= view_member_ids(paths, mt) or set()
+        members = view_member_ids(paths, mt)
+        if members is None:
+            if _draws_whole_substrate(paths, mt):
+                return False  # this formalism's diagram already draws every factor and link
+            continue
+        mapped |= members
     return any(e.id not in mapped for e in substrate.edges)
 
 

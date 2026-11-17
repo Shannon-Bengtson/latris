@@ -28,4 +28,30 @@ def view_member_ids(paths: ProjectPaths, model_type: str | None) -> set[str] | N
         return None
     registry = load_model(MappingRegistry, paths.mappings_yaml)
     mapped = {m.l2_id for m in registry.entries if m.l3_view == model_type}
-    return mapped or None
+    return mapped or _parameterised_members(paths, model_type) or None
+
+
+def _parameterised_members(paths: ProjectPaths, model_type: str) -> set[str]:
+    """For a quantified formalism with no mappings, the factors it computes on, and the links among them.
+
+    A Bayesian network computes on the factors with a state space or a table (and those tables'
+    parents); a system dynamics model on the factors with a role (stock, flow, ...). Without this a
+    BN or SD diagram drew the whole causal model, feedback loops and all.
+    """
+    nodes: set[str] = set()
+    if model_type == "bn":
+        from latris.operations import bn as bn_ops
+
+        nodes = {e.target_id for e in bn_ops._load_state_spaces(paths).entries}
+        for target, cpt in bn_ops._effective_cpt_map(paths).items():
+            nodes |= {target, *cpt.parents}
+    elif model_type == "sd":
+        from latris.operations import sd as sd_ops
+
+        nodes = {e.target_id for e in sd_ops._load_roles(paths).entries}
+    if not nodes:
+        return set()
+    from latris.schema import Substrate
+
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    return nodes | {e.id for e in substrate.edges if e.from_id in nodes and e.to_id in nodes}
