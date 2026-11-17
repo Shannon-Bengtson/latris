@@ -48,6 +48,10 @@ KIND_MODEL_TYPE = {k: k.split("-", 1)[0] for k in KIND_ORDER} | formalisms.kind_
 # ── fingerprints ─────────────────────────────────────────────────────
 
 
+# 2: hash only the model type's own factors and links (operations/membership.py); 1 hashed the whole map.
+FINGERPRINT_VERSION = 2
+
+
 def _file_text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
@@ -58,19 +62,35 @@ def fingerprint(
     *,
     scenarios: list[str] | None = None,
     uncertainty: bool = False,
+    version: int = 0,
 ) -> str:
     """Hash of everything a ``model_type`` result depends on.
 
     The model's structure (entities, edges), its roles and parameter files.
     Scenario and uncertainty definitions count only when the run used them, so
     adding a scenario doesn't make an earlier baseline run out of date.
+
+    Version 2 hashes only the factors and links ``model_type`` is made of
+    (``operations/membership.py``), so editing the loop map doesn't age a
+    simulation or network result sharing its map. Version 1 (runs recorded
+    before) hashed the whole map; a run is judged by the version it recorded.
     """
+    version = version or FINGERPRINT_VERSION
     h = hashlib.sha256()
     if paths.conceptual_yaml.exists():
         sub = load_model(Substrate, paths.conceptual_yaml)
+        scope = None
+        if version >= 2:
+            from latris.operations.membership import members
+
+            scope = members(paths, model_type)
         for e in sorted(sub.entities, key=lambda x: x.id):
+            if scope is not None and e.id not in scope.entity_ids:
+                continue
             h.update(f"n|{e.id}|{e.label}|{e.kind}\n".encode())
         for e in sorted(sub.edges, key=lambda x: x.id):
+            if scope is not None and e.id not in scope.edge_ids:
+                continue
             h.update(f"e|{e.id}|{e.from_id}|{e.to_id}|{e.kind}\n".encode())
     h.update(_file_text(paths.role_path(model_type)).encode())
     # Inputs beyond structure, roles and parameters that this model type's results read (evidence, datasets…).
@@ -106,7 +126,8 @@ def is_stale(run: AnalysisRun, paths: ProjectPaths) -> bool:
     inputs = _fingerprint_inputs(run)
     model_type = inputs.get("model_type") or KIND_MODEL_TYPE.get(run.result_kind, run.target_view or "")
     current = fingerprint(
-        paths, model_type, scenarios=inputs.get("scenarios") or None, uncertainty=bool(inputs.get("uncertainty"))
+        paths, model_type, scenarios=inputs.get("scenarios") or None, uncertainty=bool(inputs.get("uncertainty")),
+        version=int(inputs.get("version") or 1),
     )
     return current != run.model_fingerprint
 
@@ -145,7 +166,8 @@ def record_result(
     artifact = paths.analysis_outputs_dir / f"{run_id}.json"
     artifact.write_text(json.dumps({"kind": kind, "result": payload}, indent=1, default=str), encoding="utf-8")
     rel = artifact.relative_to(paths.root).as_posix()
-    inputs = {"model_type": model_type, "scenarios": sorted(scenarios or []), "uncertainty": uncertainty}
+    inputs = {"model_type": model_type, "scenarios": sorted(scenarios or []), "uncertainty": uncertainty,
+              "version": FINGERPRINT_VERSION}
     run, _ = record_run(
         run_id=run_id,
         purpose=purpose,

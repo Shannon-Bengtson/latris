@@ -280,6 +280,34 @@ def set_noisy_or(
 # ── reads ────────────────────────────────────────────────────────────
 
 
+def remove_states(node: str, *, root: Path | None = None) -> tuple[str, int, str]:
+    """Take a factor out of the network: drop its states, its table and the table's uncertainty. The
+    factor, its links and citations stay (in the loop map). Refused while another table uses it as a
+    parent. Returns ``(entity_id, rows_removed, commit_sha)``.
+    """
+    from latris.operations._cascade import cascade_model_type
+
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    node_id = resolve_target(node, substrate)
+    labels = {e.id: e.label for e in substrate.entities}
+    if node_id not in {e.target_id for e in _load_state_spaces(paths).entries}:
+        raise ValueError(f"{labels.get(node_id, node)!r} has no states")
+    children = sorted(labels.get(t, t) for t, cpt in _effective_cpt_map(paths).items()
+                      if node_id in cpt.parents and t != node_id)
+    if children:
+        raise ValueError(f"{labels.get(node_id, node)!r} is a parent in the table of {', '.join(children)}; "
+                         "set those tables without it first")
+    changed, removed = cascade_model_type(paths, _MODEL_TYPE, [node_id])
+    sha = auto_commit(
+        paths.root,
+        subject=f"BN: take {labels.get(node_id, node_id)} out of the network",
+        body=f"target: {node_id}\nrows removed: {removed}",
+        paths=changed,
+    )
+    return node_id, removed, sha
+
+
 def get_state_spaces(*, root: Path | None = None) -> StateSpaceSet:
     return _load_state_spaces(require_project(root))
 
@@ -314,12 +342,15 @@ def check(*, root: Path | None = None):
     from latris.schema.model_types import get_model_type
     from latris.schema.roles import RoleSet
 
+    from latris.operations.membership import check_scope
+
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
+    scope = check_scope(paths, _MODEL_TYPE)  # in a model sharing its map: only the factors with states
     ctx = ValidationContext(
         substrate=substrate,
-        view_entity_ids=[e.id for e in substrate.entities],
-        view_edge_ids=[e.id for e in substrate.edges],
+        view_entity_ids=[e.id for e in substrate.entities] if scope is None else list(scope.entity_ids),
+        view_edge_ids=[e.id for e in substrate.edges] if scope is None else list(scope.edge_ids),
         spec=get_model_type(_MODEL_TYPE),
         roles=RoleSet(),
         paths=paths,
@@ -351,8 +382,19 @@ def structure_problems(*, root: Path | None = None) -> list[BNProblem]:
         BNProblem(target_id=g.element_id or None, gap_type=g.gap_type, message=g.message)
         for g in check(root=root)
     ]
-    substrate = load_model(Substrate, require_project(root).conceptual_yaml)
-    if not any(e.kind == "causal" for e in substrate.edges):
+    from latris.operations.membership import check_scope
+
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    scope = check_scope(paths, _MODEL_TYPE)
+    if scope is not None and not scope.entity_ids:
+        problems.append(BNProblem(
+            target_id=None,
+            gap_type="bn_no_nodes",
+            message="No factor is in the Bayesian network yet — a factor joins it when it gets states; "
+            "the rest of the map stays in the loop map.",
+        ))
+    elif not any(e.kind == "causal" for e in substrate.edges):
         problems.append(BNProblem(
             target_id=None,
             gap_type="bn_no_nodes",

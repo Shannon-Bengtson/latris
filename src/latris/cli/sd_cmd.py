@@ -49,6 +49,22 @@ def set_role(
     console.print(f"[green]set[/green] {_labels().get(target_id, target_id[:15])} → {role} · {_sha(sha)}")
 
 
+@app.command("unset-role")
+@handle_cli_errors
+def unset_role(
+    target: str = typer.Argument(..., help="Node ID, ID prefix, or label."),
+) -> None:
+    """Take a factor out of the simulation (its role and SD values go; it stays in the loop map)."""
+    from latris.operations import sd as sd_ops
+
+    target_id, removed, sha = sd_ops.unset_role(target)
+    if json_mode():
+        emit({"target_id": target_id, "rows_removed": removed}, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]removed[/green] {_labels().get(target_id, target_id[:15])} from the simulation "
+                  f"({removed} row(s)) · {_sha(sha)}")
+
+
 @app.command("roles")
 @handle_cli_errors
 def roles() -> None:
@@ -307,17 +323,23 @@ def check() -> None:
     """Check SD readiness: classification, stock-flow plumbing, equations, values, tables, units."""
     from latris.operations import sd as sd_ops
 
-    gaps = sd_ops.check()
+    found = sd_ops.check(advisories=True)
+    gaps = [g for g in found if g.severity == "gap"]
+    advisories = [g for g in found if g.severity == "advisory"]
     notes = sd_ops.notes() if not gaps else []
     if json_mode():
         emit({"ready": not gaps, "gaps": [
             {"element": g.element_label or g.element_id, "gap": g.gap_type, "detail": g.message} for g in gaps
+        ], "advisories": [
+            {"element": g.element_label or g.element_id, "kind": g.gap_type, "detail": g.message} for g in advisories
         ], "notes": notes}, human=lambda: None)
         return
     if not gaps:
         console.print("[green]✓[/green] SD model is complete, dimensionally consistent, and ready to simulate.")
         for n in notes:
             console.print(f"[yellow]⚠ {escape(n)}[/yellow]")
+        for g in advisories:
+            console.print(f"[dim]· {escape(g.message)}[/dim]")
         return
     table = Table(show_header=True, header_style="bold")
     table.add_column("Element")

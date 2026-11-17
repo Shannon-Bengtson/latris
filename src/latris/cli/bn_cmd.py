@@ -44,6 +44,22 @@ def set_state_space(
     )
 
 
+@app.command("remove-states")
+@handle_cli_errors
+def remove_states(
+    node: str = typer.Argument(..., help="Node ID, ID prefix, or label."),
+) -> None:
+    """Take a factor out of the network (its states and table go; it stays in the loop map)."""
+    from latris.operations import bn as bn_ops
+
+    node_id, removed, sha = bn_ops.remove_states(node)
+    if json_mode():
+        emit({"target_id": node_id, "rows_removed": removed}, human=lambda: None, commit_sha=sha)
+        return
+    console.print(f"[green]removed[/green] {node_id[:15]}… from the network ({removed} row(s)) · "
+                  f"commit [cyan]{sha[:10]}[/cyan]")
+
+
 @app.command("set-cpt")
 @handle_cli_errors
 def set_cpt(

@@ -89,3 +89,45 @@ def cascade_removed_ids(paths: ProjectPaths, removed_ids: Collection[str]) -> tu
             changed.append(path)
 
     return changed, removed
+
+
+def cascade_model_type(paths: ProjectPaths, model_type: str, target_ids: Collection[str]) -> tuple[list[Path], int]:
+    """Drop the rows that put *target_ids* in ``model_type`` — its role, parameters and their uncertainty —
+    leaving the factor itself, its links, citations and every other model type alone.
+
+    How a factor leaves a simulation or a network without being deleted (``sd unset-role``,
+    ``bn remove-states``). Returns ``(changed_files, rows_removed)``; the caller commits.
+    """
+    doomed = set(target_ids)
+    changed: list[Path] = []
+    removed = 0
+    files = [paths.role_path(model_type)]
+    if paths.parameters_dir.is_dir():
+        files += sorted(paths.parameters_dir.glob(f"{model_type}-*.yaml"))
+    for path in files:
+        if not path.exists():
+            continue
+        data = load_raw(path)
+        entries = data.get("entries") if isinstance(data, dict) else None
+        if not isinstance(entries, list):
+            continue
+        kept = [row for row in entries if not (isinstance(row, dict) and row.get("target_id") in doomed)]
+        if len(kept) != len(entries):
+            removed += len(entries) - len(kept)
+            data["entries"] = kept
+            dump_raw(data, path)
+            changed.append(path)
+    unc = paths.parameter_uncertainty_yaml
+    if unc.exists():
+        data = load_raw(unc)
+        entries = data.get("entries") if isinstance(data, dict) else None
+        if isinstance(entries, list):
+            kept = [row for row in entries if not (
+                isinstance(row, dict) and row.get("target_id") in doomed
+                and str(row.get("parameter_cell_id") or "").startswith(f"{model_type}:"))]
+            if len(kept) != len(entries):
+                removed += len(entries) - len(kept)
+                data["entries"] = kept
+                dump_raw(data, unc)
+                changed.append(unc)
+    return changed, removed

@@ -30,6 +30,7 @@ class ReadinessGap:
     element_label: str
     gap_type: str
     message: str
+    severity: str = "gap"  # "advisory": worth knowing, never blocks
 
 
 @dataclass
@@ -298,8 +299,9 @@ def _sd_problems(ctx: ValidationContext, categories: frozenset[str]) -> list[Rea
             _load(SDTableSet, "table"),
             entity_ids=ctx.view_entity_ids,
             edge_ids=ctx.view_edge_ids,
+            lenient=_shares_map(ctx),
         )[1]
-    problems = ctx.cache["sd_problems"]
+    problems = [p for p in ctx.cache["sd_problems"] if p.severity == "gap"]
     labels = {e.id: e.label for e in ctx.substrate.entities}
     labels.update(
         {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
@@ -314,6 +316,35 @@ def _sd_problems(ctx: ValidationContext, categories: frozenset[str]) -> list[Rea
         for p in problems
         if p.gap_type in categories
     ]
+
+
+def _shares_map(ctx: ValidationContext) -> bool:
+    from latris.operations.membership import shares_map
+
+    return shares_map(ctx.paths, ctx.spec.id)  # type: ignore[arg-type]
+
+
+def sd_advisories(ctx: ValidationContext) -> list[ReadinessGap]:
+    """What a run ignores but a reader should know: loop-map links into the simulation, and (in a model
+    sharing its map with a loop map) links into stocks or that no equation uses. Never blocks a run."""
+    from latris.operations.membership import outside_links
+
+    _sd_problems(ctx, frozenset())  # fills the cache
+    labels = {e.id: e.label for e in ctx.substrate.entities}
+    labels.update(
+        {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in ctx.substrate.edges}
+    )
+    out = [
+        ReadinessGap(p.target_id, labels.get(p.target_id, p.target_id), p.gap_type, p.message, "advisory")
+        for p in ctx.cache["sd_problems"] if p.severity == "advisory"
+    ]
+    out += [
+        ReadinessGap(edge_id, f"{a} → {b}", "outside_link",
+                     f"{a} → {b} stays in the loop map: {a} has no SD role, so the simulation doesn't use it.",
+                     "advisory")
+        for edge_id, a, b in outside_links(ctx.paths, "sd")  # type: ignore[arg-type]
+    ]
+    return out
 
 
 def _check_sd_classification_complete(ctx: ValidationContext) -> list[ReadinessGap]:
@@ -517,8 +548,16 @@ def assess_readiness(
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
 
-    entity_ids = {e.id for e in substrate.entities}
-    edge_ids = {e.id for e in substrate.edges}
+    # What this model type is made of (operations/membership.py) — so a loop map's feedback
+    # loops don't count as cycles in a network that shares its map.
+    from latris.operations.membership import check_scope
+
+    scope = check_scope(paths, spec.id)
+    if scope is None:
+        entity_ids = {e.id for e in substrate.entities}
+        edge_ids = {e.id for e in substrate.edges}
+    else:
+        entity_ids, edge_ids = set(scope.entity_ids), set(scope.edge_ids)
     all_edge_ids = list(edge_ids)
 
     # Load roles for this model type (empty if file doesn't exist yet).
@@ -546,6 +585,13 @@ def assess_readiness(
         if validator_gaps:
             structural_ok = False
             gaps.extend(validator_gaps)
+    if scope is not None and spec.id == "bn" and not scope.entity_ids:
+        structural_ok = False
+        gaps.append(ReadinessGap(
+            "", "(model)", "empty_network",
+            "No factor is in the Bayesian network yet. A factor joins it when it gets states (set_states); "
+            "the rest of the map stays in the loop map.",
+        ))
 
     # 2. Model-specific attributes
     attr_met, attr_total, attr_gaps = _check_model_attributes(

@@ -51,6 +51,8 @@ EQUATION_GAPS = frozenset({
 })
 VALUE_GAPS = frozenset({"missing_initial_value", "missing_constant_value"})
 TABLE_GAPS = frozenset({"missing_table", "unused_table"})
+# Diagram-only links that are advisories, not gaps, when the model shares its map with a loop map.
+ADVISORY_WHEN_SHARED = frozenset({"stock_causal_input", "unused_information_link"})
 UNIT_GAPS = frozenset({
     "units_invalid", "flow_units_incompatible", "units_mismatch", "evaluation_error", "settings_invalid",
 })
@@ -61,6 +63,8 @@ class SDProblem:
     target_id: str
     gap_type: str
     message: str
+    # "gap" blocks a run; "advisory" doesn't (a diagram-only link in a model shared with a loop map).
+    severity: str = "gap"
 
 
 @dataclass(frozen=True)
@@ -155,18 +159,23 @@ def analyse(
     *,
     entity_ids: list[str] | None = None,
     edge_ids: list[str] | None = None,
+    lenient: bool = False,
 ) -> tuple[SDModel | None, list[SDProblem]]:
     """Check an SD model end to end; return the compiled model (if sound) and every problem.
 
     SMOOTH / DELAY calls are expanded into hidden stocks and flows first (``_sd_delays``).
+
+    ``lenient``: the model shares its map with a loop map, so a causal link into a stock or one an
+    equation doesn't use is the loop map's, not a fault — reported as an advisory, never blocking.
+    A sound model comes back with its advisories as the problem list.
     """
     from latris.operations import _sd_delays
 
     if _sd_delays.uses_delays([e.expression for e in equations.entries]):
         return _analyse_with_delays(substrate, roles, equations, stocks, constants, tables, settings,
-                                    entity_ids=entity_ids, edge_ids=edge_ids)
+                                    entity_ids=entity_ids, edge_ids=edge_ids, lenient=lenient)
     return _analyse_core(substrate, roles, equations, stocks, constants, tables, settings,
-                         entity_ids=entity_ids, edge_ids=edge_ids)
+                         entity_ids=entity_ids, edge_ids=edge_ids, lenient=lenient)
 
 
 def _analyse_with_delays(
@@ -180,6 +189,7 @@ def _analyse_with_delays(
     *,
     entity_ids: list[str] | None,
     edge_ids: list[str] | None,
+    lenient: bool = False,
 ) -> tuple[SDModel | None, list[SDProblem]]:
     from latris.operations import _sd_delays
 
@@ -204,7 +214,7 @@ def _analyse_with_delays(
         return None, [SDProblem(owner, "equation_invalid", str(exc))]
 
     first, problems = _analyse_core(substrate, roles, stand_in, stocks, constants, tables, settings,
-                                    entity_ids=entity_ids, edge_ids=edge_ids)
+                                    entity_ids=entity_ids, edge_ids=edge_ids, lenient=lenient)
     if first is None:
         return None, problems
 
@@ -248,6 +258,7 @@ def _analyse_with_delays(
         settings,
         entity_ids=None if entity_ids is None else [*entity_ids, *(e.id for e in ex.entities)],
         edge_ids=None if edge_ids is None else [*edge_ids, *(e.id for e in ex.edges)],
+        lenient=lenient,
     )
     if model is not None:
         model.hidden = set(ex.hidden)
@@ -265,6 +276,7 @@ def _analyse_core(
     *,
     entity_ids: list[str] | None = None,
     edge_ids: list[str] | None = None,
+    lenient: bool = False,
 ) -> tuple[SDModel | None, list[SDProblem]]:
     settings = settings or SDSettings()
     labels = {e.id: e.label for e in substrate.entities}
@@ -282,14 +294,21 @@ def _analyse_core(
     roles_of = {k: v for k, v in role_map(roles).items() if k in in_view}
     members = set(roles_of) | {n for e in flow_edges for n in (e.from_id, e.to_id)}
     causal = [e for e in edges if e.kind == "causal" and e.to_id in members]
+    if lenient:  # links from loop-map factors aren't the simulation's (membership.outside_links reports them)
+        causal = [e for e in causal if e.from_id in members]
     nodes = members | {e.from_id for e in causal}
     problems: list[SDProblem] = []
 
     def name(i: str) -> str:
         return labels.get(i, i)
 
+    advisories: list[SDProblem] = []
+
     def add(target: str, gap: str, msg: str) -> None:
-        problems.append(SDProblem(target, gap, msg))
+        if lenient and gap in ADVISORY_WHEN_SHARED:
+            advisories.append(SDProblem(target, gap, msg, "advisory"))
+        else:
+            problems.append(SDProblem(target, gap, msg))
 
     # 1. classification
     for n in sorted(nodes, key=name):
@@ -465,7 +484,7 @@ def _analyse_core(
                         f"e.g. ({stock_text})/{describe(time_unit)}.")
 
     if problems:
-        return None, problems
+        return None, problems + advisories
 
     # 9. compile + trial evaluation at the initial time
     order = sorted((v for v in computed if not any(v in (lk.from_id, lk.to_id) for lk in dep_links)), key=name)
@@ -497,7 +516,7 @@ def _analyse_core(
     problems.extend(_trial(model))
     if not problems:
         model.notes.extend(clock_notes(model))
-    return (None, problems) if problems else (model, [])
+    return (None, problems + advisories) if problems else (model, advisories)
 
 
 _CLOCK_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
@@ -596,8 +615,18 @@ def build_model(*args: Any, **kwargs: Any) -> SDModel:
     """:func:`analyse`, raising if the model isn't ready to simulate."""
     model, problems = analyse(*args, **kwargs)
     if model is None:
-        shown = "; ".join(p.message.rstrip(".") for p in problems[:3])
-        more = f" (+{len(problems) - 3} more)" if len(problems) > 3 else ""
+        gaps = [p for p in problems if p.severity == "gap"]
+        substrate = args[0] if args else kwargs["substrate"]
+        labels = {e.id: e.label for e in substrate.entities}
+        labels.update({e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}"
+                       for e in substrate.edges})
+
+        def text(p: SDProblem) -> str:
+            who = labels.get(p.target_id)
+            return f"{who}: {p.message.rstrip('.')}" if who and who not in p.message else p.message.rstrip(".")
+
+        shown = "; ".join(text(p) for p in gaps[:3])
+        more = f" (+{len(gaps) - 3} more)" if len(gaps) > 3 else ""
         raise EquationError(f"SD model is not ready to simulate: {shown}{more}. Run `sd check` for the full list.")
     return model
 

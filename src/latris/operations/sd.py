@@ -102,6 +102,27 @@ def set_role(target: str, role: str, *, root: Path | None = None) -> tuple[str, 
     return view_roles.set_role(entity_id, _MODEL_TYPE, role, root=paths.root)
 
 
+def unset_role(target: str, *, root: Path | None = None) -> tuple[str, int, str]:
+    """Take a factor out of the simulation: drop its SD role and its SD values (equation, constant,
+    initial value, table, uncertainty range). The factor, its links and citations stay — it remains in
+    the loop map. Returns ``(entity_id, rows_removed, commit_sha)``.
+    """
+    from latris.operations._cascade import cascade_model_type
+
+    paths = require_project(root)
+    _, entity_id, label = _resolve(paths, target)
+    if entity_id not in {e.target_id for e in _load_roles(paths).entries}:
+        raise ValueError(f"{label!r} has no SD role")
+    changed, removed = cascade_model_type(paths, _MODEL_TYPE, [entity_id])
+    sha = auto_commit(
+        paths.root,
+        subject=f"SD: take {label} out of the simulation",
+        body=f"target: {entity_id}\nrows removed: {removed}",
+        paths=changed,
+    )
+    return entity_id, removed, sha
+
+
 def get_roles(*, root: Path | None = None) -> RoleSet:
     return _load_roles(require_project(root))
 
@@ -287,11 +308,11 @@ def get_tables(*, root: Path | None = None) -> SDTableSet:
 # ── readiness check ──────────────────────────────────────────────────
 
 
-def check(*, root: Path | None = None):
-    """Run every SD structural validator and return the gaps.
+def check(*, root: Path | None = None, advisories: bool = False):
+    """Run every SD structural validator and return the gaps (with ``advisories``, those too).
 
-    Runs the validators directly over the whole substrate (no view scoping), so it works
-    before any view mapping exists.
+    Scoped by ``operations/membership.py``: in a model that shares its map with a loop map only the
+    factors with an SD role (and the links among them) are checked; otherwise the whole map is.
     Unlike BN, SD validators depend on view roles, so the real role set is loaded.
     """
     from latris.operations.readiness import _STRUCTURAL_VALIDATORS, SD_VALIDATORS, ValidationContext
@@ -299,10 +320,11 @@ def check(*, root: Path | None = None):
 
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
+    entity_ids, edge_ids = _scope_ids(paths, substrate)
     ctx = ValidationContext(
         substrate=substrate,
-        view_entity_ids=[e.id for e in substrate.entities],
-        view_edge_ids=[e.id for e in substrate.edges],
+        view_entity_ids=entity_ids,
+        view_edge_ids=edge_ids,
         spec=get_model_type(_MODEL_TYPE),
         roles=_load_roles(paths),
         paths=paths,
@@ -310,7 +332,20 @@ def check(*, root: Path | None = None):
     gaps = []
     for name in SD_VALIDATORS:
         gaps.extend(_STRUCTURAL_VALIDATORS[name](ctx))  # type: ignore[operator]
+    if advisories:
+        from latris.operations.readiness import sd_advisories
+
+        gaps.extend(sd_advisories(ctx))
     return gaps
+
+
+def _scope_ids(paths, substrate) -> tuple[list[str], list[str]]:
+    from latris.operations.membership import check_scope
+
+    scope = check_scope(paths, _MODEL_TYPE)
+    if scope is None:
+        return [e.id for e in substrate.entities], [e.id for e in substrate.edges]
+    return list(scope.entity_ids), list(scope.edge_ids)
 
 
 # ── simulation ───────────────────────────────────────────────────────
@@ -408,14 +443,21 @@ def compile_project(
         initial_time=initial_time, final_time=final_time, dt=dt, saveper=saveper,
         method=method, time_units=time_units, base=get_settings(root=paths.root),
     )
+    from latris.operations.membership import shares_map
+
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    entity_ids, edge_ids = _scope_ids(paths, substrate)
     return sd_inference.build_model(
-        load_model(Substrate, paths.conceptual_yaml),
+        substrate,
         _load_roles(paths),
         _load(paths, SDEquationSet, "equations"),
         _load(paths, SDStockSet, "initial_value"),
         _load(paths, SDConstantSet, "constant"),
         _load(paths, SDTableSet, "table"),
         settings,
+        entity_ids=entity_ids,
+        edge_ids=edge_ids,
+        lenient=shares_map(paths, _MODEL_TYPE),
     )
 
 
