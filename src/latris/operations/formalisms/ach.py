@@ -36,6 +36,10 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("ach-matrix", {})] if p.get("matrix") else []
+
+
 def _claims(paths, section: str) -> list[str]:
     from latris.operations import ach
 
@@ -86,7 +90,7 @@ def _mermaid(paths, entities, edges) -> str:
     lines = ["flowchart LR"]
     hid = {h: f"h{i}" for i, h in enumerate(p["hypotheses"])}
     for r in p["ranking"]:
-        lines.append(f'    {hid[r["hypothesis"]]}(["{_mermaid_text(r["hypothesis"])}<br/>against: '
+        lines.append(f'    {hid[r["hypothesis"]}(["{_mermaid_text(r["hypothesis"])}<br/>against: '
                      f'{r["inconsistency"]:.2f}"])')
     for j, m in enumerate(p["matrix"]):
         against = [(h, v) for h, v in m["ratings"].items() if v in ("I", "II")]
@@ -179,7 +183,7 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Rate every item against every hypothesis to find the linchpins.",
     results=(ResultKind(kind="ach-analysis", title="Competing hypotheses", render=_render, analysis="ach_analyse",
-                        run=_run, definition=_definition),),
+                        run=_run, definition=_definition, charts=_charts),),
     # The analysis reads each item's own citations (checked or not).
     fingerprint_files=lambda paths: [paths.evidence_links_yaml],
     spec_field="ach",
