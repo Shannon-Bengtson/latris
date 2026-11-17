@@ -854,19 +854,19 @@ A Bayesian Network quantifies an acyclic causal subgraph: every node gets a disc
 
 Every CPT row carries its own provenance — `origin` (human-direct, human-elicited, data-derived, ai-proposed), `verification`, `source`, and who contributed. Different rows in one table can come from different sources (an expert, a dataset, a default), and the model shows where each number came from. No incumbent BN tool does this.
 
-## Working with a BN (the `bn` commands)
+## Working with a BN (the `latris bn` commands)
 
-- **`bn set-state-space <node> <states>`** — declare a node's discrete states (`--ordered` for ordinal).
-- **`bn set-cpt <node> --parents … --probs …`** — fill a CPT (with `--origin`/`--source`).
-- **`bn set-noisy-or <node> -c "<parent>=<state>:<prob>" --leak …`** — a *canonical model* for high-fan-in binary nodes: each cause contributes independently, so k causes need k probabilities + a leak instead of 2^k rows.
-- **`bn learn <dataset>`** — fit CPTs from data. Rows you elicited or verified are **protected**; data fills only the gaps. Learned rows are stamped data-derived and the run is logged.
-- **`bn check`** — readiness: state spaces defined, CPTs complete + normalised, acyclic.
-- **`bn marginals` / `bn query --evidence … --query …`** — exact inference. Each query is recorded (`--no-record` to skip); reports show the latest one per evidence set, posterior against prior, with a chart.
-- **`bn sensitivity <target> --state …`** — rank the parameters that move a conclusion, flagging the ones that aren't human-verified.
-- **Noisy-OR** — `bn set-noisy-or <node> -c "Cause=yes:0.6" --leak 0.02 --active yes`: `--active` names the node's state the causes push toward; it's required unless the first state is plainly the event (yes, true, present…).
-- **Soft evidence** — `bn query -s "Wet=yes:0.8"` when you're not certain: afterwards P(Wet = yes) is 80% (Jeffrey's rule) and the other states share the rest. `--likelihood "Wet=yes:4,no:1"` instead says how much an observation favours each state.
-- **`bn explain -e …`** — the single most likely combination of states given the evidence (MPE; `--over` limits it to chosen nodes, MAP), its probability, how many times likelier each state is than its runner-up, and where a node's own favourite differs from the combination.
-- **`bn set-uncertainty <node> --n 20`** — how well a probability table is known: "worth about n observations" (`--row "Parent=state,…"` for one row). **`bn monte-carlo <target> [--state s] -e …`** then re-asks the query under seeded draws of every such table and gives the point estimate, median and the range 50% / 95% of draws fall in, the tables held fixed, and which tables drive the spread.
+- **`latris bn set-state-space <node> <states>`** — declare a node's discrete states (`--ordered` for ordinal).
+- **`latris bn set-cpt <node> --parents … --probs …`** — fill a CPT (with `--origin`/`--source`).
+- **`latris bn set-noisy-or <node> -c "<parent>=<state>:<prob>" --leak …`** — a *canonical model* for high-fan-in binary nodes: each cause contributes independently, so k causes need k probabilities + a leak instead of 2^k rows.
+- **`latris bn learn <dataset>`** — fit CPTs from data. Rows you elicited or verified are **protected**; data fills only the gaps. Learned rows are stamped data-derived and the run is logged.
+- **`latris bn check`** — readiness: state spaces defined, CPTs complete + normalised, acyclic.
+- **`latris bn marginals` / `latris bn query --evidence … --query …`** — exact inference. Each query is recorded (`--no-record` to skip); reports show the latest one per evidence set, posterior against prior, with a chart.
+- **`latris bn sensitivity <target> --state …`** — rank the parameters that move a conclusion, flagging the ones that aren't human-verified.
+- **Noisy-OR** — `latris bn set-noisy-or <node> -c "Cause=yes:0.6" --leak 0.02 --active yes`: `--active` names the node's state the causes push toward; it's required unless the first state is plainly the event (yes, true, present…).
+- **Soft evidence** — `latris bn query -s "Wet=yes:0.8"` when you're not certain: afterwards P(Wet = yes) is 80% (Jeffrey's rule) and the other states share the rest. `--likelihood "Wet=yes:4,no:1"` instead says how much an observation favours each state.
+- **`latris bn explain -e …`** — the single most likely combination of states given the evidence (MPE; `--over` limits it to chosen nodes, MAP), its probability, how many times likelier each state is than its runner-up, and where a node's own favourite differs from the combination.
+- **`latris bn set-uncertainty <node> --n 20`** — how well a probability table is known: "worth about n observations" (`--row "Parent=state,…"` for one row). **`latris bn monte-carlo <target> [--state s] -e …`** then re-asks the query under seeded draws of every such table and gives the point estimate, median and the range 50% / 95% of draws fall in, the tables held fixed, and which tables drive the spread.
 
 ## Not yet
 

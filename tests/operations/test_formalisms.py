@@ -18,7 +18,7 @@ from latris.operations.formalisms import CLAIM_SECTIONS, Formalism
 from latris.schema.model_types import get_model_type, list_model_types
 
 # Types that predate the plugin registry and keep their own wiring.
-LEGACY = {"cld", "dag", "fcm", "bn", "sd"}
+LEGACY = {"cld", "dag", "fcm", "sd"}
 PLUGINS = formalisms.all_formalisms()
 IDS = [f.model_type for f in PLUGINS]
 
