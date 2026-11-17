@@ -35,8 +35,10 @@ from latris.operations._units import PINT_ERRORS, Quantity
 from latris.schema.sd import SDTableEntry
 
 TIME = "TIME"
+PI = "PI"  # 3.14159…, for seasonal cycles: SIN(2 * PI * TIME / one_year)
 FUNCTIONS: tuple[str, ...] = (
     "MIN", "MAX", "ABS", "IF_THEN_ELSE", "STEP", "RAMP", "PULSE", "TABLE", "EXP", "LN", "SQRT",
+    "SIN", "COS", "MODULO",
     # Expanded into hidden stocks before evaluation (operations/_sd_delays.py); never evaluated directly.
     "SMOOTH", "SMOOTH3", "DELAY1", "DELAY3",
 )
@@ -110,7 +112,7 @@ def parse(expression: str) -> ParsedEquation:
 
     called = {n.func.id for n in ast.walk(tree) if isinstance(n, ast.Call)}  # type: ignore[union-attr]
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and node.id not in called and node.id != TIME:
+        if isinstance(node, ast.Name) and node.id not in called and node.id not in (TIME, PI):
             names.add(node.id)
 
     parsed_node = _PARSER.parse(text)
@@ -209,6 +211,36 @@ def _sqrt(x: Any) -> Any:
     return math.sqrt(x)
 
 
+def _sin(x: Any) -> Any:
+    return Quantity(math.sin(_dimensionless(x, "SIN")), "dimensionless")
+
+
+def _cos(x: Any) -> Any:
+    return Quantity(math.cos(_dimensionless(x, "COS")), "dimensionless")
+
+
+def _modulo(x: Any, y: Any) -> Any:
+    """The remainder of x / y, in x's units: ``MODULO(TIME, 1)`` is the time within each period.
+
+    A bare second argument takes the first's units (``MODULO(TIME, 1)`` in a yearly model is the
+    fraction of the year); otherwise both must be compatible.
+    """
+    if isinstance(x, Quantity) and _is_number(y):
+        y = Quantity(float(y), x.units)
+    elif isinstance(y, Quantity) and _is_number(x):
+        x = Quantity(float(x), y.units)
+    if isinstance(x, Quantity):
+        if not x.is_compatible_with(y.units):
+            raise EquationError(f"MODULO needs arguments in compatible units, got {x.units} and {y.units}")
+        y = y.to(x.units)
+        if y.magnitude == 0:
+            raise EquationError("MODULO by zero")
+        return Quantity(x.magnitude % y.magnitude, x.units)
+    if y == 0:
+        raise EquationError("MODULO by zero")
+    return x % y
+
+
 def interpolate(table: SDTableEntry, x: float) -> float:
     """Piecewise-linear lookup with clamp or linear extrapolation."""
     pts = table.points
@@ -236,7 +268,7 @@ class Evaluator:
             functions={
                 "MIN": _min, "MAX": _max, "ABS": _abs, "IF_THEN_ELSE": _if_then_else,
                 "STEP": self._step, "RAMP": self._ramp, "PULSE": self._pulse, "TABLE": self._table_lookup,
-                "EXP": _exp, "LN": _ln, "SQRT": _sqrt,
+                "EXP": _exp, "LN": _ln, "SQRT": _sqrt, "SIN": _sin, "COS": _cos, "MODULO": _modulo,
             },
             names={},
         )
@@ -286,6 +318,8 @@ class Evaluator:
         return Quantity(interpolate(table, x_val), table.y_units)
 
     def evaluate(self, parsed: ParsedEquation, names: dict[str, Any], *, table: SDTableEntry | None = None) -> Any:
+        if PI not in names:
+            names = {**names, PI: math.pi}
         self._s.names = names
         self._table = table
         try:

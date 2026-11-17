@@ -48,6 +48,7 @@ from latris.operations._sd_eval import (
     _MAX_EXPONENT,
     _OPERATORS,
     FUNCTIONS,
+    PI,
     TIME,
     EquationError,
     _if_then_else,
@@ -107,6 +108,12 @@ def _ln(x: float) -> float:
     return math.log(x)
 
 
+def _mod(x: float, y: float) -> float:
+    if y == 0:
+        raise EquationError("MODULO by zero")
+    return x % y
+
+
 def _sqrt(x: float) -> float:
     if x < 0:
         raise EquationError(f"SQRT of a negative number ({x})")
@@ -122,6 +129,9 @@ _HELPERS: dict[str, Any] = {
     "_exp": math.exp,
     "_ln": _ln,
     "_sqrt": _sqrt,
+    "_sin": math.sin,
+    "_cos": math.cos,
+    "_mod": _mod,
     "min": min,
     "max": max,
     "abs": abs,
@@ -179,6 +189,8 @@ class _Compiler:
         if isinstance(node, ast.Name):
             if node.id == TIME:
                 return "_t", self.env[TIME]
+            if node.id == PI:
+                return repr(math.pi), math.pi
             if node.id not in self.env:
                 raise _Unsupported(f"unknown name {node.id}")
             return self.ref(node.id), self.env[node.id]
@@ -266,6 +278,26 @@ class _Compiler:
             x = float(vx.to("dimensionless").magnitude) if isinstance(vx, Quantity) else float(vx)
             result = math.exp(x) if fname == "EXP" else math.log(x)
             return f"_{fname.lower()}({cx})", Quantity(result, "dimensionless")
+        if fname in ("SIN", "COS"):
+            ((cx, vx),) = args
+            if isinstance(vx, Quantity) and not vx.dimensionless:
+                raise _Unsupported(f"{fname} of a dimensional quantity")
+            x = float(vx.to("dimensionless").magnitude) if isinstance(vx, Quantity) else float(vx)
+            return f"_{fname.lower()}({cx})", Quantity(math.sin(x) if fname == "SIN" else math.cos(x), "dimensionless")
+        if fname == "MODULO":
+            (cx, vx), (cy, vy) = args
+            if isinstance(vx, Quantity) and _is_num(vy):
+                cy, vy = f"({cy} * {_factor(vx.units)!r})", Quantity(float(vy), vx.units)
+            elif isinstance(vy, Quantity) and _is_num(vx):
+                cx, vx = f"({cx} * {_factor(vy.units)!r})", Quantity(float(vx), vy.units)
+            if isinstance(vx, Quantity) != isinstance(vy, Quantity):
+                raise _Unsupported("MODULO of mixed values")
+            if isinstance(vx, Quantity):
+                _factor(vx.units)
+                val = Quantity(vx.magnitude % vy.to(vx.units).magnitude, vx.units)
+            else:
+                val = vx % vy
+            return f"_mod({cx}, {cy})", val
         if fname == "SQRT":
             ((cx, vx),) = args
             return f"_sqrt({cx})", vx**0.5 if isinstance(vx, Quantity) else math.sqrt(vx)
