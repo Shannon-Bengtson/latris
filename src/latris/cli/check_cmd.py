@@ -63,7 +63,7 @@ def coherence() -> None:
 @app.command("handover")
 @handle_cli_errors
 def handover(
-    model_type: str = typer.Option(None, "--model-type", "-m", help="Model type to check (default: the first chosen)."),
+    model_type: str = typer.Option(None, "--model-type", "-m", help="Model type to check (default: every model type the model is)."),
 ) -> None:
     """Is the model ready to hand to a board? Lists what's left, and how to fix each.
 

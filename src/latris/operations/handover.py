@@ -33,12 +33,14 @@ class HandoverItem:
 
 @dataclass
 class HandoverReport:
-    model_type: str
+    model_type: str  # the types checked, comma-separated ("cld,sd,bn")
     ready: bool
     items: list[HandoverItem]
+    model_types: list[str] = field(default_factory=list)
 
 
 def handover_check(*, model_type: str | None = None, root: Path | None = None) -> HandoverReport:
+    """What's left before a board sees the model — for ``model_type``, or every model type it is."""
     from latris.operations.analysis import run_coherence_check
     from latris.operations.findings import list_findings
     from latris.operations.interpret import _coverage_ids, _element_names, _for_ids, load_interpretation
@@ -47,7 +49,8 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
 
     paths = require_project(root)
     foundation = load_model(ProjectFoundation, paths.project_yaml)
-    model_type = model_type or next(iter(foundation.selected_model_types), "cld")
+    types = [model_type] if model_type else (list(foundation.selected_model_types) or ["cld"])
+    several = len(types) > 1
     substrate = load_model(Substrate, paths.conceptual_yaml)
     evidence = (
         load_model(EvidenceLinkSet, paths.evidence_links_yaml)
@@ -113,7 +116,8 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
         ))
 
     waiting = [
-        f for f in list_findings(model_type=model_type, root=paths.root) if f.maturity in ("proposed", "reviewed")
+        f for f in list_findings(model_type=None if several else types[0], root=paths.root)
+        if f.maturity in ("proposed", "reviewed") and f.model_type in types
     ]
     if waiting:
         items.append(HandoverItem(
@@ -121,10 +125,25 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             f"{len(waiting)} finding{'s' if len(waiting) != 1 else ''} waiting for a person's approval "
             "(the client report leaves them out)",
             "a person reads each and runs `latris mature approve <finding-id>` (or drops it)",
-            [f.statement for f in waiting[:5]],
+            [f"{f.statement} ({f.model_type})" if several else f.statement for f in waiting[:5]],
         ))
 
-    sections = [s for s in load_interpretation(root=paths.root).sections if s.model_type == model_type]
+    from latris.operations.interpret_registry import MODEL_WIDE
+
+    element_ids = {e.id for e in substrate.entities} | {e.id for e in substrate.edges}
+    orphaned = [f for f in list_findings(model_type=None, root=paths.root)
+                if f.model_type in types
+                and any(t not in element_ids for t in f.target_ids)]
+    if orphaned:
+        items.append(HandoverItem(
+            "findings_about_removed", len(orphaned),
+            f"{len(orphaned)} finding{'s are' if len(orphaned) != 1 else ' is'} about a factor or link that has "
+            "since been removed, so the report may describe something no longer in the model",
+            "rewrite each as a new finding about what's there now (`latris finding add`), or drop it",
+            [f.statement for f in orphaned[:5]],
+        ))
+
+    sections = [s for s in load_interpretation(root=paths.root).sections if s.model_type in (*types, MODEL_WIDE)]
     if not sections:
         items.append(HandoverItem(
             "missing_prose", 1, "the interpretation (the answer, implications, confidence) hasn't been started",
@@ -143,7 +162,8 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
                 "missing_prose", len(empty),
                 f"{len(empty)} of {len(sections)} report sections have no prose (readers see raw claims)",
                 "`latris interpret show <section>`, then `latris interpret set-prose <section> \"...\" --by ai`",
-                names[:5],
+                [f"{n} ({s.model_type})" if several and s.model_type != MODEL_WIDE else n
+                 for n, s in zip(names, empty, strict=True)][:5],
             ))
 
     from latris.operations.interpret import extract_claims
@@ -175,7 +195,8 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
 
     from latris.operations.analysis_results import report_results
 
-    out_of_date = [r for r in report_results(model_types=[model_type], root=paths.root) if r.stale]
+    shown = report_results(model_types=types, root=paths.root)
+    out_of_date = [r for r in shown if r.stale]
     if out_of_date:
         items.append(HandoverItem(
             "stale_results", len(out_of_date),
@@ -186,7 +207,20 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             [r.run.output_summary[:120] for r in out_of_date[:5]],
         ))
 
-    if model_type == "sd":
+    from latris.operations.sd_scenarios import WHAT_IF
+
+    exploratory = [r for r in shown if r.run.result_kind == "sd-simulation" and f'"{WHAT_IF}' in r.run.analysis_key]
+    if exploratory:
+        items.append(HandoverItem(
+            "exploratory_results", len(exploratory),
+            f"{len(exploratory)} simulation{'s' if len(exploratory) != 1 else ''} in the report "
+            f"{'include' if len(exploratory) != 1 else 'includes'} an unsaved what-if",
+            "save the values as a scenario (`latris sd set-scenario`) and re-run, or leave the run out of the "
+            "report with `latris results hide <run>`",
+            [r.run.output_summary[:120] for r in exploratory[:5]],
+        ))
+
+    if "sd" in types:
         from latris.operations import sd as sd_ops
 
         gaps = sd_ops.check(root=paths.root)
@@ -195,7 +229,19 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
                 "model_incomplete", len(gaps),
                 f"the System Dynamics model doesn't pass its check ({len(gaps)} gap{'s' if len(gaps) != 1 else ''})",
                 "`latris sd check` lists each gap and how to fix it",
-                [g.message for g in gaps[:5]],
+                [f"{g.element_label}: {g.message}" if g.element_label else g.message for g in gaps[:5]],
+            ))
+    if "bn" in types:
+        from latris.operations import bn as bn_ops
+
+        problems = bn_ops.structure_problems(root=paths.root)
+        if problems:
+            items.append(HandoverItem(
+                "model_incomplete", len(problems),
+                f"the Bayesian network doesn't pass its check ({len(problems)} gap"
+                f"{'s' if len(problems) != 1 else ''})",
+                "`latris bn check` lists each gap and how to fix it",
+                [p.message for p in problems[:5]],
             ))
 
     from latris.operations.integrity import check_integrity
@@ -211,7 +257,7 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             [f"{p.where}: {p.message}" for p in broken[:5]],
         ))
 
-    return HandoverReport(model_type=model_type, ready=not items, items=items)
+    return HandoverReport(model_type=",".join(types), ready=not items, items=items, model_types=types)
 
 
 def _cite_name(ref) -> str:

@@ -238,3 +238,36 @@ def test_scoped_claims_describe_the_simulation_not_the_map(mixed_root):
     assert claims[0].startswith("The simulation has 9 factors"), claims[0]
     gaps = " ".join(extract_claims("evidence_gaps", "sd", root=mixed_root))
     assert "simulation links" in gaps
+
+
+# ── check before handing over ────────────────────────────────────────
+
+
+def test_handover_checks_every_model_type(mixed_root):
+    from latris.operations.handover import handover_check
+
+    sd_ops.set_role("Treatment cost", "auxiliary", root=mixed_root)  # an SD gap
+    report = handover_check(root=mixed_root)
+    assert report.model_types == ["cld", "sd", "bn"]
+    kinds = {i.kind: i for i in report.items}
+    waiting = kinds["unapproved_findings"]
+    assert waiting.count == 3  # one finding per type, not just the loop map's
+    assert any(i.kind == "model_incomplete" and "System Dynamics" in i.message for i in report.items)
+
+
+def test_handover_flags_findings_about_removed_factors(mixed_root):
+    from latris.operations.handover import handover_check
+    from latris.operations.nodes import remove_node
+
+    remove_node("Bottom-water anoxia", root=mixed_root)
+    kinds = {i.kind for i in handover_check(root=mixed_root).items}
+    assert "findings_about_removed" in kinds
+
+
+def test_handover_flags_an_unsaved_what_if_in_the_report(mixed_root):
+    from latris.operations.handover import handover_check
+
+    payload, runs = sd_ops.simulate_scenarios(assignments=["Release rate=0.3"], final_time=5, root=mixed_root)
+    sd_ops.record_comparison(payload, runs, root=mixed_root)
+    kinds = {i.kind for i in handover_check(root=mixed_root).items}
+    assert "exploratory_results" in kinds
