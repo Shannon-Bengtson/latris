@@ -478,7 +478,7 @@ class SpecDTPayoff(_Spec):
 
 class SpecDTUncertainty(_Spec):
     node: str  # a chance node
-    uncertainty: str  # chance nodes with the same name are one uncertainty (priced together for EVPI)
+    name: str  # chance nodes with the same name are one uncertainty (priced together for EVPI)
 
 
 class SpecDT(_Spec):
@@ -486,7 +486,7 @@ class SpecDT(_Spec):
 
     objective: Literal["maximise", "minimise"] | None = None
     units: str | None = None
-    nodes: list[SpecDTNode] = Field(default_factory=list)
+    elements: list[SpecDTNode] = Field(default_factory=list)
     branches: list[SpecDTBranch] = Field(default_factory=list)
     payoffs: list[SpecDTPayoff] = Field(default_factory=list)
     uncertainties: list[SpecDTUncertainty] = Field(default_factory=list)
