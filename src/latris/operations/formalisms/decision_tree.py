@@ -52,6 +52,10 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("dt-ev", {})] if p.get("options") else []
+
+
 def _claims(paths, section: str) -> list[str]:
     from latris.operations import decision_tree as dt
 
@@ -227,7 +231,7 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Complete the probabilities and payoffs to see what would change the choice.",
     results=(ResultKind(kind="dt-analysis", title="Decision tree: best choice and the value of information",
-                        render=_render, analysis="dt_analyse", run=_run, definition=_definition),),
+                        render=_render, analysis="dt_analyse", run=_run, definition=_definition, charts=_charts),),
     spec_field="decision_tree",
     spec_check=_check,
     spec_apply=_apply,

@@ -63,6 +63,10 @@ def _claims(paths, section: str) -> list[str]:
     return claims
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("et-endstates", {})] if p.get("quantified") else []
+
+
 def _render(p: dict[str, Any]) -> list[str]:
     from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
     from latris.operations.event_tree import describe
@@ -257,7 +261,7 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Give every heading its probability to see which values move the result.",
     results=(ResultKind(kind="et-analysis", title="Event tree: sequences and end states", render=_render,
-                        analysis="et_analyse", run=_run, definition=_definition),
+                        analysis="et_analyse", run=_run, definition=_definition, charts=_charts),
              _risk_mc.result_kind("event_tree")),
     spec_field="event_tree",
     spec_check=_check,

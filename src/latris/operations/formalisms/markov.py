@@ -51,6 +51,13 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    out: list[tuple[str, dict[str, Any]]] = [("markov-trace", {})]
+    if p.get("incremental"):
+        out.append(("markov-ce", {}))
+    return out
+
+
 def _claims(paths, section: str) -> list[str]:
     from latris.operations import markov
     from latris.operations.markov import _money
@@ -229,7 +236,8 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Complete the model to see the thresholds at which the choice changes.",
     results=(ResultKind(kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
-                        render=_render, analysis="markov_analyse", run=_run, definition=_definition),),
+                        render=_render, analysis="markov_analyse", run=_run, definition=_definition,
+                        charts=_charts),),
     spec_field="markov",
     spec_check=_check,
     spec_apply=_apply,
