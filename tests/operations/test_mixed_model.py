@@ -309,3 +309,43 @@ def test_result_headings_say_which_run_is_which(mixed_root):
     assert "### Probabilities: no evidence (prior)" in headings
     assert "### Probabilities: given Hot week = yes" in headings
     assert any(line.startswith("_Run 20") for line in lines)
+
+
+# ── network interventions ────────────────────────────────────────────
+
+
+def test_setting_a_factor_differs_from_observing_it(mixed_root):
+    from latris.operations import bn as bn_ops
+    from latris.operations._resolve import resolve_entity
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+
+    sub = load_model(Substrate, ProjectPaths(mixed_root).conceptual_yaml)
+    hot = resolve_entity("Hot week", sub.entities).id
+    exceed = resolve_entity("Customer exceedance", sub.entities).id
+
+    seen = bn_ops.infer(evidence={"Bloom": "yes"}, root=mixed_root)
+    made = bn_ops.infer(interventions={"Bloom": "yes"}, root=mixed_root)
+    assert seen.marginals[hot]["yes"] > 0.3  # seeing a bloom says a hot week is likelier
+    assert made.marginals[hot]["yes"] == pytest.approx(0.3)  # making one doesn't
+    # P(exceedance | do(bloom)) = P(fail)·0.5 + P(no fail)·0.05
+    assert made.marginals[exceed]["yes"] == pytest.approx(0.05 * 0.5 + 0.95 * 0.05)
+
+
+def test_an_intervention_is_recorded_labelled_and_replayed(mixed_root):
+    from latris.exporters.results import render_results
+    from latris.operations import bn as bn_ops
+    from latris.operations.analysis_replay import definitions
+
+    bn_ops.record_query(bn_ops.infer(interventions={"Barrier fails": "no"}, root=mixed_root), root=mixed_root)
+    headings = [h for h in render_results(ProjectPaths(mixed_root)) if h.startswith("### Probabilities")]
+    assert headings == ["### Probabilities: given we set Barrier fails = no"]
+    [spec] = [d for d in definitions(root=mixed_root) if d.kind == "bn_query"]
+    assert spec.interventions == {"Barrier fails": "no"}
+
+
+def test_a_factor_cant_be_set_and_observed(mixed_root):
+    from latris.operations import bn as bn_ops
+
+    with pytest.raises(ValueError, match="set or observed"):
+        bn_ops.infer(evidence={"Bloom": "yes"}, interventions={"Bloom": "no"}, root=mixed_root)

@@ -48,6 +48,9 @@ class BNInferenceResult:
     fitted_likelihood: dict[str, dict[str, float]] = field(default_factory=dict)
     """The likelihood weights actually applied (soft evidence fitted, then given likelihoods)."""
 
+    interventions: dict[str, str] = field(default_factory=dict)
+    """Factors SET to a state (do-operator): their own causes no longer matter. node_id → state."""
+
 
 def _check_distribution(node: str, dist: dict[str, float], states: list[str], what: str) -> None:
     unknown = [s for s in dist if s not in states]

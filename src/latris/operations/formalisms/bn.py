@@ -27,7 +27,13 @@ def _pct(x: float | None) -> str:
 def _given(p: dict[str, Any]) -> str:
     from latris.operations.bn import evidence_description
 
-    return evidence_description(p.get("evidence", {}), p.get("soft"), p.get("likelihood"), p.get("labels", {}))
+    labels = p.get("labels", {})
+    observed = evidence_description(p.get("evidence", {}), p.get("soft"), p.get("likelihood"), labels)
+    do = p.get("interventions") or {}
+    if not do:
+        return observed
+    set_text = "we set " + ", ".join(f"{labels.get(k, k)} = {v}" for k, v in sorted(do.items()))
+    return f"{set_text} and {observed}" if observed else set_text
 
 
 def _subtitle_given(p: dict[str, Any]) -> str:
@@ -181,7 +187,7 @@ def _soft_question(p: dict[str, Any], out: dict[str, list[str]]) -> None:
 
 def _claims_query(p: dict[str, Any], out: dict[str, list[str]]) -> None:
     labels = p["labels"]
-    if not (p["evidence"] or p.get("soft") or p.get("likelihood")):
+    if not (p["evidence"] or p.get("soft") or p.get("likelihood") or p.get("interventions")):
         return
     _soft_question(p, out)
     given = _given(p)
@@ -263,7 +269,7 @@ def _run_query(a, root: Path) -> str:
     from latris.operations import bn as bn_ops
 
     result = bn_ops.infer(query=a.query or None, evidence=a.evidence or None, soft=a.soft or None,
-                          likelihood=a.likelihood or None, root=root)
+                          likelihood=a.likelihood or None, interventions=a.interventions or None, root=root)
     return bn_ops.record_query(result, root=root)[1]
 
 
@@ -318,6 +324,7 @@ def _def_query(p: dict[str, Any]):
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
         likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
+        interventions={labels.get(k, k): v for k, v in (p.get("interventions") or {}).items()},
         query=[labels.get(n, n) for n in p["posteriors"]],
     )
 

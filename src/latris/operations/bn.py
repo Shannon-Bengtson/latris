@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
+import dataclasses
 from pathlib import Path
 
 from latris.operations._bn_canonical import effective_cpt_map
@@ -407,12 +408,28 @@ def structure_problems(*, root: Path | None = None) -> list[BNProblem]:
 # ── inference ────────────────────────────────────────────────────────
 
 
+def intervene(cpt_map: dict[str, CPTEntry], ss_map: dict[str, list[str]],
+              interventions: dict[str, str]) -> dict[str, CPTEntry]:
+    """The network after SETTING factors to a state (Pearl's do-operator): each set factor's table is
+    replaced by certainty in its state, cutting the links from its causes. Downstream factors respond;
+    the set factor's causes don't (setting it says nothing about why it would have been that way)."""
+    out = dict(cpt_map)
+    for node, state in interventions.items():
+        states = ss_map.get(node)
+        if not states or state not in states:
+            raise ValueError(f"state {state!r} is not a valid state for node {node!r} (allowed: {states or []})")
+        out[node] = CPTEntry(target_id=node, parents=[], states=list(states),
+                             rows=[CPTRow(p=[1.0 if s == state else 0.0 for s in states])])
+    return out
+
+
 def infer(
     *,
     query: list[str] | None = None,
     evidence: dict[str, str] | None = None,
     soft: dict[str, dict[str, float]] | None = None,
     likelihood: dict[str, dict[str, float]] | None = None,
+    interventions: dict[str, str] | None = None,
     root: Path | None = None,
 ) -> BNInferenceResult:
     """Load the BN and compute exact posterior marginals.
@@ -431,9 +448,19 @@ def infer(
         return {resolve_target(k, substrate): v for k, v in block.items()} if block else None
 
     query_ids = [resolve_target(q, substrate) for q in query] if query else None
-    return bn_infer(
+    do = ids(interventions) or {}
+    if do:
+        for node in do:
+            if node not in cpt_map:
+                raise ValueError(f"{node!r} is not in the network, so it can't be set")
+        overlap = set(do) & set((ids(evidence) or {}) | (ids(soft) or {}) | (ids(likelihood) or {}))
+        if overlap:
+            raise ValueError("a factor can be set or observed, not both: " + ", ".join(sorted(overlap)))
+        cpt_map = intervene(cpt_map, ss_map, do)
+    result = bn_infer(
         ss_map, cpt_map, query=query_ids, evidence=ids(evidence), soft=ids(soft), likelihood=ids(likelihood)
     )
+    return dataclasses.replace(result, interventions=do) if do else result
 
 
 def parse_distribution(text: str) -> tuple[str, dict[str, float]]:
@@ -465,9 +492,12 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
     paths = require_project(root)
     labels = {e.id: e.label for e in load_model(Substrate, paths.conceptual_yaml).entities}
     nodes = sorted(result.marginals)
-    conditioned = bool(result.evidence or result.soft or result.likelihood)
+    conditioned = bool(result.evidence or result.soft or result.likelihood or result.interventions)
     priors = infer(query=nodes, root=paths.root).marginals if conditioned else result.marginals
     evidence_text = evidence_description(result.evidence, result.soft, result.likelihood, labels)
+    if result.interventions:
+        set_text = "set " + ", ".join(f"{labels.get(k, k)} = {v}" for k, v in sorted(result.interventions.items()))
+        evidence_text = f"{set_text}; {evidence_text}" if evidence_text else set_text
 
     def top(node: str) -> str:
         dist = result.marginals[node]
@@ -476,11 +506,15 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
 
     sha, run = record_result(
         kind="bn-query",
-        key="bn-query|" + ",".join(nodes) + "|" + evidence_key(result.evidence, result.soft, result.likelihood),
+        key="bn-query|" + ",".join(nodes) + "|" + evidence_key(result.evidence, result.soft, result.likelihood)
+        + ("|do:" + ",".join(f"{k}={v}" for k, v in sorted(result.interventions.items()))
+           if result.interventions else ""),
         payload={
             "evidence": result.evidence, "soft": result.soft, "likelihood": result.likelihood,
+            "interventions": result.interventions,
             "posteriors": result.marginals, "priors": priors,
-            "labels": {n: labels.get(n, n) for n in {*nodes, *result.evidence, *result.soft, *result.likelihood}},
+            "labels": {n: labels.get(n, n) for n in {*nodes, *result.evidence, *result.soft, *result.likelihood,
+                                                       *result.interventions}},
             "method": result.method,
         },
         purpose="inference",
@@ -489,7 +523,7 @@ def record_query(result: BNInferenceResult, *, root: Path | None = None) -> tupl
         summary=f"P(· | {evidence_text or 'no evidence'}): " + "; ".join(top(n) for n in nodes[:8]),
         model_type=_MODEL_TYPE,
         hyperparameters={"query": nodes, "evidence": result.evidence, "soft": result.soft,
-                         "likelihood": result.likelihood},
+                         "likelihood": result.likelihood, "interventions": result.interventions},
         affected_target_ids=nodes,
         commit_subject=f"BN query: {len(nodes)} node(s) given {evidence_text or 'no evidence'}"[:120],
         root=paths.root,

@@ -316,9 +316,14 @@ def query(
         None, "--soft", "-s", help="Soft evidence 'Node=state:0.8' (80% sure) or 'Node=a:0.6,b:0.4' (repeatable)."),
     likelihood: list[str] | None = typer.Option(
         None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1' (the observation favours yes 4:1)."),
+    set_: list[str] | None = typer.Option(
+        None, "--set", help="An intervention 'Node=state': SET it (what if we make it so?), not observe it."),
     record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
 ) -> None:
     """Compute posterior marginals given evidence (recorded, so reports can show the posteriors).
+
+    --set makes a factor so (the do-operator): what follows from it changes, its own causes don't —
+    'what if the barrier is upgraded?' rather than 'what does seeing it working tell us?'.
 
     Hard evidence (-e Wet=yes) says a node is observed. Soft evidence (-s Wet=yes:0.8)
     says how sure you are: afterwards P(Wet = yes) is 0.8, and the other states share
@@ -328,7 +333,7 @@ def query(
 
     ev = _evidence(evidence)
     result = bn_ops.infer(query=query_nodes or None, evidence=ev or None, soft=_dists(soft) or None,
-                          likelihood=_dists(likelihood) or None)
+                          likelihood=_dists(likelihood) or None, interventions=_evidence(set_) or None)
     # result.evidence is keyed by resolved node ID, so labels resolve cleanly
     # in the header (the raw ``ev`` keys are user input — IDs, prefixes, or
     # labels — and wouldn't match the node-ID-keyed label map).
@@ -629,6 +634,7 @@ def _print_marginals(
             "given": {labels.get(k, k): v for k, v in (evidence or {}).items()},
             "soft": {labels.get(k, k): v for k, v in result.soft.items()},
             "likelihood": {labels.get(k, k): v for k, v in result.likelihood.items()},
+            "set": {labels.get(k, k): v for k, v in getattr(result, "interventions", {}).items()},
             "marginals": {labels.get(nid, nid): {s: round(p, 4) for s, p in dist.items()}
                           for nid, dist in result.marginals.items()},
             "run_id": recorded[1] if recorded else None,

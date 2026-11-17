@@ -638,6 +638,7 @@ class SpecAnalysis(_Spec):
     evidence: dict[str, str] = Field(default_factory=dict)
     soft: dict[str, dict[str, float]] = Field(default_factory=dict)
     likelihood: dict[str, dict[str, float]] = Field(default_factory=dict)
+    interventions: dict[str, str] = Field(default_factory=dict)  # bn_query: factors SET to a state (do-operator)
     query: list[str] = Field(default_factory=list)
     over: list[str] = Field(default_factory=list)
     target: str | None = None
