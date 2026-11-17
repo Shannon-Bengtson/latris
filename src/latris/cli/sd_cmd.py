@@ -70,11 +70,15 @@ def unset_role(
 def roles() -> None:
     """List SD classifications."""
     from latris.operations import sd as sd_ops
+    from latris.operations._sd_eval import slugify
 
     entries = sd_ops.get_roles().entries
     if json_mode():
         labels = _labels()
-        emit([{"node": labels.get(e.target_id, e.target_id), "role": e.value} for e in entries], human=lambda: None)
+        emit([{"node": labels.get(e.target_id, e.target_id), "role": e.value,
+               # what equations call it ("Sediment P pool" -> sediment_p_pool); sources/sinks have none
+               "equation_name": slugify(labels.get(e.target_id, "")) if e.value != "source_sink" else None}
+              for e in entries], human=lambda: None)
         return
     if not entries:
         console.print("[dim](no SD roles assigned)[/dim]")
@@ -83,8 +87,10 @@ def roles() -> None:
     table = Table(show_header=True, header_style="bold")
     table.add_column("Node")
     table.add_column("Role")
+    table.add_column("Name in equations")
     for e in sorted(entries, key=lambda e: (_ROLE_ORDER.get(e.value, 9), labels.get(e.target_id, ""))):
-        table.add_row(labels.get(e.target_id, e.target_id[:12]), e.value)
+        label = labels.get(e.target_id, e.target_id[:12])
+        table.add_row(label, e.value, slugify(label) if e.value != "source_sink" else "")
     console.print(table)
 
 
@@ -100,15 +106,19 @@ def set_equation(
     """Set a flow's or auxiliary's equation.
 
     Reference other variables by slugified label ("Drain Rate" → drain_rate) and
-    TIME for the current time. Functions: MIN, MAX, ABS, IF_THEN_ELSE, STEP,
-    TABLE, EXP, LN, SQRT. Units are checked: a flow's units must be its stock's
-    units per time unit.
+    TIME for the current time (PI for 3.14159…). Functions: MIN, MAX, ABS,
+    IF_THEN_ELSE, STEP, RAMP, PULSE, TABLE, EXP, LN, SQRT, SIN, COS, MODULO,
+    SMOOTH/SMOOTH3, DELAY1/DELAY3. Units are checked: a flow's units must be its
+    stock's units per time unit.
     """
     from latris.operations import sd as sd_ops
+    from latris.operations._sd_eval import parse, slugify
 
     entry, sha = sd_ops.set_equation(target, expression, units, origin=origin, source_id=source)
     if json_mode():
-        emit(entry, human=lambda: None, commit_sha=sha)
+        by_name = {slugify(label): label for label in _labels().values()}
+        reads = {n: by_name.get(n, n) for n in sorted(parse(entry.expression).names)}
+        emit({**entry.model_dump(mode="json"), "reads": reads}, human=lambda: None, commit_sha=sha)
         return
     console.print(
         f"[green]set[/green] {_labels().get(entry.target_id, entry.target_id[:15])} = "
