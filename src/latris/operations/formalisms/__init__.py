@@ -15,8 +15,8 @@ a static pydantic field), then write one module here and add it to the
 imports at the bottom. ``tests/operations/test_formalisms.py`` checks every
 stable type is fully wired.
 
-The older types (CLD, DAG, FCM, BN, SD) predate this and keep their own
-wiring; they aren't registered here.
+The older types (CLD, DAG, FCM, SD) predate this and keep their own
+wiring; they aren't registered here yet (BN was the first to move).
 
 Hooks import their operations lazily, so importing this package is cheap and
 can't create import cycles.
@@ -48,6 +48,8 @@ class ResultKind:
     # payload → [(chart kind, extra keys)] for the report's ``latris-chart`` markers; the app draws them.
     # Chart kinds are namespaced per formalism ("mcda-swing") so each app renderer owns its contract.
     charts: Callable[[dict[str, Any]], list[tuple[str, dict[str, Any]]]] | None = None
+    # The most runs of this kind a report shows (default 4) — e.g. a BN query per evidence set.
+    report_limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -203,6 +205,7 @@ def default_origin(verified_by: str) -> str:
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
 _MODULES = (
+    "bn",  # first: its kinds follow the hardcoded sd-* ones in report order
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
     "markov", "toc_impact",
 )
