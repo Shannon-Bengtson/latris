@@ -156,3 +156,25 @@ def test_aggregate_diagrams_draw_what_each_formalism_computes_on(cld_bn_sd_root)
     assert "P mass" in sd_part and "Oxygen" not in sd_part
     # The CLD already draws every factor, so no "Whole model" repeat.
     assert "### Whole model" not in md
+
+
+@pytest.mark.parametrize("name", ["system", "bow_tie", "mcda"])
+def test_diagram_sections_match_the_reports_diagrams(name, tmp_path, git_identity):
+    """``diagram_sections`` is what apps draw a figure for: one per Mermaid block, same headings, same order."""
+    import re
+
+    from latris.exporters.markdown import WHOLE_MODEL, diagram_sections, render
+    from latris.repo.layout import ProjectPaths
+    from latris.testing import build_example
+
+    paths = ProjectPaths(build_example(name, tmp_path / name))
+    md = render(paths, ai=False)
+    diagram = md.split("## Diagram", 1)[1].split("\n## ", 1)[0]
+    sections = diagram_sections(paths)
+    assert len(sections) == diagram.count("```mermaid") >= 1
+    assert [s.heading for s in sections] == re.findall(r"^### (.+)$", diagram, re.M)
+    assert all(s.model_type for s in sections)
+    assert WHOLE_MODEL not in [s.model_type for s in sections[:-1]]  # the whole model, if drawn, comes last
+
+    scoped = diagram_sections(paths, model_type=sections[0].model_type)
+    assert [(s.model_type, s.heading) for s in scoped] == [(sections[0].model_type, None)]

@@ -7,6 +7,7 @@ references. Hand-intended as the starting point for a written deliverable.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import UTC
 from pathlib import Path
 
@@ -296,7 +297,6 @@ def render(
     # ---------- Diagram (Mermaid sketch) ----------
     _begin("diagram")
     if _include("diagram"):
-        from latris.exporters import mermaid
 
         def _emit_diagram(source: str, legend: list[str]) -> None:
             out.append("```mermaid")
@@ -309,34 +309,16 @@ def render(
                 out.extend(f"- {line}" for line in legend)
                 out.append("")
 
-        drew = False
-        if model_type is None:
-            # The aggregate report: one sketch per formalism in use, each drawn by
-            # the formalism's own hook (docs/engineering/REPORT-SURFACE.md). The
-            # whole-substrate sketch follows only when factors sit outside every
-            # formalism in use; when no formalism is in use at all, it is the diagram.
-            parts = _formalism_diagrams(paths)
-            if parts:
-                out.append("## Diagram")
-                out.append("")
-                for title, source, legend in parts:
-                    out.append(f"### {title}")
+        blocks = _diagram_blocks(paths, model_type)
+        if blocks:
+            out.append("## Diagram")
+            out.append("")
+            for block in blocks:
+                if block.heading:
+                    out.append(f"### {block.heading}")
                     out.append("")
-                    _emit_diagram(source, legend)
-                drew = True
-                if _has_unmapped_edges(paths):
-                    whole = mermaid.render(paths)
-                    if whole:
-                        out.append("### Whole model")
-                        out.append("")
-                        _emit_diagram(whole, mermaid.loop_legend(paths))
-        if not drew:
-            diagram = mermaid.render(paths, model_type=model_type)
-            if diagram:
-                out.append("## Diagram")
-                out.append("")
-                _emit_diagram(diagram, mermaid.loop_legend(paths, model_type=model_type))
-                drew = True
+                _emit_diagram(block.source, block.legend)
+        drew = bool(blocks)
         if drew:
             link = _app_link(paths, model_type) if app_link and not report_url else None
             if link:
@@ -976,8 +958,56 @@ def _used_model_types(paths: ProjectPaths) -> list[str]:
     return [s.id for s in list_model_types() if _uses_formalism(paths, s.id)]
 
 
-def _formalism_diagrams(paths: ProjectPaths) -> list[tuple[str, str, list[str]]]:
-    """(display name, mermaid source, loop legend) per used formalism with a drawable diagram."""
+WHOLE_MODEL = "system_map"  # DiagramSection.model_type of the whole-model sketch (no view scoping)
+
+
+@dataclass(frozen=True)
+class DiagramSection:
+    """One diagram in a report's Diagram section: what it draws, and its ``###`` heading if any."""
+
+    model_type: str | None  # the formalism it draws; WHOLE_MODEL for the whole model; None: the report's own
+    heading: str | None
+
+
+@dataclass(frozen=True)
+class _DiagramBlock(DiagramSection):
+    source: str = ""
+    legend: list[str] = field(default_factory=list)
+
+
+def _diagram_blocks(paths: ProjectPaths, model_type: str | None) -> list[_DiagramBlock]:
+    """The Diagram section's Mermaid blocks, in order.
+
+    The aggregate report (no ``model_type``) draws one sketch per formalism in use, each by the
+    formalism's own hook (docs/engineering/REPORT-SURFACE.md), then the whole-substrate sketch when
+    edges sit outside every formalism in use; with no formalism in use, or for a scoped report, it is
+    a single unheaded sketch.
+    """
+    from latris.exporters import mermaid
+
+    if model_type is None:
+        parts = [_DiagramBlock(mt, title, source, legend) for mt, title, source, legend in _formalism_diagrams(paths)]
+        if parts:
+            if _has_unmapped_edges(paths):
+                whole = mermaid.render(paths)
+                if whole:
+                    parts.append(_DiagramBlock(WHOLE_MODEL, "Whole model", whole, mermaid.loop_legend(paths)))
+            return parts
+    diagram = mermaid.render(paths, model_type=model_type)
+    if not diagram:
+        return []
+    return [_DiagramBlock(model_type, None, diagram, mermaid.loop_legend(paths, model_type=model_type))]
+
+
+def diagram_sections(paths: ProjectPaths, *, model_type: str | None = None) -> list[DiagramSection]:
+    """What each diagram in the report's Diagram section draws, in order — the same composition
+    :func:`render` uses, so surfaces that draw their own figure per diagram (the app's hosted page,
+    Word, review pack) show exactly the report's diagrams."""
+    return [DiagramSection(b.model_type, b.heading) for b in _diagram_blocks(paths, model_type)]
+
+
+def _formalism_diagrams(paths: ProjectPaths) -> list[tuple[str, str, str, list[str]]]:
+    """(model type, display name, mermaid source, loop legend) per used formalism with a drawable diagram."""
     from latris.exporters import mermaid
     from latris.schema.model_types import get_model_type
 
@@ -989,7 +1019,7 @@ def _formalism_diagrams(paths: ProjectPaths) -> list[tuple[str, str, list[str]]]
         # show it once (the "Whole model" part covers it via _has_unmapped_entities).
         if source and source not in seen:
             seen.add(source)
-            parts.append((get_model_type(mt).display_name, source, mermaid.loop_legend(paths, model_type=mt)))
+            parts.append((mt, get_model_type(mt).display_name, source, mermaid.loop_legend(paths, model_type=mt)))
     return parts
 
 

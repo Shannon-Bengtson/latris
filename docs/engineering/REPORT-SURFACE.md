@@ -89,6 +89,12 @@ The app doesn't copy lists or payloads from here:
   builds all and returns every recorded payload by result kind. Together
   they record every result kind (tested), so the app can render each one
   against the pinned release instead of copies that drift.
+- **`exporters.markdown.diagram_sections(paths, model_type=None)`**: what
+  each diagram in the report's Diagram section draws (model type, or
+  `WHOLE_MODEL`, and its `###` heading), in order. `render` composes the
+  section from the same function, so a surface that draws its own figure
+  per diagram (hosted page, Word, review pack) shows exactly the report's
+  diagrams.
 
 ## The aggregate report
 
