@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 from latris.operations.commit import auto_commit
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_raw
 from latris.schema import Reference, ReferenceLibrary, SourceSnapshot, SourceSnapshotKind
 from latris.schema.common import SourceAccess
 from latris.schema.references import SNAPSHOT_EXTRACT_MAX, validate_bibkey
@@ -43,10 +43,7 @@ def _ensure_ids(library: ReferenceLibrary, library_path: Path) -> bool:
     """
     if not library_path.exists() or not library.entries:
         return False
-    from ruamel.yaml import YAML as _RuamelYAML
-
-    y = _RuamelYAML(typ="safe", pure=True)
-    raw = y.load(library_path.read_text(encoding="utf-8")) or {}
+    raw = load_raw(library_path)
     raw_entries = raw.get("entries") or []
     if any("id" not in entry for entry in raw_entries):
         dump_model(library, library_path)

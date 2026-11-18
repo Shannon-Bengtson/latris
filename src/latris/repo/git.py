@@ -109,6 +109,11 @@ def run_git(
     return result
 
 
+def global_config(key: str) -> str:
+    """``git config --global <key>``, or ``""`` when unset."""
+    return run_git(["config", "--global", key], check=False).stdout.strip()
+
+
 def get_effective_identity(cwd: Path | None = None) -> tuple[str, str]:
     """Return the (name, email) git will actually use for a commit.
 
