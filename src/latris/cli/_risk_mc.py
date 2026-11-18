@@ -8,6 +8,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import verification
 from latris.cli._output import emit
 
 console = Console()
@@ -77,7 +78,7 @@ def register(app: typer.Typer, model_type: str) -> None:
                                                                            if v is not None},
                                         given=cond or None, reason=reason, source_id=source,  # type: ignore[arg-type]
                                         origin=origin,  # type: ignore[arg-type]
-                                        verification="human-verified" if verified else "unverified")
+                                        verification=verification(verified))
         pretty = ", ".join(f"{k}={v:.4g}" for k, v in entry.params.items())
         emit(entry.model_dump(mode="json"),
              human=lambda: console.print(f"[green]uncertainty[/green] {escape(target)} ~ {entry.distribution}"

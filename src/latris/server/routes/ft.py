@@ -12,9 +12,9 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import fault_tree as ft
-from latris.operations.readiness import assess_readiness
-from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.server.deps import Root
+from latris.server.routes import _formalism
+from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/ft", tags=["ft"])
 
@@ -31,18 +31,13 @@ class GateRequest(BaseModel):
     k: int | None = None
 
 
-class ProbabilityRequest(BaseModel):
+class ProbabilityRequest(ProvenanceFields):
     node: str
     probability: float
-    origin: ProvenanceOrigin = "human-direct"
-    source_id: str | None = None
-    verification: ProvenanceVerification = "unverified"
-    notes: str | None = None
 
 
-class AnalyseRequest(BaseModel):
+class AnalyseRequest(_formalism.AnalyseRequest):
     max_order: int | None = None
-    record: bool = True
 
 
 @router.get("/tree")
@@ -56,15 +51,6 @@ def get_tree(root: Root) -> dict[str, Any]:
         "probabilities": ft.get_probabilities(root=root).model_dump(mode="json")["entries"],
         "problems": [{"target_id": p.target_id, "gap_type": p.gap_type, "message": p.message} for p in tree.problems],
     }
-
-
-@router.get("/check")
-def check(root: Root) -> dict[str, Any]:
-    r = assess_readiness("fault_tree", root=root)
-    return {"ready": r.can_switch, "gaps": [
-        {"element_id": g.element_id, "element_label": g.element_label, "gap_type": g.gap_type, "message": g.message}
-        for g in r.gaps
-    ]}
 
 
 @router.post("/event")
@@ -82,22 +68,18 @@ def set_gate(body: GateRequest, root: Root) -> dict[str, Any]:
 @router.post("/probability")
 def set_probability(body: ProbabilityRequest, root: Root) -> dict[str, Any]:
     entry, sha = ft.set_probability(
-        body.node, body.probability, origin=body.origin, source_id=body.source_id,
-        verification=body.verification, notes=body.notes, root=root,
+        body.node, body.probability, **body.provenance(), root=root,
     )
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
-
-
-@router.post("/analyse")
-def analyse(root: Root, body: AnalyseRequest | None = None) -> dict[str, Any]:
-    body = body or AnalyseRequest()
-    payload = ft.analyse(max_order=body.max_order, root=root)
-    sha = None
-    if body.record and not payload["problems"] and not payload["error"]:
-        sha, payload["run_id"] = ft.record(payload, root=root)
-    return {"result": payload, "commit_sha": sha}
 
 
 from latris.server.routes import _risk_mc  # noqa: E402
 
 _risk_mc.add_routes(router, "fault_tree")
+
+
+_formalism.add_check_route(router, "fault_tree")
+_formalism.add_analyse_route(
+    router, ft, request=AnalyseRequest, options=lambda b: {"max_order": b.max_order},
+    recordable=lambda p: not p["problems"] and not p["error"],
+)

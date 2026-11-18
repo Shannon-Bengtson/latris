@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.server.deps import Root
 
 
@@ -17,8 +18,8 @@ class UncertaintyRequest(BaseModel):
     given: dict[str, str] = {}  # event trees: the probability's condition, heading → yes/no
     reason: str = ""
     source_id: str | None = None
-    origin: str = "human-direct"
-    verification: str = "unverified"
+    origin: ProvenanceOrigin = "human-direct"
+    verification: ProvenanceVerification = "unverified"
     clear: bool = False
 
 

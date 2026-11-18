@@ -8,6 +8,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Bayesian Network operations.", no_args_is_help=True)
@@ -103,7 +104,7 @@ def set_weighted(
         ..., "--weight", "-w", help="'<parent>=<state>:<weight>' in logits (±1 moderate, ±3 strong); repeatable."),
     toward: str | None = typer.Option(None, "--toward", help="The node's state positive weights push toward "
                                                              "(its first or last; default the first)."),
-    origin: str = typer.Option("human-elicited", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-elicited", "--origin", help=ORIGIN_HELP),
     source: str | None = typer.Option(None, "--source", help="Source ID."),
 ) -> None:
     """Set a table from a base distribution and a weight per parent state (ordinal logistic).
@@ -476,7 +477,7 @@ def set_uncertainty(
     row: str | None = typer.Option(None, "--row", help="Just one row: 'Parent=state,Other=state'."),
     reason: str = typer.Option("", "--reason", help="Why this much confidence (e.g. 'elicited from two experts')."),
     source: str | None = typer.Option(None, "--source", help="Source ID backing it."),
-    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
 ) -> None:
     """Say how well a probability table is known: "worth about n observations".
 
@@ -734,7 +735,7 @@ def set_scenario(
     description: str = typer.Option("", "--description", "-d", help="What the scenario represents."),
     reason: str = typer.Option("", "--reason", help="Why these values (assumption, policy, source)."),
     source: str | None = typer.Option(None, "--source", help="Source ID backing the values."),
-    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
 ) -> None:
     """Save a named BN what-if: observations, settings and table overrides, without changing the model.
 

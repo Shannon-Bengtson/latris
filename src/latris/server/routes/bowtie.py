@@ -12,9 +12,10 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import bow_tie as bt
-from latris.operations.readiness import assess_readiness
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.server.deps import Root
+from latris.server.routes import _formalism
+from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/bowtie", tags=["bowtie"])
 
@@ -39,17 +40,10 @@ class BarrierRequest(BaseModel):
     notes: str | None = None
 
 
-class FrequencyRequest(BaseModel):
+class FrequencyRequest(ProvenanceFields):
     node: str
     frequency: float
-    origin: ProvenanceOrigin = "human-direct"
-    source_id: str | None = None
-    verification: ProvenanceVerification = "unverified"
-    notes: str | None = None
 
-
-class AnalyseRequest(BaseModel):
-    record: bool = True
 
 
 @router.get("/elements")
@@ -59,15 +53,6 @@ def elements(root: Root) -> dict[str, Any]:
         "barriers": bt.get_barriers(root=root).model_dump(mode="json")["entries"],
         "frequencies": bt.get_frequencies(root=root).model_dump(mode="json")["entries"],
     }
-
-
-@router.get("/check")
-def check(root: Root) -> dict[str, Any]:
-    r = assess_readiness("bow_tie", root=root)
-    return {"ready": r.can_switch, "gaps": [
-        {"element_id": g.element_id, "element_label": g.element_label, "gap_type": g.gap_type, "message": g.message}
-        for g in r.gaps
-    ]}
 
 
 @router.post("/element")
@@ -85,21 +70,14 @@ def set_barrier(body: BarrierRequest, root: Root) -> dict[str, Any]:
 
 @router.post("/frequency")
 def set_frequency(body: FrequencyRequest, root: Root) -> dict[str, Any]:
-    entry, sha = bt.set_frequency(body.node, body.frequency, origin=body.origin, source_id=body.source_id,
-                                  verification=body.verification, notes=body.notes, root=root)
+    entry, sha = bt.set_frequency(body.node, body.frequency, **body.provenance(), root=root)
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
-
-
-@router.post("/analyse")
-def analyse(root: Root, body: AnalyseRequest | None = None) -> dict[str, Any]:
-    body = body or AnalyseRequest()
-    payload = bt.analyse(root=root)
-    sha = None
-    if body.record and not payload["problems"]:
-        sha, payload["run_id"] = bt.record(payload, root=root)
-    return {"result": payload, "commit_sha": sha}
 
 
 from latris.server.routes import _risk_mc  # noqa: E402
 
 _risk_mc.add_routes(router, "bow_tie")
+
+
+_formalism.add_check_route(router, "bow_tie")
+_formalism.add_analyse_route(router, bt)

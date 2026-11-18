@@ -8,11 +8,11 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit
 
 app = typer.Typer(help="Multi-criteria decision analysis: options against weighted criteria.", no_args_is_help=True)
 console = Console()
-_ORIGINS = "human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
 
 
 def _sha(sha: str) -> str:
@@ -43,7 +43,7 @@ def criterion(
     best: float = typer.Option(None, "--best", help="The scale's best value (give with --worst)."),
     units: str = typer.Option(None, "--units"),
     source: str = typer.Option(None, "--source", help="Whose judgement or which document the weight comes from."),
-    origin: str = typer.Option(None, "--origin", help=_ORIGINS),
+    origin: str = typer.Option(None, "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(None, "--verified/--unverified", help="A person has checked it."),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -60,7 +60,7 @@ def criterion(
              "source_id": source, "origin": origin, "notes": notes}
     kwargs = {k: v for k, v in given.items() if v is not None}
     if verified is not None:
-        kwargs["verification"] = "human-verified" if verified else "unverified"
+        kwargs["verification"] = verification(verified)
     entry, sha = mcda.set_criterion(target, **kwargs)
     emit(entry, human=lambda: console.print(f"[green]set[/green] criterion {escape(target)}: {', '.join(kwargs)} · "
                                             f"{_sha(sha)}"), commit_sha=sha)
@@ -73,7 +73,7 @@ def score(
     criterion: str = typer.Argument(..., help="A criterion."),
     value: float = typer.Argument(..., help="The option's performance, in the criterion's units."),
     source: str = typer.Option(None, "--source"),
-    origin: str = typer.Option("human-direct", "--origin", help=_ORIGINS),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(False, "--verified", help="A person has checked it against its source."),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -81,7 +81,7 @@ def score(
     from latris.operations import mcda
 
     entry, sha = mcda.set_score(option, criterion, value, origin=origin, source_id=source,  # type: ignore[arg-type]
-                                verification="human-verified" if verified else "unverified", notes=notes)
+                                verification=verification(verified), notes=notes)
     emit(entry, human=lambda: console.print(f"[green]set[/green] {escape(option)} on {escape(criterion)} = {value:g} · "
                                             f"{_sha(sha)}"), commit_sha=sha)
 

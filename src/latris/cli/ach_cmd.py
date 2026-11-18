@@ -8,11 +8,11 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit
 
 app = typer.Typer(help="Analysis of competing hypotheses.", no_args_is_help=True)
 console = Console()
-_ORIGINS = "human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
 _STYLE = {"CC": "green", "C": "green", "N": "dim", "I": "red", "II": "bold red"}
 
 
@@ -60,7 +60,7 @@ def rate(
     hypothesis: str = typer.Argument(..., help="A hypothesis."),
     rating: str = typer.Argument(..., help="CC | C | N | I | II (very consistent … very inconsistent)."),
     rationale: str = typer.Option(None, "--rationale", help="Why — especially for I and II."),
-    origin: str = typer.Option("human-direct", "--origin", help=_ORIGINS),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(False, "--verified", help="A person has reviewed this rating."),
 ) -> None:
     """Rate how an evidence item bears on a hypothesis.
@@ -72,7 +72,7 @@ def rate(
     from latris.operations import ach
 
     entry, sha = ach.set_rating(item, hypothesis, rating, rationale=rationale, origin=origin,  # type: ignore[arg-type]
-                                verification="human-verified" if verified else "unverified")
+                                verification=verification(verified))
     emit(entry, human=lambda: console.print(f"[green]rated[/green] {escape(item)} vs {escape(hypothesis)}: "
                                             f"{entry.rating} · {_sha(sha)}"), commit_sha=sha)
 
