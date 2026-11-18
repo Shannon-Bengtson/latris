@@ -28,7 +28,7 @@ from pathlib import Path
 from latris.operations.commit import auto_commit
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import Substrate
 from latris.schema.bn import BNScenario, BNScenarioSet, BNTableOverride, CPTEntry
 from latris.schema.common import ProvenanceOrigin
@@ -44,7 +44,7 @@ def path(paths: ProjectPaths) -> Path:
 
 def load(paths: ProjectPaths) -> BNScenarioSet:
     p = path(paths)
-    return load_model(BNScenarioSet, p) if p.exists() else BNScenarioSet()
+    return load_model_or_default(BNScenarioSet, p)
 
 
 def list_scenarios(*, root: Path | None = None) -> list[BNScenario]:
@@ -230,7 +230,6 @@ def set_scenario(
     store.scenarios = [s for s in store.scenarios if s.name.lower() != scenario.name.lower()] + [scenario]
     chain(scenario.name, store.scenarios)  # refuses a loop
     p = path(paths)
-    p.parent.mkdir(parents=True, exist_ok=True)
     dump_model(store, p)
     labels = {e.id: e.label for e in net.substrate.entities}
     sha = auto_commit(

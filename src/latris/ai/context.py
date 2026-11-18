@@ -28,7 +28,7 @@ from latris.ai import interactions as inter_ops
 from latris.operations._resolve import resolve_edge, resolve_entity
 from latris.perf import span
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import (
     AssumptionLog,
     ChallengeLog,
@@ -323,7 +323,7 @@ def _attributes_for(paths: ProjectPaths, target_id: str) -> dict[str, Any]:
                 break
     # View-specific attributes (CLD polarity)
     polarity_path = paths.view_attribute_path("cld", "polarity")
-    polarity_store = load_model(PolaritySet, polarity_path) if polarity_path.exists() else PolaritySet()
+    polarity_store = load_model_or_default(PolaritySet, polarity_path)
     for e in polarity_store.entries:
         if e.target_id == target_id and e.attribute == "polarity":
             out["polarity"] = {
@@ -1186,7 +1186,7 @@ def _build_project_view(paths: ProjectPaths, inputs: dict[str, Any]) -> ContextP
 
     # Load polarity for CLD relevance
     polarity_path = paths.view_attribute_path("cld", "polarity")
-    polarity = load_model(PolaritySet, polarity_path) if polarity_path.exists() else PolaritySet()
+    polarity = load_model_or_default(PolaritySet, polarity_path)
     polarity_lines = [f"{p.target_id}: {p.value}" for p in polarity.entries]
 
     view_constraints = {
@@ -1608,7 +1608,7 @@ def _build_interpret_section(paths: ProjectPaths, inputs: dict[str, Any]) -> Con
     n_evidence = len(evidence.entries)
 
     # References summary
-    refs = load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
+    refs = load_model_or_default(ReferenceLibrary, paths.references_yaml)
     ref_titles = [r.title for r in refs.entries[:10] if r.title]
 
     # Claims as grounding anchors
@@ -1819,7 +1819,7 @@ def _build_suggest_edge_polarities(paths: ProjectPaths, inputs: dict[str, Any]) 
     # Existing polarity/weight assignments — let the LLM see what's already set.
     attr_name = "polarity" if model_type == "cld" else "weight"
     attr_path = paths.view_attribute_path(model_type, attr_name)
-    existing_attrs = load_model(PolaritySet, attr_path) if attr_path.exists() else PolaritySet()
+    existing_attrs = load_model_or_default(PolaritySet, attr_path)
     existing_lines = [f"  - {e.target_id}: {e.value}" for e in existing_attrs.entries]
 
     # Entity AND edge descriptions for richer context. Including the
@@ -2242,7 +2242,7 @@ def _build_challenge_edge(paths: ProjectPaths, inputs: dict[str, Any]) -> Contex
     descs = load_model(DescriptionSet, paths.descriptions_yaml)
     desc_by_target = {d.target_id: d.value for d in descs.entries if d.attribute == "description"}
     polarity_path = paths.view_attribute_path(model_type, "polarity")
-    polarities = load_model(PolaritySet, polarity_path) if polarity_path.exists() else PolaritySet()
+    polarities = load_model_or_default(PolaritySet, polarity_path)
     polarity_by_target = {p.target_id: p.value for p in polarities.entries}
 
     src_label = label_by_id.get(edge.from_id, edge.from_id)
@@ -2404,7 +2404,7 @@ def _build_edge_reclassify(paths: ProjectPaths, inputs: dict[str, Any]) -> Conte
     descs = load_model(DescriptionSet, paths.descriptions_yaml)
     desc_by_target = {d.target_id: d.value for d in descs.entries if d.attribute == "description"}
     polarity_path = paths.view_attribute_path(model_type, "polarity")
-    polarities = load_model(PolaritySet, polarity_path) if polarity_path.exists() else PolaritySet()
+    polarities = load_model_or_default(PolaritySet, polarity_path)
     polarity_by_target = {p.target_id: p.value for p in polarities.entries}
 
     edge_lines: list[str] = []

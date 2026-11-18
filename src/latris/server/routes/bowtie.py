@@ -6,23 +6,19 @@ sha}``; reads return plain data.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import bow_tie as bt
-from latris.operations.readiness import assess_readiness
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
+from latris.server.routes import _formalism
+from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/bowtie", tags=["bowtie"])
-Root = Annotated[Path, Depends(get_project_root)]
 
-
-def _bad(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=400, detail=str(exc))
 
 
 class ElementRequest(BaseModel):
@@ -44,17 +40,10 @@ class BarrierRequest(BaseModel):
     notes: str | None = None
 
 
-class FrequencyRequest(BaseModel):
+class FrequencyRequest(ProvenanceFields):
     node: str
     frequency: float
-    origin: ProvenanceOrigin = "human-direct"
-    source_id: str | None = None
-    verification: ProvenanceVerification = "unverified"
-    notes: str | None = None
 
-
-class AnalyseRequest(BaseModel):
-    record: bool = True
 
 
 @router.get("/elements")
@@ -66,54 +55,29 @@ def elements(root: Root) -> dict[str, Any]:
     }
 
 
-@router.get("/check")
-def check(root: Root) -> dict[str, Any]:
-    r = assess_readiness("bow_tie", root=root)
-    return {"ready": r.can_switch, "gaps": [
-        {"element_id": g.element_id, "element_label": g.element_label, "gap_type": g.gap_type, "message": g.message}
-        for g in r.gaps
-    ]}
-
-
 @router.post("/element")
 def set_element(body: ElementRequest, root: Root) -> dict[str, Any]:
-    try:
-        target_id, sha = bt.set_element(body.node, body.element, root=root)
-    except (ValueError, LookupError) as exc:
-        raise _bad(exc) from exc
+    target_id, sha = bt.set_element(body.node, body.element, root=root)
     return {"result": {"target_id": target_id, "element": body.element}, "commit_sha": sha}
 
 
 @router.post("/barrier")
 def set_barrier(body: BarrierRequest, root: Root) -> dict[str, Any]:
     fields = body.model_dump(exclude={"node"}, exclude_unset=True)
-    try:
-        entry, sha = bt.set_barrier(body.node, root=root, **fields)
-    except (ValueError, LookupError) as exc:
-        raise _bad(exc) from exc
+    entry, sha = bt.set_barrier(body.node, root=root, **fields)
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 
 @router.post("/frequency")
 def set_frequency(body: FrequencyRequest, root: Root) -> dict[str, Any]:
-    try:
-        entry, sha = bt.set_frequency(body.node, body.frequency, origin=body.origin, source_id=body.source_id,
-                                      verification=body.verification, notes=body.notes, root=root)
-    except (ValueError, LookupError) as exc:
-        raise _bad(exc) from exc
+    entry, sha = bt.set_frequency(body.node, body.frequency, **body.provenance(), root=root)
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
-
-
-@router.post("/analyse")
-def analyse(root: Root, body: AnalyseRequest | None = None) -> dict[str, Any]:
-    body = body or AnalyseRequest()
-    payload = bt.analyse(root=root)
-    sha = None
-    if body.record and not payload["problems"]:
-        sha, payload["run_id"] = bt.record(payload, root=root)
-    return {"result": payload, "commit_sha": sha}
 
 
 from latris.server.routes import _risk_mc  # noqa: E402
 
 _risk_mc.add_routes(router, "bow_tie")
+
+
+_formalism.add_check_route(router, "bow_tie")
+_formalism.add_analyse_route(router, bt)

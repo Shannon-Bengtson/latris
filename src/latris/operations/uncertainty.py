@@ -18,7 +18,7 @@ from latris.operations._sampling import Sampler
 from latris.operations.commit import auto_commit
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model_or_default
 from latris.schema.attributes import ParameterUncertainty, ParameterUncertaintySet
 from latris.schema.common import ProvenanceOrigin
 
@@ -27,7 +27,7 @@ SD_CELLS = {"constant": "sd:constant", "stock": "sd:initial_value"}
 
 def load(paths: ProjectPaths) -> ParameterUncertaintySet:
     p = paths.parameter_uncertainty_yaml
-    return load_model(ParameterUncertaintySet, p) if p.exists() else ParameterUncertaintySet()
+    return load_model_or_default(ParameterUncertaintySet, p)
 
 
 def sd_specs(paths: ProjectPaths) -> dict[str, ParameterUncertainty]:
@@ -86,7 +86,6 @@ def set_uncertainty(
     s = load(paths)
     s.entries = [e for e in s.entries if not (e.target_id == target_id and e.parameter_cell_id == cell)] + [entry]
     path = paths.parameter_uncertainty_yaml
-    path.parent.mkdir(parents=True, exist_ok=True)
     dump_model(s, path)
     pretty = ", ".join(f"{k}={v:g}" for k, v in params.items())
     sha = auto_commit(
@@ -194,7 +193,6 @@ def set_table_uncertainty(
     s = load(paths)
     s.entries = [e for e in s.entries if not (e.target_id == node_id and e.parameter_cell_id == cell)] + [entry]
     path = paths.parameter_uncertainty_yaml
-    path.parent.mkdir(parents=True, exist_ok=True)
     dump_model(s, path)
     where = f" (row {row})" if row else ""
     sha = auto_commit(

@@ -184,7 +184,7 @@ def test_build_spec_report_share_link_cli_and_route(project):
     client = TestClient(create_app(project_root=project))
     r = client.post("/api/toc/impact", json={"outcome": "Attendance", "dataset": "panel", "time": "year",
                                              "at": 2021, "group": "arm", "record": False})
-    assert r.status_code == 400 and "--treated" in r.json()["detail"]
+    assert r.status_code == 422 and "--treated" in r.json()["detail"]
     r = client.post("/api/toc/impact", json={"outcome": "Attendance", "dataset": "panel", "time": "year",
                                              "at": 2021, "group": "arm", "treated": ["mentoring"]})
     assert r.status_code == 200 and r.json()["commit_sha"]

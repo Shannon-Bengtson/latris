@@ -20,7 +20,7 @@ _SOURCE_WORDS = {"checked": "its source checked", "cited": "a source not yet che
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.ach import describe
 
     out = [describe(p) + ".", ""]
@@ -28,11 +28,11 @@ def _render(p: dict[str, Any]) -> list[str]:
             for r in p["ranking"]]
     out += ["Hypotheses, least evidence against first (Heuer: favour the hypothesis the evidence fails to rule "
             "out, not the one with most in its favour).", ""]
-    out += _table(["Hypothesis", "Weighted inconsistency", "Evidence against it", "Consistent items"], rows)
+    out += md.table(["Hypothesis", "Weighted inconsistency", "Evidence against it", "Consistent items"], rows)
     hyps = p["hypotheses"]
     rows = [[m["item"], *(m["ratings"][h] for h in hyps), f"{m['credibility']}/{m['relevance']}",
              _SOURCE_WORDS[m["sources"]]] for m in p["matrix"]]
-    out += _table(["Evidence", *hyps, "Credibility/relevance", "Source"], rows)
+    out += md.table(["Evidence", *hyps, "Credibility/relevance", "Source"], rows)
     out += ["CC very consistent · C consistent · N neutral or not applicable · I inconsistent · II very "
             "inconsistent.", ""]
     if p["linchpins"]:

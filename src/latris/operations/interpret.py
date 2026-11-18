@@ -18,7 +18,7 @@ from latris.operations.interpret_registry import (
 )
 from latris.repo import git
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema.common import now_utc
 from latris.schema.findings import Finding, FindingCategory
 from latris.schema.ids import new_id
@@ -514,7 +514,7 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
     evidence = (
-        load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
+        load_model_or_default(EvidenceLinkSet, evidence_path)
     )
 
     all_ids, _ = _coverage_ids(substrate, paths, model_type)
@@ -821,7 +821,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
-    evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
+    evidence = load_model_or_default(EvidenceLinkSet, evidence_path)
 
     linked_ids = _for_ids(evidence)
     supported_ids = _supported_ids(evidence)
@@ -852,8 +852,8 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
-    evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
-    refs = load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
+    evidence = load_model_or_default(EvidenceLinkSet, evidence_path)
+    refs = load_model_or_default(ReferenceLibrary, paths.references_yaml)
 
     all_ids, noun = _coverage_ids(substrate, paths, model_type)
 
@@ -1011,7 +1011,7 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
-    evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
+    evidence = load_model_or_default(EvidenceLinkSet, evidence_path)
 
     all_ids, noun = _coverage_ids(substrate, paths, model_type)
     total_elements = len(all_ids)

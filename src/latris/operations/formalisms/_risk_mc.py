@@ -33,26 +33,26 @@ _TOOLS = {
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _table
+    from latris.exporters import md
     from latris.operations.risk_uncertainty import describe
 
     def g(x):
         return "—" if x is None else f"{x:.3g}"
 
-    out = [_esc(describe(p)) + ".", ""]
+    out = [md.esc(describe(p)) + ".", ""]
     rows = [[o["output"], g(o["point"]), g(o["mean"]), g(o["p5"]), g(o["p50"]), g(o["p95"])]
-            for o in p["outputs"][:_MAX_ROWS]]
-    out += _table(["Result", "Point estimate", "Mean", "5th pct", "Median", "95th pct"], rows)
+            for o in p["outputs"][:md.MAX_ROWS]]
+    out += md.table(["Result", "Point estimate", "Mean", "5th pct", "Median", "95th pct"], rows)
     if p["drivers"]:
         rows = [[d["input"], f"{d['distribution']} (5th–95th: {g(d['p5'])} – {g(d['p95'])})",
                  "—" if d["spearman"] is None else f"{d['spearman']:+.2f}",
-                 _esc(d["reason"]) or "—", "unverified" if d["weak"] else "verified"]
-                for d in p["drivers"][:_MAX_ROWS]]
+                 md.esc(d["reason"]) or "—", "unverified" if d["weak"] else "verified"]
+                for d in p["drivers"][:md.MAX_ROWS]]
         out += [f"What drives the spread in {p['primary']}: each uncertain input's range and its rank correlation "
                 "with the result.", ""]
-        out += _table(["Input", "Range", "Rank correlation", "Why this range", "Range checked"], rows)
+        out += md.table(["Input", "Range", "Rank correlation", "Why this range", "Range checked"], rows)
     if p["fixed"]:
-        out += ["Held at their point value (no range given): " + _esc(", ".join(p["fixed"][:_MAX_ROWS * 2])) + ".",
+        out += ["Held at their point value (no range given): " + md.esc(", ".join(p["fixed"][:md.MAX_ROWS * 2])) + ".",
                 ""]
     out += [f"{p['runs']} runs, {'Latin hypercube' if p['sampling'] == 'lhs' else 'random'} sampling, seed "
             f"{p['seed']}. Inputs are sampled independently, each once per run.", ""]

@@ -245,10 +245,10 @@ def test_report_claims_spec_round_trip_cli_and_routes(release):
     client = TestClient(create_app(project_root=root))
     r = client.post("/api/et/uncertainty", json={"target": "Ignition", "distribution": "uniform",
                                                  "params": {"min": 0.0, "max": 0.05}})
-    assert r.status_code == 400 and "lies outside" in r.json()["detail"]
+    assert r.status_code == 422 and "lies outside" in r.json()["detail"]
     r = client.post("/api/et/uncertainty", json={"target": "Ignition", "params": {"median": 0.1,
                                                                                     "error_factor": 3}})
     assert r.status_code == 200 and r.json()["result"]["distribution"] == "lognormal"
     r = client.post("/api/et/monte-carlo", json={"runs": 300, "record": False})
     assert r.status_code == 200 and r.json()["commit_sha"] is None
-    assert client.post("/api/ft/monte-carlo", json={"runs": 300}).status_code == 400  # no fault tree here
+    assert client.post("/api/ft/monte-carlo", json={"runs": 300}).status_code == 422  # no fault tree here

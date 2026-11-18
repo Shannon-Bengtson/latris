@@ -55,7 +55,7 @@ def test_cpt_shape_error(client: TestClient):
     client.post("/api/bn/state-space", json={"node": "Rain", "states": ["yes", "no"]})
     client.post("/api/bn/state-space", json={"node": "Wet", "states": ["yes", "no"]})
     resp = client.post("/api/bn/cpt", json={"node": "Wet", "parents": ["Rain"], "probs": [0.9, 0.1]})
-    assert resp.status_code == 400
+    assert resp.status_code == 422
     assert "expected 4 probabilities" in resp.json()["detail"]
 
 
@@ -145,7 +145,7 @@ def test_query_with_evidence(client: TestClient):
     assert rain_dist["yes"] == pytest.approx(0.6923076923, abs=1e-6)
 
     bad = client.post("/api/bn/query", json={"evidence": {"Wet": "maybe"}})
-    assert bad.status_code == 400
+    assert bad.status_code == 422
 
 
 def test_soft_evidence_explain_and_monte_carlo_routes(tmp_path, git_identity):
@@ -161,7 +161,7 @@ def test_soft_evidence_explain_and_monte_carlo_routes(tmp_path, git_identity):
     assert rain["yes"] == pytest.approx(0.8) and "run_id" not in soft  # the GUI's query doesn't record
     explained = client.post("/api/bn/explain", json={"evidence": {"Road Closed": "yes"}}).json()
     assert explained["result"]["kind"] == "MPE" and explained["run_id"]
-    assert client.post("/api/bn/monte-carlo", json={"target": "Flood"}).status_code == 400  # no uncertainty yet
+    assert client.post("/api/bn/monte-carlo", json={"target": "Flood"}).status_code == 422  # no uncertainty yet
     assert client.post("/api/bn/uncertainty", json={"node": "Flood", "n": 10}).status_code == 200
     assert client.get("/api/bn/uncertainty").json()["count"] == 1
     mc = client.post("/api/bn/monte-carlo", json={"target": "Flood", "runs": 40, "record": False}).json()

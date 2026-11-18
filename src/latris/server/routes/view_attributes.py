@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import view_attributes as view_attr_ops
 from latris.operations import view_roles as view_role_ops
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/views", tags=["view-attributes"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class SetViewAttributeRequest(BaseModel):

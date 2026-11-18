@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from latris.server.deps import get_project_root
-
-Root = Annotated[Path, Depends(get_project_root)]
+from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
+from latris.server.deps import Root
 
 
 class UncertaintyRequest(BaseModel):
@@ -20,8 +18,8 @@ class UncertaintyRequest(BaseModel):
     given: dict[str, str] = {}  # event trees: the probability's condition, heading → yes/no
     reason: str = ""
     source_id: str | None = None
-    origin: str = "human-direct"
-    verification: str = "unverified"
+    origin: ProvenanceOrigin = "human-direct"
+    verification: ProvenanceVerification = "unverified"
     clear: bool = False
 
 
@@ -39,16 +37,13 @@ def add_routes(router: APIRouter, model_type: str) -> None:
         from latris.operations import risk_uncertainty as ru
 
         given = list(body.given.items()) or None
-        try:
-            if body.clear:
-                return {"result": {"cleared": body.target},
-                        "commit_sha": ru.clear_uncertainty(model_type, body.target, given=given, root=root)}
-            entry, sha = ru.set_uncertainty(model_type, body.target, body.distribution, body.params, given=given,
-                                            reason=body.reason, source_id=body.source_id,
-                                            origin=body.origin, verification=body.verification,  # type: ignore[arg-type]
-                                            root=root)
-        except (ValueError, LookupError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if body.clear:
+            return {"result": {"cleared": body.target},
+                    "commit_sha": ru.clear_uncertainty(model_type, body.target, given=given, root=root)}
+        entry, sha = ru.set_uncertainty(model_type, body.target, body.distribution, body.params, given=given,
+                                        reason=body.reason, source_id=body.source_id,
+                                        origin=body.origin, verification=body.verification,  # type: ignore[arg-type]
+                                        root=root)
         return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
     @router.post("/monte-carlo")
@@ -56,11 +51,8 @@ def add_routes(router: APIRouter, model_type: str) -> None:
         from latris.operations import risk_uncertainty as ru
 
         body = body or MonteCarloRequest()
-        try:
-            payload = ru.monte_carlo(model_type, runs=body.runs, seed=body.seed, sampling=body.sampling,
-                                     output=body.output, root=root)
-        except (ValueError, LookupError, RuntimeError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        payload = ru.monte_carlo(model_type, runs=body.runs, seed=body.seed, sampling=body.sampling,
+                                 output=body.output, root=root)
         sha = None
         if body.record:
             sha, payload["run_id"] = ru.record(payload, root=root)

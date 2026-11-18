@@ -11,12 +11,12 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model_or_default
 
 
 def append_entry(log_model: type[BaseModel], path: Path, entry) -> BaseModel:
     """Append ``entry`` to the log at ``path`` and return the updated store."""
-    store = load_model(log_model, path) if path.exists() else log_model()
+    store = load_model_or_default(log_model, path)
     store.entries.append(entry)  # type: ignore[attr-defined]
     dump_model(store, path)
     return store

@@ -80,19 +80,19 @@ def _claims(paths, section: str) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
+    from latris.exporters import md
     from latris.operations.bow_tie import describe, flags
 
     out = [describe(p) + ".", ""]
     if p.get("quantified"):
         fr = p["frequency"]
-        cons = "; ".join(f"{c} {_f(v)}" for c, v in fr["consequences"].items())
-        out += [f"Top-event frequency: **{_f(fr['top'])} per year** (layer of protection, barriers assumed "
+        cons = "; ".join(f"{c} {md.fmt(v)}" for c, v in fr["consequences"].items())
+        out += [f"Top-event frequency: **{md.fmt(fr['top'])} per year** (layer of protection, barriers assumed "
                 f"independent); consequences per year: {cons}.", ""]
     rows = [[ln["side"], ln["from"] + " → " + ln["to"], " → ".join(ln["barriers"]) or "—", str(ln["effective"])]
-            for ln in sorted(p["lines"], key=lambda ln: (ln["effective"], ln["side"]))[: _MAX_ROWS * 2]]
+            for ln in sorted(p["lines"], key=lambda ln: (ln["effective"], ln["side"]))[: md.MAX_ROWS * 2]]
     if rows:
-        out += _table(["Side", "Line", "Barriers", "Effective"], rows)
+        out += md.table(["Side", "Line", "Barriers", "Effective"], rows)
     f = flags(p)
     notes = [(f["unprotected"], "No effective barrier"), (f["single_barrier"], "Resting on one barrier"),
              (f["shared"], "Barriers on more than one line (one failure takes them all)"),
@@ -102,13 +102,13 @@ def _render(p: dict[str, Any]) -> list[str]:
     if any(items for items, _ in notes):
         out.append("")
     if p.get("quantified"):
-        rows = [[b["barrier"], b["side"], _f(b["pfd"]), _f(b["raw"]),
+        rows = [[b["barrier"], b["side"], md.fmt(b["pfd"]), md.fmt(b["raw"]),
                  (b["origin"] or "—") + (f" ({b['source']})" if b["source"] else "")
                  + ("; not verified" if b["weak"] else "")]
-                for b in p["barriers"] if b["side"] != "escalation control"][:_MAX_ROWS]
+                for b in p["barriers"] if b["side"] != "escalation control"][:md.MAX_ROWS]
         out += ["*RAW*: how many times more often the top event (prevention) or its consequences (mitigation) "
                 "would happen if the barrier always failed.", ""]
-        out += _table(["Barrier", "Side", "Failure probability", "RAW", "Where it came from"], rows)
+        out += md.table(["Barrier", "Side", "Failure probability", "RAW", "Where it came from"], rows)
     return out
 
 

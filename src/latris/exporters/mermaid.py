@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from latris.exporters._scope import view_member_ids
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import PolaritySet, Substrate
 
 # Edge kinds that carry mechanism draw solid; everything else (policy,
@@ -48,7 +48,7 @@ def _scoped(paths: ProjectPaths, model_type: str | None):
         if (members is None or e.id in members) and e.from_id in node_ids and e.to_id in node_ids
     ]
     pol_path = paths.view_attribute_path("cld", "polarity")
-    pol_set = load_model(PolaritySet, pol_path) if pol_path.exists() else PolaritySet()
+    pol_set = load_model_or_default(PolaritySet, pol_path)
     polarity = {e.target_id: e.value for e in pol_set.entries if e.attribute == "polarity"}
     return entities, edges, polarity
 

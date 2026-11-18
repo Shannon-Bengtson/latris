@@ -117,7 +117,8 @@ All pure-Python; wheels for every target OS; no native compilation.
 
 ```
 src/latris/ai/
-├── prompts.py          # 46 PromptSpecs: name, input schema, template, output hint
+├── prompts.py          # 46 PromptSpecs: name, input schema, template, output hint,
+│                       #   response model, temperature, mode (mutating | read_only | hybrid | server_transformed)
 ├── credentials.py      # env-var + keyring facade, key_in_env() context manager
 ├── config.py           # .graph-tooling/ai_config.yaml (committed)
 ├── context.py          # per-prompt context builders → ContextPack

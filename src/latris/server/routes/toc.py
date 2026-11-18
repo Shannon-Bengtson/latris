@@ -6,17 +6,15 @@ sha}``; reads return plain data.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import toc
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/toc", tags=["toc"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class SetLevelRequest(BaseModel):
@@ -36,10 +34,7 @@ def list_levels(root: Root) -> dict[str, Any]:
 
 @router.post("/level")
 def set_level(body: SetLevelRequest, root: Root) -> dict[str, Any]:
-    try:
-        target_id, sha = toc.set_level(body.node, body.level, root=root)
-    except (ValueError, LookupError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    target_id, sha = toc.set_level(body.node, body.level, root=root)
     return {"result": {"target_id": target_id, "level": body.level}, "commit_sha": sha}
 
 
@@ -88,11 +83,8 @@ def get_trace(root: Root) -> dict[str, Any]:
 def set_prior(body: PriorRequest, root: Root) -> dict[str, Any]:
     from latris.operations import process_tracing as pt
 
-    try:
-        entry, sha = pt.set_prior(body.link, body.prior, origin=body.origin, source_id=body.source_id,  # type: ignore[arg-type]
-                                  verification=body.verification, notes=body.notes, root=root)  # type: ignore[arg-type]
-    except (ValueError, LookupError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    entry, sha = pt.set_prior(body.link, body.prior, origin=body.origin, source_id=body.source_id,  # type: ignore[arg-type]
+                              verification=body.verification, notes=body.notes, root=root)  # type: ignore[arg-type]
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 
@@ -100,16 +92,13 @@ def set_prior(body: PriorRequest, root: Root) -> dict[str, Any]:
 def set_test(body: TestRequest, root: Root) -> dict[str, Any]:
     from latris.operations import process_tracing as pt
 
-    try:
-        if body.remove:
-            return {"result": {"removed": body.name}, "commit_sha": pt.remove_test(body.link, body.name, root=root)}
-        kw = {k: v for k, v in body.model_dump(exclude={"link", "name", "remove", "clear_found"}).items()
-              if v is not None}
-        if body.clear_found:
-            kw["found"] = None
-        entry, sha = pt.set_test(body.link, body.name, root=root, **kw)
-    except (ValueError, LookupError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if body.remove:
+        return {"result": {"removed": body.name}, "commit_sha": pt.remove_test(body.link, body.name, root=root)}
+    kw = {k: v for k, v in body.model_dump(exclude={"link", "name", "remove", "clear_found"}).items()
+          if v is not None}
+    if body.clear_found:
+        kw["found"] = None
+    entry, sha = pt.set_test(body.link, body.name, root=root, **kw)
     return {"result": entry.model_dump(mode="json") | {"type": pt.classify(entry.p_if_true, entry.p_if_false)},
             "commit_sha": sha}
 
@@ -137,11 +126,8 @@ class ImpactRequest(BaseModel):
 def impact(body: ImpactRequest, root: Root) -> dict[str, Any]:
     from latris.operations import impact as ops
 
-    try:
-        payload = ops.estimate(body.outcome, body.dataset, time=body.time, at=body.at, group=body.group,
-                               treated=body.treated or None, column=body.column, root=root)
-    except (ValueError, LookupError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    payload = ops.estimate(body.outcome, body.dataset, time=body.time, at=body.at, group=body.group,
+                           treated=body.treated or None, column=body.column, root=root)
     sha = None
     if body.record:
         sha, payload["run_id"] = ops.record(payload, root=root)

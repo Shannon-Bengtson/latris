@@ -13,7 +13,7 @@ Stored (one file each, via the generic view-attribute path convention):
 - ``views/parameters/sd-constant.yaml``      — :class:`SDConstantSet`
 - ``views/parameters/sd-table.yaml``         — :class:`SDTableSet`
 
-Every entry carries its own provenance (``_EntryBase``), so one equation or one
+Every entry carries its own provenance (``EntryBase``), so one equation or one
 initial value is independently attributable — and a one-number edit is a
 one-line, sourced git diff.
 
@@ -29,7 +29,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 
 
@@ -39,7 +39,7 @@ def _non_blank(value: str, what: str) -> str:
     return value.strip()
 
 
-class SDEquationEntry(_EntryBase):
+class SDEquationEntry(EntryBase):
     """The equation for a flow or auxiliary.
 
     ``expression`` references other SD variables by their slugified labels
@@ -66,7 +66,7 @@ class SDEquationSet(_Base):
     entries: list[SDEquationEntry] = Field(default_factory=list)
 
 
-class SDStockEntry(_EntryBase):
+class SDStockEntry(EntryBase):
     """A stock's value at the simulation's initial time."""
 
     attribute: str = "initial_value"
@@ -84,7 +84,7 @@ class SDStockSet(_Base):
     entries: list[SDStockEntry] = Field(default_factory=list)
 
 
-class SDConstantEntry(_EntryBase):
+class SDConstantEntry(EntryBase):
     """A parameter held fixed for the duration of a run."""
 
     attribute: str = "constant"
@@ -106,7 +106,7 @@ class TablePoint(_Base):
     y: float
 
 
-class SDTableEntry(_EntryBase):
+class SDTableEntry(EntryBase):
     """A piecewise-linear lookup ("graphical function") owned by one flow/auxiliary.
 
     The owner's equation calls it as ``TABLE(<input expression>)``. Outside the

@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from latris.repo import git
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/history", tags=["history"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 def _is_branch_root_commit(root: Path) -> bool:

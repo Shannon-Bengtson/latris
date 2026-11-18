@@ -9,17 +9,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from latris.operations import sync as ops
 from latris.repo.git import GitError
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 def _guard(fn: Callable[[], Any]) -> Any:

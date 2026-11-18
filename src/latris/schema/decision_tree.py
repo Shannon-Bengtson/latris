@@ -3,7 +3,7 @@
 A decision tree lives on the ordinary substrate: its nodes are entities with a
 view role (``views/roles/decision_tree-roles.yaml``: ``decision``, ``chance``
 or ``terminal``) and its branches are ordinary edges from parent to child.
-The numbers are stored per value, each with provenance (``_EntryBase``):
+The numbers are stored per value, each with provenance (``EntryBase``):
 
 - ``views/parameters/decision_tree-branch.yaml``  — :class:`DTBranchSet`: a
   branch's label (the option or the state), its probability (chance branches)
@@ -23,13 +23,13 @@ from typing import Literal
 
 from pydantic import Field
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 DTElement = Literal["decision", "chance", "terminal"]
 DT_ELEMENTS: tuple[str, ...] = ("decision", "chance", "terminal")
 
 
-class DTBranchEntry(_EntryBase):
+class DTBranchEntry(EntryBase):
     """A branch (``target_id`` is the edge, parent → child)."""
 
     attribute: str = "branch"
@@ -43,7 +43,7 @@ class DTBranchSet(_Base):
     entries: list[DTBranchEntry] = Field(default_factory=list)
 
 
-class DTPayoffEntry(_EntryBase):
+class DTPayoffEntry(EntryBase):
     """The value at a terminal node, in the tree's units."""
 
     attribute: str = "payoff"
@@ -55,7 +55,7 @@ class DTPayoffSet(_Base):
     entries: list[DTPayoffEntry] = Field(default_factory=list)
 
 
-class DTChanceEntry(_EntryBase):
+class DTChanceEntry(EntryBase):
     """Names the uncertainty a chance node resolves (default: the node's label)."""
 
     attribute: str = "chance"

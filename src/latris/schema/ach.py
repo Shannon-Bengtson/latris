@@ -19,7 +19,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 ACHElement = Literal["hypothesis", "evidence_item"]
 ACH_ELEMENTS: tuple[str, ...] = ("hypothesis", "evidence_item")
@@ -29,7 +29,7 @@ RATINGS: tuple[str, ...] = ("CC", "C", "N", "I", "II")
 Level = Literal["high", "medium", "low"]
 
 
-class ACHRatingEntry(_EntryBase):
+class ACHRatingEntry(EntryBase):
     """How one evidence item (``target_id``) bears on one hypothesis."""
 
     attribute: str = "rating"
@@ -42,7 +42,7 @@ class ACHRatingSet(_Base):
     entries: list[ACHRatingEntry] = Field(default_factory=list)
 
 
-class ACHItemEntry(_EntryBase):
+class ACHItemEntry(EntryBase):
     """How much an evidence item counts: is it credible, and does it bear on the question?"""
 
     attribute: str = "item"

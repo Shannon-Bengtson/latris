@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from latris.repo.layout import ProjectPaths
 from latris.repo.yaml_io import load_model
@@ -17,10 +16,9 @@ from latris.schema import (
     QuestionLog,
     SignoffLog,
 )
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/annotations", tags=["annotations"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 @router.get("/summary")

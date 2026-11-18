@@ -35,9 +35,9 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.process_tracing import PTPriorEntry, PTPriorSet, PTTestEntry, PTTestSet
@@ -48,20 +48,15 @@ CERTAIN, UNIQUE = 0.8, 0.2  # thresholds for the Van Evera classification
 _UNSET = object()
 
 
-def _path(paths, attr: str) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, attr)
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
+_store = ViewStore(MODEL_TYPE)
 
 
 def get_priors(*, root: Path | None = None) -> PTPriorSet:
-    return _load(_path(require_project(root), "pt_prior"), PTPriorSet)
+    return _store.load(root, "pt_prior", PTPriorSet)
 
 
 def get_tests(*, root: Path | None = None) -> PTTestSet:
-    return _load(_path(require_project(root), "pt_test"), PTTestSet)
+    return _store.load(root, "pt_test", PTTestSet)
 
 
 def _link(paths, link: str) -> tuple[str, str]:
@@ -81,13 +76,6 @@ def _link(paths, link: str) -> tuple[str, str]:
     return eid, f"{labels[e.from_id]} → {labels[e.to_id]}"
 
 
-def _write(paths, attr: str, store, subject: str, body: str) -> str:
-    p = _path(paths, attr)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, p)
-    return auto_commit(paths.root, subject=subject, body=body, paths=[p])
-
-
 def set_prior(
     link: str,
     prior: float,
@@ -104,9 +92,9 @@ def set_prior(
     entry = PTPriorEntry(target_id=eid, prior=prior, origin=origin, source_id=source_id, verification=verification,
                          notes=notes)
     store = get_priors(root=paths.root)
-    store.entries = [x for x in store.entries if x.target_id != eid] + [entry]
-    sha = _write(paths, "pt_prior", store, f"Process tracing: prior on {name} = {prior:g}",
-                 f"edge: {eid}\nprior: {prior}\norigin: {origin}\nsource_id: {source_id}")
+    replace_entry(store, entry)
+    sha = _store.save(paths, "pt_prior", store, subject=f"Process tracing: prior on {name} = {prior:g}",
+        body=f"edge: {eid}\nprior: {prior}\norigin: {origin}\nsource_id: {source_id}")
     return entry, sha
 
 
@@ -142,9 +130,9 @@ def set_test(
         raise ValueError("nothing to set for this test")
     base = current.model_dump() if current else {"target_id": eid, "name": name}
     entry = PTTestEntry.model_validate({**base, **changed})
-    store.entries = [t for t in store.entries if (t.target_id, t.name) != (eid, name)] + [entry]
-    sha = _write(paths, "pt_test", store, f"Process tracing: test '{name}' on {lname}",
-                 f"edge: {eid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()))
+    replace_entry(store, entry, "target_id", "name")
+    sha = _store.save(paths, "pt_test", store, subject=f"Process tracing: test '{name}' on {lname}",
+        body=f"edge: {eid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()))
     return entry, sha
 
 
@@ -156,7 +144,7 @@ def remove_test(link: str, name: str, *, root: Path | None = None) -> str:
     if len(kept) == len(store.entries):
         raise ValueError(f"no test named {name!r} on {lname}")
     store.entries = kept
-    return _write(paths, "pt_test", store, f"Process tracing: removed test '{name}' on {lname}", "")
+    return _store.save(paths, "pt_test", store, subject=f"Process tracing: removed test '{name}' on {lname}")
 
 
 # ── the kernel ───────────────────────────────────────────────────────
@@ -196,8 +184,6 @@ def verdict(p: float) -> str:
     return "very unlikely"
 
 
-def _weak(entry) -> bool:
-    return entry.verification != "human-verified" or entry.contested
 
 
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
@@ -233,7 +219,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
             "tests": [{"test": t.name, "type": classify(t.p_if_true, t.p_if_false), "p_if_true": t.p_if_true,
                        "p_if_false": t.p_if_false, "found": t.found, "description": t.description,
                        "ratio": likelihood_ratio(t.p_if_true, t.p_if_false, t.found) if t.found is not None else None,
-                       "source": t.source_id, "weak": _weak(t)}
+                       "source": t.source_id, "weak": t.is_weak}
                       for t in sorted(tests.get(e, []), key=lambda t: t.name)],
             "posterior": p, "verdict": verdict(p), "pending": pending,
         })

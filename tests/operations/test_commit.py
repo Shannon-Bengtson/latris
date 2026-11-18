@@ -82,6 +82,22 @@ def test_no_op_when_nothing_changed(project: Path) -> None:
     assert sha == git.head_sha(project)
 
 
+def test_no_op_with_untracked_file_present(project: Path) -> None:
+    """An unchanged write must not fail because some unrelated file is untracked.
+
+    Regression: the no-op check used ``git status --porcelain``, which lists
+    untracked files, so ``git commit`` then failed with "nothing added to
+    commit but untracked files present".
+    """
+    from latris.repo.layout import ProjectPaths
+
+    _touch(project, "stray.csv", "a,b\n")
+    before = _commit_count(project)
+    sha = auto_commit(project, subject="Should be no-op", paths=[ProjectPaths(project).project_yaml])
+    assert _commit_count(project) == before
+    assert sha == git.head_sha(project)
+
+
 # ── Explicit paths vs add-all ─────────��─────────────────���───────────
 
 

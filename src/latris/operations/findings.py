@@ -13,7 +13,6 @@ analysis→findings feature note. The live creation path today is
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -21,7 +20,7 @@ from latris.operations.commit import auto_commit
 from latris.operations.graph_analysis import group_loop_mechanisms, loop_mechanism_summary
 from latris.repo import git
 from latris.repo.project import require_project
-from latris.repo.yaml_io import atomic_replace, dump_jsonl_append, iter_jsonl, load_model
+from latris.repo.yaml_io import dump_jsonl_append, iter_jsonl, load_model, load_raw_text, rewrite_jsonl
 from latris.schema import (
     Substrate,
 )
@@ -174,7 +173,7 @@ def set_finding_maturity(
             target = r
             break
 
-    _rewrite_jsonl(all_records, paths.findings_jsonl)
+    rewrite_jsonl(all_records, paths.findings_jsonl)
     sha = auto_commit(
         paths.root,
         subject=f"Finding {target.id[:20]}…: {maturity}",
@@ -219,7 +218,7 @@ def supersede_matching(
             superseded.append(r)
 
     if changed:
-        _rewrite_jsonl(all_records, paths.findings_jsonl)
+        rewrite_jsonl(all_records, paths.findings_jsonl)
         auto_commit(
             paths.root,
             subject=f"Superseded {len(superseded)} finding(s)",
@@ -271,7 +270,7 @@ def check_staleness(
         # signal we already evaluated above.
         return False
     try:
-        old_substrate = Substrate.model_validate(_yaml_loads(old_yaml))
+        old_substrate = Substrate.model_validate(load_raw_text(old_yaml))
     except Exception:
         return False
     old_edge_kinds = {e.id: e.kind for e in old_substrate.edges}
@@ -280,14 +279,6 @@ def check_staleness(
         if old_kind == "causal" and edge.kind != "causal":
             return True
     return False
-
-
-def _yaml_loads(text: str):
-    """Parse YAML text into a python dict using the project's yaml lib."""
-    from ruamel.yaml import YAML
-
-    yaml = YAML(typ="safe")
-    return yaml.load(text)
 
 
 # ── Finding generators (pure — no I/O) ─────────────────────────────────
@@ -674,11 +665,3 @@ def _truncate(text: str, length: int = 50) -> str:
         return text
     return text[: length - 1] + "…"
 
-
-def _rewrite_jsonl(records: list[Finding], path: Path) -> None:
-    """Atomically rewrite the entire JSONL file."""
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        for r in records:
-            f.write(json.dumps(r.model_dump(mode="json"), ensure_ascii=False) + "\n")
-    atomic_replace(tmp, path)

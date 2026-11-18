@@ -22,7 +22,7 @@ from latris.operations.analysis_runs import record_run
 from latris.operations.commit import auto_commit
 from latris.repo.layout import contained_path
 from latris.repo.project import require_project
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import Substrate
 from latris.schema.bn import CPTEntry, CPTRow
 
@@ -194,7 +194,7 @@ def apply_learned(proposal: LearnProposal, *, root: Path | None = None) -> tuple
     store.entries = list(by_id.values())
 
     cpt_path = bn_ops._cpt_path(paths)
-    bn_ops._dump(cpt_path, store)
+    dump_model(store, cpt_path)
     sha = auto_commit(
         paths.root,
         subject=f"Learn BN CPTs: {len(affected)} node(s) from {proposal.dataset_id[:20]}…",

@@ -22,7 +22,7 @@ def _units(p: dict[str, Any]) -> tuple[str | None, str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.markov import _money, describe
 
     cu, ou = _units(p)
@@ -34,7 +34,7 @@ def _render(p: dict[str, Any]) -> list[str]:
             f"for outcomes; half-cycle correction {'on' if s['half_cycle_correction'] else 'off'}.", ""]
     rows = [[r["strategy"], _money(r["cost"], cu), f"{r['outcome']:.3f}", _money(r["cost_undiscounted"], cu),
              f"{r['outcome_undiscounted']:.3f}"] for r in p["results"]]
-    out += _table(["Strategy", "Cost (discounted)", f"{ou} (discounted)", "Cost (undiscounted)",
+    out += md.table(["Strategy", "Cost (discounted)", f"{ou} (discounted)", "Cost (undiscounted)",
                    f"{ou} (undiscounted)"], rows)
     if p.get("incremental"):
         rows = [[r["strategy"], _money(r["cost"], cu), f"{r['outcome']:.3f}", r["status"],
@@ -42,13 +42,13 @@ def _render(p: dict[str, Any]) -> list[str]:
                  else (f"by {r['versus']}" if r["status"] == "dominated" else "—")] for r in p["incremental"]]
         out += ["Incremental analysis, cheapest first. A strategy is *dominated* when another costs no more and "
                 "achieves at least as much; *extendedly dominated* when a mix of its neighbours would beat it.", ""]
-        out += _table(["Strategy", "Cost", ou, "Status", "ICER"], rows)
+        out += md.table(["Strategy", "Cost", ou, "Status", "ICER"], rows)
         if p.get("choice"):
             out += [f"At a willingness to pay of {_money(s['wtp'], cu)} per {ou}, {p['choice']} has the highest net "
                     "monetary benefit.", ""]
     rows = [[st, *(f"{r['time_in_state'][st]:.2f}" for r in p["results"])] for st in p["states"]]
     out += [f"Expected time in each state ({s['time_units']}, undiscounted):", ""]
-    out += _table(["State", *(r["strategy"] for r in p["results"])], rows)
+    out += md.table(["State", *(r["strategy"] for r in p["results"])], rows)
     gaps = []
     if p["missing_cost"]:
         gaps.append(f"no cost for {', '.join(p['missing_cost'])} (counted as 0)")

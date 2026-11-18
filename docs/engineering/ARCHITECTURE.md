@@ -304,7 +304,9 @@ static schema:
 4. its help topic (`server/help.py`), and its keys in `latris build --help`.
 
 The steps for a new type: schema for its parameters (with round-trip tests)
-→ its operations module (setters, structure check, analysis, `record`) →
+→ its operations module (setters, structure check, analysis, `record`; storage through
+`operations/_view_store.ViewStore` — load, `replace_entry`, `save` + commit, roles,
+`resolve_factor` — and `EntryBase.is_weak` for unverified or contested numbers) →
 CLI and routes modules → the plugin module, added to `_MODULES` in
 `formalisms/__init__.py` (registration order = the order commands, routes
 and report sections appear in) → the four central entries → tests and the

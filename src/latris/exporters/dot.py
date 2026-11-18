@@ -16,7 +16,7 @@ from typing import Literal
 
 from latris.exporters._scope import view_member_ids
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import PolaritySet, Substrate
 
 ViewKind = Literal["system_map", "cld", "dag"]
@@ -30,7 +30,7 @@ def _dot_escape(text: str) -> str:
 def render(paths: ProjectPaths, view: ViewKind = "system_map") -> str:
     substrate = load_model(Substrate, paths.conceptual_yaml)
     pol_path = paths.view_attribute_path("cld", "polarity")
-    pol_set = load_model(PolaritySet, pol_path) if pol_path.exists() else PolaritySet()
+    pol_set = load_model_or_default(PolaritySet, pol_path)
     polarity = {(e.target_id, e.attribute): e for e in pol_set.entries}
 
     # Filter by mappings if any exist for this view.

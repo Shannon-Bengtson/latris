@@ -13,7 +13,7 @@ and the shared substrate stays a model of real events:
 - ``views/parameters/fault_tree-gate.yaml``        — :class:`FTGateSet`
 - ``views/parameters/fault_tree-probability.yaml`` — :class:`FTProbabilitySet`
 
-Each probability carries its own provenance (``_EntryBase``): who gave it,
+Each probability carries its own provenance (``EntryBase``): who gave it,
 from what source, and whether a person has verified it.
 """
 
@@ -23,14 +23,14 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 FTEventType = Literal["top_event", "intermediate_event", "basic_event", "undeveloped_event"]
 FT_EVENT_TYPES: tuple[str, ...] = ("top_event", "intermediate_event", "basic_event", "undeveloped_event")
 GateType = Literal["and", "or", "vote"]
 
 
-class FTGateEntry(_EntryBase):
+class FTGateEntry(EntryBase):
     """How a top or intermediate event's inputs combine.
 
     ``and``: all inputs occur. ``or``: any input occurs. ``vote``: at least
@@ -54,7 +54,7 @@ class FTGateSet(_Base):
     entries: list[FTGateEntry] = Field(default_factory=list)
 
 
-class FTProbabilityEntry(_EntryBase):
+class FTProbabilityEntry(EntryBase):
     """A basic or undeveloped event's probability over the period the tree is about."""
 
     attribute: str = "probability"

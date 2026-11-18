@@ -20,7 +20,7 @@ from latris.operations import formalisms
 from latris.operations.batch import batch
 from latris.repo import git
 from latris.repo.project import require_project
-from latris.repo.yaml_io import load_model, load_model_from_string
+from latris.repo.yaml_io import load_model, load_model_from_string, load_model_or_default
 from latris.schema import ProjectFoundation, ReferenceLibrary, Substrate
 from latris.schema.build_spec import LINK_ARROWS, BuildSpec, SpecAssumption, SpecCitation
 from latris.schema.references import SNAPSHOT_EXTRACT_MAX
@@ -189,7 +189,7 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     library = (
-        load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
+        load_model_or_default(ReferenceLibrary, paths.references_yaml)
     )
     foundation = load_model(ProjectFoundation, paths.project_yaml)
     model_type = spec.model_type or next(iter(foundation.selected_model_types), "cld")

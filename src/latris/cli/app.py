@@ -149,7 +149,8 @@ app.command("docs")(docs_cmd.docs)
 def doctor() -> None:
     """Check environment prerequisites (git binary, identity config)."""
     import shutil
-    import subprocess
+
+    from latris.repo import git as git_ops
 
     git = shutil.which("git")
     if not git:
@@ -158,19 +159,9 @@ def doctor() -> None:
     console.print(f"[green]git[/green]: {git}")
 
     try:
-        name = subprocess.run(
-            ["git", "config", "--global", "user.name"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
-        email = subprocess.run(
-            ["git", "config", "--global", "user.email"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
-    except OSError as exc:
+        name = git_ops.global_config("user.name")
+        email = git_ops.global_config("user.email")
+    except (OSError, git_ops.GitError) as exc:
         console.print(f"[red]could not run git: {exc}[/red]")
         raise typer.Exit(code=1) from exc
 

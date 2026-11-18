@@ -12,7 +12,7 @@ import contextlib
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +21,9 @@ from pydantic import BaseModel
 
 import latris
 from latris.ai.adapters import mock_enabled
+from latris.ai.adapters.base import LLMCallError
 from latris.operations._resolve import ResolveError
-from latris.repo.git import IdentityError
+from latris.repo.git import GitError, IdentityError
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import NotAProjectError
 from latris.repo.yaml_io import load_model
@@ -31,7 +32,7 @@ from latris.schema import (
     Substrate,
 )
 from latris.server.access import AccessTokenMiddleware, configured_token
-from latris.server.deps import get_project_root, log_unhandled
+from latris.server.deps import Root, log_unhandled, serialise_writes
 from latris.server.perf import PerfMiddleware
 from latris.server.routes import (
     activity,
@@ -73,8 +74,6 @@ from latris.server.routes import (
 from latris.server.state import load_full_state
 from latris.server.watch import manager, watch_project
 
-Root = Annotated[Path, Depends(get_project_root)]
-
 
 class ProjectUpdateRequest(BaseModel):
     name: str | None = None
@@ -87,357 +86,6 @@ class ProjectUpdateRequest(BaseModel):
     granularity_level: str | None = None
     audience: str | None = None
     selected_model_types: list[str] | None = None
-
-
-def _register_server_mock_responses() -> None:
-    """Pre-register placeholder mock AI responses for GUI development.
-
-    Called at server startup when ``LATRIS_AI_MOCK=1``. Without this,
-    every AI button in the GUI would fail with a ``LookupError`` because no
-    canned responses are registered.
-    """
-    from latris.ai import proposals as p
-    from latris.ai.adapters.base import ChatResult
-    from latris.ai.adapters.mock_adapter import MockAdapter
-
-    mock = MockAdapter.shared()
-
-    mock.register_default(
-        response_cls=p.ExplanationResult,
-        result=ChatResult(
-            parsed=p.ExplanationResult(
-                explanation="(mock) This element exists because it is a key driver in the current causal framing.",
-                referenced_ids=[],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-            token_usage={"input_tokens": 50, "output_tokens": 30},
-            cost_usd=0.001,
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ApproachRecommendationResult,
-        result=ChatResult(
-            parsed=p.ApproachRecommendationResult(
-                recommendations=[
-                    p.ApproachRecommendation(
-                        model_type_id="cld",
-                        suitability="recommended",
-                        rationale="(mock) The question centres on feedback dynamics, which a CLD captures.",
-                    ),
-                    p.ApproachRecommendation(
-                        model_type_id="dag",
-                        suitability="consider",
-                        rationale="(mock) A DAG sharpens causal claims when you need adjustment sets.",
-                    ),
-                ],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ChallengeProposal,
-        result=ChatResult(
-            parsed=p.ChallengeProposal(
-                target_id="PLACEHOLDER",
-                argument="(mock) The assumed relationship may be confounded by unmodelled factors.",
-                opening_turn="Consider alternative mechanisms.",
-                recommended_state="retained-with-caveat",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.CitationsProposal,
-        result=ChatResult(
-            parsed=p.CitationsProposal(new_references=[], evidence_links=[]),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.DraftModelProposal,
-        result=ChatResult(
-            parsed=p.DraftModelProposal(
-                framings=[
-                    p.DraftFraming(
-                        name="Default framing",
-                        entities=[
-                            p.DraftEntity(label="Factor A", kind="concept", description="(mock) A placeholder factor.")
-                        ],
-                        edges=[],
-                        assumptions=[],
-                        rationale="(mock) Single-factor placeholder.",
-                    )
-                ]
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.AttackResult,
-        result=ChatResult(
-            parsed=p.AttackResult(
-                weakest_assumption="(mock) Linear relationship assumed",
-                argument="(mock) Non-linear effects are well-documented in the literature.",
-                affected_node_ids=[],
-                recommended_action="Add a non-linearity caveat.",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ScopeCheckResult,
-        result=ChatResult(
-            parsed=p.ScopeCheckResult(
-                verdict="well-matched",
-                suggestions=[],
-                reasoning="(mock) The model adequately covers the foundation question.",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.NewConnectionsProposal,
-        result=ChatResult(
-            parsed=p.NewConnectionsProposal(proposals=[]),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ElicitationTurnResult,
-        result=ChatResult(
-            parsed=p.ElicitationTurnResult(
-                question="(mock) What is the primary mechanism you would expect?", proposed_edit=None
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ReportDraft,
-        result=ChatResult(
-            parsed=p.ReportDraft(
-                pack="client",
-                sections=[
-                    p.ReportSection(
-                        heading="Summary",
-                        content="(mock) Placeholder report content.",
-                    ),
-                ],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.PeerReviewResult,
-        result=ChatResult(
-            parsed=p.PeerReviewResult(
-                reviewer_role="domain expert",
-                scope_assessment="(mock) Scope is adequate.",
-                rigor_assessment="(mock) Causal claims are plausible.",
-                evidence_assessment="(mock) Evidence base is thin.",
-                major_risks=["(mock) Single-source dependency"],
-                proposed_questions=["(mock) What confounders have been considered?"],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ResearchGapsResult,
-        result=ChatResult(
-            parsed=p.ResearchGapsResult(
-                gaps=[
-                    p.ResearchGap(
-                        description="(mock) Key mechanism lacks empirical support.",
-                        priority="high",
-                        affected_node_ids=[],
-                        suggested_action="Attach supporting reference.",
-                    )
-                ]
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.SteelmanProposal,
-        result=ChatResult(
-            parsed=p.SteelmanProposal(
-                target_id="PLACEHOLDER",
-                opposing_view="(mock) The opposing position is that this factor is secondary, not primary.",
-                rationale="(mock) Alternative studies suggest a weaker effect.",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.FormalViewProjectionResult,
-        result=ChatResult(
-            parsed=p.FormalViewProjectionResult(
-                target_view="cld",
-                recommended_mappings=[],
-                conflicts=["(mock) Some edges lack polarity for CLD."],
-                rationale="(mock) Substrate maps well but needs polarity.",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.CrossReferenceCheckResult,
-        result=ChatResult(
-            parsed=p.CrossReferenceCheckResult(
-                uncited_elements=[],
-                unused_references=[],
-                coverage_summary="(mock) Coverage is adequate for the current model maturity.",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.BibliographySearchPlan,
-        result=ChatResult(
-            parsed=p.BibliographySearchPlan(
-                queries=[
-                    p.SearchQuery(
-                        query="(mock) water quality estuary monitoring", rationale="(mock) Core research topic"
-                    )
-                ]
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ReferenceRelevanceResult,
-        result=ChatResult(
-            parsed=p.ReferenceRelevanceResult(
-                bibkey="(mock)",
-                relevance_summary="(mock) This reference provides foundational evidence.",
-                connected_elements=[],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.AssumptionsProposal,
-        result=ChatResult(
-            parsed=p.AssumptionsProposal(
-                target_id="PLACEHOLDER",
-                assumptions=[
-                    p.DraftAssumption(
-                        statement="(mock) Linear relationship assumed between variables.",
-                        rationale="(mock) Simplification appropriate at current maturity.",
-                    )
-                ],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.DecisionsProposal,
-        result=ChatResult(
-            parsed=p.DecisionsProposal(
-                target_id="PLACEHOLDER",
-                decisions=[
-                    p.DecisionEntry(
-                        statement="(mock) Chose variable representation over concept.",
-                        rationale="(mock) Enables future quantification.",
-                    )
-                ],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.ExclusionsProposal,
-        result=ChatResult(
-            parsed=p.ExclusionsProposal(
-                exclusions=[
-                    p.ExclusionEntry(
-                        statement="(mock) Temporal dynamics excluded.",
-                        rationale="(mock) Steady-state assumption at this stage.",
-                    )
-                ]
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.QuestionsProposal,
-        result=ChatResult(
-            parsed=p.QuestionsProposal(
-                target_id="PLACEHOLDER",
-                questions=[p.QuestionEntry(question="(mock) What is the dose-response relationship?")],
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.AttributeSuggestionsResult,
-        result=ChatResult(
-            parsed=p.AttributeSuggestionsResult(suggestions=[]),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.FillFieldProposal,
-        result=ChatResult(
-            parsed=p.FillFieldProposal(
-                value="(mock) suggested value",
-                rationale="(mock) Plausible default given the project context.",
-                confidence="medium",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.EvidenceGapsScanResult,
-        result=ChatResult(
-            parsed=p.EvidenceGapsScanResult(
-                gaps=[
-                    p.EvidenceGap(
-                        section_type="key_findings",
-                        claim="(mock) primary causal claim",
-                        gap_description="(mock) lacks empirical support",
-                        suggested_action="(mock) attach a supporting reference",
-                        severity="medium",
-                    )
-                ],
-                summary="(mock) Evidence base is uneven across sections.",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
-    mock.register_default(
-        response_cls=p.InterpretProseResult,
-        result=ChatResult(
-            parsed=p.InterpretProseResult(
-                prose="(mock) In plain terms, the model shows how the main drivers connect.",
-            ),
-            raw="(mock)",
-            model_id="mock-model",
-        ),
-    )
 
 
 PLUGIN_ENTRY_POINT_GROUP = "latris.server_plugins"
@@ -499,7 +147,9 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     async def lifespan(_app: FastAPI):  # noqa: ANN202
         # Register mock AI responses when running in mock mode (GUI dev).
         if mock_enabled():
-            _register_server_mock_responses()
+            from latris.ai.adapters.mock_fixtures import register_gui_defaults
+
+            register_gui_defaults()
 
         # Start file watcher as a background task if project root is known.
         stop = asyncio.Event()
@@ -517,6 +167,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
         title="latris API",
         version=latris.__version__,
         lifespan=lifespan,
+        dependencies=[Depends(serialise_writes)],
     )
 
     # Perf telemetry — no-ops unless ``LATRIS_PERF=1`` is set. Installed
@@ -566,15 +217,30 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
 
     @app.exception_handler(ValueError)
     async def _value_error(_request: Request, exc: ValueError) -> JSONResponse:
+        # A refusal from the domain ("only a leaf takes a probability").
+        # (Malformed request bodies are answered 422 by FastAPI before this.)
         return JSONResponse(status_code=422, content={"error": "validation_error", "detail": str(exc)})
 
     @app.exception_handler(LookupError)
     async def _lookup_error(_request: Request, exc: LookupError) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"error": "lookup_error", "detail": str(exc)})
+        return JSONResponse(status_code=404, content={"error": "not_found", "detail": str(exc)})
+
+    @app.exception_handler(LLMCallError)
+    async def _llm_error(_request: Request, exc: LLMCallError) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"error": "llm_error", "detail": str(exc)})
+
+    @app.exception_handler(GitError)
+    async def _git_error(_request: Request, exc: GitError) -> JSONResponse:
+        error_id = log_unhandled(exc, "git failed")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "git_error", "detail": f"Saving the change failed (error id {error_id})."},
+        )
 
     @app.exception_handler(RuntimeError)
     async def _runtime_error(_request: Request, exc: RuntimeError) -> JSONResponse:
-        return JSONResponse(status_code=502, content={"error": "llm_error", "detail": str(exc)})
+        # Raised with a message meant for the person ("needs the 'quant' extra").
+        return JSONResponse(status_code=500, content={"error": "runtime_error", "detail": str(exc)})
 
     @app.exception_handler(Exception)
     async def _unhandled_error(_request: Request, exc: Exception) -> JSONResponse:
@@ -651,65 +317,13 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
 
     @app.patch("/api/project")
     def update_project(body: ProjectUpdateRequest, root: Root) -> dict[str, Any]:
-        from latris.operations.batch import batch as _batch
-        from latris.operations.commit import auto_commit
-        from latris.operations.project import load_foundation, set_question, update_selected_models
-        from latris.repo.git import head_sha
-        from latris.repo.yaml_io import dump_model
+        from latris.operations.project import update_foundation
 
-        paths_ = ProjectPaths(root)
-        _, foundation = load_foundation(root)
-
-        dirty = False
-        if body.name is not None and body.name != foundation.name:
-            foundation.name = body.name
-            dirty = True
-        if body.background is not None and body.background != foundation.background:
-            foundation.background = body.background
-            dirty = True
-        if body.boundary is not None and body.boundary != foundation.boundary:
-            foundation.boundary = body.boundary
-            dirty = True
-        if body.exclusions is not None and body.exclusions != foundation.exclusions:
-            foundation.exclusions = body.exclusions
-            dirty = True
-        if body.predictions is not None and body.predictions != foundation.predictions:
-            foundation.predictions = body.predictions
-            dirty = True
-        if body.coverage_dimensions is not None and body.coverage_dimensions != foundation.coverage_dimensions:
-            foundation.coverage_dimensions = body.coverage_dimensions
-            dirty = True
-        if body.granularity_level is not None and body.granularity_level != foundation.granularity_level:
-            foundation.granularity_level = body.granularity_level
-            dirty = True
-        if body.audience is not None and body.audience != foundation.audience:
-            foundation.audience = body.audience
-            dirty = True
-
-        statement_changed = body.statement is not None and body.statement != foundation.statement
-        models_changed = (
-            body.selected_model_types is not None and body.selected_model_types != foundation.selected_model_types
+        fields = body.model_dump(exclude={"statement", "selected_model_types"})
+        sha = update_foundation(
+            fields, statement=body.statement, selected_model_types=body.selected_model_types, root=root
         )
-
-        if not dirty and not statement_changed and not models_changed:
-            return {"commit_sha": None}
-
-        sha_before = head_sha(root)
-        with _batch(root, subject=f"Updated project: {foundation.name or 'untitled'}"):
-            if dirty:
-                dump_model(foundation, paths_.project_yaml)
-                auto_commit(
-                    root, subject=f"Updated project: {foundation.name or 'untitled'}", paths=[paths_.project_yaml]
-                )
-
-            if statement_changed:
-                set_question(root, body.statement)
-
-            if models_changed:
-                update_selected_models(body.selected_model_types, root=root)
-
-        sha_after = head_sha(root)
-        return {"commit_sha": sha_after if sha_after != sha_before else None}
+        return {"commit_sha": sha}
 
     @app.get("/api/substrate")
     def get_substrate(root: Root) -> dict[str, Any]:

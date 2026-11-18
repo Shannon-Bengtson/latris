@@ -8,6 +8,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Bow-tie (threats, barriers, consequences) operations.", no_args_is_help=True)
@@ -59,7 +60,7 @@ def barrier(
     pfd: float = typer.Option(None, "--pfd", help="Probability it fails when called on, in [0, 1]."),
     source: str = typer.Option(None, "--source", help="Where the failure probability came from."),
     origin: str = typer.Option(
-        None, "--origin", help="human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
+        None, "--origin", help=ORIGIN_HELP
     ),
     verified: bool = typer.Option(None, "--verified/--unverified", help="A person has checked the value."),
     notes: str = typer.Option(None, "--notes"),
@@ -71,7 +72,7 @@ def barrier(
              "origin": origin, "notes": notes}
     kwargs = {k: v for k, v in given.items() if v is not None}
     if verified is not None:
-        kwargs["verification"] = "human-verified" if verified else "unverified"
+        kwargs["verification"] = verification(verified)
     entry, sha = bt.set_barrier(target, **kwargs)
     if json_mode():
         emit(entry, human=lambda: None, commit_sha=sha)
@@ -87,7 +88,7 @@ def frequency(
     per_year: float = typer.Argument(..., help="How often it occurs, per year."),
     source: str = typer.Option(None, "--source", help="Where it came from (a reference key, a fault-tree run, …)."),
     origin: str = typer.Option(
-        "human-direct", "--origin", help="human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
+        "human-direct", "--origin", help=ORIGIN_HELP
     ),
     verified: bool = typer.Option(False, "--verified", help="A person has checked the value."),
     notes: str = typer.Option(None, "--notes"),
@@ -96,7 +97,7 @@ def frequency(
     from latris.operations import bow_tie as bt
 
     entry, sha = bt.set_frequency(target, per_year, origin=origin, source_id=source,  # type: ignore[arg-type]
-                                  verification="human-verified" if verified else "unverified", notes=notes)
+                                  verification=verification(verified), notes=notes)
     if json_mode():
         emit(entry, human=lambda: None, commit_sha=sha)
         return
