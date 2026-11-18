@@ -113,6 +113,7 @@ def build(
             f"{result.questions} questions"
             + (f", {result.parameters} parameters" if result.parameters else "")
             + (f", {len(result.analyses)} analyses run" if result.analyses else "")
+            + (f", {len(result.carried)} result(s) carried as the sender's" if result.carried else "")
             + f" · commit [cyan]{result.commit_sha[:10]}[/cyan]"
             + "".join(f"\n[yellow]note:[/yellow] {escape(n)}" for n in result.notes)
         ),

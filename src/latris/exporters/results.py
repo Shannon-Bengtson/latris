@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from latris.operations.carried_results import carried_note
 from latris.repo.layout import ProjectPaths
 
 _HUMAN_VERIFIED = "human-verified"
@@ -326,6 +327,7 @@ def render_results(
         out.append("")
         out += [f"_Run {_run_date(res.run.id)}._", ""]
         out += _stale_note(res.stale, res.run.id, show_ids)
+        out += carried_note(res.run.hyperparameters)
         if chart_markers:
             for chart, extra in _charts(kind, p):
                 out += _marker(res.run.id, chart, **extra)

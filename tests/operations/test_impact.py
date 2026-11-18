@@ -172,8 +172,9 @@ def test_build_spec_report_share_link_cli_and_route(project):
     answer = extract_claims("answer_to_question", "theory_of_change", root=project)
     assert any(c.startswith("Interrupted time series for Attendance") for c in answer)
     _, spec = export_spec(model_type="theory_of_change", root=project)
-    (again,) = [x for x in spec.analyses if x.kind == "toc_impact"]
-    assert (again.time, again.at, again.columns) == ("month", "2024-01-01", {"Attendance": "attendance_rate"})
+    assert not [x for x in spec.analyses if x.kind == "toc_impact"]  # reads a dataset: carried instead
+    (carried,) = [c for c in spec.carried_results if c.kind == "toc-impact"]
+    assert carried.datasets[0]["name"] == "monthly" and "Interrupted time series" in carried.summary
 
     r = CliRunner().invoke(app, ["toc", "impact", "Attendance", "--dataset", "diverging", "--time", "year",
                                  "--at", "2021", "--group", "arm", "--treated", "mentoring", "--no-record"])

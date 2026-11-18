@@ -27,7 +27,7 @@ import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from latris.operations import formalisms
 from latris.repo.project import require_project
@@ -73,6 +73,9 @@ class LinkPayload(BaseModel):
     name: str
     question: str
     model_type: str = "cld"
+    # Every model type the project uses, when it's more than ``model_type`` alone (e.g. a bow-tie with
+    # its event trees); empty means just ``model_type``, as links made before this field read.
+    model_types: list[str] = Field(default_factory=list)
     spec: BuildSpec
 
 
@@ -208,7 +211,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         outcome=outcome, factors=factors, links=links, sources=sources,
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
-        sd=_export_sd(paths, labels), analyses=_export_analyses(paths),
+        sd=_export_sd(paths, labels), analyses=_export_analyses(paths), carried_results=_export_carried(paths),
         **{f.spec_field: f.spec_export(paths, labels) for f in formalisms.all_formalisms() if f.spec_field},
     )
     return foundation, spec
@@ -266,9 +269,18 @@ def _export_sd(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
 
 
 def _export_analyses(paths):  # noqa: ANN001, ANN202
+    """Analyses the link re-runs when it opens — all but those reading a dataset (carried instead)."""
     from latris.operations.analysis_replay import definitions
+    from latris.operations.analysis_results import result_surfaces
 
-    return definitions(root=paths.root)
+    dataset_kinds = {r.analysis for r in result_surfaces() if r.needs_dataset}
+    return [a for a in definitions(root=paths.root) if a.kind not in dataset_kinds]
+
+
+def _export_carried(paths):  # noqa: ANN001, ANN202
+    from latris.operations.carried_results import export_carried
+
+    return export_carried(root=paths.root)
 
 
 def encode_payload(payload: LinkPayload) -> str:
@@ -303,9 +315,11 @@ def make_link(
 ) -> ShareLink:
     foundation, spec = export_spec(model_type=model_type, root=root)
     paths = require_project(root)
+    primary = spec.model_type or "cld"
+    others = [mt for mt in foundation.selected_model_types if mt != primary]
     payload = LinkPayload(
         name=foundation.name or paths.root.name, question=foundation.statement,
-        model_type=spec.model_type or "cld", spec=spec,
+        model_type=primary, model_types=[primary, *others] if others else [], spec=spec,
     )
     base = (app_url or os.environ.get(APP_URL_ENV) or DEFAULT_APP_URL).rstrip("/")
     url = f"{base}/open#{encode_payload(payload)}"

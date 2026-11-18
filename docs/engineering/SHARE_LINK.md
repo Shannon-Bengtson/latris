@@ -93,6 +93,27 @@ the affected prose is marked stale. Add the round trip to the worked example.
 in the private app repo) need the same treatment: re-verify carried quotes,
 label carried checks, never import approvals, and run the same prose checks.
 
+## Results and model types in a link (built)
+
+A link carries the model, not its results: opening it re-runs every
+analysis the sender's report shows (`analysis_replay.definitions`, stale
+ones left out), so the numbers are computed, never pasted.
+
+Analyses that read a dataset (`needs_dataset` on the result kind: effect
+estimation, impact estimation) can't be re-run, because links don't carry
+data. Rather than show less than the sender's report, the link carries
+those results as the sender's (`BuildSpec.carried_results`,
+`operations/carried_results.py`): the recorded payload with factor and link
+ids written as labels, the datasets it read (name and content hash), and
+its summary. The build records it in the opened project marked as carried,
+and the report says it was computed by the sender from that data and can't
+be re-run there. It ages like any result when the model changes, and
+re-sharing the opened model carries it again.
+
+`LinkPayload.model_types` lists every model type the project uses when
+there is more than one (a bow-tie with its event trees), so the opened model
+selects them all. Single-type links leave it empty and stay as they were.
+
 ## Until it's fixed
 
 - Treat a `latris link` copy as unchecked. Re-check sources in the copy, or

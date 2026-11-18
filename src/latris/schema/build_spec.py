@@ -866,6 +866,25 @@ def make_analysis(**fields: Any) -> SpecAnalysis:
     return analysis_model(fields["kind"]).model_validate(fields)
 
 
+class SpecCarriedResult(_Spec):
+    """A recorded result a link carries as the sender's, because it can't be re-run where the link opens: it
+    read a dataset, and links don't carry data. Written by ``latris link`` / ``export spec``, not by hand.
+
+    The payload names factors and links by label (``{{node:Label}}``, ``{{link:From -> To}}``); the build maps
+    them to this project's ids. The report shows it as computed by the sender, with the datasets it read.
+    """
+
+    kind: str  # the result kind, e.g. "dag-estimate"
+    model_type: str
+    key: str  # which runs count as the same analysis
+    summary: str = ""
+    purpose: str = "other"
+    algorithm: str = ""
+    library_version: str = ""
+    datasets: list[dict[str, str]] = Field(default_factory=list)  # each dataset it read: name, sha256
+    payload: dict[str, Any]
+
+
 class BuildSpec(_Spec):
     """Everything ``latris build`` adds, applied as one commit."""
 
@@ -892,3 +911,5 @@ class BuildSpec(_Spec):
     decision_tree: SpecDT | None = None  # Decision tree nodes, branches, payoffs, uncertainties
     markov: SpecMarkov | None = None  # Markov states, strategies, transitions, rewards, start, settings
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building
+    # results that read a dataset: carried as the sender's, recorded after the analyses
+    carried_results: list[SpecCarriedResult] = Field(default_factory=list)

@@ -40,6 +40,7 @@ class BuildResult:
     interpretation: int = 0
     parameters: int = 0  # SD/BN roles, values, equations, tables, uncertainty ranges, scenarios
     analyses: list[str] = field(default_factory=list)  # run ids of the analyses replayed after building
+    carried: list[str] = field(default_factory=list)  # run ids of results carried as the sender's
     outcome: str | None = None
     notes: list[str] = field(default_factory=list)  # parts that couldn't be applied, and why
     missing_extras: bool = False  # an analysis couldn't run because an optional part isn't installed
@@ -316,7 +317,11 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             result.notes.append(f"analysis {a.kind!r} not run: {exc} — install with: {INSTALL}")
         except ValueError as exc:
             result.notes.append(f"analysis {a.kind!r} not run: {exc}")
-    if result.analyses:
+    if spec.carried_results:
+        from latris.operations.carried_results import import_carried
+
+        result.carried = import_carried(spec.carried_results, root=paths.root)
+    if result.analyses or result.carried:
         result.commit_sha = git.head_sha(paths.root)
     return result
 
