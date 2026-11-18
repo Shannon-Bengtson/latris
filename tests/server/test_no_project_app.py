@@ -43,3 +43,14 @@ def test_project_bound_route_404s_without_project(client: TestClient, monkeypatc
     monkeypatch.setattr("latris.server.deps.find_project_root", lambda: None)
     resp = client.get("/api/sync/status")
     assert resp.status_code == 404
+
+
+def test_every_route_is_registered_once():
+    """No router is included twice (BN's was, once explicitly and once through its Formalism)."""
+    from collections import Counter
+
+    from latris.server.app import create_app
+
+    app = create_app(project_root=None)
+    seen = Counter((m, r.path) for r in app.routes for m in getattr(r, "methods", ()) or ())
+    assert [k for k, n in seen.items() if n > 1] == []
