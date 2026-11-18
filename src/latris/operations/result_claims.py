@@ -190,22 +190,11 @@ def claims_by_section(model_type: str, paths: ProjectPaths) -> dict[str, list[st
     for r in results:
         kind, p = r.run.result_kind, r.payload
         try:
-            if kind == "sd-simulation":
-                _simulation(p, out)
-            elif kind == "sd-monte-carlo":
-                _monte_carlo(p, out)
-            elif kind == "sd-options":
-                _options(p, out)
-            elif kind == "sd-sensitivity":
-                _sensitivity(p, out)
-            elif kind == "sd-loops":
-                _loops(p, out)
-            else:
-                from latris.operations import formalisms
+            from latris.operations import formalisms
 
-                found = formalisms.result_kind(kind)
-                if found and found[1].claims:
-                    found[1].claims(p, out)
+            found = formalisms.result_kind(kind)
+            if found and found[1].claims:
+                found[1].claims(p, out)
         except (KeyError, TypeError, ValueError, IndexError):
             continue  # an unreadable result contributes no claims rather than a wrong one
     return out

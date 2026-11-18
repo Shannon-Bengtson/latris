@@ -17,7 +17,7 @@ from latris.operations.formalisms import CLAIM_SECTIONS, Formalism
 from latris.schema.model_types import get_model_type, list_model_types
 
 # Types that predate the plugin registry and keep their own wiring.
-LEGACY = {"cld", "dag", "fcm", "sd"}
+LEGACY = {"cld", "dag", "fcm"}
 PLUGINS = formalisms.all_formalisms()
 IDS = [f.model_type for f in PLUGINS]
 
@@ -52,7 +52,9 @@ def test_readiness_validators_match_the_spec(f):
 def test_outcome(f):
     spec = get_model_type(f.model_type)
     assert f.outcome_refusal
-    if f.outcome_role is not None:
+    if f.outcome_role == "outcome":  # kept outside the roles (SD: with its settings), set through the hook
+        assert f.set_outcome is not None
+    elif f.outcome_role is not None:
         assert f.outcome_role in spec.allowed_roles and f.set_outcome is not None
     assert "outcome" not in spec.allowed_roles  # "outcome" is refused with outcome_refusal
 

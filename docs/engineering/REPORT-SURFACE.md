@@ -71,9 +71,8 @@ Each `ResultKind` with a `charts` hook also **declares** `chart_kinds` —
 every kind the hook may emit — and `needs_dataset` when the run reads a
 dataset. Registration refuses a `charts` hook without `chart_kinds`, and
 `tests/testing/test_examples.py` checks the declaration against what the
-`latris.testing` example projects actually emit, both ways. SD's kinds,
-not yet a plugin, are declared in `analysis_results._SD_RESULTS`;
-`analysis_results.result_surfaces()` lists every kind.
+`latris.testing` example projects actually emit, both ways. `analysis_results.result_surfaces()` lists every kind, all from the registry
+(SD's included, since it became a plugin).
 
 ## The contract apps test against
 

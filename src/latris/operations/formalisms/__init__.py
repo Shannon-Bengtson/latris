@@ -58,6 +58,11 @@ class ResultKind:
     chart_kinds: tuple[str, ...] = ()
     # The run reads a dataset (``latris data``), not only the model: a share link can't re-run it.
     needs_dataset: bool = False
+    # ``definition`` also needs the run's hyperparameters (e.g. SD's clock and saved scenario names, which
+    # older payloads don't hold): it is then called as ``definition(payload, hyperparameters)``.
+    definition_reads_run: bool = False
+    # payload → the result's heading, when it depends on the run ("Sensitivity of PM2.5 Load"); else ``title``.
+    title_for: Callable[[dict[str, Any]], str] | None = None
 
 
 @dataclass(frozen=True)
@@ -221,7 +226,7 @@ def default_origin(verified_by: str) -> str:
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
 _MODULES = (
-    "bn",  # first: its kinds follow the hardcoded sd-* ones in report order
+    "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
     "markov", "toc_impact",
 )

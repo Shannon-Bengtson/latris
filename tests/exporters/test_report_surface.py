@@ -103,7 +103,9 @@ def test_every_plugin_result_kind_with_charts_is_namespaced():
                                      # BN migrated with its chart kinds unchanged — they are the
                                      # app's existing renderer contract ("posterior" predates the
                                      # namespacing rule and stays so the app keeps working).
-                                     "bn-", "posterior")), chart
+                                     "bn-", "posterior", "toc-", "options-",
+                                     # SD's likewise: its renderers predate the rule.
+                                     "series", "bands", "tornado", "loops")), chart
 
 
 def _safe_charts(r) -> list[tuple[str, dict]]:

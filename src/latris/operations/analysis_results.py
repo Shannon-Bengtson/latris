@@ -44,27 +44,14 @@ class ResultSurface:
     needs_dataset: bool  # reads a dataset, so a share link can't re-run it
 
 
-# SD predates the formalism registry; its kinds are declared here until it migrates.
-_SD_RESULTS = (
-    ResultSurface("sd-simulation", "sd", "Simulation", "simulate", ("series",), False),
-    ResultSurface("sd-options", "sd", "Options compared under uncertainty", "compare", ("options-diff",), False),
-    ResultSurface("sd-monte-carlo", "sd", "Uncertainty (Monte Carlo)", "monte_carlo", ("bands",), False),
-    ResultSurface("sd-sensitivity", "sd", "Sensitivity", "sensitivity", ("tornado",), False),
-    ResultSurface("sd-loops", "sd", "Feedback loop dominance", "loops", ("loops",), False),
-)
-
-
 def result_surfaces() -> list[ResultSurface]:
-    """Every result kind reports can show, in report order: SD's, then the registered formalisms'."""
+    """Every result kind reports can show, in report order (registration order)."""
     owned = formalisms.kind_model_types()
-    return [*_SD_RESULTS, *(
-        ResultSurface(r.kind, owned[r.kind], r.title, r.analysis, r.chart_kinds, r.needs_dataset)
-        for r in formalisms.result_kinds()
-    )]
+    return [ResultSurface(r.kind, owned[r.kind], r.title, r.analysis, r.chart_kinds, r.needs_dataset)
+            for r in formalisms.result_kinds()]
 
 
-# Order results appear in reports (SD's kinds first — it hasn't migrated to the registry yet —
-# then registered formalisms' in registration order), and the most of each kind a client report shows.
+# Order results appear in reports (registration order), and the most of each kind a client report shows.
 KIND_ORDER: tuple[str, ...] = tuple(r.kind for r in result_surfaces())
 REPORT_LIMIT: dict[str, int] = {
     r.kind: r.report_limit for r in formalisms.result_kinds() if r.report_limit is not None

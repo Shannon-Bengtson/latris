@@ -322,8 +322,10 @@ results need a dataset — and test against `latris.testing`, whose
 payload. A new type then reaches them, or fails their tests, when they pin
 the release that has it.
 
-The older types (CLD, DAG, FCM, BN, SD) predate the registry and keep their
-own wiring.
+BN and SD have moved into the registry (SD's outcome is kept with its
+settings, so its plugin sets it through `set_outcome`). CLD, DAG and FCM,
+the causal types, still keep their own wiring: the shared interpretation,
+readiness and diagram code is their implementation.
 
 ## The five chokepoint files
 
