@@ -198,3 +198,19 @@ def claims_by_section(model_type: str, paths: ProjectPaths) -> dict[str, list[st
         except (KeyError, TypeError, ValueError, IndexError):
             continue  # an unreadable result contributes no claims rather than a wrong one
     return out
+
+
+def claims_for(kind: str, payload: dict[str, Any]) -> dict[str, list[str]]:
+    """What one recorded result shows, by interpretation section — the claims its kind derives from it."""
+    from collections import defaultdict
+
+    from latris.operations import formalisms
+
+    out: dict[str, list[str]] = defaultdict(list)
+    found = formalisms.result_kind(kind)
+    if found and found[1].claims:
+        try:
+            found[1].claims(payload, out)
+        except (KeyError, TypeError, ValueError, IndexError):
+            return {}
+    return dict(out)

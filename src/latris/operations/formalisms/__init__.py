@@ -34,6 +34,16 @@ CLAIM_SECTIONS = ("structure", "answer", "gaps", "implications", "sensitivity")
 
 
 @dataclass(frozen=True)
+class ChatTool:
+    """How a chat assistant runs an analysis: a tool of its own, which latris-app generates from the surface
+    manifest (``latris capabilities --surface``). Its options are the analysis's build-spec model
+    (``schema/build_spec.py``), whose field descriptions document them."""
+
+    name: str  # e.g. "query_bn", "analyse_mcda"
+    description: str  # what it answers and when to reach for it; mention options by their spec names
+
+
+@dataclass(frozen=True)
 class ResultKind:
     """A recorded analysis a formalism produces, and how reports and links handle it."""
 
@@ -63,6 +73,8 @@ class ResultKind:
     definition_reads_run: bool = False
     # payload → the result's heading, when it depends on the run ("Sensitivity of PM2.5 Load"); else ``title``.
     title_for: Callable[[dict[str, Any]], str] | None = None
+    # The chat tool that runs it (every result kind declares one; the app leaves out those needing a dataset).
+    tool: ChatTool | None = None
 
 
 @dataclass(frozen=True)
@@ -134,7 +146,9 @@ def _check_declared(new: list[ResultKind]) -> None:
 def _refuse_clash(new: list[ResultKind]) -> None:
     kinds = {r.kind for r in result_kinds()}
     analyses = {r.analysis for r in result_kinds()}
-    clash = (kinds & {r.kind for r in new}) | (analyses & {r.analysis for r in new})
+    tools = {r.tool.name for r in result_kinds() if r.tool}
+    clash = ((kinds & {r.kind for r in new}) | (analyses & {r.analysis for r in new})
+             | (tools & {r.tool.name for r in new if r.tool}))
     if clash:
         raise ValueError(f"result or analysis kind(s) {sorted(clash)} already registered")
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Analysis, ResultKind, register_analysis
+from latris.operations.formalisms import Analysis, ChatTool, ResultKind, register_analysis
 
 
 def _render(p: dict[str, Any]) -> list[str]:
@@ -95,9 +95,19 @@ def _fingerprint(paths) -> list[Path]:
     return [paths.data_datasets_yaml, *files]
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'dag-estimate': ('estimate_effect',
+        'The effect of treatment on outcome from a registered dataset, adjusting for the smallest valid '
+        'set the DAG identifies (or adjust), with the unadjusted comparison beside it. Needs a dataset '
+        '(latris data add).'),
+}
+
 register_analysis(Analysis(
     model_type="dag",
-    result=ResultKind(kind="dag-estimate", title="Effect estimate", render=_render, analysis="dag_estimate",
+    result=ResultKind(tool=ChatTool(*_TOOLS['dag-estimate']),
+                      kind="dag-estimate", title="Effect estimate", render=_render, analysis="dag_estimate",
                       run=_run, definition=_definition, claims=_claims, charts=_charts,
                       chart_kinds=("estimate-forest",), needs_dataset=True),
     fingerprint_files=_fingerprint,

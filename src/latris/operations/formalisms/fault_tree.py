@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatTool,
     Formalism,
     ResultKind,
     _risk_mc,
@@ -237,6 +238,15 @@ def _definition(payload: dict[str, Any]):
     return make_analysis(kind="ft_analyse", max_order=payload.get("max_order"))
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'ft-analysis': ('analyse_fault_tree',
+        'Fault tree: minimal cut sets (up to max_order), single points of failure, the top-event '
+        "probability and each event's importance (Fussell-Vesely, Birnbaum, RAW), flagging important "
+        'values nobody has verified. Recorded with a chart.'),
+}
+
 register(Formalism(
     model_type="fault_tree",
     outcome_role="top_event",
@@ -257,7 +267,8 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Give every basic event a probability to rank the events by importance.",
-    results=(ResultKind(kind="ft-analysis", title="Fault tree: cut sets, probability and importance", render=_render,
+    results=(ResultKind(tool=ChatTool(*_TOOLS['ft-analysis']),
+                        kind="ft-analysis", title="Fault tree: cut sets, probability and importance", render=_render,
                         analysis="ft_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("ft-importance",)),
              _risk_mc.result_kind("fault_tree")),

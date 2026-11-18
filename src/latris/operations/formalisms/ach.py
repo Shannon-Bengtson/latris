@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register, spec_verification
 
 _SOURCE_WORDS = {"checked": "its source checked", "cited": "a source not yet checked", "none": "no source",
                  "contested": "a source against it"}
@@ -166,6 +166,15 @@ def _definition(payload: dict[str, Any]):
     return make_analysis(kind="ach_analyse")
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'ach-analysis': ('analyse_ach',
+        'Analysis of competing hypotheses: the hypotheses ranked by how much evidence is inconsistent '
+        "with them (the one the evidence fails to rule out first), items that don't discriminate, and the "
+        'linchpins the conclusion turns on. Recorded with a chart.'),
+}
+
 register(Formalism(
     model_type="ach",
     outcome_role=None,
@@ -182,7 +191,8 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Rate every item against every hypothesis to find the linchpins.",
-    results=(ResultKind(kind="ach-analysis", title="Competing hypotheses", render=_render, analysis="ach_analyse",
+    results=(ResultKind(tool=ChatTool(*_TOOLS['ach-analysis']),
+                        kind="ach-analysis", title="Competing hypotheses", render=_render, analysis="ach_analyse",
                         run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("ach-matrix",)),),
     # The analysis reads each item's own citations (checked or not).

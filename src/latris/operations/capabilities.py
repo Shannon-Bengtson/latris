@@ -259,12 +259,15 @@ def build_surface_manifest() -> dict[str, Any]:
     from latris.operations.analysis_results import result_surfaces
     from latris.schema.build_spec import analysis_model
 
+
+    tools = {r.kind: r.tool for r in formalisms.result_kinds() if r.tool}
     results: dict[str, list[dict[str, Any]]] = {}
     for r in result_surfaces():
         results.setdefault(r.model_type, []).append({
             "kind": r.kind, "title": r.title, "analysis": r.analysis,
             "analysis_schema": analysis_model(r.analysis).model_json_schema(),
             "chart_kinds": list(r.chart_kinds), "needs_dataset": r.needs_dataset,
+            "tool": {"name": tools[r.kind].name, "description": tools[r.kind].description} if r.kind in tools else None,
         })
     types = []
     for spec in list_model_types():

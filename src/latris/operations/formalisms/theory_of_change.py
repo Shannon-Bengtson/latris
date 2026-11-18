@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatTool,
     Formalism,
     ResultKind,
     default_origin,
@@ -302,6 +303,19 @@ def _fingerprint(paths) -> list[Path]:
     return [paths.evidence_links_yaml, paths.assumptions_yaml, paths.confidence_yaml]
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'toc-pathways': ('check_theory_of_change',
+        'Theory of change: each pathway from activity to impact with the evidence and assumptions behind '
+        'every step, by its weakest link (untested, cited, supported or contested). Recorded with a '
+        'chart.'),
+    'toc-process-trace': ('trace_theory_of_change',
+        "Process tracing on the theory of change: each link's posterior confidence from its prior and "
+        "evidence tests (hoop, smoking gun, doubly decisive, straw in the wind), and each pathway's "
+        'confidence. Recorded with a chart.'),
+}
+
 register(Formalism(
     model_type="theory_of_change",
     outcome_role="impact",
@@ -320,10 +334,12 @@ register(Formalism(
     claims=_claims,
     centrality=True,
     own_implications=True,
-    results=(ResultKind(kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
+    results=(ResultKind(tool=ChatTool(*_TOOLS['toc-pathways']),
+                        kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
                         analysis="toc_check", run=_run, definition=_definition,
                         charts=_charts_pathways, chart_kinds=("toc-evidence",)),
-             ResultKind(kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
+             ResultKind(tool=ChatTool(*_TOOLS['toc-process-trace']),
+                        kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
                         analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace,
                         charts=_charts_trace, chart_kinds=("trace-dumbbell",))),
     fingerprint_files=_fingerprint,

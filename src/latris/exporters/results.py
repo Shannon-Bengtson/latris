@@ -100,7 +100,6 @@ def render_results(
     show_ids: bool = True,
 ) -> list[str]:
     """The Results section's lines, or ``[]`` when nothing has been recorded."""
-    from latris.operations import formalisms
     from latris.operations.analysis_results import report_results
 
     results = report_results(model_types=model_types, root=paths.root)
@@ -114,23 +113,30 @@ def render_results(
         "",
     ]
     for res in results:
-        kind, p = res.run.result_kind, res.payload
-        found = formalisms.result_kind(kind)
-        plugin_kind = found[1] if found else None
-        title = kind
+        out += render_result(res.run, res.payload, stale=res.stale, chart_markers=chart_markers, show_ids=show_ids)
+    return out
+
+
+def render_result(run: Any, p: dict[str, Any], *, stale: bool = False, chart_markers: bool = False,
+                  show_ids: bool = True) -> list[str]:
+    """One result's section of the report: heading, date, notes, chart markers and its table."""
+    from latris.operations import formalisms
+
+    kind = run.result_kind
+    found = formalisms.result_kind(kind)
+    plugin_kind = found[1] if found else None
+    title = kind
+    if plugin_kind:
+        title = plugin_kind.title_for(p) if plugin_kind.title_for else plugin_kind.title
+    out = [f"### {_heading(kind, title, p, plugin_kind)}", "", f"_Run {_run_date(run.id)}._", ""]
+    out += _stale_note(stale, run.id, show_ids)
+    out += carried_note(run.hyperparameters)
+    if chart_markers:
+        for chart, extra in _charts(kind, p):
+            out += _marker(run.id, chart, **extra)
+    try:
         if plugin_kind:
-            title = plugin_kind.title_for(p) if plugin_kind.title_for else plugin_kind.title
-        out.append(f"### {_heading(kind, title, p, plugin_kind)}")
-        out.append("")
-        out += [f"_Run {_run_date(res.run.id)}._", ""]
-        out += _stale_note(res.stale, res.run.id, show_ids)
-        out += carried_note(res.run.hyperparameters)
-        if chart_markers:
-            for chart, extra in _charts(kind, p):
-                out += _marker(res.run.id, chart, **extra)
-        try:
-            if plugin_kind:
-                out += plugin_kind.render(p)
-        except (KeyError, TypeError, ValueError, IndexError):
-            out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
+            out += plugin_kind.render(p)
+    except (KeyError, TypeError, ValueError, IndexError):
+        out += [f"_This result couldn't be shown ({run.output_summary})._", ""]
     return out

@@ -28,3 +28,22 @@ def test_export_spec_round_trips_through_build(tmp_path, git_identity, monkeypat
     monkeypatch.chdir(dest)
     again = json.loads(runner.invoke(app, ["export", "spec"]).stdout)
     assert again["mcda"] == spec["mcda"]
+
+
+def test_results_show_json_gives_the_report_section(tmp_path, git_identity, monkeypatch):
+    """What a chat tool returns: the recorded result, its report section and the claims it supports."""
+    import json
+
+    from typer.testing import CliRunner
+
+    from latris.cli.app import app
+    from latris.testing import build_example
+
+    monkeypatch.chdir(build_example("system", tmp_path / "s"))
+    runner = CliRunner()
+    listed = json.loads(runner.invoke(app, ["--json", "results", "list"]).stdout.strip().splitlines()[-1])["result"]
+    sim = next(r for r in listed if r["kind"] == "sd-simulation")
+    shown = json.loads(runner.invoke(app, ["--json", "results", "show", sim["run_id"]]).stdout.strip().splitlines()[-1])
+    out = shown["result"]
+    assert out["report"].startswith("### Simulation") and "|" in out["report"]
+    assert out["claims"] and out["result"]["scenarios"]

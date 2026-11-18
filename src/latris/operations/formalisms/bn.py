@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register
+from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register
 
 _REVIEWED = "human-verified"
 
@@ -689,6 +689,38 @@ def _problems(root: Path) -> list:
     return bn_ops.structure_problems(root=root)
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'bn-explanation': ('explain_bn',
+        'The most likely explanation: the single likeliest combination of states given the evidence '
+        '(every unobserved factor, or just over), with its probability, how many times likelier each '
+        "state is than its runner-up, and where a factor's own favourite differs. Recorded with a chart."),
+    'bn-monte-carlo': ('monte_carlo_bn',
+        'How sure is a probability when the tables behind it are estimates? Re-asks P(target = state | '
+        "evidence) while sampling every table given an uncertainty ('worth n observations'); gives the "
+        'point estimate, median, the ranges 50% and 95% of draws fall in, and which tables drive the '
+        'spread. Seeded. scenario applies a saved BN scenario. Recorded with a chart.'),
+    'bn-options': ('compare_bn_options',
+        'Which Bayesian-network option is better, and how sure is that? Asks P(target = state) under the '
+        'baseline network (no scenario changes) and each saved BN scenario; evidence holds for every '
+        'option. When tables have an uncertainty, every option is asked on the same draws, so each '
+        'difference is paired, with the share of draws lower or higher; otherwise point probabilities. An '
+        'option saved with extends=<another> is measured against it; reference sets one arm for all. Read '
+        "'warnings' before writing a finding. Recorded with a chart."),
+    'bn-query': ('query_bn',
+        'Bayesian network inference: the probability of each state of the query factors (all if none '
+        "given) given evidence (factor → state). soft is for uncertain observations: {'Wet': {'yes': "
+        '0.8}} makes P(Wet = yes) 80% afterwards; likelihood gives relative weights. interventions SET '
+        'factors (an option or policy) instead of observing them. scenario applies a saved BN scenario '
+        'without changing the model. No evidence gives the prior. Recorded: the report shows the latest '
+        'query for each evidence set, against the prior.'),
+    'bn-sensitivity': ('bn_sensitivity',
+        'Which probability-table entries most move P(target = state), each with its origin and whether a '
+        'person has verified it: shows when a conclusion rests on weakly grounded numbers. Recorded with '
+        'a tornado chart.'),
+}
+
 register(Formalism(
     model_type="bn",
     outcome_role=None,
@@ -702,25 +734,30 @@ register(Formalism(
     },
     claims=_claims,
     results=(
-        ResultKind(kind="bn-query", title="Probabilities", render=_render_query, analysis="bn_query",
+        ResultKind(tool=ChatTool(*_TOOLS['bn-query']),
+                   kind="bn-query", title="Probabilities", render=_render_query, analysis="bn_query",
                    run=_run_query, definition=_def_query, claims=_claims_query, report_limit=6,
                    charts=lambda p: [("posterior", {})], chart_kinds=("posterior",), subtitle=_subtitle_given),
-        ResultKind(kind="bn-explanation", title="Most likely explanation", render=_render_explanation,
+        ResultKind(tool=ChatTool(*_TOOLS['bn-explanation']),
+                   kind="bn-explanation", title="Most likely explanation", render=_render_explanation,
                    analysis="bn_explain", run=_run_explain, definition=_def_explanation,
                    claims=_claims_explanation, subtitle=_subtitle_given,
                    charts=lambda p: [("bn-explanation", {})] if p.get("rows") else [],
                    chart_kinds=("bn-explanation",)),
-        ResultKind(kind="bn-monte-carlo", title="How sure the probability is (Monte Carlo)",
+        ResultKind(tool=ChatTool(*_TOOLS['bn-monte-carlo']),
+                   kind="bn-monte-carlo", title="How sure the probability is (Monte Carlo)",
                    render=_render_monte_carlo, analysis="bn_monte_carlo", run=_run_monte_carlo,
                    definition=_def_monte_carlo, claims=_claims_monte_carlo,
                    charts=lambda p: [("bn-interval", {})], chart_kinds=("bn-interval",), subtitle=_subtitle_target),
-        ResultKind(kind="bn-options", title="Options compared", render=_render_options,
+        ResultKind(tool=ChatTool(*_TOOLS['bn-options']),
+                   kind="bn-options", title="Options compared", render=_render_options,
                    analysis="bn_compare", run=_run_compare, definition=_def_compare, claims=_claims_options,
                    charts=lambda p: [("options-diff", {})] if len(p.get("options") or []) > 1 else [],
                    chart_kinds=("options-diff",),
                    subtitle=lambda p: f"P({p['label']} = {p['focus_state']})"
                    + (f" given {_given(p)}" if _given(p) else "")),
-        ResultKind(kind="bn-sensitivity", title="Probability sensitivity", render=_render_sensitivity,
+        ResultKind(tool=ChatTool(*_TOOLS['bn-sensitivity']),
+                   kind="bn-sensitivity", title="Probability sensitivity", render=_render_sensitivity,
                    analysis="bn_sensitivity", run=_run_sensitivity, definition=_def_sensitivity,
                    claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})], chart_kinds=("bn-tornado",),
                    subtitle=_subtitle_target),

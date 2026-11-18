@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register
+from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register
 
 _MAX_ROWS = 8  # rows a result table shows before folding the rest (as exporters.results)
 
@@ -495,6 +495,40 @@ def _subtitle(kind: str):  # noqa: ANN202
     return lambda p: _sd_subtitle(kind, p)
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'sd-loops': ('loop_dominance',
+        'Which feedback loop drives the behaviour, and when (Loops That Matter): every loop through the '
+        'stocks and equations is scored over the run (or start to end); a loop holding half the total '
+        'dominates. Flags dominant loops built on unsourced or contested links. Recorded with a chart.'),
+    'sd-monte-carlo': ('monte_carlo_sd',
+        'How sure is the simulation? Samples every constant and initial value with an uncertainty range '
+        '(set_uncertainty), runs the model for each draw (Latin hypercube, seeded) and gives each '
+        "variable's spread at the end (median, 50% and 95% of runs) and which values drive it. Recorded: "
+        'the report shows the bands as a chart.'),
+    'sd-options': ('compare_sd_options',
+        'Which option is better, and how sure is that? Runs the baseline (the model with no scenario '
+        'changes) and each saved scenario on the same sampled draws of every uncertain value '
+        '(set_uncertainty), so each difference from its reference is paired: median, the range 95% of '
+        'draws fall in, the central-value run, and the share of draws lower or higher. An option saved '
+        'with extends=<another> is measured against it when both are compared; reference sets one arm for '
+        "all. metric: final | peak | peak-time | min | mean | total | at:T. Read 'warnings' before "
+        'writing a finding. Recorded with a chart.'),
+    'sd-sensitivity': ('sd_sensitivity',
+        'Which values move a result? Swings every constant and initial value low and high (its '
+        "uncertainty range's 5th-95th percentile, else ±pct%) and ranks them by how far variable's metric "
+        'moves (final | peak | peak-time | min | mean | total | at:T); flags influential values nobody '
+        'has reviewed. Recorded with a tornado chart.'),
+    'sd-simulation': ('simulate_sd',
+        "Run the system dynamics model (deterministic): each factor's trajectory and, for every scenario, "
+        'its change against the baseline. scenarios: saved what-ifs (set_scenario) to compare with the '
+        "baseline; set: unsaved changes like 'Emission Rate=80', run as one more scenario; apply_to_all: "
+        "values that hold in every run, the baseline included (a 'world'). settings sets the clock "
+        '(initial_time, final_time, dt, saveper, method, time_units); defaults come from set_sd_settings. '
+        'Recorded: the report shows it with a chart.'),
+}
+
 register(Formalism(
     model_type="sd",
     # SD roles are one per factor (stock, flow, ...), so the outcome is kept with the SD settings.
@@ -504,23 +538,28 @@ register(Formalism(
     set_outcome=_set_outcome,
     structure_problems=_problems,
     results=(
-        ResultKind(kind="sd-simulation", title="Simulation", render=_simulation, analysis="simulate",
+        ResultKind(tool=ChatTool(*_TOOLS['sd-simulation']),
+                   kind="sd-simulation", title="Simulation", render=_simulation, analysis="simulate",
                    run=_run_simulate, definition=_def_simulate, definition_reads_run=True,
                    claims=_claims("_simulation"), charts=_charts_simulation, chart_kinds=("series",),
                    subtitle=_subtitle("sd-simulation")),
-        ResultKind(kind="sd-options", title="Options compared under uncertainty", render=_options,
+        ResultKind(tool=ChatTool(*_TOOLS['sd-options']),
+                   kind="sd-options", title="Options compared under uncertainty", render=_options,
                    analysis="compare", run=_run_compare, definition=_def_compare, definition_reads_run=True,
                    claims=_claims("_options"), charts=_charts_options, chart_kinds=("options-diff",),
                    subtitle=_subtitle("sd-options")),
-        ResultKind(kind="sd-monte-carlo", title="Uncertainty (Monte Carlo)", render=_monte_carlo,
+        ResultKind(tool=ChatTool(*_TOOLS['sd-monte-carlo']),
+                   kind="sd-monte-carlo", title="Uncertainty (Monte Carlo)", render=_monte_carlo,
                    analysis="monte_carlo", run=_run_monte_carlo, definition=_def_monte_carlo,
                    definition_reads_run=True, claims=_claims("_monte_carlo"), charts=_charts_monte_carlo,
                    chart_kinds=("bands",), subtitle=_subtitle("sd-monte-carlo")),
-        ResultKind(kind="sd-sensitivity", title="Sensitivity", render=_sensitivity, analysis="sensitivity",
+        ResultKind(tool=ChatTool(*_TOOLS['sd-sensitivity']),
+                   kind="sd-sensitivity", title="Sensitivity", render=_sensitivity, analysis="sensitivity",
                    run=_run_sensitivity, definition=_def_sensitivity, definition_reads_run=True,
                    claims=_claims("_sensitivity"), charts=lambda p: [("tornado", {})], chart_kinds=("tornado",),
                    subtitle=_subtitle("sd-sensitivity"), title_for=_sensitivity_title),
-        ResultKind(kind="sd-loops", title="Feedback loop dominance", render=_loops, analysis="loops",
+        ResultKind(tool=ChatTool(*_TOOLS['sd-loops']),
+                   kind="sd-loops", title="Feedback loop dominance", render=_loops, analysis="loops",
                    run=_run_loops, definition=_def_loops, definition_reads_run=True, claims=_claims("_loops"),
                    charts=_charts_loops, chart_kinds=("loops",), subtitle=_subtitle("sd-loops")),
     ),

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register, spec_verification
 
 
 def _units(p: dict[str, Any]) -> tuple[str | None, str]:
@@ -220,6 +220,15 @@ def _definition(payload: dict[str, Any]):
     return make_analysis(kind="markov_analyse")
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'markov-analysis': ('analyse_markov',
+        'Run the Markov cohort model: state occupancy per cycle, discounted costs and outcomes per '
+        'strategy, and the incremental analysis (ICERs, dominance, the strategy to choose at the '
+        'willingness to pay). Recorded with charts.'),
+}
+
 register(Formalism(
     model_type="markov",
     outcome_role=None,
@@ -235,7 +244,8 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the model to see the thresholds at which the choice changes.",
-    results=(ResultKind(kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
+    results=(ResultKind(tool=ChatTool(*_TOOLS['markov-analysis']),
+                        kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
                         render=_render, analysis="markov_analyse", run=_run, definition=_definition,
                         charts=_charts, chart_kinds=("markov-trace", "markov-ce")),),
     spec_field="markov",

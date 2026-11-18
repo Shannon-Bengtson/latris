@@ -143,3 +143,15 @@ def test_charts_need_declared_chart_kinds():
     with pytest.raises(ValueError, match="declare chart_kinds"):
         formalisms.register_analysis(Analysis(model_type="dag", result=r))
     assert all(bool(k.charts) == bool(k.chart_kinds) for k in formalisms.result_kinds())
+
+
+def test_every_result_kind_declares_its_chat_tool():
+    """Each analysis is a chat tool of its own (latris-app generates it from the manifest)."""
+    import re
+
+    kinds = formalisms.result_kinds()
+    assert all(r.tool for r in kinds), [r.kind for r in kinds if not r.tool]
+    names = [r.tool.name for r in kinds]
+    assert len(names) == len(set(names))
+    assert all(re.fullmatch(r"[a-z][a-z0-9_]{2,40}", n) for n in names)
+    assert all(len(r.tool.description) > 40 for r in kinds)

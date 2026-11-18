@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatTool,
     Formalism,
     ResultKind,
     _risk_mc,
@@ -239,6 +240,14 @@ def _definition(payload: dict[str, Any]):
     return make_analysis(kind="et_analyse")
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'et-analysis': ('analyse_event_tree',
+        'Event tree: after a complete-tree check, every sequence from the initiating event to its end '
+        'state with sequence and end-state probabilities and frequencies. Recorded with a chart.'),
+}
+
 register(Formalism(
     model_type="event_tree",
     outcome_role=None,
@@ -260,7 +269,8 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Give every heading its probability to see which values move the result.",
-    results=(ResultKind(kind="et-analysis", title="Event tree: sequences and end states", render=_render,
+    results=(ResultKind(tool=ChatTool(*_TOOLS['et-analysis']),
+                        kind="et-analysis", title="Event tree: sequences and end states", render=_render,
                         analysis="et_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("et-endstates",)),
              _risk_mc.result_kind("event_tree")),

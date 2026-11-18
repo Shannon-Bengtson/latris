@@ -70,6 +70,7 @@ def test_capabilities_surface_manifest(tmp_path: Path, monkeypatch):
     assert {r["kind"] for t in types.values() for r in t["results"]} == {r.kind for r in result_surfaces()}
     mcda = types["mcda"]["results"][0]
     assert mcda["chart_kinds"] == ["mcda-contributions", "mcda-swing"] and mcda["needs_dataset"] is False
+    assert mcda["tool"]["name"] == "analyse_mcda" and mcda["analysis_schema"]["properties"]["kind"]
     assert next(r for r in types["dag"]["results"] if r["kind"] == "dag-estimate")["needs_dataset"] is True
 
     one = json.loads(runner.invoke(app, ["capabilities", "--surface", "-m", "mcda"]).stdout)

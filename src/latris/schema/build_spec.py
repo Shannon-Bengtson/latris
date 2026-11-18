@@ -614,8 +614,57 @@ class SpecBN(_Spec):
 # discriminated by ``kind``. Adding an analysis: a model here, added to the union.
 
 
+# What each analysis option means, wherever it appears (a kind's own field description wins). The JSON
+# schemas apps and chat tools read carry these, so options are documented once.
+ANALYSIS_OPTION_DOCS: dict[str, str] = {
+    "settings": "The clock: initial_time, final_time, dt, saveper, method (euler | rk2 | rk4 | adaptive), "
+                "time_units (e.g. 'month'). Missing keys come from the model's SD settings.",
+    "apply_to_all": "Values that hold in every run, the baseline included (a 'world'), as 'Factor=value [units]'.",
+    "scenarios": "Saved scenarios (options) to run or compare, by name.",
+    "set": "Unsaved changes to try as one more scenario, as 'Factor=value [units]'.",
+    "scenario": "A saved scenario to run on instead of the baseline.",
+    "runs": "Number of sampled draws.",
+    "seed": "Random seed; the same seed gives the same draws.",
+    "sampling": "lhs (Latin hypercube, default) or random.",
+    "variables": "Factors to report (default: the stocks).",
+    "variable": "The factor whose result is measured.",
+    "metric": "final | peak | peak-time | min | mean | total | at:T (the value at time T).",
+    "reference": "The arm every option is measured against: 'baseline' or one of the options.",
+    "pct": "Swing for values without an uncertainty range, in percent (default 10).",
+    "start": "Start of the window to score (default: the whole run).",
+    "end": "End of the window to score (default: the whole run).",
+    "evidence": "Observed states, factor → state, e.g. {'Rain': 'yes'}.",
+    "soft": "Uncertain observations, factor → {state: probability}: {'Wet': {'yes': 0.8}} makes P(Wet = yes) 80%.",
+    "likelihood": "Relative weights for an observation, factor → {state: weight}.",
+    "interventions": "Factors SET to a state (an option or policy), factor → state: what if we make it so.",
+    "query": "Factors whose probabilities to report (default: all).",
+    "over": "Factors the explanation covers (default: every unobserved factor).",
+    "target": "The factor (or output) the result is about.",
+    "state": "The state of target whose probability is the result.",
+    "max_order": "List cut sets up to this order (default: all).",
+    "treatment": "The factor whose effect is estimated.",
+    "outcome": "The factor the effect is on.",
+    "dataset": "A dataset registered with `latris data add`, by name.",
+    "adjust": "Factors to adjust for (default: the smallest valid set the model identifies).",
+    "columns": "Factor label → dataset column, where names differ.",
+    "estimator": "auto | linear | logistic.",
+    "time": "The dataset's time column (numbers or dates).",
+    "at": "The first period the intervention could affect.",
+    "group": "Difference-in-differences: the column saying which group a row is in.",
+    "treated": "Difference-in-differences: the group value(s) that received the intervention.",
+}
+
+
+def _describe_options(schema: dict[str, Any], cls: Any = None) -> None:
+    for name, prop in (schema.get("properties") or {}).items():
+        if name in ANALYSIS_OPTION_DOCS and "description" not in prop:
+            prop["description"] = ANALYSIS_OPTION_DOCS[name]
+
+
 class _Analysis(_Spec):
     """An analysis to run (and record, so the report shows it) once the model is built."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, json_schema_extra=_describe_options)
 
     @model_validator(mode="before")
     @classmethod

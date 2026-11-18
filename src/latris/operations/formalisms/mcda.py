@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatTool,
     Formalism,
     ResultKind,
     default_origin,
@@ -220,6 +221,15 @@ def _definition(payload: dict[str, Any]):
     return make_analysis(kind="mcda_analyse")
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'mcda-analysis': ('analyse_mcda',
+        "Rank the options of a multi-criteria decision analysis: each option's weighted score with every "
+        "criterion's contribution, dominated options, and how far each weight would have to move before "
+        'the top choice changes, flagging unverified scores the margin rests on. Recorded with charts.'),
+}
+
 register(Formalism(
     model_type="mcda",
     outcome_role=None,
@@ -236,7 +246,8 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the weights and scores to see how firm the choice is.",
-    results=(ResultKind(kind="mcda-analysis", title="Multi-criteria decision analysis", render=_render,
+    results=(ResultKind(tool=ChatTool(*_TOOLS['mcda-analysis']),
+                        kind="mcda-analysis", title="Multi-criteria decision analysis", render=_render,
                         analysis="mcda_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("mcda-contributions", "mcda-swing")),),
     spec_field="mcda",

@@ -9,11 +9,27 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import ResultKind, default_origin, spec_verification
+from latris.operations.formalisms import ChatTool, ResultKind, default_origin, spec_verification
 
 _ANALYSIS = {"fault_tree": "ft_monte_carlo", "bow_tie": "bowtie_monte_carlo", "event_tree": "et_monte_carlo"}
 _TITLE = {"fault_tree": "Fault tree: uncertainty (Monte Carlo)", "bow_tie": "Bow-tie: uncertainty (Monte Carlo)",
           "event_tree": "Event tree: uncertainty (Monte Carlo)"}
+
+
+_TOOLS = {
+    'ft-monte-carlo': ('monte_carlo_fault_tree',
+        'How sure is the top-event probability? Samples every probability given an uncertainty, then '
+        'gives percentiles, the mean against the point estimate, and which inputs drive the spread (runs, '
+        'seed, sampling; target: the output to headline). Recorded with a chart.'),
+    'bt-monte-carlo': ('monte_carlo_bow_tie',
+        "How sure are the bow-tie's frequencies? Samples every frequency and failure probability given an "
+        'uncertainty, then gives percentiles, the mean against the point estimate, and which inputs drive '
+        'the spread (runs, seed, sampling; target). Recorded with a chart.'),
+    'et-monte-carlo': ('monte_carlo_event_tree',
+        'How sure are the end-state frequencies? Samples every value given an uncertainty, then gives '
+        'percentiles, the mean against the point estimate, and which inputs drive the spread (runs, seed, '
+        'sampling; target: the end state to headline). Recorded with a chart.'),
+}
 
 
 def _render(p: dict[str, Any]) -> list[str]:
@@ -85,7 +101,8 @@ def result_kind(model_type: str) -> ResultKind:
         return make_analysis(kind=_ANALYSIS[model_type], runs=p["runs"], seed=p["seed"],  # type: ignore[arg-type]
                             sampling=p["sampling"], target=p["primary"])
 
-    return ResultKind(kind=KINDS[model_type], title=_TITLE[model_type], render=_render,
+    return ResultKind(tool=ChatTool(*_TOOLS[KINDS[model_type]]), kind=KINDS[model_type], title=_TITLE[model_type],
+                      render=_render,
                       analysis=_ANALYSIS[model_type], run=run, definition=definition, claims=_claims,
                       charts=_charts, chart_kinds=("mc-strip",))
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register, spec_verification
 
 
 def _threshold_lines(p: dict[str, Any]) -> list[str]:
@@ -213,6 +213,15 @@ def _definition(payload: dict[str, Any]):
     return make_analysis(kind="dt_analyse")
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'dt-analysis': ('analyse_decision_tree',
+        'Roll back the decision tree: the best strategy by expected value, what perfect information on '
+        'each uncertainty is worth (EVPI), and the probabilities at which the best choice changes. '
+        'Recorded with a chart.'),
+}
+
 register(Formalism(
     model_type="decision_tree",
     outcome_role=None,
@@ -230,7 +239,8 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the probabilities and payoffs to see what would change the choice.",
-    results=(ResultKind(kind="dt-analysis", title="Decision tree: best choice and the value of information",
+    results=(ResultKind(tool=ChatTool(*_TOOLS['dt-analysis']),
+                        kind="dt-analysis", title="Decision tree: best choice and the value of information",
                         render=_render, analysis="dt_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("dt-ev",)),),
     spec_field="decision_tree",

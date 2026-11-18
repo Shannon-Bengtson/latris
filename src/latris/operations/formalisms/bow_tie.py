@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatTool,
     Formalism,
     ResultKind,
     _risk_mc,
@@ -243,6 +244,15 @@ def _definition(payload: dict[str, Any]):
     return make_analysis(kind="bowtie_analyse")
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'bt-analysis': ('analyse_bow_tie',
+        'Bow-tie: each prevention and mitigation line with its barriers, lines resting on one barrier or '
+        'none, shared barriers, uncontrolled escalation factors, and the top-event frequency from threat '
+        'frequencies and barrier failure probabilities. Recorded with a chart.'),
+}
+
 register(Formalism(
     model_type="bow_tie",
     outcome_role="top_event",
@@ -266,7 +276,8 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback=("Give every threat a frequency and every barrier a failure probability to rank the "
                           "barriers by how much they buy."),
-    results=(ResultKind(kind="bt-analysis", title="Bow-tie: lines, barriers and frequencies", render=_render,
+    results=(ResultKind(tool=ChatTool(*_TOOLS['bt-analysis']),
+                        kind="bt-analysis", title="Bow-tie: lines, barriers and frequencies", render=_render,
                         analysis="bowtie_analyse", run=_run, definition=_definition,
                         charts=lambda p: [("bt-lines", {})] if p.get("lines") else [], chart_kinds=("bt-lines",)),
              _risk_mc.result_kind("bow_tie")),
