@@ -27,10 +27,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.mcda import (
@@ -45,46 +44,28 @@ MODEL_TYPE = "mcda"
 _UNSET = object()
 
 
-def _path(paths, attr: str) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, attr)
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
-
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
+_store = ViewStore(MODEL_TYPE, MCDA_ELEMENTS)
 
 
 def get_elements(*, root: Path | None = None) -> dict[str, str]:
-    from latris.schema.roles import RoleSet
-
-    paths = require_project(root)
-    p = paths.role_path(MODEL_TYPE)
-    if not p.exists():
-        return {}
-    return {e.target_id: e.value for e in load_model(RoleSet, p).entries if e.value in MCDA_ELEMENTS}
+    return _store.roles(root)
 
 
 def get_criteria(*, root: Path | None = None) -> MCDACriterionSet:
-    return _load(_path(require_project(root), "criterion"), MCDACriterionSet)
+    return _store.load(root, "criterion", MCDACriterionSet)
 
 
 def get_scores(*, root: Path | None = None) -> MCDAScoreSet:
-    return _load(_path(require_project(root), "score"), MCDAScoreSet)
+    return _store.load(root, "score", MCDAScoreSet)
 
 
 # ── writes ───────────────────────────────────────────────────────────
 
 
 def _require(paths, target: str, element: str) -> tuple[str, str]:
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-    tid = resolve_target(target, substrate)
-    label = next((e.label for e in substrate.entities if e.id == tid), None)
-    if label is None:
-        raise ValueError(f"{target!r} is a link; MCDA options and criteria are factors")
+    tid, label = resolve_factor(
+        paths, target, link_error=f"{target!r} is a link; MCDA options and criteria are factors"
+    )
     got = get_elements(root=paths.root).get(tid)
     if got != element:
         raise ValueError(f"{label} is {('an ' + got) if got else 'not in the MCDA'}, not a {element} "
@@ -125,11 +106,9 @@ def set_criterion(
     if not changed:
         raise ValueError("nothing to set: give a weight, direction, scale (worst and best), units, notes or source")
     entry = MCDACriterionEntry.model_validate({**(current.model_dump() if current else {"target_id": tid}), **changed})
-    store.entries = [e for e in store.entries if e.target_id != tid] + [entry]
-    p = _path(paths, "criterion")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Set MCDA criterion {label}: {', '.join(changed)}",
-                      body=f"target: {tid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()), paths=[p])
+    replace_entry(store, entry)
+    sha = _store.save(paths, "criterion", store, subject=f"Set MCDA criterion {label}: {', '.join(changed)}",
+        body=f"target: {tid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()))
     return entry, sha
 
 
@@ -151,12 +130,9 @@ def set_score(
     entry = MCDAScoreEntry(target_id=oid, criterion=cid, value=value, origin=origin, source_id=source_id,
                            verification=verification, notes=notes)
     store = get_scores(root=paths.root)
-    store.entries = [e for e in store.entries if (e.target_id, e.criterion) != (oid, cid)] + [entry]
-    p = _path(paths, "score")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Set MCDA score {olabel} on {clabel} = {value:g}",
-                      body=f"option: {oid}\ncriterion: {cid}\nvalue: {value}\norigin: {origin}\nsource_id: {source_id}",
-                      paths=[p])
+    replace_entry(store, entry, "target_id", "criterion")
+    sha = _store.save(paths, "score", store, subject=f"Set MCDA score {olabel} on {clabel} = {value:g}",
+        body=f"option: {oid}\ncriterion: {cid}\nvalue: {value}\norigin: {origin}\nsource_id: {source_id}")
     return entry, sha
 
 
@@ -286,8 +262,6 @@ def rank_reversal(v: dict[tuple[str, str], float], options: list[str], criteria:
     return out
 
 
-def _weak(entry) -> bool:
-    return entry.verification != "human-verified" or entry.contested
 
 
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
@@ -323,7 +297,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         first, second = order[0], order[1]
         diffs = sorted(((c, w[c] * (v[(first, c)] - v[(second, c)])) for c in m.criteria), key=lambda t: -abs(t[1]))
         weak = [f"{lab[o]} on {lab[c]}" for c, d in diffs if d > 0 for o in (first, second)
-                if _weak(m.scores[(o, c)])]
+                if m.scores[(o, c)].is_weak]
         margin = {"first": lab[first], "second": lab[second], "points": 100 * (total[first] - total[second]),
                   "by_criterion": [{"criterion": lab[c], "points": 100 * d} for c, d in diffs],
                   "unverified_scores": sorted(set(weak))}
@@ -331,7 +305,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         weights=[{"criterion": lab[c], "weight": w[c], "raw": raw_w[c], "direction": direction[c],
                   "worst": used[c]["worst"], "best": used[c]["best"], "local_scale": used[c]["local"],
                   "units": m.settings[c].units, "source": m.settings[c].source_id,
-                  "weak": _weak(m.settings[c])} for c in m.criteria],
+                  "weak": m.settings[c].is_weak} for c in m.criteria],
         ranking=[{"option": lab[o], "total": 100 * total[o],
                   "contributions": {lab[c]: 100 * w[c] * v[(o, c)] for c in m.criteria},
                   "scores": {lab[c]: x[(o, c)] for c in m.criteria}} for o in order],
@@ -345,7 +319,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         margin=margin,
         flat=[lab[n.split(":")[1]] for n in notes if n.startswith("flat:")],
         outside=[f"{lab[n.split(':')[1]]} on {lab[n.split(':')[2]]}" for n in notes if n.startswith("outside:")],
-        unverified_scores=sum(1 for s in m.scores.values() if _weak(s)),
+        unverified_scores=sum(1 for s in m.scores.values() if s.is_weak),
     )
     return payload
 

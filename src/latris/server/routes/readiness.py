@@ -13,7 +13,7 @@ from latris.operations.readiness import (
     assess_transition_readiness,
 )
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import (
     ChallengeLog,
     DescriptionSet,
@@ -33,7 +33,7 @@ def readiness(root: Root) -> dict[str, Any]:
     substrate = load_model(Substrate, paths.conceptual_yaml)
     descriptions = load_model(DescriptionSet, paths.descriptions_yaml)
     polarity_path = paths.view_attribute_path("cld", "polarity")
-    polarity = load_model(PolaritySet, polarity_path) if polarity_path.exists() else PolaritySet()
+    polarity = load_model_or_default(PolaritySet, polarity_path)
     evidence = load_model(EvidenceLinkSet, paths.evidence_links_yaml)
     challenges = load_model(ChallengeLog, paths.challenges_yaml)
     questions = load_model(QuestionLog, paths.questions_yaml)

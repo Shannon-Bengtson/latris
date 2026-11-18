@@ -31,10 +31,9 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations import _ft_engine as engine
-from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.fault_tree import (
@@ -58,21 +57,7 @@ EVENT_NAMES = {
 MAX_LISTED_CUT_SETS = 200
 
 
-def _gate_path(paths) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, "gate")
-
-
-def _prob_path(paths) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, "probability")
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
-
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
+_store = ViewStore(MODEL_TYPE, FT_EVENT_TYPES)
 
 
 # ── reads ────────────────────────────────────────────────────────────
@@ -80,33 +65,22 @@ def _dump(path: Path, store) -> None:
 
 def get_events(*, root: Path | None = None) -> dict[str, str]:
     """Entity id → event type."""
-    from latris.schema.roles import RoleSet
-
-    paths = require_project(root)
-    p = paths.role_path(MODEL_TYPE)
-    if not p.exists():
-        return {}
-    return {e.target_id: e.value for e in load_model(RoleSet, p).entries if e.value in FT_EVENT_TYPES}
+    return _store.roles(root)
 
 
 def get_gates(*, root: Path | None = None) -> FTGateSet:
-    return _load(_gate_path(require_project(root)), FTGateSet)
+    return _store.load(root, "gate", FTGateSet)
 
 
 def get_probabilities(*, root: Path | None = None) -> FTProbabilitySet:
-    return _load(_prob_path(require_project(root)), FTProbabilitySet)
+    return _store.load(root, "probability", FTProbabilitySet)
 
 
 # ── writes ───────────────────────────────────────────────────────────
 
 
 def _resolve(paths, target: str) -> tuple[str, str]:
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-    tid = resolve_target(target, substrate)
-    label = next((e.label for e in substrate.entities if e.id == tid), None)
-    if label is None:
-        raise ValueError(f"{target!r} is a link; fault-tree events are factors")
-    return tid, label
+    return resolve_factor(paths, target, link_error=f"{target!r} is a link; fault-tree events are factors")
 
 
 def set_event(target: str, event_type: str, *, root: Path | None = None) -> tuple[str, str]:
@@ -132,12 +106,10 @@ def set_gate(
         )
     entry = FTGateEntry(target_id=tid, gate=gate, k=k)  # type: ignore[arg-type]
     store = get_gates(root=paths.root)
-    store.entries = [e for e in store.entries if e.target_id != tid] + [entry]
-    path = _gate_path(paths)
-    _dump(path, store)
+    replace_entry(store, entry)
     shown = f"vote {k}" if gate == "vote" else gate
-    sha = auto_commit(paths.root, subject=f"Set fault-tree gate on {label}: {shown}",
-                      body=f"target: {tid}\ngate: {gate}\nk: {k}", paths=[path])
+    sha = _store.save(paths, "gate", store, subject=f"Set fault-tree gate on {label}: {shown}",
+        body=f"target: {tid}\ngate: {gate}\nk: {k}")
     return entry, sha
 
 
@@ -163,15 +135,10 @@ def set_probability(
     entry = FTProbabilityEntry(target_id=tid, probability=probability, origin=origin, source_id=source_id,
                                verification=verification, notes=notes)
     store = get_probabilities(root=paths.root)
-    store.entries = [e for e in store.entries if e.target_id != tid] + [entry]
-    path = _prob_path(paths)
-    _dump(path, store)
-    sha = auto_commit(
-        paths.root, subject=f"Set fault-tree probability of {label} = {probability:g}",
+    replace_entry(store, entry)
+    sha = _store.save(paths, "probability", store, subject=f"Set fault-tree probability of {label} = {probability:g}",
         body=f"target: {tid}\nprobability: {probability}\norigin: {origin}\nsource_id: {source_id}\n"
-             f"verification: {verification}",
-        paths=[path],
-    )
+            f"verification: {verification}")
     return entry, sha
 
 
@@ -292,8 +259,6 @@ def structure_problems(*, root: Path | None = None) -> list[FTProblem]:
 # ── analysis ─────────────────────────────────────────────────────────
 
 
-def _weak(p: FTProbabilityEntry) -> bool:
-    return p.verification != "human-verified" or p.contested
 
 
 def analyse(*, max_order: int | None = None, root: Path | None = None) -> dict[str, Any]:
@@ -353,7 +318,7 @@ def analyse(*, max_order: int | None = None, root: Path | None = None) -> dict[s
              "fussell_vesely": i.fussell_vesely, "raw": i.raw,
              "origin": tree.probabilities[i.event].origin,
              "verification": tree.probabilities[i.event].verification,
-             "source": tree.probabilities[i.event].source_id, "weak": _weak(tree.probabilities[i.event])}
+             "source": tree.probabilities[i.event].source_id, "weak": tree.probabilities[i.event].is_weak}
             for i in q.importance
         ],
     )

@@ -26,10 +26,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.event_tree import (
@@ -48,53 +47,33 @@ ELEMENT_NAMES = {"initiating_event": "Initiating event", "functional_event": "He
 ANSWERS = ("yes", "no")
 
 
-def _path(paths, attr: str) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, attr)
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
-
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
+_store = ViewStore(MODEL_TYPE, ET_ELEMENTS)
 
 
 # ── reads ────────────────────────────────────────────────────────────
 
 
 def get_elements(*, root: Path | None = None) -> dict[str, str]:
-    from latris.schema.roles import RoleSet
-
-    paths = require_project(root)
-    p = paths.role_path(MODEL_TYPE)
-    if not p.exists():
-        return {}
-    return {e.target_id: e.value for e in load_model(RoleSet, p).entries if e.value in ET_ELEMENTS}
+    return _store.roles(root)
 
 
 def get_structure(*, root: Path | None = None) -> ETStructure:
-    return _load(_path(require_project(root), "structure"), ETStructure)
+    return _store.load(root, "structure", ETStructure)
 
 
 def get_probabilities(*, root: Path | None = None) -> ETProbabilitySet:
-    return _load(_path(require_project(root), "probability"), ETProbabilitySet)
+    return _store.load(root, "probability", ETProbabilitySet)
 
 
 def get_frequencies(*, root: Path | None = None) -> ETFrequencySet:
-    return _load(_path(require_project(root), "frequency"), ETFrequencySet)
+    return _store.load(root, "frequency", ETFrequencySet)
 
 
 # ── writes ───────────────────────────────────────────────────────────
 
 
 def _entity(substrate, target: str) -> tuple[str, str]:
-    tid = resolve_target(target, substrate)
-    label = next((e.label for e in substrate.entities if e.id == tid), None)
-    if label is None:
-        raise ValueError(f"{target!r} is a link; event-tree elements are factors")
-    return tid, label
+    return resolve_factor(substrate, target, link_error=f"{target!r} is a link; event-tree elements are factors")
 
 
 def _require(paths, substrate, target: str, element: str) -> tuple[str, str]:
@@ -148,11 +127,10 @@ def set_order(headings: list[str], *, root: Path | None = None) -> tuple[ETStruc
         raise ValueError("a heading is listed twice")
     store = get_structure(root=paths.root)
     store.headings = ids
-    path = _path(paths, "structure")
-    _dump(path, store)
     labels = {e.id: e.label for e in substrate.entities}
-    sha = auto_commit(paths.root, subject="Set event-tree heading order: " + " → ".join(labels[i] for i in ids),
-                      body="\n".join(ids), paths=[path])
+    sha = _store.save(paths, "structure", store,
+        subject="Set event-tree heading order: " + " → ".join(labels[i] for i in ids),
+        body="\n".join(ids))
     return store, sha
 
 
@@ -174,10 +152,8 @@ def set_sequence(end_state: str, path: list[tuple[str, str]], *, root: Path | No
     key = [(s.heading, s.answer) for s in steps]
     store.sequences = [s for s in store.sequences if [(x.heading, x.answer) for x in s.path] != key] + [seq]
     store.sequences.sort(key=lambda s: [(order.get(x.heading, 99), ANSWERS.index(x.answer)) for x in s.path])
-    p = _path(paths, "structure")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Set event-tree sequence → {end_label}",
-                      body="\n".join(f"{s.heading}: {s.answer}" for s in steps), paths=[p])
+    sha = _store.save(paths, "structure", store, subject=f"Set event-tree sequence → {end_label}",
+        body="\n".join(f"{s.heading}: {s.answer}" for s in steps))
     return seq, sha
 
 
@@ -190,9 +166,7 @@ def remove_sequence(path: list[tuple[str, str]], *, root: Path | None = None) ->
     if len(kept) == len(store.sequences):
         raise ValueError("no sequence has exactly those answers")
     store.sequences = kept
-    p = _path(paths, "structure")
-    _dump(p, store)
-    return auto_commit(paths.root, subject="Removed an event-tree sequence", body=str(key), paths=[p])
+    return _store.save(paths, "structure", store, subject="Removed an event-tree sequence", body=str(key))
 
 
 def set_probability(
@@ -219,12 +193,10 @@ def set_probability(
     store = get_probabilities(root=paths.root)
     store.entries = [e for e in store.entries
                      if (e.target_id, frozenset((c.heading, c.answer) for c in e.given)) != key] + [entry]
-    p = _path(paths, "probability")
-    _dump(p, store)
     labels = {e.id: e.label for e in substrate.entities}
     cond_txt = (" given " + ", ".join(f"{labels[c.heading]}={c.answer}" for c in cond)) if cond else ""
-    sha = auto_commit(paths.root, subject=f"Set event-tree P({label}=yes{cond_txt}) = {p_yes:g}",
-                      body=f"target: {hid}\np_yes: {p_yes}\norigin: {origin}\nsource_id: {source_id}", paths=[p])
+    sha = _store.save(paths, "probability", store, subject=f"Set event-tree P({label}=yes{cond_txt}) = {p_yes:g}",
+        body=f"target: {hid}\np_yes: {p_yes}\norigin: {origin}\nsource_id: {source_id}")
     return entry, sha
 
 
@@ -245,12 +217,10 @@ def set_frequency(
     entry = ETFrequencyEntry(target_id=tid, frequency=frequency, origin=origin, source_id=source_id,
                              verification=verification, notes=notes)
     store = get_frequencies(root=paths.root)
-    store.entries = [e for e in store.entries if e.target_id != tid] + [entry]
-    p = _path(paths, "frequency")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Set event-tree initiating frequency {label} = {frequency:g}/year",
-                      body=f"target: {tid}\nfrequency: {frequency}\norigin: {origin}\nsource_id: {source_id}",
-                      paths=[p])
+    replace_entry(store, entry)
+    sha = _store.save(paths, "frequency", store,
+        subject=f"Set event-tree initiating frequency {label} = {frequency:g}/year",
+        body=f"target: {tid}\nfrequency: {frequency}\norigin: {origin}\nsource_id: {source_id}")
     return entry, sha
 
 
@@ -390,8 +360,6 @@ def _lookup(tree: Tree, heading: str, prefix: list[tuple[str, str]]) -> ETProbab
     return top[0]
 
 
-def _weak(entry) -> bool:
-    return entry.verification != "human-verified" or entry.contested
 
 
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
@@ -410,7 +378,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         return payload
     f = tree.frequency
     payload["frequency"] = ({"per_year": f.frequency, "origin": f.origin, "source": f.source_id,
-                             "weak": _weak(f)} if f else None)
+                             "weak": f.is_weak} if f else None)
     missing: dict[str, None] = {}
     used: dict[int, ETProbabilityEntry] = {}
     rows = []
@@ -428,7 +396,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
                 used[id(e)] = e
                 if prob is not None:
                     prob *= e.p_yes if s.answer == "yes" else 1.0 - e.p_yes
-                if _weak(e):
+                if e.is_weak:
                     weak_here.append(lab[s.heading])
             prefix.append((s.heading, s.answer))
         rows.append({
@@ -443,7 +411,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
     payload["values"] = [
         {"heading": lab[e.target_id], "given": tree.answer_text([(c.heading, c.answer) for c in e.given]),
          "p_yes": e.p_yes, "origin": e.origin, "source": e.source_id, "verification": e.verification,
-         "weak": _weak(e)}
+         "weak": e.is_weak}
         for e in used.values()
     ]
     if not missing:

@@ -3,7 +3,7 @@
 Multi-criteria decision analysis lives on the ordinary substrate: options and
 criteria are entities with a view role (``views/roles/mcda-roles.yaml``:
 ``option`` or ``criterion``). The numbers are stored per value, each with its
-own provenance (``_EntryBase``):
+own provenance (``EntryBase``):
 
 - ``views/parameters/mcda-criterion.yaml`` — :class:`MCDACriterionSet`: a
   criterion's swing weight, direction and scale;
@@ -17,14 +17,14 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 MCDAElement = Literal["option", "criterion"]
 MCDA_ELEMENTS: tuple[str, ...] = ("option", "criterion")
 Direction = Literal["higher", "lower"]
 
 
-class MCDACriterionEntry(_EntryBase):
+class MCDACriterionEntry(EntryBase):
     """How a criterion counts: its swing weight, which way is better, and the scale scores are read on.
 
     A swing weight says how much moving from ``worst`` to ``best`` on this criterion matters compared with
@@ -57,7 +57,7 @@ class MCDACriterionSet(_Base):
     entries: list[MCDACriterionEntry] = Field(default_factory=list)
 
 
-class MCDAScoreEntry(_EntryBase):
+class MCDAScoreEntry(EntryBase):
     """An option's performance on one criterion (``target_id`` is the option)."""
 
     attribute: str = "score"

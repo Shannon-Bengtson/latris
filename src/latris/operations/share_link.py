@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict
 
 from latris.operations import formalisms
 from latris.repo.project import require_project
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import (
     AssumptionLog,
     ChallengeLog,
@@ -114,7 +114,7 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         return f"{labels[edge.from_id]} -> {labels[edge.to_id]}" if edge else None
 
     def _load(cls, path):  # noqa: ANN001, ANN202
-        return load_model(cls, path) if path.exists() else cls()
+        return load_model_or_default(cls, path)
 
     descriptions = {e.target_id: e.value for e in _load(DescriptionSet, paths.descriptions_yaml).entries}
     confidence = {e.target_id: e.value for e in _load(ConfidenceSet, paths.confidence_yaml).entries}

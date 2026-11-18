@@ -32,10 +32,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.ach import ACH_ELEMENTS, RATINGS, ACHItemEntry, ACHItemSet, ACHRatingEntry, ACHRatingSet
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
@@ -46,46 +45,28 @@ INCONSISTENCY = {"CC": 0, "C": 0, "N": 0, "I": 1, "II": 2}
 _UNSET = object()
 
 
-def _path(paths, attr: str) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, attr)
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
-
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
+_store = ViewStore(MODEL_TYPE, ACH_ELEMENTS)
 
 
 def get_elements(*, root: Path | None = None) -> dict[str, str]:
-    from latris.schema.roles import RoleSet
-
-    paths = require_project(root)
-    p = paths.role_path(MODEL_TYPE)
-    if not p.exists():
-        return {}
-    return {e.target_id: e.value for e in load_model(RoleSet, p).entries if e.value in ACH_ELEMENTS}
+    return _store.roles(root)
 
 
 def get_ratings(*, root: Path | None = None) -> ACHRatingSet:
-    return _load(_path(require_project(root), "rating"), ACHRatingSet)
+    return _store.load(root, "rating", ACHRatingSet)
 
 
 def get_items(*, root: Path | None = None) -> ACHItemSet:
-    return _load(_path(require_project(root), "item"), ACHItemSet)
+    return _store.load(root, "item", ACHItemSet)
 
 
 # ── writes ───────────────────────────────────────────────────────────
 
 
 def _require(paths, target: str, element: str) -> tuple[str, str]:
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-    tid = resolve_target(target, substrate)
-    label = next((e.label for e in substrate.entities if e.id == tid), None)
-    if label is None:
-        raise ValueError(f"{target!r} is a link; ACH hypotheses and evidence items are factors")
+    tid, label = resolve_factor(
+        paths, target, link_error=f"{target!r} is a link; ACH hypotheses and evidence items are factors"
+    )
     got = get_elements(root=paths.root).get(tid)
     if got != element:
         raise ValueError(f"{label} is {('a ' + got.replace('_', ' ')) if got else 'not in the ACH'}, not a "
@@ -123,11 +104,9 @@ def set_item(
     if not changed:
         raise ValueError("nothing to set: give a credibility, relevance, notes or source")
     entry = ACHItemEntry.model_validate({**(current.model_dump() if current else {"target_id": tid}), **changed})
-    store.entries = [e for e in store.entries if e.target_id != tid] + [entry]
-    p = _path(paths, "item")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Set ACH evidence item {label}: {', '.join(changed)}",
-                      body=f"target: {tid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()), paths=[p])
+    replace_entry(store, entry)
+    sha = _store.save(paths, "item", store, subject=f"Set ACH evidence item {label}: {', '.join(changed)}",
+        body=f"target: {tid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()))
     return entry, sha
 
 
@@ -152,12 +131,10 @@ def set_rating(
     entry = ACHRatingEntry(target_id=iid, hypothesis=hid, rating=rating, rationale=rationale,  # type: ignore[arg-type]
                            origin=origin, verification=verification)
     store = get_ratings(root=paths.root)
-    store.entries = [e for e in store.entries if (e.target_id, e.hypothesis) != (iid, hid)] + [entry]
-    p = _path(paths, "rating")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Rated ACH {ilabel} against {hlabel}: {rating}",
-                      body=f"item: {iid}\nhypothesis: {hid}\nrating: {rating}\norigin: {origin}\n"
-                           f"rationale: {rationale or ''}", paths=[p])
+    replace_entry(store, entry, "target_id", "hypothesis")
+    sha = _store.save(paths, "rating", store, subject=f"Rated ACH {ilabel} against {hlabel}: {rating}",
+        body=f"item: {iid}\nhypothesis: {hid}\nrating: {rating}\norigin: {origin}\n"
+            f"rationale: {rationale or ''}")
     return entry, sha
 
 

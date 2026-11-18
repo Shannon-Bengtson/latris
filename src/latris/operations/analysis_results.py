@@ -29,7 +29,7 @@ from latris.operations.commit import auto_commit
 from latris.operations.errors import NotFoundError
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 
 # Order results appear in reports (SD's kinds first — it hasn't migrated to the registry yet —
@@ -239,7 +239,7 @@ def load_payload(run: AnalysisRun, *, root: Path | None = None) -> dict[str, Any
 
 def _selection(paths: ProjectPaths) -> ReportSelection:
     p = paths.analysis_report_yaml
-    return load_model(ReportSelection, p) if p.exists() else ReportSelection()
+    return load_model_or_default(ReportSelection, p)
 
 
 @dataclass(frozen=True)

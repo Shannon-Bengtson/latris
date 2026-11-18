@@ -56,7 +56,6 @@ def save_report(
     """Persist a completeness report and commit."""
     paths = require_project(root)
     path = _report_path(paths, report.model_type)
-    path.parent.mkdir(parents=True, exist_ok=True)
     dump_model(report, path)
     return auto_commit(paths.root, subject=subject, paths=[path])
 

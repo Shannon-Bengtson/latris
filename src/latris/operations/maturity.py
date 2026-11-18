@@ -24,7 +24,7 @@ from latris.operations._actor import author as _author
 from latris.operations._resolve import resolve_edge, resolve_edge_by_name, resolve_entity
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, iter_jsonl, load_model
+from latris.repo.yaml_io import dump_model, iter_jsonl, load_model, load_model_or_default
 from latris.schema import (
     EvidenceLinkSet,
     Finding,
@@ -229,7 +229,7 @@ def approve(
         signed_at=now_utc(),
         notes=notes,
     )
-    log = load_model(SignoffLog, paths.signoffs_yaml) if paths.signoffs_yaml.exists() else SignoffLog()
+    log = load_model_or_default(SignoffLog, paths.signoffs_yaml)
     log.entries.append(signoff)
     dump_model(log, paths.signoffs_yaml)
 

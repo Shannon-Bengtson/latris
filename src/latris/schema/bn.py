@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from pydantic import Field, model_validator
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 from latris.schema.common import (
     Informants,
     ProvenanceOrigin,
@@ -33,7 +33,7 @@ from latris.schema.common import (
 )
 
 
-class StateSpaceEntry(_EntryBase):
+class StateSpaceEntry(EntryBase):
     """The finite, ordered set of states a chance node can take.
 
     ``target_id`` (inherited) is the node id; ``ordered`` marks an ordinal
@@ -85,14 +85,14 @@ class CPTRow(_Base):
         return self
 
 
-class CPTEntry(_EntryBase):
+class CPTEntry(EntryBase):
     """A node's full conditional probability table.
 
     ``parents`` is the ordered list of parent node ids (defines column order).
     ``states`` repeats the node's own state order for self-containment. ``rows``
     holds one :class:`CPTRow` per combination of parent states (row-major over
     the parents' state spaces). Per-row provenance is on each row; the inherited
-    ``_EntryBase`` fields carry table-level provenance.
+    ``EntryBase`` fields carry table-level provenance.
     """
 
     attribute: str = "cpt"
@@ -158,7 +158,7 @@ class NoisyOrLink(_Base):
         return self
 
 
-class NoisyOrEntry(_EntryBase):
+class NoisyOrEntry(EntryBase):
     """A node's Noisy-OR parameterisation (binary node, binary causes).
 
     ``states`` is the node's binary state space; ``active`` names the state the
