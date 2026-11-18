@@ -257,7 +257,6 @@ def build_surface_manifest() -> dict[str, Any]:
     from latris import __version__
     from latris.operations import formalisms
     from latris.operations.analysis_results import result_surfaces
-
     from latris.schema.build_spec import analysis_model
 
     results: dict[str, list[dict[str, Any]]] = {}

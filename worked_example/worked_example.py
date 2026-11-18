@@ -1985,6 +1985,9 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["mcda", "analyse"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
+    ex.note("The whole model as a build spec — what `latris link` carries and `latris build --spec` reads back "
+            "(apps and chat connectors write a model type's values through the same blocks).")
+    ex.run(["export", "spec"])
     os.chdir(ex.root)
 
     # ── 11h. Analysis of competing hypotheses ─────────────────────────

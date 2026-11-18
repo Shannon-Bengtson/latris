@@ -199,6 +199,7 @@ SHELF, Delphi, IDEA, Cooke, AHP, and related methods remain future work.
 ```bash
 latris export md [--pack client|audit|review|workshop|publication] [--report-url URL] [--no-ai] [--no-link]
 latris export dot --view system_map|cld|dag
+latris export spec [-m TYPE]                     # the model as a build spec (what a link carries; build --spec reads it)
 latris link [--model-type cld] [--app-url URL]   # a link that opens the model in the Latris app
 ```
 

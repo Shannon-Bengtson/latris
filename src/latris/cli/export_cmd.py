@@ -13,7 +13,7 @@ from latris.exporters import markdown as md_exporter
 from latris.operations import sync as sync_ops
 from latris.repo.project import require_project
 
-app = typer.Typer(help="Export the project to Markdown or Graphviz DOT.", no_args_is_help=True)
+app = typer.Typer(help="Export the project to Markdown, Graphviz DOT or a build spec.", no_args_is_help=True)
 console = Console()
 
 
@@ -133,3 +133,26 @@ def export_dot(
         target = paths.root / target
     dot_exporter.write(paths, target, view=view)  # type: ignore[arg-type]
     console.print(f"[green]wrote[/green] {target.as_posix()}")
+
+
+@app.command("spec")
+@handle_cli_errors
+def export_spec(
+    model_type: str = typer.Option(
+        None, "--model-type", "-m", help="Model type whose values to include (default: the first chosen)."
+    ),
+) -> None:
+    """Print the model as a build spec (JSON): what `latris link` carries, and what `latris build --spec`
+    reads back — factors, links, sources, the model type's values and its analyses."""
+    import json
+
+    from latris.operations.share_link import export_spec as export
+
+    _, spec = export(model_type=model_type)
+    data = spec.model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+    if json_mode():
+        from latris.cli._output import emit
+
+        emit(data, human=lambda: None)
+        return
+    _emit(json.dumps(data, indent=1, ensure_ascii=False))
