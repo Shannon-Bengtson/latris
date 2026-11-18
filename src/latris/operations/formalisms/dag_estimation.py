@@ -80,9 +80,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(
+    return make_analysis(
         kind="dag_estimate", treatment=p["treatment"], outcome=p["outcome"], dataset=p["dataset"]["name"],
         adjust=p["adjustment"] if p["adjustment_how"] == "given" else [],
         columns={k: v for k, v in p["columns"].items() if v != k}, estimator=p["model"],

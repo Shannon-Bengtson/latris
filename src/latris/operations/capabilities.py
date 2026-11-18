@@ -251,17 +251,20 @@ def build_surface_manifest() -> dict[str, Any]:
     as they pin a release that has it. Registry-only: no project needed.
 
     Per type: whether it's a registered plugin, its outcome role, its build-spec block (field and JSON
-    schema), its CLI group, and each result kind with its analysis, chart kinds and whether it needs a
-    dataset (such results can't be re-run from a share link).
+    schema), its CLI group, and each result kind with its analysis (kind and JSON schema of its options),
+    chart kinds and whether it needs a dataset (such results can't be re-run from a share link).
     """
     from latris import __version__
     from latris.operations import formalisms
     from latris.operations.analysis_results import result_surfaces
 
+    from latris.schema.build_spec import analysis_model
+
     results: dict[str, list[dict[str, Any]]] = {}
     for r in result_surfaces():
         results.setdefault(r.model_type, []).append({
             "kind": r.kind, "title": r.title, "analysis": r.analysis,
+            "analysis_schema": analysis_model(r.analysis).model_json_schema(),
             "chart_kinds": list(r.chart_kinds), "needs_dataset": r.needs_dataset,
         })
     types = []

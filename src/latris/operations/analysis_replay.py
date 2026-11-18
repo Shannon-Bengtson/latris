@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.repo.project import require_project
-from latris.schema.build_spec import SpecAnalysis
+from latris.schema.build_spec import SpecAnalysis, make_analysis
 
 _SETTING_KEYS = ("initial_time", "final_time", "dt", "saveper", "method", "time_units")
 
@@ -35,7 +35,7 @@ def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
     from latris.operations import sd as sd_ops
 
     paths = require_project(root)
-    s = _settings(a.settings)
+    s = _settings(a.settings) if a.kind in ("simulate", "monte_carlo", "compare", "sensitivity", "loops") else {}
     if a.kind == "simulate":
         payload, runs = sd_ops.simulate_scenarios(a.scenarios, a.set, **s, apply_to_all=a.apply_to_all or None,
                                                   root=paths.root)
@@ -95,31 +95,31 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
         labels = p.get("labels", {})
         if kind == "sd-simulation":
             saved = [n for n in h.get("scenarios", []) if n != "what-if"]
-            out.append(SpecAnalysis(kind="simulate", settings=s, scenarios=saved, set=_what_if(p),
+            out.append(make_analysis(kind="simulate", settings=s, scenarios=saved, set=_what_if(p),
                                     apply_to_all=p.get("world") or []))
         elif kind == "sd-monte-carlo":
-            out.append(SpecAnalysis(
+            out.append(make_analysis(
                 kind="monte_carlo", settings=s, runs=p["runs"], seed=p["seed"], sampling=p["sampling"],
                 variables=[labels.get(v, v) for v in p["variables"]], scenario=p.get("scenario"),
                 apply_to_all=p.get("world") or [],
             ))
         elif kind == "sd-options":
             metric = p["metric"] if p.get("at") is None else f"at:{p['at']:g}"
-            out.append(SpecAnalysis(
+            out.append(make_analysis(
                 kind="compare", settings=s, scenarios=p["scenarios"], variable=p["label"], metric=metric,
                 runs=p["runs"], seed=p["seed"], sampling=p["sampling"], apply_to_all=p.get("world") or [],
                 reference=p.get("reference"),
             ))
         elif kind == "sd-sensitivity":
             metric = p["metric"] if p.get("at") is None else f"at:{p['at']:g}"
-            out.append(SpecAnalysis(
+            out.append(make_analysis(
                 kind="sensitivity", settings=s, variable=p["label"], metric=metric, pct=p["pct"],
                 scenario=p.get("scenario"), apply_to_all=p.get("world") or [],
             ))
         elif kind == "sd-loops":
             lo, hi = p["window"]
             full = p["times"] and lo == p["times"][0] and hi == p["times"][-1]
-            out.append(SpecAnalysis(
+            out.append(make_analysis(
                 kind="loops", settings=s, scenario=p.get("scenario"),
                 start=None if full else lo, end=None if full else hi,
             ))

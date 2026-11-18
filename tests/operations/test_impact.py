@@ -160,10 +160,10 @@ def test_build_spec_report_share_link_cli_and_route(project):
     from latris.operations.interpret import extract_claims
     from latris.operations.share_link import export_spec
     from latris.repo.layout import ProjectPaths
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
     from latris.server.app import create_app
 
-    a = SpecAnalysis(kind="toc_impact", outcome="Attendance", dataset="monthly", time="month", at="2024-01-01",
+    a = make_analysis(kind="toc_impact", outcome="Attendance", dataset="monthly", time="month", at="2024-01-01",
                      columns={"Attendance": "attendance_rate"})
     assert for_analysis("toc_impact").run(a, project)
     md = render(ProjectPaths(project), model_type="theory_of_change", ai=False)

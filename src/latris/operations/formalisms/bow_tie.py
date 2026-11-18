@@ -238,9 +238,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="bowtie_analyse")
+    return make_analysis(kind="bowtie_analyse")
 
 
 register(Formalism(

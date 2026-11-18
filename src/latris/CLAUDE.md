@@ -37,7 +37,8 @@ All access to these concerns goes through exactly one file:
 
 One module in `operations/formalisms/` declaring a `Formalism`, plus
 four central entries: `ModelTypeSpec` (schema/model_types.py), the
-`BuildSpec` field and `SpecAnalysis.kind` (schema/build_spec.py), the
+`BuildSpec` field and a model per analysis kind in the `SpecAnalysis` union
+(schema/build_spec.py), the
 foundations entry, and the help topic. `tests/operations/test_formalisms.py`
 names anything missing. Full list in ARCHITECTURE.md → "Adding a formalism".
 

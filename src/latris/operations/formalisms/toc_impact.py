@@ -81,9 +81,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(
+    return make_analysis(
         kind="toc_impact", outcome=p["outcome"], dataset=p["dataset"]["name"], time=p["time"], at=p["at"],
         group=p["group"], treated=p["treated"],
         columns={p["outcome"]: p["column"]} if p["column"] != p["outcome"] else {},

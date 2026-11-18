@@ -80,9 +80,9 @@ def result_kind(model_type: str) -> ResultKind:
         return ru.record(payload, root=root)[1]
 
     def definition(p: dict[str, Any]):
-        from latris.schema.build_spec import SpecAnalysis
+        from latris.schema.build_spec import make_analysis
 
-        return SpecAnalysis(kind=_ANALYSIS[model_type], runs=p["runs"], seed=p["seed"],  # type: ignore[arg-type]
+        return make_analysis(kind=_ANALYSIS[model_type], runs=p["runs"], seed=p["seed"],  # type: ignore[arg-type]
                             sampling=p["sampling"], target=p["primary"])
 
     return ResultKind(kind=KINDS[model_type], title=_TITLE[model_type], render=_render,

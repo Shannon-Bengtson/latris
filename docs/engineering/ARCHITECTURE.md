@@ -296,7 +296,8 @@ static schema:
 1. the `ModelTypeSpec` in `schema/model_types.py` (availability, roles,
    validator names);
 2. its build-spec block — a pydantic field on `BuildSpec`
-   (`schema/build_spec.py`), and its analysis kind in `SpecAnalysis.kind`;
+   (`schema/build_spec.py`), and a model per analysis kind (only its own options), added to the
+   `SpecAnalysis` union;
 3. its entry in the foundations registry (`operations/foundations.py`);
 4. its help topic (`server/help.py`), and its keys in `latris build --help`.
 

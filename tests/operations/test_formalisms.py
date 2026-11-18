@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import get_args
 
 import pytest
 
@@ -61,12 +60,12 @@ def test_outcome(f):
 @pytest.mark.parametrize("f", PLUGINS, ids=IDS)
 def test_results_are_registered_everywhere(f):
     from latris.operations.analysis_results import KIND_MODEL_TYPE, KIND_ORDER
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import analysis_kinds as spec_analysis_kinds
 
-    analysis_kinds = get_args(SpecAnalysis.model_fields["kind"].annotation)
+    analysis_kinds = spec_analysis_kinds()
     for r in f.results:
         assert r.kind in KIND_ORDER and KIND_MODEL_TYPE[r.kind] == f.model_type
-        assert r.analysis in analysis_kinds, f"add {r.analysis!r} to SpecAnalysis.kind"
+        assert r.analysis in analysis_kinds, f"add a model for {r.analysis!r} to build_spec.SpecAnalysis"
         assert r.title and callable(r.render) and callable(r.run) and callable(r.definition)
 
 
@@ -125,12 +124,12 @@ def test_hooks_run_on_an_empty_project(f, tmp_path: Path, git_identity):
 def test_analysis_layers_are_registered_everywhere(a):
     from latris.operations.analysis_results import KIND_MODEL_TYPE, KIND_ORDER
     from latris.operations.foundations import _ANALYSIS_KIND_TO_ID, FOUNDATIONS
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import analysis_kinds
 
     assert get_model_type(a.model_type).availability == "stable"
     r = a.result
     assert r.kind in KIND_ORDER and KIND_MODEL_TYPE[r.kind] == a.model_type
-    assert r.analysis in get_args(SpecAnalysis.model_fields["kind"].annotation)
+    assert r.analysis in analysis_kinds()
     assert _ANALYSIS_KIND_TO_ID.get(r.kind) in {fd.id for fd in FOUNDATIONS}, "map the kind to a foundations entry"
 
 

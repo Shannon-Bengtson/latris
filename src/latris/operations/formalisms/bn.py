@@ -406,10 +406,10 @@ def _relabeled(p: dict[str, Any]) -> dict[str, str]:
 
 
 def _def_query(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_query",
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -421,10 +421,10 @@ def _def_query(p: dict[str, Any]):
 
 
 def _def_explanation(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_explain",
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -434,10 +434,10 @@ def _def_explanation(p: dict[str, Any]):
 
 
 def _def_monte_carlo(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_monte_carlo", target=labels.get(p["target"], p["target"]), state=p["focus_state"],
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -447,10 +447,10 @@ def _def_monte_carlo(p: dict[str, Any]):
 
 
 def _def_compare(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_compare", target=p["label"], state=p["focus_state"], scenarios=list(p["scenarios"]),
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -460,10 +460,10 @@ def _def_compare(p: dict[str, Any]):
 
 
 def _def_sensitivity(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = _relabeled(p)
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_sensitivity", target=labels.get(p["target_id"], p["target_id"]), state=p["target_state"],
         evidence={labels.get(k, k): v for k, v in (p.get("evidence") or {}).items()},
     )

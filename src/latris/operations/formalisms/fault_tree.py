@@ -232,9 +232,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="ft_analyse", max_order=payload.get("max_order"))
+    return make_analysis(kind="ft_analyse", max_order=payload.get("max_order"))
 
 
 register(Formalism(

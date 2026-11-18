@@ -207,9 +207,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="toc_check")
+    return make_analysis(kind="toc_check")
 
 
 def _pct(x: float) -> str:
@@ -288,9 +288,9 @@ def _run_trace(a, root: Path) -> str:
 
 
 def _definition_trace(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="toc_trace")
+    return make_analysis(kind="toc_trace")
 
 
 def _fingerprint(paths) -> list[Path]:
