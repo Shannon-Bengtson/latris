@@ -320,7 +320,7 @@ register(Formalism(
                         analysis="toc_check", run=_run, definition=_definition),
              ResultKind(kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
                         analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace,
-                        charts=_charts_trace)),
+                        charts=_charts_trace, chart_kinds=("trace-dumbbell",))),
     fingerprint_files=_fingerprint,
     spec_field="toc",
     spec_check=_check,

@@ -218,3 +218,65 @@ def _report_capabilities() -> dict[str, Any]:
                         "scrollytelling story", "hosted report link (no sign-in to view)"],
         },
     }
+
+
+# ── surface manifest ─────────────────────────────────────────────────
+
+# Bump when a key is removed or changes meaning (adding keys doesn't need it).
+SURFACE_MANIFEST_VERSION = 1
+
+# Types that predate the formalism registry: their build-spec block, if they have one.
+_LEGACY_SPEC_FIELD = {"cld": None, "dag": None, "fcm": None, "sd": "sd"}
+
+
+def _spec_schema(field: str | None) -> dict[str, Any] | None:
+    import typing
+
+    from pydantic import TypeAdapter
+
+    from latris.schema.build_spec import BuildSpec
+
+    if field is None:
+        return None
+    annotation = BuildSpec.model_fields[field].annotation
+    inner = [a for a in typing.get_args(annotation) if a is not type(None)] or [annotation]
+    return TypeAdapter(inner[0]).json_schema()
+
+
+def build_surface_manifest() -> dict[str, Any]:
+    """Everything a surface built on this library needs to present each stable model type.
+
+    The app's hosted report, share links and chat connector read this (or are tested against it)
+    instead of keeping their own lists, so a new formalism reaches them, or fails their tests, as soon
+    as they pin a release that has it. Registry-only: no project needed.
+
+    Per type: whether it's a registered plugin, its outcome role, its build-spec block (field and JSON
+    schema), its CLI group, and each result kind with its analysis, chart kinds and whether it needs a
+    dataset (such results can't be re-run from a share link).
+    """
+    from latris import __version__
+    from latris.operations import formalisms
+    from latris.operations.analysis_results import result_surfaces
+
+    results: dict[str, list[dict[str, Any]]] = {}
+    for r in result_surfaces():
+        results.setdefault(r.model_type, []).append({
+            "kind": r.kind, "title": r.title, "analysis": r.analysis,
+            "chart_kinds": list(r.chart_kinds), "needs_dataset": r.needs_dataset,
+        })
+    types = []
+    for spec in list_model_types():
+        f = formalisms.get(spec.id)
+        field = f.spec_field if f else _LEGACY_SPEC_FIELD.get(spec.id)
+        types.append({
+            "id": spec.id,
+            "display_name": spec.display_name,
+            "short_name": spec.short_name,
+            "registered": f is not None,
+            "outcome_role": f.outcome_role if f else None,
+            "spec_field": field,
+            "spec_schema": _spec_schema(field),
+            "cli": f.cli[1] if f and f.cli else None,
+            "results": results.get(spec.id, []),
+        })
+    return {"manifest_version": SURFACE_MANIFEST_VERSION, "latris_version": __version__, "model_types": types}

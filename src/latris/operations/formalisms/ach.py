@@ -183,7 +183,8 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback="Rate every item against every hypothesis to find the linchpins.",
     results=(ResultKind(kind="ach-analysis", title="Competing hypotheses", render=_render, analysis="ach_analyse",
-                        run=_run, definition=_definition, charts=_charts),),
+                        run=_run, definition=_definition, charts=_charts,
+                        chart_kinds=("ach-matrix",)),),
     # The analysis reads each item's own citations (checked or not).
     fingerprint_files=lambda paths: [paths.evidence_links_yaml],
     spec_field="ach",

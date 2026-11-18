@@ -10,7 +10,7 @@ from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
 from latris.cli._output import json_mode
-from latris.operations.capabilities import build_capability_manifest
+from latris.operations.capabilities import build_capability_manifest, build_surface_manifest
 
 console = Console()
 
@@ -20,6 +20,12 @@ def capabilities(
     json_output: bool = typer.Option(
         False, "--json", help="Emit the manifest as JSON (for agents/scripts)."
     ),
+    surface: bool = typer.Option(
+        False, "--surface",
+        help="Emit the surface manifest as JSON instead: per stable model type, its build-spec block and "
+             "schema, result kinds, chart kinds and which results need a dataset (for apps built on latris).",
+    ),
+    model_type: str = typer.Option(None, "--model-type", "-m", help="With --surface: only this model type."),
 ) -> None:
     """Show what Latris can do today, what's on the roadmap, and what's excluded.
 
@@ -30,6 +36,14 @@ def capabilities(
     Only types with ``roadmap: "roadmap"`` are being worked towards —
     ``parked`` and ``not_planned`` ones shouldn't be described as coming.
     """
+    if surface:
+        manifest = build_surface_manifest()
+        if model_type:
+            manifest["model_types"] = [t for t in manifest["model_types"] if t["id"] == model_type]
+            if not manifest["model_types"]:
+                raise typer.BadParameter(f"no stable model type {model_type!r}", param_hint="--model-type")
+        typer.echo(json.dumps(manifest, indent=2, ensure_ascii=False))
+        return
     manifest = build_capability_manifest()
 
     if json_output or json_mode():

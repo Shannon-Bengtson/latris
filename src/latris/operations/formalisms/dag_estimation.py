@@ -98,6 +98,7 @@ def _fingerprint(paths) -> list[Path]:
 register_analysis(Analysis(
     model_type="dag",
     result=ResultKind(kind="dag-estimate", title="Effect estimate", render=_render, analysis="dag_estimate",
-                      run=_run, definition=_definition, claims=_claims, charts=_charts),
+                      run=_run, definition=_definition, claims=_claims, charts=_charts,
+                      chart_kinds=("estimate-forest",), needs_dataset=True),
     fingerprint_files=_fingerprint,
 ))

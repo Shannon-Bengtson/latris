@@ -53,6 +53,11 @@ class ResultKind:
     # payload → what this run was of, for its heading ("given Hot week = yes"), so repeated
     # headings say which run is which.
     subtitle: Callable[[dict[str, Any]], str] | None = None
+    # Every chart kind ``charts`` may emit, declared so surfaces that draw them (the app) can be checked
+    # against the library without running anything. Required when ``charts`` is set.
+    chart_kinds: tuple[str, ...] = ()
+    # The run reads a dataset (``latris data``), not only the model: a share link can't re-run it.
+    needs_dataset: bool = False
 
 
 @dataclass(frozen=True)
@@ -115,6 +120,12 @@ FORMALISMS: dict[str, Formalism] = {}
 ANALYSES: list[Analysis] = []
 
 
+def _check_declared(new: list[ResultKind]) -> None:
+    for r in new:
+        if bool(r.charts) != bool(r.chart_kinds):
+            raise ValueError(f"result kind {r.kind!r}: declare chart_kinds exactly when it has a charts hook")
+
+
 def _refuse_clash(new: list[ResultKind]) -> None:
     kinds = {r.kind for r in result_kinds()}
     analyses = {r.analysis for r in result_kinds()}
@@ -126,12 +137,14 @@ def _refuse_clash(new: list[ResultKind]) -> None:
 def register(f: Formalism) -> Formalism:
     if f.model_type in FORMALISMS:
         raise ValueError(f"formalism {f.model_type!r} registered twice")
+    _check_declared(list(f.results))
     _refuse_clash(list(f.results))
     FORMALISMS[f.model_type] = f
     return f
 
 
 def register_analysis(a: Analysis) -> Analysis:
+    _check_declared([a.result])
     _refuse_clash([a.result])
     ANALYSES.append(a)
     return a

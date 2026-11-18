@@ -237,7 +237,7 @@ register(Formalism(
     sensitivity_fallback="Complete the model to see the thresholds at which the choice changes.",
     results=(ResultKind(kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
                         render=_render, analysis="markov_analyse", run=_run, definition=_definition,
-                        charts=_charts),),
+                        charts=_charts, chart_kinds=("markov-trace", "markov-ce")),),
     spec_field="markov",
     spec_check=_check,
     spec_apply=_apply,

@@ -18,6 +18,7 @@ latris --version
 latris --help
 latris doctor
 latris capabilities [--json]
+latris capabilities --surface [-m TYPE]           # surface manifest for apps: spec blocks, result and chart kinds per type
 latris foundations [--json]                      # the methods registry behind the report's Methods and foundations section
 latris docs [agents|readme|llms|foundations]     # the guide, from the installed package
 latris --json <group> <command> ...

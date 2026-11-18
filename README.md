@@ -189,7 +189,8 @@ See [AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls".
 
 **What's available varies by model type.** `latris capabilities` (or
 `latris capabilities --json`) lists every registered model type with
-`can_use_today: true/false`. Only `cld`, `dag`, `bn`, `fcm`, `sd`,
+`can_use_today: true/false` (apps built on latris read `latris capabilities
+--surface`: each type's build-spec schema, result kinds and chart kinds). Only `cld`, `dag`, `bn`, `fcm`, `sd`,
 `theory_of_change`, `fault_tree`, `bow_tie`, `event_tree`, `mcda`, `ach`,
 `decision_tree` and `markov` are stable/switchable today; the rest (`gsn`,
 `influence_diagram`, and 7 others) are registered but not yet switchable.

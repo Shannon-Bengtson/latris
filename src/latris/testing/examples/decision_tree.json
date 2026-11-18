@@ -1,0 +1,260 @@
+{
+ "model_type": "decision_tree",
+ "factors": [
+  {
+   "label": "Strategy",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Demand if launched",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Demand if licensed",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Launched, high demand",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Launched, low demand",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Licensed, high demand",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Licensed, low demand",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Do nothing",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "links": [
+  {
+   "from": "Strategy",
+   "to": "Demand if launched",
+   "kind": "conditional",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Strategy",
+   "to": "Demand if licensed",
+   "kind": "conditional",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Strategy",
+   "to": "Do nothing",
+   "kind": "conditional",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Demand if launched",
+   "to": "Launched, high demand",
+   "kind": "conditional",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Demand if launched",
+   "to": "Launched, low demand",
+   "kind": "conditional",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Demand if licensed",
+   "to": "Licensed, high demand",
+   "kind": "conditional",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Demand if licensed",
+   "to": "Licensed, low demand",
+   "kind": "conditional",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "sources": [],
+ "assumptions": [],
+ "questions": [],
+ "findings": [],
+ "challenges": [],
+ "decisions": [],
+ "interpretation": [],
+ "decision_tree": {
+  "objective": "maximise",
+  "units": "$k",
+  "elements": [
+   {
+    "node": "Demand if launched",
+    "type": "chance"
+   },
+   {
+    "node": "Demand if licensed",
+    "type": "chance"
+   },
+   {
+    "node": "Strategy",
+    "type": "decision"
+   },
+   {
+    "node": "Do nothing",
+    "type": "terminal"
+   },
+   {
+    "node": "Launched, high demand",
+    "type": "terminal"
+   },
+   {
+    "node": "Launched, low demand",
+    "type": "terminal"
+   },
+   {
+    "node": "Licensed, high demand",
+    "type": "terminal"
+   },
+   {
+    "node": "Licensed, low demand",
+    "type": "terminal"
+   }
+  ],
+  "branches": [
+   {
+    "link": "Strategy -> Demand if launched",
+    "label": "Launch",
+    "value": 0.0,
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Strategy -> Demand if licensed",
+    "label": "License",
+    "value": 0.0,
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Strategy -> Do nothing",
+    "label": "Do nothing",
+    "value": 0.0,
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Demand if launched -> Launched, high demand",
+    "label": "High",
+    "probability": 0.4,
+    "value": 0.0,
+    "source": "market-survey-2026",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Demand if launched -> Launched, low demand",
+    "label": "Low",
+    "probability": 0.6,
+    "value": 0.0,
+    "source": "market-survey-2026",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Demand if licensed -> Licensed, high demand",
+    "label": "High",
+    "probability": 0.4,
+    "value": 0.0,
+    "source": "market-survey-2026",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Demand if licensed -> Licensed, low demand",
+    "label": "Low",
+    "probability": 0.6,
+    "value": 0.0,
+    "source": "market-survey-2026",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ],
+  "payoffs": [
+   {
+    "node": "Launched, high demand",
+    "value": 500.0,
+    "source": "finance-model",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Launched, low demand",
+    "value": -200.0,
+    "source": "finance-model",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Licensed, high demand",
+    "value": 150.0,
+    "source": "finance-model",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Licensed, low demand",
+    "value": 50.0,
+    "source": "finance-model",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Do nothing",
+    "value": 0.0,
+    "source": "finance-model",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ],
+  "uncertainties": [
+   {
+    "node": "Demand if launched",
+    "name": "Demand"
+   },
+   {
+    "node": "Demand if licensed",
+    "name": "Demand"
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "dt_analyse"
+  }
+ ]
+}

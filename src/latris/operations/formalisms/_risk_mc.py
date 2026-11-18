@@ -87,7 +87,7 @@ def result_kind(model_type: str) -> ResultKind:
 
     return ResultKind(kind=KINDS[model_type], title=_TITLE[model_type], render=_render,
                       analysis=_ANALYSIS[model_type], run=run, definition=definition, claims=_claims,
-                      charts=_charts)
+                      charts=_charts, chart_kinds=("mc-strip",))
 
 
 # ── build spec ───────────────────────────────────────────────────────

@@ -208,13 +208,13 @@ def _loops(p: dict[str, Any]) -> list[str]:
     return out
 
 
-_TITLES = {
-    "sd-simulation": "Simulation",
-    "sd-options": "Options compared under uncertainty",
-    "sd-monte-carlo": "Uncertainty (Monte Carlo)",
-    "sd-sensitivity": "Sensitivity",
-    "sd-loops": "Feedback loop dominance",
-}
+def _sd_titles() -> dict[str, str]:
+    from latris.operations.analysis_results import result_surfaces
+
+    return {r.kind: r.title for r in result_surfaces() if r.model_type == "sd"}
+
+
+_TITLES = _sd_titles()
 
 
 def _options(p: dict[str, Any]) -> list[str]:

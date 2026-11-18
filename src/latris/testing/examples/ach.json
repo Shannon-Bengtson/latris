@@ -1,0 +1,218 @@
+{
+ "model_type": "ach",
+ "factors": [
+  {
+   "label": "Hardware failure",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Software bug",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Cyber attack",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Disk errors in the logs",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Outage began minutes after a deploy",
+   "kind": "concept",
+   "sources": [
+    "deploylog"
+   ],
+   "contradicts": []
+  },
+  {
+   "label": "No unusual network traffic",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "A restart restored service",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "links": [],
+ "sources": [
+  {
+   "key": "deploylog",
+   "title": "Deploy log, Tuesday (illustrative)",
+   "authors": [],
+   "year": 2026,
+   "extract_kind": "abstract"
+  }
+ ],
+ "assumptions": [],
+ "questions": [],
+ "findings": [],
+ "challenges": [],
+ "decisions": [],
+ "interpretation": [],
+ "ach": {
+  "elements": [
+   {
+    "node": "A restart restored service",
+    "type": "evidence_item"
+   },
+   {
+    "node": "Disk errors in the logs",
+    "type": "evidence_item"
+   },
+   {
+    "node": "No unusual network traffic",
+    "type": "evidence_item"
+   },
+   {
+    "node": "Outage began minutes after a deploy",
+    "type": "evidence_item"
+   },
+   {
+    "node": "Cyber attack",
+    "type": "hypothesis"
+   },
+   {
+    "node": "Hardware failure",
+    "type": "hypothesis"
+   },
+   {
+    "node": "Software bug",
+    "type": "hypothesis"
+   }
+  ],
+  "items": [
+   {
+    "node": "Disk errors in the logs",
+    "credibility": "medium",
+    "relevance": "medium",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Outage began minutes after a deploy",
+    "credibility": "high",
+    "relevance": "high",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "No unusual network traffic",
+    "credibility": "high",
+    "relevance": "high",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "A restart restored service",
+    "credibility": "medium",
+    "relevance": "medium",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ],
+  "ratings": [
+   {
+    "item": "Disk errors in the logs",
+    "hypothesis": "Hardware failure",
+    "rating": "C",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "Disk errors in the logs",
+    "hypothesis": "Software bug",
+    "rating": "N",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "Disk errors in the logs",
+    "hypothesis": "Cyber attack",
+    "rating": "N",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "Outage began minutes after a deploy",
+    "hypothesis": "Hardware failure",
+    "rating": "I",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "Outage began minutes after a deploy",
+    "hypothesis": "Software bug",
+    "rating": "CC",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "Outage began minutes after a deploy",
+    "hypothesis": "Cyber attack",
+    "rating": "C",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "No unusual network traffic",
+    "hypothesis": "Hardware failure",
+    "rating": "C",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "No unusual network traffic",
+    "hypothesis": "Software bug",
+    "rating": "C",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "No unusual network traffic",
+    "hypothesis": "Cyber attack",
+    "rating": "II",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "A restart restored service",
+    "hypothesis": "Hardware failure",
+    "rating": "C",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "A restart restored service",
+    "hypothesis": "Software bug",
+    "rating": "C",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "item": "A restart restored service",
+    "hypothesis": "Cyber attack",
+    "rating": "C",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "ach_analyse"
+  }
+ ]
+}

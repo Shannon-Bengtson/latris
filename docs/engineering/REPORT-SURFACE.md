@@ -66,6 +66,30 @@ Markers per result kind:
 Markov and ITS payloads already record the series these charts need; no
 payload changes for them.
 
+Each `ResultKind` with a `charts` hook also **declares** `chart_kinds` —
+every kind the hook may emit — and `needs_dataset` when the run reads a
+dataset. Registration refuses a `charts` hook without `chart_kinds`, and
+`tests/testing/test_examples.py` checks the declaration against what the
+`latris.testing` example projects actually emit, both ways. SD's kinds,
+not yet a plugin, are declared in `analysis_results._SD_RESULTS`;
+`analysis_results.result_surfaces()` lists every kind.
+
+## The contract apps test against
+
+The app doesn't copy lists or payloads from here:
+
+- **`latris capabilities --surface`** (`build_surface_manifest()`): per
+  stable model type, whether it's a plugin, its outcome role, its
+  build-spec block and that block's JSON schema, its CLI group, and its
+  result kinds with their analysis, chart kinds and `needs_dataset`.
+  `manifest_version` changes only when a key is removed or changes meaning.
+- **`latris.testing`**: one example project per model type, shipped in the
+  wheel (`examples/*.json` build specs plus small CSVs).
+  `build_example(name, root)` builds one; `example_payloads(workdir)`
+  builds all and returns every recorded payload by result kind. Together
+  they record every result kind (tested), so the app can render each one
+  against the pinned release instead of copies that drift.
+
 ## The aggregate report
 
 `latris export md` with no `--model-type` renders the whole project. Its

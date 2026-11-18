@@ -634,6 +634,13 @@ def build_example(ex: WorkedExample) -> None:
     )
     ex.run(["capabilities"])
     ex.note(
+        "Apps built on latris (the hosted report, chat connectors) read the surface manifest instead of "
+        "keeping their own lists of model types: per stable type, its build-spec block and schema, its "
+        "result kinds, the charts each draws and which results need a dataset (a share link can't re-run "
+        "those). One type shown here; without `-m`, all of them."
+    )
+    ex.run(["capabilities", "--surface", "-m", "mcda"])
+    ex.note(
         "The documentation ships with the package, for sandboxes that can't reach GitHub: `latris docs` "
         "prints the guide for AI agents, `latris docs readme` the whole README, and `latris docs llms` "
         "the documentation map below."

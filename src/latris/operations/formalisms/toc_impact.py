@@ -99,6 +99,6 @@ register_analysis(Analysis(
     model_type="theory_of_change",
     result=ResultKind(kind="toc-impact", title="Theory of change: impact estimate", render=_render,
                       analysis="toc_impact", run=_run, definition=_definition, claims=_claims,
-                      charts=_charts),
+                      charts=_charts, chart_kinds=("impact-its", "impact-did"), needs_dataset=True),
     fingerprint_files=_fingerprint,
 ))

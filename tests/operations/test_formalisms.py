@@ -132,3 +132,13 @@ def test_analysis_layers_are_registered_everywhere(a):
     assert r.kind in KIND_ORDER and KIND_MODEL_TYPE[r.kind] == a.model_type
     assert r.analysis in get_args(SpecAnalysis.model_fields["kind"].annotation)
     assert _ANALYSIS_KIND_TO_ID.get(r.kind) in {fd.id for fd in FOUNDATIONS}, "map the kind to a foundations entry"
+
+
+def test_charts_need_declared_chart_kinds():
+    from latris.operations.formalisms import Analysis, ResultKind
+
+    r = ResultKind(kind="x-analysis", title="X", render=lambda p: [], analysis="x_analyse",
+                   run=lambda a, root: "", definition=lambda p: None, charts=lambda p: [("x-bars", {})])
+    with pytest.raises(ValueError, match="declare chart_kinds"):
+        formalisms.register_analysis(Analysis(model_type="dag", result=r))
+    assert all(bool(k.charts) == bool(k.chart_kinds) for k in formalisms.result_kinds())
