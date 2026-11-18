@@ -16,38 +16,19 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from latris.exporters import md
 from latris.repo.layout import ProjectPaths
 
 _HUMAN_VERIFIED = "human-verified"
-_MAX_ROWS = 8
+_MAX_ROWS, _esc, _f, _table, _grounding = md.MAX_ROWS, md.esc, md.fmt, md.table, md.grounding
 
 
-def _f(x: Any) -> str:
-    if x is None:
-        return "—"
-    if isinstance(x, float | int):
-        return f"{x:.4g}"
-    return str(x)
 
 
-def _esc(text: Any) -> str:
-    return str(text).replace("|", "\\|").replace("\n", " ")
 
 
-def _table(headers: list[str], rows: list[list[str]]) -> list[str]:
-    out = ["| " + " | ".join(headers) + " |", "|" + "|".join("---" for _ in headers) + "|"]
-    out += ["| " + " | ".join(_esc(c) for c in row) + " |" for row in rows]
-    out.append("")
-    return out
 
 
-def _grounding(origin: str | None, verification: str | None) -> str:
-    if verification == _HUMAN_VERIFIED:
-        return "reviewed"
-    who = {"ai-proposed": "AI-proposed", "data-derived": "from data", "human-elicited": "elicited"}.get(
-        origin or "", "entered"
-    )
-    return f"{who}, not yet reviewed"
 
 
 def _marker(run_id: str, chart: str, **extra: Any) -> list[str]:

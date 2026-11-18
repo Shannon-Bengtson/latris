@@ -77,33 +77,33 @@ def _claims(paths, section: str) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
+    from latris.exporters import md
     from latris.operations.toc import describe
 
     out = [describe(p) + ".", ""]
     if p.get("problems"):
         out += [f"The results chain is incomplete ({len(p['problems'])} structure problem(s)):", ""]
-        out += [f"- {_esc(x['label'])}: {_esc(x['message'])}" for x in p["problems"][:_MAX_ROWS]]
+        out += [f"- {md.esc(x['label'])}: {md.esc(x['message'])}" for x in p["problems"][:md.MAX_ROWS]]
         out.append("")
     order = {"contested": 0, "untested": 1, "cited": 2, "checked": 3}
     pws = sorted(p["pathways"], key=lambda x: order.get(x["status"], 9))
     if pws:
         rows = [[" → ".join(x["path"]), x["status"], ", ".join(x["weak_links"]) or "—"]
-                for x in pws[:_MAX_ROWS]]
-        out += _table(["Pathway", "Weakest link", "Links not yet checked"], rows)
-        if len(pws) > _MAX_ROWS:
-            out += [f"_…and {len(pws) - _MAX_ROWS} more pathway(s)._", ""]
+                for x in pws[:md.MAX_ROWS]]
+        out += md.table(["Pathway", "Weakest link", "Links not yet checked"], rows)
+        if len(pws) > md.MAX_ROWS:
+            out += [f"_…and {len(pws) - md.MAX_ROWS} more pathway(s)._", ""]
     on = [lk for lk in p["links"] if lk["on_pathway"]]
     if on:
         rows = [
             [lk["label"], lk["status"], str(lk["sources_for"]), str(lk["sources_for_checked"]),
              str(lk["sources_against"]), str(lk["assumptions"]), "skips levels" if lk["leap"] else ""]
-            for lk in sorted(on, key=lambda lk: order.get(lk["status"], 9))[: _MAX_ROWS * 2]
+            for lk in sorted(on, key=lambda lk: order.get(lk["status"], 9))[: md.MAX_ROWS * 2]
         ]
         out += ["Each link on a pathway, weakest first. *Checked*: a source was read and found to support it; "
                 "*cited*: it has a source not yet checked; *untested*: no source; *contested*: a source argues "
                 "against it.", ""]
-        out += _table(["Link", "Evidence", "Sources for", "Checked", "Against", "Assumptions", "Note"], rows)
+        out += md.table(["Link", "Evidence", "Sources for", "Checked", "Against", "Assumptions", "Note"], rows)
     return out
 
 
@@ -217,16 +217,16 @@ def _pct(x: float) -> str:
 
 
 def _render_trace(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _table
+    from latris.exporters import md
     from latris.operations.process_tracing import describe
 
-    out = [_esc(describe(p)) + ".", ""]
+    out = [md.esc(describe(p)) + ".", ""]
     if p["pathways"]:
         rows = [[" → ".join(x["path"]), _pct(x["confidence"]), f"{x['weakest']} ({_pct(x['weakest_posterior'])})"]
-                for x in p["pathways"][:_MAX_ROWS]]
+                for x in p["pathways"][:md.MAX_ROWS]]
         out += ["How believable each pathway is, all its links together (the product of their posteriors, "
                 "treating the links as independent):", ""]
-        out += _table(["Pathway", "Confidence", "Weakest link"], rows)
+        out += md.table(["Pathway", "Confidence", "Weakest link"], rows)
     rows = []
     for lk in p["links"]:
         done = [t for t in lk["tests"] if t["found"] is not None]
@@ -236,16 +236,16 @@ def _render_trace(p: dict[str, Any]) -> list[str]:
     if rows:
         out += ["Each link: its prior, the tests carried out (type, result, and the factor each multiplied the "
                 "odds by) and the posterior.", ""]
-        out += _table(["Link", "Prior", "Tests", "Posterior", "Verdict"], rows[: _MAX_ROWS * 2])
+        out += md.table(["Link", "Prior", "Tests", "Posterior", "Verdict"], rows[: md.MAX_ROWS * 2])
     pending = [(lk["link"], t) for lk in p["links"] for t in lk["pending"]]
     if pending:
         rows = [[name, t["test"], t["type"], _pct(t["if_found"]), _pct(t["if_not_found"])]
                 for name, t in sorted(pending, key=lambda c: -abs(c[1]["if_found"] - c[1]["if_not_found"]))]
         out += ["Tests not yet carried out, most informative first — the link's posterior if the evidence is "
                 "found, and if it isn't:", ""]
-        out += _table(["Link", "Test", "Type", "If found", "If not found"], rows[:_MAX_ROWS])
+        out += md.table(["Link", "Test", "Type", "If found", "If not found"], rows[:md.MAX_ROWS])
     if p["rests_on_unverified"]:
-        out += ["Tests whose judgements nobody has verified: " + _esc(", ".join(p["rests_on_unverified"])) + ".", ""]
+        out += ["Tests whose judgements nobody has verified: " + md.esc(", ".join(p["rests_on_unverified"])) + ".", ""]
     return out
 
 

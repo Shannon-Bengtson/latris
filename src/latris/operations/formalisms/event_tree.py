@@ -68,26 +68,26 @@ def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
+    from latris.exporters import md
     from latris.operations.event_tree import describe
 
     out = [describe(p) + ".", ""]
     fr = p.get("frequency")
     if fr:
-        out += [f"Initiating event {p['initiator']}: {_f(fr['per_year'])} per year"
+        out += [f"Initiating event {p['initiator']}: {md.fmt(fr['per_year'])} per year"
                 + (f" ({fr['source']})" if fr.get("source") else "") + ".", ""]
     heads = p["headings"]
     rows = []
-    for r in p["sequences"][: _MAX_ROWS * 3]:
+    for r in p["sequences"][: md.MAX_ROWS * 3]:
         ans = {a["heading"]: a["answer"] for a in r["answers"]}
-        rows.append([str(r["n"])] + [ans.get(h, "·") for h in heads] + [r["end_state"], _f(r["probability"])]
-                    + ([_f(r["frequency"])] if fr else []))
+        rows.append([str(r["n"])] + [ans.get(h, "·") for h in heads] + [r["end_state"], md.fmt(r["probability"])]
+                    + ([md.fmt(r["frequency"])] if fr else []))
     if rows:
-        out += _table(["#", *heads, "End state", "Probability"] + (["Per year"] if fr else []), rows)
+        out += md.table(["#", *heads, "End state", "Probability"] + (["Per year"] if fr else []), rows)
     if p.get("quantified"):
-        rows = [[d["end_state"], _f(d["probability"])] + ([_f(d["frequency"])] if fr else [])
+        rows = [[d["end_state"], md.fmt(d["probability"])] + ([md.fmt(d["frequency"])] if fr else [])
                 + [f"#{d['dominant']['n']} ({d['dominant']['text']})"] for d in p["end_states"]]
-        out += _table(["End state", "Probability"] + (["Per year"] if fr else []) + ["Dominant sequence"], rows)
+        out += md.table(["End state", "Probability"] + (["Per year"] if fr else []) + ["Dominant sequence"], rows)
         weak = sorted({v["heading"] for v in p["values"] if v["weak"]})
         if weak:
             out += [f"Branch probabilities nobody has verified: {', '.join(weak)}.", ""]

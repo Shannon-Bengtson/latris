@@ -56,23 +56,23 @@ def _subtitle_target(p: dict[str, Any]) -> str:
 
 
 def _render_query(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _table
+    from latris.exporters import md
 
     labels = p["labels"]
     given = _given(p)
     out = [f"Given {given}:" if given else "With no evidence (prior probabilities):", ""]
     rows = []
-    for node in sorted(p["posteriors"], key=lambda n: labels.get(n, n))[:_MAX_ROWS]:
+    for node in sorted(p["posteriors"], key=lambda n: labels.get(n, n))[:md.MAX_ROWS]:
         for state, prob in p["posteriors"][node].items():
             prior = p["priors"].get(node, {}).get(state)
             rows.append([labels.get(node, node), state, _pct(prior) if given else "", _pct(prob)])
     headers = ["Node", "State", "Prior", "Posterior"] if given else ["Node", "State", "", "Probability"]
-    out += _table(headers, rows)
+    out += md.table(headers, rows)
     return out
 
 
 def _render_explanation(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
 
     labels = p["labels"]
     given = _given(p) or "no evidence"
@@ -88,7 +88,7 @@ def _render_explanation(p: dict[str, Any]) -> list[str]:
         else:
             vs = "—"
         rows.append([labels.get(r["node"], r["node"]), r["state"], _pct(r["marginal"]), vs])
-    out += _table(["Factor", "Most likely", "Its own probability", "Against its runner-up"], rows)
+    out += md.table(["Factor", "Most likely", "Its own probability", "Against its runner-up"], rows)
     differs = [r for r in p["rows"] if r.get("differs_from_marginal")]
     for r in differs:
         out.append(
@@ -103,7 +103,7 @@ def _render_explanation(p: dict[str, Any]) -> list[str]:
 
 
 def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _grounding, _table
+    from latris.exporters import md
     from latris.operations.bn_montecarlo import describe
 
     out = [
@@ -125,7 +125,7 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
                 f"{_pct(b['p2.5'])}–{_pct(b['p97.5'])}",
             ]
         )
-    out += _table(["State", "Point estimate", "Median", "50% of draws", "95% of draws"], rows)
+    out += md.table(["State", "Point estimate", "Median", "50% of draws", "95% of draws"], rows)
     out.append("Tables sampled:")
     out.append("")
     for t in p["tables"]:
@@ -133,7 +133,7 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
             continue
         n = f"worth about {t['n']:g} observations" if t.get("n") else "some rows uncertain"
         why = f" — {t['reason']}" if t.get("reason") else ""
-        out.append(f"- {t['label']}: {n}{why} ({_grounding(t.get('origin'), t.get('verification'))})")
+        out.append(f"- {t['label']}: {n}{why} ({md.grounding(t.get('origin'), t.get('verification'))})")
     fixed = [t["label"] for t in p["tables"] if t["fixed"]]
     if fixed:
         out.append(f"- Held fixed: {', '.join(fixed)}")
@@ -146,7 +146,7 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
 
 
 def _render_options(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
 
     given = _given(p)
     draws = (f"Every option was asked on the same {p['runs']} draws of the uncertain tables "
@@ -180,7 +180,7 @@ def _render_options(p: dict[str, Any]) -> list[str]:
     headers = ["Option", "Probability"] + (["95% of draws"] if p["runs"] else []) + ["Compared with",
                "Difference (points" + (", 95%)" if p["runs"] else ")")]
     headers += (["Draws lower / higher"] if p["runs"] else []) + ["What it changes"]
-    out += _table(headers, rows)
+    out += md.table(headers, rows)
     for w in p.get("warnings", []):
         out += [f"> ⚠ {w}", ""]
     return out
@@ -217,13 +217,13 @@ def _claims_options(p: dict[str, Any], out: dict[str, list[str]]) -> None:
 
 
 def _render_sensitivity(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _grounding, _table
+    from latris.exporters import md
 
     labels = p.get("labels", {})  # baked in at record time; runs from before then show ids
     target = labels.get(p["target_id"], p["target_id"])
     out = [f"Which probabilities move P({target} = {p['target_state']}) (baseline {_pct(p['baseline'])}):", ""]
     rows = []
-    for f in p["findings"][:_MAX_ROWS]:
+    for f in p["findings"][:md.MAX_ROWS]:
         given = ", ".join(f"{labels.get(k, k)}={v}" for k, v in f["parent_states"].items())
         cell = f"P({labels.get(f['node_id'], f['node_id'])}={f['state']}{' | ' + given if given else ''})"
         rows.append(
@@ -233,10 +233,10 @@ def _render_sensitivity(p: dict[str, Any]) -> list[str]:
                 f"{_pct(f.get('low', 0.0))}–{_pct(f.get('high', 1.0))} "
                 f"({f.get('range_source', 'any value from 0 to 1')})",
                 f"{f['influence'] * 100:.1f} points",
-                _grounding(f.get("origin"), f.get("verification")),
+                md.grounding(f.get("origin"), f.get("verification")),
             ]
         )
-    out += _table(["Probability", "Value", "Range tried", "Target moves by up to", "Grounding"], rows)
+    out += md.table(["Probability", "Value", "Range tried", "Target moves by up to", "Grounding"], rows)
     return out
 
 

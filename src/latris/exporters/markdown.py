@@ -7,8 +7,11 @@ references. Hand-intended as the starting point for a written deliverable.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
+from typing import Any
 
 from latris.exporters._format import BADGE_TEXT as _BADGE_TEXT
 from latris.exporters._format import BADGE_URL as _BADGE_URL
@@ -16,7 +19,7 @@ from latris.exporters._format import actor_name as _actor_name
 from latris.exporters._scope import view_member_ids
 from latris.repo import git as git_repo
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import iter_jsonl, load_model
+from latris.repo.yaml_io import iter_jsonl, load_model, load_model_or_default
 from latris.schema import (
     FINDING_CATEGORIES,
     AnalysisRun,
@@ -148,9 +151,47 @@ def _load_attr_lookup(paths: ProjectPaths):
     descriptions = {(e.target_id, e.attribute): e for e in load_model(DescriptionSet, paths.descriptions_yaml).entries}
     confidence = {(e.target_id, e.attribute): e for e in load_model(ConfidenceSet, paths.confidence_yaml).entries}
     pol_path = paths.view_attribute_path("cld", "polarity")
-    pol_set = load_model(PolaritySet, pol_path) if pol_path.exists() else PolaritySet()
+    pol_set = load_model_or_default(PolaritySet, pol_path)
     polarity = {(e.target_id, e.attribute): e for e in pol_set.entries}
     return descriptions, confidence, polarity
+
+
+@dataclass
+class _Report:
+    """What every report section reads: the loaded project, the options, and the lines so far."""
+
+    out: list[str]
+    include: Callable[[str], bool]
+    begin: Callable[[str], None]
+    all_findings: list[Any]
+    analysis_runs: list[Any]
+    app_link: bool
+    assumptions: list[Any]
+    challenges: list[Any]
+    chart_markers: bool
+    confidence: Any
+    datasets: list[Any]
+    decisions: list[Any]
+    descriptions: dict[Any, Any]
+    elicit_sessions: list[Any]
+    evidence: EvidenceLinkSet
+    exclusions: list[Any]
+    foundation: ProjectFoundation
+    labels: dict[str, str]
+    milestones: list[Any]
+    model_type: str | None
+    narrative: Any
+    pack: str | None
+    paths: ProjectPaths
+    polarity: Any
+    predictions: list[Any]
+    questions: list[Any]
+    references: list[Any]
+    report_url: str | None
+    sessions: list[Any]
+    show_ids: bool
+    signoffs: list[Any]
+    substrate: Substrate
 
 
 def render(
@@ -212,8 +253,13 @@ def render(
     if model_type is not None:
         all_findings = [f for f in all_findings if f.model_type == model_type]
     milestones = (
-        load_model(MilestoneLog, paths.milestones_yaml) if paths.milestones_yaml.exists() else MilestoneLog()
+        load_model_or_default(MilestoneLog, paths.milestones_yaml)
     ).entries
+
+    labels = {n.id: n.label for n in substrate.entities}
+    # Edges read as "A → B" wherever they're named (evidence, challenges).
+    for e in substrate.edges:
+        labels.setdefault(e.id, f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}")
 
     out: list[str] = []
     # Packs written for people outside the modelling work hide internal IDs;
@@ -237,198 +283,251 @@ def render(
 
         narrative = build_narrative(paths, model_type=model_type, ai=ai)
 
-    # ---------- Header + Narrative Preamble ----------
-    _begin("foundation")
-    if _include("foundation"):
-        out.append(f"# {narrative.title}")
+    rep = _Report(
+        out=out, include=_include, begin=_begin,
+        all_findings=all_findings,
+        analysis_runs=analysis_runs,
+        app_link=app_link,
+        assumptions=assumptions,
+        challenges=challenges,
+        chart_markers=chart_markers,
+        confidence=confidence,
+        datasets=datasets,
+        decisions=decisions,
+        descriptions=descriptions,
+        elicit_sessions=elicit_sessions,
+        evidence=evidence,
+        exclusions=exclusions,
+        foundation=foundation,
+        labels=labels,
+        milestones=milestones,
+        model_type=model_type,
+        narrative=narrative,
+        pack=pack,
+        paths=paths,
+        polarity=polarity,
+        predictions=predictions,
+        questions=questions,
+        references=references,
+        report_url=report_url,
+        sessions=sessions,
+        show_ids=show_ids,
+        signoffs=signoffs,
+        substrate=substrate,
+    )
+    for name, section in _SECTIONS:
+        _begin(name)
+        section(rep)
+
+    out = _in_pack_order(out, starts, pack=pack, sections=sections)
+
+    # ---------- Footer badge ----------
+    out.append("---")
+    out.append("")
+    if report_url:
+        out.append(f"View this report online: {report_url}")
         out.append("")
-        out.append(narrative.purpose)
+    out.append(f"*{_BADGE_TEXT} — {_BADGE_URL}*")
+    out.append("")
+
+    return "\n".join(out)
+
+
+def _section_foundation(rep: _Report) -> None:
+    # ---------- Header + Narrative Preamble ----------
+    if rep.include("foundation"):
+        rep.out.append(f"# {rep.narrative.title}")
+        rep.out.append("")
+        rep.out.append(rep.narrative.purpose)
         # The context the model was built in: who it's for, the situation
         # behind the question, and what's in scope.
-        if foundation.audience.strip():
-            out.append("")
-            out.append(f"**Prepared for:** {foundation.audience.strip()}")
-        if foundation.background.strip():
-            out.append("")
-            out.append(f"**Background.** {foundation.background.strip()}")
-        if narrative.boundary:
-            out.append("")
-            out.append(narrative.boundary)
-        out.append("")
+        if rep.foundation.audience.strip():
+            rep.out.append("")
+            rep.out.append(f"**Prepared for:** {rep.foundation.audience.strip()}")
+        if rep.foundation.background.strip():
+            rep.out.append("")
+            rep.out.append(f"**Background.** {rep.foundation.background.strip()}")
+        if rep.narrative.boundary:
+            rep.out.append("")
+            rep.out.append(rep.narrative.boundary)
+        rep.out.append("")
         # Pre-modelling intuition (foundation.predictions) — surfaced near
         # the top so readers can compare the person's own expectation with
         # the model's answer.
-        if foundation.predictions.strip():
-            out.append("## Pre-modelling intuition")
-            out.append("")
-            out.append(
+        if rep.foundation.predictions.strip():
+            rep.out.append("## Pre-modelling intuition")
+            rep.out.append("")
+            rep.out.append(
                 "_What the person who asked for this model expected the answer to be, in their own "
                 "words. Compare it with the answer in this report._"
             )
-            out.append("")
-            out.append(foundation.predictions.strip())
-            out.append("")
+            rep.out.append("")
+            rep.out.append(rep.foundation.predictions.strip())
+            rep.out.append("")
         try:
             head_ts = git_repo.commit_timestamp(
-                git_repo.run_git(["rev-parse", "HEAD"], cwd=paths.root).stdout.strip(),
-                paths.root,
+                git_repo.run_git(["rev-parse", "HEAD"], cwd=rep.paths.root).stdout.strip(),
+                rep.paths.root,
             )
             utc = head_ts.astimezone(UTC)
-            out.append(f"_Last updated {utc.day} {utc:%b %Y, %H:%M} UTC_")
+            rep.out.append(f"_Last updated {utc.day} {utc:%b %Y, %H:%M} UTC_")
         except git_repo.GitError:
             pass
-        out.append("")
+        rep.out.append("")
 
+
+def _section_structure(rep: _Report) -> None:
     # Model structure (AI prose or mechanical fallback)
-    _begin("structure")
-    if _include("structure") and narrative.structure_description:
-        out.append("## Model Structure\n")
-        out.append(narrative.structure_description)
-        out.append("")
+    if rep.include("structure") and rep.narrative.structure_description:
+        rep.out.append("## Model Structure\n")
+        rep.out.append(rep.narrative.structure_description)
+        rep.out.append("")
 
+
+def _section_history(rep: _Report) -> None:
     # Model history — the change log (AI prose or mechanical fallback)
-    _begin("history")
-    if _include("history") and narrative.history_summary:
-        out.append("## Model History\n")
-        out.append(narrative.history_summary)
-        out.append("")
+    if rep.include("history") and rep.narrative.history_summary:
+        rep.out.append("## Model History\n")
+        rep.out.append(rep.narrative.history_summary)
+        rep.out.append("")
 
+
+def _section_diagram(rep: _Report) -> None:
     # ---------- Diagram (Mermaid sketch) ----------
-    _begin("diagram")
-    if _include("diagram"):
+    if rep.include("diagram"):
         from latris.exporters import mermaid
 
         def _emit_diagram(source: str, legend: list[str]) -> None:
-            out.append("```mermaid")
-            out.append(source.rstrip("\n"))
-            out.append("```")
-            out.append("")
+            rep.out.append("```mermaid")
+            rep.out.append(source.rstrip("\n"))
+            rep.out.append("```")
+            rep.out.append("")
             if legend:
-                out.append("Feedback loops:")
-                out.append("")
-                out.extend(f"- {line}" for line in legend)
-                out.append("")
+                rep.out.append("Feedback loops:")
+                rep.out.append("")
+                rep.out.extend(f"- {line}" for line in legend)
+                rep.out.append("")
 
         drew = False
-        if model_type is None:
+        if rep.model_type is None:
             # The aggregate report: one sketch per formalism in use, each drawn by
             # the formalism's own hook (docs/engineering/REPORT-SURFACE.md). The
             # whole-substrate sketch follows only when factors sit outside every
             # formalism in use; when no formalism is in use at all, it is the diagram.
-            parts = _formalism_diagrams(paths)
+            parts = _formalism_diagrams(rep.paths)
             if parts:
-                out.append("## Diagram")
-                out.append("")
+                rep.out.append("## Diagram")
+                rep.out.append("")
                 for title, source, legend in parts:
-                    out.append(f"### {title}")
-                    out.append("")
+                    rep.out.append(f"### {title}")
+                    rep.out.append("")
                     _emit_diagram(source, legend)
                 drew = True
-                if _has_unmapped_edges(paths):
-                    whole = mermaid.render(paths)
+                if _has_unmapped_edges(rep.paths):
+                    whole = mermaid.render(rep.paths)
                     if whole:
-                        out.append("### Whole model")
-                        out.append("")
-                        _emit_diagram(whole, mermaid.loop_legend(paths))
+                        rep.out.append("### Whole model")
+                        rep.out.append("")
+                        _emit_diagram(whole, mermaid.loop_legend(rep.paths))
         if not drew:
-            diagram = mermaid.render(paths, model_type=model_type)
+            diagram = mermaid.render(rep.paths, model_type=rep.model_type)
             if diagram:
-                out.append("## Diagram")
-                out.append("")
-                _emit_diagram(diagram, mermaid.loop_legend(paths, model_type=model_type))
+                rep.out.append("## Diagram")
+                rep.out.append("")
+                _emit_diagram(diagram, mermaid.loop_legend(rep.paths, model_type=rep.model_type))
                 drew = True
         if drew:
-            link = _app_link(paths, model_type) if app_link and not report_url else None
+            link = _app_link(rep.paths, rep.model_type) if rep.app_link and not rep.report_url else None
             if link:
-                out.append(
+                rep.out.append(
                     f"**[Open the interactive report]({link})** — the full figure, result charts and "
                     "interpretation in the Latris app. This link is the shareable report; the model travels "
                     "inside it."
                 )
-                out.append("")
+                rep.out.append("")
 
+
+def _section_results(rep: _Report) -> None:
     # ---------- Results (recorded simulations, uncertainty runs, queries) ----------
-    _begin("results")
-    if _include("results"):
+    if rep.include("results"):
         from latris.exporters.results import render_results
 
-        out.extend(
+        rep.out.extend(
             render_results(
-                paths,
-                model_types=[model_type] if model_type else None,
-                chart_markers=chart_markers,
-                show_ids=show_ids,
+                rep.paths,
+                model_types=[rep.model_type] if rep.model_type else None,
+                chart_markers=rep.chart_markers,
+                show_ids=rep.show_ids,
             )
         )
 
-    _begin("modelling_approach")
-    if _include("modelling_approach"):
-        out.extend(_render_modelling_approach(paths))
 
+def _section_modelling_approach(rep: _Report) -> None:
+    if rep.include("modelling_approach"):
+        rep.out.extend(_render_modelling_approach(rep.paths))
+
+
+def _section_methods(rep: _Report) -> None:
     # Methods and foundations — generated from the foundations registry so the
     # methods cited here match what the scoped Results section actually shows.
-    _begin("methods")
-    if _include("methods"):
+    if rep.include("methods"):
         from latris.operations.foundations import render_methods_section
 
-        out.extend(render_methods_section(paths, model_type=model_type))
+        rep.out.extend(render_methods_section(rep.paths, model_type=rep.model_type))
 
-    labels = {n.id: n.label for n in substrate.entities}
-    # Edges read as "A → B" wherever they're named (evidence, challenges).
-    for e in substrate.edges:
-        labels.setdefault(e.id, f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}")
 
+def _section_nodes(rep: _Report) -> None:
     # ---------- Nodes ----------
-    _begin("nodes")
-    if _include("nodes"):
-        out.append("## Nodes")
-        out.append("")
-        if not substrate.entities:
-            out.append("_No nodes yet._")
+    if rep.include("nodes"):
+        rep.out.append("## Nodes")
+        rep.out.append("")
+        if not rep.substrate.entities:
+            rep.out.append("_No nodes yet._")
         else:
             rows = []
-            for n in substrate.entities:
-                desc = descriptions.get((n.id, "description"))
+            for n in rep.substrate.entities:
+                desc = rep.descriptions.get((n.id, "description"))
                 rows.append(
-                    ([f"`{n.id}`"] if show_ids else [])
+                    ([f"`{n.id}`"] if rep.show_ids else [])
                     + [n.kind, _md_escape(n.label), _md_escape(desc.value) if desc else ""]
                 )
-            out.extend(_table((["ID"] if show_ids else []) + ["Kind", "Label", "Description"], rows))
-        out.append("")
+            rep.out.extend(_table((["ID"] if rep.show_ids else []) + ["Kind", "Label", "Description"], rows))
+        rep.out.append("")
 
+
+def _section_edges(rep: _Report) -> None:
     # ---------- Edges ----------
-    _begin("edges")
-    if _include("edges"):
-        out.append("## Edges")
-        out.append("")
-        if not substrate.edges:
-            out.append("_No edges yet._")
+    if rep.include("edges"):
+        rep.out.append("## Edges")
+        rep.out.append("")
+        if not rep.substrate.edges:
+            rep.out.append("_No edges yet._")
         else:
             # Split by edge kind so policy / governance / definitional edges
             # don't visually inflate the causal substrate. See
             # schema/substrate.py:27-34 — these kinds look like causal
             # arrows in prose but represent policy or identity links and
             # are excluded from loop / centrality analysis.
-            causal_edges = [e for e in substrate.edges if e.kind in _CAUSAL_EDGE_KINDS]
-            policy_edges = [e for e in substrate.edges if e.kind in _POLICY_EDGE_KINDS]
+            causal_edges = [e for e in rep.substrate.edges if e.kind in _CAUSAL_EDGE_KINDS]
+            policy_edges = [e for e in rep.substrate.edges if e.kind in _POLICY_EDGE_KINDS]
             other_edges = [
-                e for e in substrate.edges
+                e for e in rep.substrate.edges
                 if e.kind not in _CAUSAL_EDGE_KINDS and e.kind not in _POLICY_EDGE_KINDS
             ]
 
             def _emit_edge_table(edges_list) -> None:
                 rows = []
                 for e in edges_list:
-                    src = labels.get(e.from_id, e.from_id)
-                    dst = labels.get(e.to_id, e.to_id)
-                    pol = polarity.get((e.id, "polarity"))
+                    src = rep.labels.get(e.from_id, e.from_id)
+                    dst = rep.labels.get(e.to_id, e.to_id)
+                    pol = rep.polarity.get((e.id, "polarity"))
                     why = getattr(pol, "rationale", None) if pol else None
-                    conf = confidence.get((e.id, "confidence"))
-                    desc = descriptions.get((e.id, "description"))
+                    conf = rep.confidence.get((e.id, "confidence"))
+                    desc = rep.descriptions.get((e.id, "description"))
                     # Agents often set both to the same causal story; say it once.
                     desc_txt = desc.value if desc and desc.value.strip() != (why or "").strip() else ""
                     rows.append(
-                        ([f"`{e.id}`"] if show_ids else [])
+                        ([f"`{e.id}`"] if rep.show_ids else [])
                         + [
                             e.kind,
                             f"{_md_escape(src)} → {_md_escape(dst)}",
@@ -439,48 +538,50 @@ def render(
                         ]
                     )
                 headers = ["Kind", "From → To", "Polarity", "Why", "Confidence", "Description"]
-                out.extend(_table((["ID"] if show_ids else []) + headers, rows))
+                rep.out.extend(_table((["ID"] if rep.show_ids else []) + headers, rows))
 
             if causal_edges:
-                out.append("### Causal substrate")
-                out.append("")
+                rep.out.append("### Causal substrate")
+                rep.out.append("")
                 _emit_edge_table(causal_edges)
-                out.append("")
+                rep.out.append("")
             if policy_edges:
-                out.append("### Policy regime")
-                out.append("")
-                out.append(
+                rep.out.append("### Policy regime")
+                rep.out.append("")
+                rep.out.append(
                     "_Decision-rule, governance, and definitional edges. "
                     "These describe how the firm responds to outcomes or "
                     "how variables are identity-related; they are "
                     "**excluded from loop and centrality analysis** "
                     "because they are not feedback-bearing mechanisms._"
                 )
-                out.append("")
+                rep.out.append("")
                 _emit_edge_table(policy_edges)
-                out.append("")
+                rep.out.append("")
             if other_edges:
-                out.append("### Other")
-                out.append("")
+                rep.out.append("### Other")
+                rep.out.append("")
                 _emit_edge_table(other_edges)
-                out.append("")
+                rep.out.append("")
 
+
+def _section_contested(rep: _Report) -> None:
     # ---------- Evidence ----------
-    _begin("contested")
-    if _include("contested"):
-        out.extend(_render_contested(evidence, challenges, labels, references))
+    if rep.include("contested"):
+        rep.out.extend(_render_contested(rep.evidence, rep.challenges, rep.labels, rep.references))
 
-    _begin("evidence")
-    if _include("evidence"):
-        out.append("## Evidence")
-        out.append("")
-        if not evidence.entries:
-            out.append("_No evidence attached yet._")
+
+def _section_evidence(rep: _Report) -> None:
+    if rep.include("evidence"):
+        rep.out.append("## Evidence")
+        rep.out.append("")
+        if not rep.evidence.entries:
+            rep.out.append("_No evidence attached yet._")
         else:
             by_key: dict[str, list] = {}
-            for link in evidence.entries:
+            for link in rep.evidence.entries:
                 by_key.setdefault(link.bibkey, []).append(link)
-            ref_by_key = {r.bibkey: r for r in references}
+            ref_by_key = {r.bibkey: r for r in rep.references}
 
             def _tags(link) -> list[tuple[str, str]]:
                 # A source against a claim is marked "against" (below); its
@@ -498,25 +599,25 @@ def render(
             # The same audit tag on every line is noise: a tag every citation
             # shares is stated once, and lines keep only the ones that differ.
             values: dict[str, set[str]] = {}
-            for link in evidence.entries:
+            for link in rep.evidence.entries:
                 for k, v in _tags(link):
                     values.setdefault(k, set()).add(v)
             shared = {k: next(iter(v)) for k, v in values.items() if len(v) == 1}
             if shared:
                 common = " · ".join(_audit_text(k, v) for k, v in shared.items())
-                out.append(f"_Every citation below: {common}._")
-                out.append("")
+                rep.out.append(f"_Every citation below: {common}._")
+                rep.out.append("")
             for bibkey, links in sorted(by_key.items()):
                 ref = ref_by_key.get(bibkey)
                 cite = _short_citation(ref) if ref else ""
                 # Reader packs name the source, not its internal key.
-                if cite and not show_ids:
-                    out.append(f"### {cite}")
+                if cite and not rep.show_ids:
+                    rep.out.append(f"### {cite}")
                 else:
-                    out.append(f"### `{bibkey}` — {cite}" if cite else f"### `{bibkey}`")
-                out.append("")
+                    rep.out.append(f"### `{bibkey}` — {cite}" if cite else f"### `{bibkey}`")
+                rep.out.append("")
                 for link in links:
-                    target_label = labels.get(link.target_id, link.target_id)
+                    target_label = rep.labels.get(link.target_id, link.target_id)
                     # Phase 1 audit axes — replaces the old binary
                     # "human-verified / ai-verified" badge that conflated
                     # who proposed the link with whether the source
@@ -531,175 +632,186 @@ def render(
                     # entity or edge itself, not one of its sub-fields.
                     # Render without the "/ attribute" suffix in that case.
                     if link.attribute == "existence":
-                        out.append(f"- {target_label}{audit}{note}")
+                        rep.out.append(f"- {target_label}{audit}{note}")
                     else:
-                        out.append(f"- {target_label} / **{link.attribute}**{audit}{note}")
+                        rep.out.append(f"- {target_label} / **{link.attribute}**{audit}{note}")
                     if link.quote:
-                        out.append(f"  > {link.quote}")
-                out.append("")
+                        rep.out.append(f"  > {link.quote}")
+                rep.out.append("")
 
-    _begin("assumptions")
-    if _include("assumptions"):
-        out.append("## Assumptions")
-        out.append("")
-        if not assumptions:
-            out.append("_None._")
+
+def _section_assumptions(rep: _Report) -> None:
+    if rep.include("assumptions"):
+        rep.out.append("## Assumptions")
+        rep.out.append("")
+        if not rep.assumptions:
+            rep.out.append("_None._")
         else:
-            for a in assumptions:
+            for a in rep.assumptions:
                 rationale = f" — _{a.rationale}_" if a.rationale else ""
-                out.append(
+                rep.out.append(
                     f"- **{_md_escape(a.statement)}**{rationale}  "
                     f"_by {_actor_name(a.authored_by)}, "
                     f"{id_timestamp(a.id).date().isoformat()}_"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("decisions")
-    if _include("decisions"):
-        out.append("## Decisions")
-        out.append("")
-        if not decisions:
-            out.append("_None._")
+
+def _section_decisions(rep: _Report) -> None:
+    if rep.include("decisions"):
+        rep.out.append("## Decisions")
+        rep.out.append("")
+        if not rep.decisions:
+            rep.out.append("_None._")
         else:
-            for d in decisions:
-                out.append(
+            for d in rep.decisions:
+                rep.out.append(
                     f"- **{_md_escape(d.statement)}** — _{d.rationale}_  "
                     f"_by {_actor_name(d.authored_by)}, "
                     f"{id_timestamp(d.id).date().isoformat()}_"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("signoffs")
-    if _include("signoffs"):
-        out.append("## Sign-offs")
-        out.append("")
-        if not signoffs:
-            out.append("_None._")
+
+def _section_signoffs(rep: _Report) -> None:
+    if rep.include("signoffs"):
+        rep.out.append("## Sign-offs")
+        rep.out.append("")
+        if not rep.signoffs:
+            rep.out.append("_None._")
         else:
-            for s in signoffs:
+            for s in rep.signoffs:
                 notes = f" — _{s.notes}_" if s.notes else ""
-                out.append(
+                rep.out.append(
                     f"- **{s.role}** on _{_md_escape(s.scope)}_ — "
                     f"{_actor_name(s.reviewer)}, {s.signed_at.date().isoformat()}"
                     f"{notes}"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("sessions")
-    if _include("sessions"):
-        out.append("## Sessions")
-        out.append("")
-        if not sessions:
-            out.append("_None._")
+
+def _section_sessions(rep: _Report) -> None:
+    if rep.include("sessions"):
+        rep.out.append("## Sessions")
+        rep.out.append("")
+        if not rep.sessions:
+            rep.out.append("_None._")
         else:
-            for s in sessions:
+            for s in rep.sessions:
                 attendees = ", ".join(_actor_name(a) for a in s.attendees)
                 notes = f" — {s.notes}" if s.notes else ""
-                out.append(f"- **{s.held_at.isoformat()}** with {attendees}{notes}")
-        out.append("")
+                rep.out.append(f"- **{s.held_at.isoformat()}** with {attendees}{notes}")
+        rep.out.append("")
 
-    _begin("questions")
-    if _include("questions"):
-        out.append("## Open questions")
-        out.append("")
-        open_qs = [q for q in questions if q.disposition == "open"]
+
+def _section_questions(rep: _Report) -> None:
+    if rep.include("questions"):
+        rep.out.append("## Open questions")
+        rep.out.append("")
+        open_qs = [q for q in rep.questions if q.disposition == "open"]
         # Defensive filter: drop prompt-engineering meta-questions that
         # leaked from RaiseQuestions / SuggestCitations (a 4DWW capability
         # bug). These are tooling concerns, not project concerns, and
         # should never reach a partner-facing report.
         open_qs = [q for q in open_qs if not _is_meta_question(q.question)]
         if not open_qs:
-            out.append("_None._")
+            rep.out.append("_None._")
         else:
             for q in open_qs:
-                out.append(
+                rep.out.append(
                     f"- {_md_escape(q.question)} _(raised by "
                     f"{_actor_name(q.raised_by)}, "
                     f"{id_timestamp(q.id).date().isoformat()})_"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("exclusions")
-    if _include("exclusions"):
-        out.append("## Exclusions")
-        out.append("")
-        if not exclusions:
-            out.append("_None._")
+
+def _section_exclusions(rep: _Report) -> None:
+    if rep.include("exclusions"):
+        rep.out.append("## Exclusions")
+        rep.out.append("")
+        if not rep.exclusions:
+            rep.out.append("_None._")
         else:
-            for e in exclusions:
-                out.append(
+            for e in rep.exclusions:
+                rep.out.append(
                     f"- **{_md_escape(e.statement)}** — _{e.rationale}_  "
                     f"_by {_actor_name(e.authored_by)}, "
                     f"{id_timestamp(e.id).date().isoformat()}_"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("predictions")
-    if _include("predictions"):
-        out.append("## Predictions")
-        out.append("")
-        if not predictions:
-            out.append("_None._")
+
+def _section_predictions(rep: _Report) -> None:
+    if rep.include("predictions"):
+        rep.out.append("## Predictions")
+        rep.out.append("")
+        if not rep.predictions:
+            rep.out.append("_None._")
         else:
-            for p in predictions:
-                out.append(
+            for p in rep.predictions:
+                rep.out.append(
                     f"- **{_md_escape(p.statement)}** _(horizon: {p.horizon}; "
                     f"status: {p.resolution})_  "
                     f"_by {_actor_name(p.authored_by)}, "
                     f"{id_timestamp(p.id).date().isoformat()}_"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("challenges")
-    if _include("challenges"):
-        out.append("## Challenges")
-        out.append("")
-        if not challenges:
-            out.append("_None raised._")
+
+def _section_challenges(rep: _Report) -> None:
+    if rep.include("challenges"):
+        rep.out.append("## Challenges")
+        rep.out.append("")
+        if not rep.challenges:
+            rep.out.append("_None raised._")
         else:
-            open_cs = [c for c in challenges if c.state == "open"]
-            closed_cs = [c for c in challenges if c.state != "open"]
-            out.append("### Open")
-            out.append("")
+            open_cs = [c for c in rep.challenges if c.state == "open"]
+            closed_cs = [c for c in rep.challenges if c.state != "open"]
+            rep.out.append("### Open")
+            rep.out.append("")
             if not open_cs:
-                out.append("_None._")
+                rep.out.append("_None._")
             else:
                 for c in open_cs:
-                    target_label = labels.get(c.target_id, c.target_id)
+                    target_label = rep.labels.get(c.target_id, c.target_id)
                     attr = f"/{c.target_attribute}" if c.target_attribute else ""
-                    out.append(
+                    rep.out.append(
                         f"- **{target_label}{attr}**: {_md_escape(c.argument)}  "
                         f"_(opened by {_actor_name(c.opened_by)}, "
                         f"{id_timestamp(c.id).date().isoformat()})_"
                     )
-            out.append("")
-            out.append("### Resolved")
-            out.append("")
+            rep.out.append("")
+            rep.out.append("### Resolved")
+            rep.out.append("")
             if not closed_cs:
-                out.append("_None._")
+                rep.out.append("_None._")
             else:
                 for c in closed_cs:
-                    target_label = labels.get(c.target_id, c.target_id)
+                    target_label = rep.labels.get(c.target_id, c.target_id)
                     attr = f"/{c.target_attribute}" if c.target_attribute else ""
                     rationale = f" — _{c.resolution_rationale}_" if c.resolution_rationale else ""
-                    out.append(
+                    rep.out.append(
                         f"- **{target_label}{attr}** → `{c.state}`"
                         f"{rationale}  _({_md_escape(c.argument)}, "
                         f"{_actor_name(c.opened_by)}, "
                         f"{id_timestamp(c.id).date().isoformat()})_"
                     )
-            out.append("")
+            rep.out.append("")
 
-    _begin("references")
-    if _include("references"):
-        out.append("## References")
-        out.append("")
-        if not references:
-            out.append("_None._")
+
+def _section_references(rep: _Report) -> None:
+    if rep.include("references"):
+        rep.out.append("## References")
+        rep.out.append("")
+        if not rep.references:
+            rep.out.append("_None._")
         else:
             # Reader packs list sources by author and year, without keys.
-            order = (lambda r: r.bibkey) if show_ids else (lambda r: ((r.authors or [r.title])[0].lower(), r.year or 0))
-            for r in sorted(references, key=order):
+            order = (lambda r: r.bibkey) if rep.show_ids else (
+                lambda r: ((r.authors or [r.title])[0].lower(), r.year or 0)
+            )
+            for r in sorted(rep.references, key=order):
                 # "Surname, Given" names already hold commas; separate them
                 # with semicolons so the list stays readable.
                 sep = "; " if any("," in a for a in r.authors or []) else ", "
@@ -707,185 +819,211 @@ def render(
                 year = f"({r.year})" if r.year else ""
                 # Names ending in an initial ("L.") already close with a stop.
                 bits = [x.rstrip(".") for x in [authors, year, f"*{r.title}*"] if x]
-                line = f"- **`{r.bibkey}`** — {'. '.join(bits)}." if show_ids else f"- {'. '.join(bits)}."
+                line = f"- **`{r.bibkey}`** — {'. '.join(bits)}." if rep.show_ids else f"- {'. '.join(bits)}."
                 if r.doi:
                     line += f" DOI: {r.doi}"
                 if r.url:
                     line += f" · <{r.url}>"
-                via = next((v for v in references if v.bibkey == r.cited_via), None) if r.cited_via else None
+                via = next((v for v in rep.references if v.bibkey == r.cited_via), None) if r.cited_via else None
                 if via is not None:
                     line += f" _Read as cited in {_short_citation(via)}, not first-hand._"
-                out.append(line)
-        out.append("")
+                rep.out.append(line)
+        rep.out.append("")
 
-    _begin("elicitations")
-    if _include("elicitations"):
-        out.append("## Elicitation Sessions")
-        out.append("")
-        if not elicit_sessions:
-            out.append("_None._")
+
+def _section_elicitations(rep: _Report) -> None:
+    if rep.include("elicitations"):
+        rep.out.append("## Elicitation Sessions")
+        rep.out.append("")
+        if not rep.elicit_sessions:
+            rep.out.append("_None._")
         else:
-            for s in elicit_sessions:
+            for s in rep.elicit_sessions:
                 experts = ", ".join(e.name for e in s.experts) if s.experts else "none listed"
                 targets = (
-                    ", ".join(f"{labels.get(t.target_id, t.target_id)}/{t.attribute}" for t in s.target_attributes)
+                    ", ".join(f"{rep.labels.get(t.target_id, t.target_id)}/{t.attribute}" for t in s.target_attributes)
                     if s.target_attributes
                     else "none"
                 )
                 notes = f" — _{s.notes}_" if s.notes else ""
-                out.append(
+                rep.out.append(
                     f"- **{s.held_at.isoformat()}** — {s.protocol.name} "
                     f"(facilitated by {s.facilitator.name}; "
                     f"experts: {experts}; targets: {targets}; "
                     f"phase: {s.phase}){notes}"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("datasets")
-    if _include("datasets"):
-        out.append("## Datasets")
-        out.append("")
-        if not datasets:
-            out.append("_None registered._")
+
+def _section_datasets(rep: _Report) -> None:
+    if rep.include("datasets"):
+        rep.out.append("## Datasets")
+        rep.out.append("")
+        if not rep.datasets:
+            rep.out.append("_None registered._")
         else:
-            out.append("| Name | Source | Rows | Columns | Description |")
-            out.append("|------|--------|------|---------|-------------|")
-            for d in datasets:
+            rep.out.append("| Name | Source | Rows | Columns | Description |")
+            rep.out.append("|------|--------|------|---------|-------------|")
+            for d in rep.datasets:
                 cols = len(d.columns) if d.columns else "?"
                 rows = d.rows if d.rows is not None else "?"
-                out.append(
+                rep.out.append(
                     f"| {_md_escape(d.name)} | {d.source_type} | {rows} | {cols} | {_md_escape(d.description)} |"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("data_actions")
-    if _include("data_actions"):
-        out.append("## Data Actions")
-        out.append("")
+
+def _section_data_actions(rep: _Report) -> None:
+    if rep.include("data_actions"):
+        rep.out.append("## Data Actions")
+        rep.out.append("")
         # Collect actions from per-dataset log files.
         all_actions = []
-        for d in datasets:
-            log_path = paths.data_action_log(d.id)
+        for d in rep.datasets:
+            log_path = rep.paths.data_action_log(d.id)
             if log_path.exists():
                 log = load_model(DataActionLog, log_path)
                 for a in log.entries:
                     all_actions.append((d.name, a))
         if not all_actions:
-            out.append("_No data actions recorded._")
+            rep.out.append("_No data actions recorded._")
         else:
-            out.append("| Dataset | Action | Summary | Date |")
-            out.append("|---------|--------|---------|------|")
+            rep.out.append("| Dataset | Action | Summary | Date |")
+            rep.out.append("|---------|--------|---------|------|")
             for dname, a in all_actions:
-                out.append(
+                rep.out.append(
                     f"| {_md_escape(dname)} | {a.kind} | "
                     f"{_md_escape(a.summary)} | "
                     f"{id_timestamp(a.id).date().isoformat()} |"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("analyses")
-    if _include("analyses"):
-        out.append("## Analysis Runs")
-        out.append("")
-        if not analysis_runs:
-            out.append("_None._")
+
+def _section_analyses(rep: _Report) -> None:
+    if rep.include("analyses"):
+        rep.out.append("## Analysis Runs")
+        rep.out.append("")
+        if not rep.analysis_runs:
+            rep.out.append("_None._")
         else:
-            out.append("| Purpose | Algorithm | Run by | Date | Summary |")
-            out.append("|---------|-----------|--------|------|---------|")
-            for r in analysis_runs:
-                out.append(
+            rep.out.append("| Purpose | Algorithm | Run by | Date | Summary |")
+            rep.out.append("|---------|-----------|--------|------|---------|")
+            for r in rep.analysis_runs:
+                rep.out.append(
                     f"| {r.purpose} | {_md_escape(r.algorithm)} | "
                     f"{_actor_name(r.run_by)} | "
                     f"{id_timestamp(r.id).date().isoformat()} | "
                     f"{_md_escape(r.output_summary)} |"
                 )
-        out.append("")
+        rep.out.append("")
 
-    _begin("findings")
-    if _include("findings"):
+
+def _section_findings(rep: _Report) -> None:
+    if rep.include("findings"):
         # Client/publication packs only show approved findings.
         visible_maturities = {"proposed", "reviewed", "approved"}
-        if pack == "client" or pack == "publication":
+        if rep.pack == "client" or rep.pack == "publication":
             visible_maturities = {"approved"}
 
-        visible = [f for f in all_findings if f.maturity in visible_maturities]
+        visible = [f for f in rep.all_findings if f.maturity in visible_maturities]
 
-        out.append("## Findings")
-        out.append("")
-        waiting = sum(1 for f in all_findings if f.maturity in {"proposed", "reviewed"} and f not in visible)
+        rep.out.append("## Findings")
+        rep.out.append("")
+        waiting = sum(1 for f in rep.all_findings if f.maturity in {"proposed", "reviewed"} and f not in visible)
         if not visible and waiting:
-            out.append(
+            rep.out.append(
                 f"_{waiting} draft finding{'s are' if waiting != 1 else ' is'} not shown here "
                 f"until a person approves {'them' if waiting != 1 else 'it'}._"
             )
         elif not visible:
-            out.append("_No findings recorded._")
+            rep.out.append("_No findings recorded._")
         else:
             for cat in FINDING_CATEGORIES:
                 cat_findings = [f for f in visible if f.category == cat]
                 if not cat_findings:
                     continue
-                out.append(f"### {cat.title()}")
-                out.append("")
+                rep.out.append(f"### {cat.title()}")
+                rep.out.append("")
                 for f in cat_findings:
                     draft_marker = " _(proposed)_" if f.maturity == "proposed" else ""
                     date_str = id_timestamp(f.id).date().isoformat()
-                    out.append(
+                    rep.out.append(
                         f"- **{_md_escape(f.statement)}**{draft_marker}  _({f.model_type}, {f.maturity}, {date_str})_"
                     )
                     if f.detail:
                         for line in f.detail.splitlines():
-                            out.append(f"  {_md_escape(line)}")
-                out.append("")
-        out.append("")
+                            rep.out.append(f"  {_md_escape(line)}")
+                rep.out.append("")
+        rep.out.append("")
 
-    _begin("interpretation")
-    if _include("interpretation"):
-        reader = pack in _READER_PACKS
-        lines = _render_interpretation(paths, model_type=model_type, answer_first=reader)
+
+def _section_interpretation(rep: _Report) -> None:
+    if rep.include("interpretation"):
+        reader = rep.pack in _READER_PACKS
+        lines = _render_interpretation(rep.paths, model_type=rep.model_type, answer_first=reader)
         if reader and _INTERPRETATION_REST in lines:
             # Reader packs: the answer stands alone as its own section, and
             # the rest of the interpretation follows the diagram.
             cut = lines.index(_INTERPRETATION_REST)
-            out.extend(lines[:cut])
-            _begin("interpretation_rest")
-            out.extend(lines[cut + 1 :])
+            rep.out.extend(lines[:cut])
+            rep.begin("interpretation_rest")
+            rep.out.extend(lines[cut + 1 :])
         else:
-            out.extend(line for line in lines if line != _INTERPRETATION_REST)
+            rep.out.extend(line for line in lines if line != _INTERPRETATION_REST)
 
-    _begin("milestones")
-    if _include("milestones"):
-        out.append("## Milestones")
-        out.append("")
-        if not milestones:
-            out.append("_None._")
+
+def _section_milestones(rep: _Report) -> None:
+    if rep.include("milestones"):
+        rep.out.append("## Milestones")
+        rep.out.append("")
+        if not rep.milestones:
+            rep.out.append("_None._")
         else:
             milestone_dates = git_repo.commit_timestamp_many(
-                [m.commit_sha for m in milestones], paths.root
+                [m.commit_sha for m in rep.milestones], rep.paths.root
             )
-            for m in milestones:
+            for m in rep.milestones:
                 notes = f" — _{m.notes}_" if m.notes else ""
                 date = milestone_dates.get(m.commit_sha)
                 date_str = date.date().isoformat() if date else "—"
-                out.append(
+                rep.out.append(
                     f"- **{_md_escape(m.name)}** ({m.maturity}) — "
                     f"by {_actor_name(m.created_by)}, "
                     f"{date_str}{notes}"
                 )
-        out.append("")
+        rep.out.append("")
 
-    out = _in_pack_order(out, starts, pack=pack, sections=sections)
 
-    # ---------- Footer badge ----------
-    out.append("---")
-    out.append("")
-    if report_url:
-        out.append(f"View this report online: {report_url}")
-        out.append("")
-    out.append(f"*{_BADGE_TEXT} — {_BADGE_URL}*")
-    out.append("")
 
-    return "\n".join(out)
+_SECTIONS: tuple[tuple[str, Callable[[_Report], None]], ...] = (
+    ("foundation", _section_foundation),
+    ("structure", _section_structure),
+    ("history", _section_history),
+    ("diagram", _section_diagram),
+    ("results", _section_results),
+    ("modelling_approach", _section_modelling_approach),
+    ("methods", _section_methods),
+    ("nodes", _section_nodes),
+    ("edges", _section_edges),
+    ("contested", _section_contested),
+    ("evidence", _section_evidence),
+    ("assumptions", _section_assumptions),
+    ("decisions", _section_decisions),
+    ("signoffs", _section_signoffs),
+    ("sessions", _section_sessions),
+    ("questions", _section_questions),
+    ("exclusions", _section_exclusions),
+    ("predictions", _section_predictions),
+    ("challenges", _section_challenges),
+    ("references", _section_references),
+    ("elicitations", _section_elicitations),
+    ("datasets", _section_datasets),
+    ("data_actions", _section_data_actions),
+    ("analyses", _section_analyses),
+    ("findings", _section_findings),
+    ("interpretation", _section_interpretation),
+    ("milestones", _section_milestones),
+)
 
 
 def _render_contested(evidence, challenges, labels: dict[str, str], references) -> list[str]:

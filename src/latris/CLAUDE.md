@@ -4,8 +4,12 @@
 
 `schema/` → `repo/` → `operations/` → `cli/` (strict dependency
 direction — never import upward). `ai/` and `diff/` sit beside
-operations. `exporters/` depends on schema + repo. `server/` is at
-the same layer as `cli/` (both consume `operations/`).
+operations. `exporters/` reads schema, repo and operations (read-only,
+imported lazily inside functions; an exporter never mutates).
+`exporters/md.py` is a leaf of pure Markdown helpers: the formalism
+plugins in `operations/formalisms/` render their report sections with
+it, never with an exporter's private helpers. `server/` is at the same
+layer as `cli/` (both consume `operations/`).
 
 ## Five chokepoints
 
