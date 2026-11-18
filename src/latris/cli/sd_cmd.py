@@ -112,12 +112,10 @@ def set_equation(
     stock's units per time unit.
     """
     from latris.operations import sd as sd_ops
-    from latris.operations._sd_eval import parse, slugify
 
     entry, sha = sd_ops.set_equation(target, expression, units, origin=origin, source_id=source)
     if json_mode():
-        by_name = {slugify(label): label for label in _labels().values()}
-        reads = {n: by_name.get(n, n) for n in sorted(parse(entry.expression).names)}
+        reads = sd_ops.equation_reads(entry.expression)
         emit({**entry.model_dump(mode="json"), "reads": reads}, human=lambda: None, commit_sha=sha)
         return
     console.print(

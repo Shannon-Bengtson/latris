@@ -115,6 +115,7 @@ def build(
             + (f", {len(result.analyses)} analyses run" if result.analyses else "")
             + (f", {len(result.carried)} result(s) carried as the sender's" if result.carried else "")
             + f" · commit [cyan]{result.commit_sha[:10]}[/cyan]"
+            + "".join(f"\n{escape(n)}" for n in result.info)
             + "".join(f"\n[yellow]note:[/yellow] {escape(n)}" for n in result.notes)
         ),
     )

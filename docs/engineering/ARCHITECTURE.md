@@ -288,6 +288,7 @@ declares a `Formalism` with the hooks the shared code calls:
 | `ResultKind.tool` (`ChatTool`: name, description) | the chat tool latris-app generates for the analysis (options: its `SpecAnalysis` model, documented in `ANALYSIS_OPTION_DOCS`) |
 | `ResultKind.charts` + `chart_kinds` (every kind it may emit), `needs_dataset` | the report's `latris-chart` markers; the surface manifest (`latris capabilities --surface`) that apps built on latris read |
 | `spec_field`, `spec_check`, `spec_apply`, `spec_export` | `build --spec` and share links |
+| `spec_info` | what applying the values tells the author (`build`'s `info`, e.g. which factors an SD equation reads), shown in chat after the operation |
 | `mermaid` (full diagram) or `mermaid_groups` (columns) | the report's diagram |
 | `cli` (module, command), `routes` (module) | `cli/app.py`, `server/app.py` |
 

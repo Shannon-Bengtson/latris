@@ -287,6 +287,17 @@ def set_table(
     return entry, sha
 
 
+def equation_reads(expression: str, *, root: Path | None = None) -> dict[str, str]:
+    """The names an equation reads, each with the factor it resolves to ({"drain_rate": "Drain Rate"});
+    a name no factor has maps to itself, so a typo shows."""
+    from latris.operations._sd_eval import parse, slugify
+
+    paths = require_project(root)
+    labels = [e.label for e in load_model(Substrate, paths.conceptual_yaml).entities]
+    by_name = {slugify(label): label for label in labels}
+    return {n: by_name.get(n, n) for n in sorted(parse(expression).names)}
+
+
 # ── reads ────────────────────────────────────────────────────────────
 
 

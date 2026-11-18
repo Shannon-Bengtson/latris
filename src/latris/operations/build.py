@@ -43,6 +43,7 @@ class BuildResult:
     carried: list[str] = field(default_factory=list)  # run ids of results carried as the sender's
     outcome: str | None = None
     notes: list[str] = field(default_factory=list)  # parts that couldn't be applied, and why
+    info: list[str] = field(default_factory=list)  # what applying the values tells you (formalisms' spec_info)
     missing_extras: bool = False  # an analysis couldn't run because an optional part isn't installed
     commit_sha: str = ""
 
@@ -276,6 +277,8 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             block = getattr(spec, f.spec_field) if f.spec_field else None
             if block is not None:
                 result.parameters += f.spec_apply(block, verified_by, paths.root)
+                if f.spec_info:
+                    result.info += f.spec_info(block, paths.root)
         if spec.outcome and not plugin:
             set_role(spec.outcome, model_type, "outcome", root=paths.root)
             result.outcome = spec.outcome

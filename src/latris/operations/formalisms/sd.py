@@ -367,6 +367,14 @@ def _check(block: Any, known: Any, outcome: str | None) -> list[str]:
     return [f"{where}: no factor named {n!r}" for where, n in names if not known(n)]
 
 
+def _info(block: Any, root: Path) -> list[str]:
+    """Which factor each equation's names resolve to, so a misspelt name shows at once."""
+    from latris.operations import sd as sd_ops
+
+    return [f"{e.node} reads: " + (", ".join(f"{k} = {v}" for k, v in reads.items()) or "nothing")
+            for e in block.equations for reads in [sd_ops.equation_reads(e.expression, root=root)]]
+
+
 def _apply(block: Any, verified_by: str, root: Path) -> int:
     return _apply_values(block, default_origin(verified_by), root)
 
@@ -614,6 +622,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    spec_info=_info,
     chat_ops=_CHAT_OPS,
     cli=("latris.cli.sd_cmd", "sd"),
     routes="latris.server.routes.sd",

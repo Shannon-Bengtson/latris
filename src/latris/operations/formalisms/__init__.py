@@ -134,6 +134,9 @@ class Formalism:
     spec_check: Callable[[Any, Callable[[str], bool], str | None], list[str]] | None = None  # (block, known, outcome)
     spec_apply: Callable[[Any, str, Path], int] | None = None  # (block, verified_by, root) → values set
     spec_export: Callable[[Any, dict[str, str]], Any] | None = None  # (paths, labels) → block or None
+    # (block, root) → what applying it tells the author, e.g. which factors each SD equation reads; returned
+    # by ``build`` as ``info`` (not ``notes``, which say what failed).
+    spec_info: Callable[[Any, Path], list[str]] | None = None
     # How chat writes the block: an operation per part of it (every block field covered by one).
     chat_ops: tuple[ChatOp, ...] = ()
 
