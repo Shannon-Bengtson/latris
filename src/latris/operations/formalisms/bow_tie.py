@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
     ChatTool,
     Formalism,
     ResultKind,
@@ -253,6 +254,20 @@ _TOOLS = {
         'frequencies and barrier failure probabilities. Recorded with a chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_bowtie_element', ('elements',),
+        'Make a factor the hazard, the top event, a threat, a consequence, a barrier or an escalation '
+        'factor.'),
+    ChatOp('set_bowtie_barrier', ('barriers',),
+        "A barrier's type, status, owner and probability of failure on demand, and its source."),
+    ChatOp('set_bowtie_frequency', ('frequencies',),
+        "A threat's frequency per year, with its source."),
+    ChatOp('set_bowtie_uncertainty', ('uncertainty',),
+        'An uncertainty on a frequency or failure probability; monte_carlo_bow_tie samples it.'),
+)
+
 register(Formalism(
     model_type="bow_tie",
     outcome_role="top_event",
@@ -285,6 +300,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.bowtie_cmd", "bowtie"),
     routes="latris.server.routes.bowtie",

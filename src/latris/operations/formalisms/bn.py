@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register
+from latris.operations.formalisms import ChatOp, ChatTool, Formalism, ResultKind, default_origin, register
 
 _REVIEWED = "human-verified"
 
@@ -721,6 +721,28 @@ _TOOLS = {
         'a tornado chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_states', ('states',),
+        "Give a factor its discrete states (e.g. ['low', 'high']); ordered when they have a natural "
+        'order. It joins the Bayesian network.'),
+    ChatOp('set_probability_table', ('tables',),
+        "A factor's conditional probability table: probabilities run one block per combination of "
+        'parent states (first parent slowest), in state order, each block summing to 1.'),
+    ChatOp('set_noisy_or', ('noisy_or',),
+        'A Noisy-OR table for an effect with independent binary causes: one probability per cause '
+        '(the chance it alone produces the active state) plus a leak, instead of a full table.'),
+    ChatOp('set_table_uncertainty', ('uncertainty',),
+        'How well a probability table (or one row) is known, as worth about n observations; '
+        'monte_carlo_bn and compare_bn_options sample it.'),
+    ChatOp('set_bn_scenario', ('scenarios',),
+        'A named what-if over the network that never changes its tables: observe (factor → state), '
+        'soft or likelihood evidence, set (interventions), and table overrides '
+        "('Factor[Parent=state]=p1,p2'); extends builds on another scenario. Use it with "
+        'query_bn(scenario), monte_carlo_bn(scenario) and compare_bn_options.'),
+)
+
 register(Formalism(
     model_type="bn",
     outcome_role=None,
@@ -766,6 +788,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.bn_cmd", "bn"),
     routes="latris.server.routes.bn",

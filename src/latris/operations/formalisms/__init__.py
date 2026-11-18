@@ -44,6 +44,18 @@ class ChatTool:
 
 
 @dataclass(frozen=True)
+class ChatOp:
+    """How a chat assistant writes part of a formalism's build-spec block: one operation, which latris-app
+    generates from the surface manifest. ``fields`` names block fields: one field holding a list of entries
+    gives an operation that adds or updates one entry (its fields are the entry's); anything else gives an
+    operation that sets those fields' values. It is applied as a partial ``build --spec``."""
+
+    name: str  # e.g. "set_mcda_score"
+    fields: tuple[str, ...]
+    description: str
+
+
+@dataclass(frozen=True)
 class ResultKind:
     """A recorded analysis a formalism produces, and how reports and links handle it."""
 
@@ -122,6 +134,8 @@ class Formalism:
     spec_check: Callable[[Any, Callable[[str], bool], str | None], list[str]] | None = None  # (block, known, outcome)
     spec_apply: Callable[[Any, str, Path], int] | None = None  # (block, verified_by, root) → values set
     spec_export: Callable[[Any, dict[str, str]], Any] | None = None  # (paths, labels) → block or None
+    # How chat writes the block: an operation per part of it (every block field covered by one).
+    chat_ops: tuple[ChatOp, ...] = ()
 
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""

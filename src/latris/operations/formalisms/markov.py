@@ -5,7 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
+    Formalism,
+    ResultKind,
+    default_origin,
+    register,
+    spec_verification,
+)
 
 
 def _units(p: dict[str, Any]) -> tuple[str | None, str]:
@@ -229,6 +237,22 @@ _TOOLS = {
         'willingness to pay). Recorded with charts.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_markov_settings', ('settings',),
+        'Cycles, cycle length, discount rates, half-cycle correction, willingness to pay, and cost '
+        'and outcome units.'),
+    ChatOp('set_markov_element', ('elements',),
+        'Make a factor a health state (or other state) or a strategy.'),
+    ChatOp('set_markov_transition', ('transitions',),
+        "The probability per cycle of moving 'From -> To' (optionally for one strategy)."),
+    ChatOp('set_markov_reward', ('rewards',),
+        "A state's cost and utility per cycle (optionally for one strategy)."),
+    ChatOp('set_markov_start', ('start',),
+        'The share of the cohort starting in a state.'),
+)
+
 register(Formalism(
     model_type="markov",
     outcome_role=None,
@@ -252,6 +276,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.markov_cmd", "markov"),
     routes="latris.server.routes.markov",

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
     ChatTool,
     Formalism,
     ResultKind,
@@ -316,6 +317,20 @@ _TOOLS = {
         'confidence. Recorded with a chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_toc_level', ('levels',),
+        'Place a factor on the results chain: input, activity, output, short_term_outcome, '
+        'long_term_outcome or impact.'),
+    ChatOp('set_toc_prior', ('priors',),
+        'Process tracing: the prior confidence that a link holds, before the evidence tests.'),
+    ChatOp('set_toc_test', ('tests',),
+        'Process tracing: an evidence test on a link: how likely the evidence is if the link holds '
+        "(p_if_true) and if it doesn't (p_if_false), which makes it a hoop, smoking-gun, "
+        'doubly-decisive or straw-in-the-wind test, and whether it was found.'),
+)
+
 register(Formalism(
     model_type="theory_of_change",
     outcome_role="impact",
@@ -347,6 +362,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid_groups=_groups,
     cli=("latris.cli.toc_cmd", "toc"),
     routes="latris.server.routes.toc",

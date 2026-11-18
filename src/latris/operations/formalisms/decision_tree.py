@@ -5,7 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
+    Formalism,
+    ResultKind,
+    default_origin,
+    register,
+    spec_verification,
+)
 
 
 def _threshold_lines(p: dict[str, Any]) -> list[str]:
@@ -222,6 +230,23 @@ _TOOLS = {
         'Recorded with a chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_dt_settings', ('objective', 'units'),
+        'Whether the tree maximises or minimises, and the units of its payoffs.'),
+    ChatOp('set_dt_element', ('elements',),
+        'Make a factor a decision, chance or terminal node.'),
+    ChatOp('set_dt_branch', ('branches',),
+        "A branch from a node to its child ('Parent -> Child'): its label, and its probability under "
+        'a chance node or value.'),
+    ChatOp('set_dt_payoff', ('payoffs',),
+        "A terminal node's payoff."),
+    ChatOp('set_dt_uncertainty', ('uncertainties',),
+        'Name the uncertainty a chance node resolves; chance nodes with the same name are the same '
+        'uncertainty under different choices (for the value of information).'),
+)
+
 register(Formalism(
     model_type="decision_tree",
     outcome_role=None,
@@ -247,6 +272,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.dt_cmd", "dt"),
     routes="latris.server.routes.dt",

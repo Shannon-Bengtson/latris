@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
     ChatTool,
     Formalism,
     ResultKind,
@@ -247,6 +248,21 @@ _TOOLS = {
         'values nobody has verified. Recorded with a chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_ft_event', ('events',),
+        'Make a factor a top, intermediate, basic or undeveloped event (link inputs to the event they '
+        "feed with kind 'logical')."),
+    ChatOp('set_ft_gate', ('gates',),
+        "The gate combining an event's inputs: and, or, or vote (k out of n)."),
+    ChatOp('set_ft_probability', ('probabilities',),
+        "A basic event's probability, with its source."),
+    ChatOp('set_ft_uncertainty', ('uncertainty',),
+        'An uncertainty on a probability: a distribution and its parameters, with the reason; '
+        'monte_carlo_fault_tree samples it.'),
+)
+
 register(Formalism(
     model_type="fault_tree",
     outcome_role="top_event",
@@ -276,6 +292,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.ft_cmd", "ft"),
     routes="latris.server.routes.ft",

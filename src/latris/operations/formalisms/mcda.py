@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
     ChatTool,
     Formalism,
     ResultKind,
@@ -230,6 +231,18 @@ _TOOLS = {
         'the top choice changes, flagging unverified scores the margin rests on. Recorded with charts.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_mcda_element', ('elements',),
+        'Make a factor an option or a criterion of the decision.'),
+    ChatOp('set_mcda_criterion', ('criteria',),
+        "A criterion's weight (any positive number; weights are normalised), its direction (higher or "
+        'lower is better), its worst and best values and units, and the source of the weight.'),
+    ChatOp('set_mcda_score', ('scores',),
+        "One option's score on one criterion, with its source."),
+)
+
 register(Formalism(
     model_type="mcda",
     outcome_role=None,
@@ -254,6 +267,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.mcda_cmd", "mcda"),
     routes="latris.server.routes.mcda",

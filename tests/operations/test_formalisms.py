@@ -155,3 +155,22 @@ def test_every_result_kind_declares_its_chat_tool():
     assert len(names) == len(set(names))
     assert all(re.fullmatch(r"[a-z][a-z0-9_]{2,40}", n) for n in names)
     assert all(len(r.tool.description) > 40 for r in kinds)
+
+
+@pytest.mark.parametrize("f", PLUGINS, ids=IDS)
+def test_chat_ops_cover_the_block(f):
+    """Chat writes every part of the block, each through exactly one declared operation."""
+    import typing
+
+    from latris.schema.build_spec import BuildSpec
+
+    annotation = BuildSpec.model_fields[f.spec_field].annotation
+    block = next(a for a in typing.get_args(annotation) if a is not type(None))
+    covered = [field for op in f.chat_ops for field in op.fields]
+    assert sorted(covered) == sorted(block.model_fields), "declare a ChatOp for each block field, once"
+    assert all(len(op.description) > 20 for op in f.chat_ops)
+
+
+def test_chat_op_names_are_unique():
+    names = [op.name for f in PLUGINS for op in f.chat_ops]
+    assert len(names) == len(set(names))

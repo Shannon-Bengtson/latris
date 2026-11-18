@@ -5,7 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
+    Formalism,
+    ResultKind,
+    default_origin,
+    register,
+    spec_verification,
+)
 
 _SOURCE_WORDS = {"checked": "its source checked", "cited": "a source not yet checked", "none": "no source",
                  "contested": "a source against it"}
@@ -175,6 +183,18 @@ _TOOLS = {
         'linchpins the conclusion turns on. Recorded with a chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_ach_element', ('elements',),
+        'Make a factor a hypothesis or an evidence item.'),
+    ChatOp('set_ach_item', ('items',),
+        "An evidence item's credibility and relevance, and its source."),
+    ChatOp('set_ach_rating', ('ratings',),
+        'How consistent one evidence item is with one hypothesis: CC (very consistent), C, N '
+        '(neutral), I or II (very inconsistent), with the rationale.'),
+)
+
 register(Formalism(
     model_type="ach",
     outcome_role=None,
@@ -201,6 +221,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.ach_cmd", "ach"),
     routes="latris.server.routes.ach",

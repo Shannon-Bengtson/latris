@@ -282,6 +282,8 @@ def build_surface_manifest() -> dict[str, Any]:
             "spec_field": field,
             "spec_schema": _spec_schema(field),
             "cli": f.cli[1] if f and f.cli else None,
+            "chat_ops": [{"name": o.name, "fields": list(o.fields), "description": o.description}
+                         for o in (f.chat_ops if f else ())],
             "results": results.get(spec.id, []),
         })
     return {"manifest_version": SURFACE_MANIFEST_VERSION, "latris_version": __version__, "model_types": types}

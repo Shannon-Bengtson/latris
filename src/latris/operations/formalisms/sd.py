@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import ChatTool, Formalism, ResultKind, default_origin, register
+from latris.operations.formalisms import ChatOp, ChatTool, Formalism, ResultKind, default_origin, register
 
 _MAX_ROWS = 8  # rows a result table shows before folding the rest (as exporters.results)
 
@@ -529,6 +529,35 @@ _TOOLS = {
         'Recorded: the report shows it with a chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_sd_settings', ('settings',),
+        'The simulation clock: initial_time, final_time, dt, saveper, method (euler | rk2 | rk4 | '
+        "adaptive), time_units (e.g. 'month')."),
+    ChatOp('set_sd_role', ('roles',),
+        'Classify a factor for the simulation: stock, flow, auxiliary, constant or source_sink. It '
+        'joins the simulation; the rest of the map stays a loop map.'),
+    ChatOp('set_initial_value', ('stocks',),
+        "A stock's initial value, with its units (pint, e.g. 'tonne'); non_negative keeps it at or "
+        'above zero.'),
+    ChatOp('set_constant', ('constants',),
+        "A constant's value with its units."),
+    ChatOp('set_equation', ('equations',),
+        "A flow's or auxiliary's equation over the factors it reads (by label, spaces as underscores, "
+        "e.g. 'water * drain_rate'), with its units; checked for units."),
+    ChatOp('set_table', ('tables',),
+        'A lookup table: (x, y) points with x and y units; extrapolate beyond the ends or hold the '
+        'end values.'),
+    ChatOp('set_uncertainty', ('uncertainty',),
+        'An uncertainty range on a constant or initial value (triangular, uniform, normal, lognormal, '
+        '…) with the reason; monte_carlo_sd, compare_sd_options and sd_sensitivity sample it.'),
+    ChatOp('set_scenario', ('scenarios',),
+        "A saved what-if (an option): set lists 'Factor=value [units]'; extends builds on another "
+        'scenario (a delayed or scaled-down version of an option extends it, and compare_sd_options '
+        'then measures it against it).'),
+)
+
 register(Formalism(
     model_type="sd",
     # SD roles are one per factor (stock, flow, ...), so the outcome is kept with the SD settings.
@@ -567,6 +596,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     cli=("latris.cli.sd_cmd", "sd"),
     routes="latris.server.routes.sd",
 ))

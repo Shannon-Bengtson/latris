@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
     ChatTool,
     Formalism,
     ResultKind,
@@ -248,6 +249,24 @@ _TOOLS = {
         'state with sequence and end-state probabilities and frequencies. Recorded with a chart.'),
 }
 
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_et_element', ('elements',),
+        'Make a factor the initiating event, a heading (a yes/no question in sequence) or an end '
+        'state.'),
+    ChatOp('set_et_order', ('order',),
+        'The headings in the order they are asked.'),
+    ChatOp('set_et_sequence', ('sequences',),
+        'One path of answers to the headings and the end state it leads to.'),
+    ChatOp('set_et_probability', ('probabilities',),
+        "A heading's probability (optionally given earlier answers), with its source."),
+    ChatOp('set_et_frequency', ('frequency',),
+        "The initiating event's frequency per year, with its source."),
+    ChatOp('set_et_uncertainty', ('uncertainty',),
+        'An uncertainty on a probability or the frequency; monte_carlo_event_tree samples it.'),
+)
+
 register(Formalism(
     model_type="event_tree",
     outcome_role=None,
@@ -278,6 +297,7 @@ register(Formalism(
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=lambda paths, entities, edges: _mermaid(paths),
     cli=("latris.cli.et_cmd", "et"),
     routes="latris.server.routes.et",
