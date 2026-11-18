@@ -285,6 +285,8 @@ def _charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any
         return [("series", {"vars": [v]}) for v in stocks]
     if kind == "sd-monte-carlo":
         return [("bands", {"vars": [v]}) for v in payload["variables"][:4]]
+    if kind == "sd-options":
+        return [("options-diff", {})] if len(payload.get("options") or []) > 1 else []
     if kind == "sd-sensitivity":
         return [("tornado", {})]
     if kind == "sd-loops":

@@ -267,7 +267,8 @@ register(Formalism(
     sensitivity_fallback=("Give every threat a frequency and every barrier a failure probability to rank the "
                           "barriers by how much they buy."),
     results=(ResultKind(kind="bt-analysis", title="Bow-tie: lines, barriers and frequencies", render=_render,
-                        analysis="bowtie_analyse", run=_run, definition=_definition),
+                        analysis="bowtie_analyse", run=_run, definition=_definition,
+                        charts=lambda p: [("bt-lines", {})] if p.get("lines") else [], chart_kinds=("bt-lines",)),
              _risk_mc.result_kind("bow_tie")),
     spec_field="bowtie",
     spec_check=_check,

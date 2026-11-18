@@ -249,6 +249,10 @@ def _render_trace(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _charts_pathways(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("toc-evidence", {})] if any(x.get("on_pathway") for x in p.get("links") or []) else []
+
+
 def _charts_trace(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     return [("trace-dumbbell", {})] if p.get("links") else []
 
@@ -317,7 +321,8 @@ register(Formalism(
     centrality=True,
     own_implications=True,
     results=(ResultKind(kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
-                        analysis="toc_check", run=_run, definition=_definition),
+                        analysis="toc_check", run=_run, definition=_definition,
+                        charts=_charts_pathways, chart_kinds=("toc-evidence",)),
              ResultKind(kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
                         analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace,
                         charts=_charts_trace, chart_kinds=("trace-dumbbell",))),

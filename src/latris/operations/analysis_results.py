@@ -47,7 +47,7 @@ class ResultSurface:
 # SD predates the formalism registry; its kinds are declared here until it migrates.
 _SD_RESULTS = (
     ResultSurface("sd-simulation", "sd", "Simulation", "simulate", ("series",), False),
-    ResultSurface("sd-options", "sd", "Options compared under uncertainty", "compare", (), False),
+    ResultSurface("sd-options", "sd", "Options compared under uncertainty", "compare", ("options-diff",), False),
     ResultSurface("sd-monte-carlo", "sd", "Uncertainty (Monte Carlo)", "monte_carlo", ("bands",), False),
     ResultSurface("sd-sensitivity", "sd", "Sensitivity", "sensitivity", ("tornado",), False),
     ResultSurface("sd-loops", "sd", "Feedback loop dominance", "loops", ("loops",), False),
