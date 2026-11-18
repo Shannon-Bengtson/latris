@@ -34,3 +34,29 @@ def test_set_question_updates_yaml_and_commits(empty_project_root: Path) -> None
     # Commit subject should reflect the change.
     subject = git.run_git(["log", "-1", "--format=%s"], cwd=empty_project_root).stdout.strip()
     assert "modelling question" in subject.lower()
+
+
+def test_update_foundation_one_commit_for_several_fields(empty_project_root: Path) -> None:
+    from latris.operations.project import load_foundation, update_foundation
+    from latris.repo import git
+
+    root = empty_project_root
+    before = git.run_git(["rev-list", "--count", "HEAD"], cwd=root).stdout.strip()
+    sha = update_foundation({"name": "Pumps", "audience": "Ops", "boundary": None}, statement="Why do pumps fail?",
+                            root=root)
+    assert sha == git.head_sha(root)
+    after = git.run_git(["rev-list", "--count", "HEAD"], cwd=root).stdout.strip()
+    assert int(after) == int(before) + 1
+    _, f = load_foundation(root)
+    assert (f.name, f.audience, f.statement) == ("Pumps", "Ops", "Why do pumps fail?")
+    # Same values again: nothing to do.
+    assert update_foundation({"name": "Pumps"}, statement="Why do pumps fail?", root=root) is None
+
+
+def test_update_foundation_rejects_unknown_fields(empty_project_root: Path) -> None:
+    import pytest
+
+    from latris.operations.project import update_foundation
+
+    with pytest.raises(ValueError, match="field must be one of"):
+        update_foundation({"schema_version": "9"}, root=empty_project_root)
