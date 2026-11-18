@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations.build import build_from_spec
 from latris.schema.build_spec import BuildSpec
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/build", tags=["build"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class BuildRequest(BaseModel):

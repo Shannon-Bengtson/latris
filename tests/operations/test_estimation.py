@@ -184,7 +184,7 @@ def test_route(project):
     assert r.json()["result"]["adjustment"] == ["Age"]
     r = c.post("/api/analysis/estimate", json={"treatment": "Exercise", "outcome": "Heart health",
                                                "dataset": "survey"})
-    assert r.status_code == 400 and "no column for Exercise" in r.json()["detail"]
+    assert r.status_code == 422 and "no column for Exercise" in r.json()["detail"]
 
 
 def test_build_spec_runs_and_share_link_replays(project, tmp_path, git_identity):

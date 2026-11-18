@@ -17,7 +17,7 @@ data:
 - ``views/parameters/event_tree-frequency.yaml``   — :class:`ETFrequencySet`:
   how often the initiating event occurs.
 
-Each probability and frequency carries its own provenance (``_EntryBase``).
+Each probability and frequency carries its own provenance (``EntryBase``).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 ETElement = Literal["initiating_event", "functional_event", "end_state"]
 ET_ELEMENTS: tuple[str, ...] = ("initiating_event", "functional_event", "end_state")
@@ -52,7 +52,7 @@ class ETStructure(_Base):
     sequences: list[ETSequence] = Field(default_factory=list)
 
 
-class ETProbabilityEntry(_EntryBase):
+class ETProbabilityEntry(EntryBase):
     """P(yes) for a heading — in general, or given earlier headings' answers.
 
     The most specific entry whose ``given`` matches a branch applies there.
@@ -68,7 +68,7 @@ class ETProbabilitySet(_Base):
     entries: list[ETProbabilityEntry] = Field(default_factory=list)
 
 
-class ETFrequencyEntry(_EntryBase):
+class ETFrequencyEntry(EntryBase):
     """How often the initiating event occurs, per year."""
 
     attribute: str = "frequency"

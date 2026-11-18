@@ -22,13 +22,13 @@ def _threshold_lines(p: dict[str, Any]) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.decision_tree import describe, fmt
 
     u = p["units"]
     out = [describe(p) + ".", ""]
     if p.get("options"):
-        out += _table([f"{p['root']} — option", f"Expected value ({p['objective']})", ""],
+        out += md.table([f"{p['root']} — option", f"Expected value ({p['objective']})", ""],
                       [[o["option"], fmt(o["ev"], u), "best" if o["best"] else ""] for o in p["options"]])
     if len(p["strategy"]) > 1:
         out += ["Optimal strategy: " + "; then ".join(f"at {s['decision']}, {s['choose']}" for s in p["strategy"])
@@ -40,7 +40,7 @@ def _render(p: dict[str, Any]) -> list[str]:
                 for x in sorted(ev["per_uncertainty"], key=lambda x: -x["evpi"])]
         out += ["Expected value of perfect information — the most it is worth paying to know each uncertainty "
                 "before choosing:", ""]
-        out += _table(["Uncertainty", "States", "EVPI", "Best choice if known"], rows)
+        out += md.table(["Uncertainty", "States", "EVPI", "Best choice if known"], rows)
         if ev["all"]:
             out += [f"Knowing everything before choosing would be worth up to {fmt(ev['all']['evpi'], u)} "
                     "(treating the uncertainties as independent).", ""]

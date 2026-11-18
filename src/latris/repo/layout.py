@@ -166,6 +166,10 @@ class ProjectPaths:
     def layout_dir(self) -> Path:
         return self.root / "layout"
 
+    @property
+    def canvas_layout_yaml(self) -> Path:
+        return self.layout_dir / "canvas.layout.yaml"
+
     # Provenance
     @property
     def provenance_dir(self) -> Path:

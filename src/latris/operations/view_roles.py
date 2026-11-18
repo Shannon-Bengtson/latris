@@ -13,7 +13,7 @@ from latris.operations._attribute_helpers import upsert_entry
 from latris.operations._resolve import resolve_target
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import Substrate
 from latris.schema.model_types import get_model_type
 from latris.schema.roles import RoleEntry, RoleSet
@@ -52,7 +52,7 @@ def set_role(
     # Ensure the roles directory exists on first write.
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    store = load_model(RoleSet, file_path) if file_path.exists() else RoleSet()
+    store = load_model_or_default(RoleSet, file_path)
     upsert_entry(
         store,
         target_id,
@@ -79,6 +79,6 @@ def get_roles(
     """Load all role assignments for a model type."""
     paths = require_project(root)
     file_path = paths.role_path(model_type)
-    return load_model(RoleSet, file_path) if file_path.exists() else RoleSet()
+    return load_model_or_default(RoleSet, file_path)
 
 

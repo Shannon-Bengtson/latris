@@ -31,9 +31,9 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.markov import (
@@ -55,54 +55,34 @@ _TOL = 1e-9
 _UNSET = object()
 
 
-def _path(paths, attr: str) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, attr)
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
-
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
+_store = ViewStore(MODEL_TYPE, MARKOV_ELEMENTS)
 
 
 def get_elements(*, root: Path | None = None) -> dict[str, str]:
-    from latris.schema.roles import RoleSet
-
-    paths = require_project(root)
-    p = paths.role_path(MODEL_TYPE)
-    if not p.exists():
-        return {}
-    return {e.target_id: e.value for e in load_model(RoleSet, p).entries if e.value in MARKOV_ELEMENTS}
+    return _store.roles(root)
 
 
 def get_transitions(*, root: Path | None = None) -> MarkovTransitionSet:
-    return _load(_path(require_project(root), "transition"), MarkovTransitionSet)
+    return _store.load(root, "transition", MarkovTransitionSet)
 
 
 def get_rewards(*, root: Path | None = None) -> MarkovRewardSet:
-    return _load(_path(require_project(root), "reward"), MarkovRewardSet)
+    return _store.load(root, "reward", MarkovRewardSet)
 
 
 def get_start(*, root: Path | None = None) -> MarkovStartSet:
-    return _load(_path(require_project(root), "start"), MarkovStartSet)
+    return _store.load(root, "start", MarkovStartSet)
 
 
 def get_settings(*, root: Path | None = None) -> MarkovSettings:
-    return _load(_path(require_project(root), "settings"), MarkovSettings)
+    return _store.load(root, "settings", MarkovSettings)
 
 
 # ── writes ───────────────────────────────────────────────────────────
 
 
 def _entity(paths, target: str, element: str) -> tuple[str, str]:
-    sub = load_model(Substrate, paths.conceptual_yaml)
-    tid = resolve_target(target, sub)
-    label = next((e.label for e in sub.entities if e.id == tid), None)
-    if label is None:
-        raise ValueError(f"{target!r} is a link, not a {element}")
+    tid, label = resolve_factor(paths, target, link_error=f"{target!r} is a link, not a {element}")
     if get_elements(root=paths.root).get(tid) != element:
         raise ValueError(f"{label} is not a {element} (`latris markov element <factor> {element}`)")
     return tid, label
@@ -145,14 +125,13 @@ def set_transition(
     entry = MarkovTransitionEntry(target_id=eid, strategy=sid, probability=probability, origin=origin,
                                   source_id=source_id, verification=verification, notes=notes)
     store = get_transitions(root=paths.root)
-    store.entries = [x for x in store.entries if (x.target_id, x.strategy) != (eid, sid)] + [entry]
-    p = _path(paths, "transition")
-    _dump(p, store)
+    replace_entry(store, entry, "target_id", "strategy")
     labels = {x.id: x.label for x in sub.entities}
-    sha = auto_commit(paths.root, subject=f"Set Markov transition {labels[e.from_id]} → {labels[e.to_id]} = "
-                                          f"{probability:g}" + (f" ({strategy})" if strategy else ""),
-                      body=f"edge: {eid}\nstrategy: {sid}\nprobability: {probability}\norigin: {origin}\n"
-                           f"source_id: {source_id}", paths=[p])
+    sha = _store.save(paths, "transition", store,
+        subject=f"Set Markov transition {labels[e.from_id]} → {labels[e.to_id]} = "
+            f"{probability:g}" + (f" ({strategy})" if strategy else ""),
+        body=f"edge: {eid}\nstrategy: {sid}\nprobability: {probability}\norigin: {origin}\n"
+            f"source_id: {source_id}")
     return entry, sha
 
 
@@ -181,13 +160,10 @@ def set_reward(
         raise ValueError("nothing to set: give a cost, utility, notes or source")
     entry = MarkovRewardEntry.model_validate(
         {**(current.model_dump() if current else {"target_id": tid, "strategy": sid}), **changed})
-    store.entries = [x for x in store.entries if (x.target_id, x.strategy) != (tid, sid)] + [entry]
-    p = _path(paths, "reward")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Set Markov state {label}: {', '.join(changed)}"
-                                          + (f" ({strategy})" if strategy else ""),
-                      body=f"state: {tid}\nstrategy: {sid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()),
-                      paths=[p])
+    replace_entry(store, entry, "target_id", "strategy")
+    sha = _store.save(paths, "reward", store, subject=f"Set Markov state {label}: {', '.join(changed)}"
+            + (f" ({strategy})" if strategy else ""),
+        body=f"state: {tid}\nstrategy: {sid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()))
     return entry, sha
 
 
@@ -198,9 +174,7 @@ def set_start(state: str, proportion: float, *, root: Path | None = None) -> tup
     entry = MarkovStartEntry(target_id=tid, proportion=proportion)
     store = get_start(root=paths.root)
     store.entries = [x for x in store.entries if x.target_id != tid] + ([entry] if proportion > 0 else [])
-    p = _path(paths, "start")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Markov cohort starts {proportion:g} in {label}", body="", paths=[p])
+    sha = _store.save(paths, "start", store, subject=f"Markov cohort starts {proportion:g} in {label}", body="")
     return entry, sha
 
 
@@ -208,10 +182,9 @@ def set_settings(*, root: Path | None = None, **fields: Any) -> tuple[MarkovSett
     """Update the cycle length and count, time units, discount rates, half-cycle correction, WTP and units."""
     paths = require_project(root)
     s = MarkovSettings.model_validate({**get_settings(root=paths.root).model_dump(), **fields})
-    p = _path(paths, "settings")
-    _dump(p, s)
-    sha = auto_commit(paths.root, subject="Markov settings: " + ", ".join(f"{k}={v}" for k, v in fields.items()),
-                      body="", paths=[p])
+    sha = _store.save(paths, "settings", s,
+        subject="Markov settings: " + ", ".join(f"{k}={v}" for k, v in fields.items()),
+        body="")
     return s, sha
 
 

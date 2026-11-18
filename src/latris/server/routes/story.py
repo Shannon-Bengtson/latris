@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/story", tags=["story"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 _DEFAULT_SECTIONS = ["key_findings", "answer_to_question", "open_questions", "implications"]
 

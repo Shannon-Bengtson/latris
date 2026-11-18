@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from latris.operations.references import (
@@ -19,10 +18,9 @@ from latris.operations.references import (
     search_references,
     update_reference,
 )
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/references", tags=["references"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 # ── Request bodies ───────────────────────────────────────────────────

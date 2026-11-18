@@ -3,17 +3,15 @@ append-only decisions with rationale."""
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import project as project_ops
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/model-choices", tags=["model-choices"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class SelectRequest(BaseModel):

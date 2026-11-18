@@ -227,4 +227,4 @@ def test_cli_and_routes(flood, monkeypatch):
     r = client.post("/api/bn/compare", json={"target": "Flood", "state": "yes", "scenarios": ["Storm"],
                                              "record": False})
     assert r.status_code == 200 and r.json()["result"]["options"][1]["reference"] == "baseline"
-    assert client.delete("/api/bn/scenario/Stronger levee").status_code == 400  # Levee later extends it
+    assert client.delete("/api/bn/scenario/Stronger levee").status_code == 422  # Levee later extends it

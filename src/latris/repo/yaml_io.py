@@ -16,6 +16,7 @@ import json
 import os
 import threading
 import time
+import uuid
 from collections import OrderedDict
 from pathlib import Path
 from typing import TypeVar
@@ -84,25 +85,47 @@ def _normalise_for_yaml(data):
     return data
 
 
-def dump_model(model: BaseModel, path: Path) -> None:
-    """Serialise a pydantic model to ``path`` atomically.
-
-    Writes to ``<path>.tmp`` first, then ``os.replace`` — atomic on
-    Windows / macOS / Linux.
-    """
-    payload = _normalise_for_yaml(model.model_dump(mode="json"))
+def _dump_text(data) -> str:
     buf = io.StringIO()
-    _make_yaml().dump(payload, buf)
+    _make_yaml().dump(data, buf)
     text = buf.getvalue()
-    if not text.endswith("\n"):
-        text += "\n"
+    return text if text.endswith("\n") else text + "\n"
 
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` atomically (UTF-8, LF), creating parent dirs.
+
+    The temp file gets a unique name next to ``path`` so two concurrent
+    writers of the same file can't clobber or delete each other's temp file;
+    the last ``os.replace`` wins whole, never a mix of the two.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    # newline="" prevents Python from translating \n → \r\n on Windows.
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        f.write(text)
-    atomic_replace(tmp, path)
+    tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex[:12]}.tmp")
+    try:
+        # newline="" prevents Python from translating \n → \r\n on Windows.
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+        atomic_replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def rewrite_jsonl(records: list[BaseModel], path: Path) -> None:
+    """Atomically replace a JSONL file with ``records`` (one per line)."""
+    atomic_write_text(
+        path, "".join(json.dumps(r.model_dump(mode="json"), ensure_ascii=False) + "\n" for r in records)
+    )
+
+
+def dump_model(model: BaseModel, path: Path) -> None:
+    """Serialise a pydantic model to ``path`` atomically (see :func:`atomic_write_text`)."""
+    atomic_write_text(path, _dump_text(_normalise_for_yaml(model.model_dump(mode="json"))))
+
+
+def load_raw_text(text: str):
+    """Parse YAML text as plain data (dicts/lists); ``{}`` for an empty document."""
+    return _parse(text)
 
 
 def load_raw(path: Path):
@@ -117,16 +140,7 @@ def load_raw(path: Path):
 
 def dump_raw(data, path: Path) -> None:
     """Write plain data loaded with :func:`load_raw` back to ``path`` atomically."""
-    buf = io.StringIO()
-    _make_yaml().dump(data, buf)
-    text = buf.getvalue()
-    if not text.endswith("\n"):
-        text += "\n"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        f.write(text)
-    atomic_replace(tmp, path)
+    atomic_write_text(path, _dump_text(data))
 
 
 def load_model(cls: type[T], path: Path) -> T:
@@ -167,6 +181,11 @@ def _parse(text: str) -> object:
         while len(_parse_cache) > _PARSE_CACHE_MAX:
             _parse_cache.popitem(last=False)
     return copy.deepcopy(data)
+
+
+def load_model_or_default(cls: type[T], path: Path) -> T:
+    """:func:`load_model`, or a fresh ``cls()`` when the file doesn't exist yet."""
+    return load_model(cls, path) if path.exists() else cls()
 
 
 def load_model_from_string(cls: type[T], text: str) -> T:

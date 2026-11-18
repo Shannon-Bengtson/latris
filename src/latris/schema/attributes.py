@@ -27,7 +27,7 @@ class _Base(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
-class _EntryBase(_Base):
+class EntryBase(_Base):
     """Common shape for every per-attribute entry.
 
     `target_id` is the Entity or Edge ID the attribute attaches to. `attribute`
@@ -49,8 +49,16 @@ class _EntryBase(_Base):
     verification: ProvenanceVerification = "unverified"
     source_id: str | None = None
 
+    @property
+    def is_weak(self) -> bool:
+        """Not checked by a person against its source, or contested — worth flagging when it matters."""
+        return self.verification != "human-verified" or self.contested
 
-class DescriptionEntry(_EntryBase):
+
+_EntryBase = EntryBase  # the old private name, kept for anything importing it
+
+
+class DescriptionEntry(EntryBase):
     attribute: str = "description"
     value: str
 
@@ -59,7 +67,7 @@ class DescriptionSet(_Base):
     entries: list[DescriptionEntry] = Field(default_factory=list)
 
 
-class ConfidenceEntry(_EntryBase):
+class ConfidenceEntry(EntryBase):
     attribute: str = "confidence"
     value: Confidence
 
@@ -68,7 +76,7 @@ class ConfidenceSet(_Base):
     entries: list[ConfidenceEntry] = Field(default_factory=list)
 
 
-class PolarityEntry(_EntryBase):
+class PolarityEntry(EntryBase):
     attribute: str = "polarity"
     value: Polarity
     # Free-text causal story for the polarity. The coherence check lints this
@@ -81,7 +89,7 @@ class PolaritySet(_Base):
     entries: list[PolarityEntry] = Field(default_factory=list)
 
 
-class FloatEntry(_EntryBase):
+class FloatEntry(EntryBase):
     """Numeric attribute entry — continuous value with full provenance.
 
     Generic entry for any float-valued parameter: FCM edge weights,
@@ -115,7 +123,7 @@ DISTRIBUTION_PARAMS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
 }
 
 
-class ParameterUncertainty(_EntryBase):
+class ParameterUncertainty(EntryBase):
     """How uncertain a quantitative parameter is: a distribution over its value.
 
     Monte Carlo runs sample from it, and one-at-a-time sensitivity uses its

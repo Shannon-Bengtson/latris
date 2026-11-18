@@ -14,7 +14,7 @@ when called on is stored per barrier; a threat may carry how often it occurs:
 - ``views/parameters/bow_tie-barrier.yaml``   — :class:`BTBarrierSet`
 - ``views/parameters/bow_tie-frequency.yaml`` — :class:`BTFrequencySet`
 
-Each entry carries its own provenance (``_EntryBase``).
+Each entry carries its own provenance (``EntryBase``).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 BTElement = Literal["hazard", "top_event", "threat", "consequence", "barrier", "escalation_factor"]
 BT_ELEMENTS: tuple[str, ...] = ("hazard", "top_event", "threat", "consequence", "barrier", "escalation_factor")
@@ -34,7 +34,7 @@ BARRIER_TYPES: tuple[str, ...] = ("passive_hardware", "active_hardware", "active
 BarrierStatus = Literal["in_place", "degraded", "not_in_place"]
 
 
-class BTBarrierEntry(_EntryBase):
+class BTBarrierEntry(EntryBase):
     """One barrier's type, owner, condition and probability of failure on demand.
 
     ``pfd`` is the probability the barrier fails when called on (LOPA's PFD).
@@ -53,7 +53,7 @@ class BTBarrierSet(_Base):
     entries: list[BTBarrierEntry] = Field(default_factory=list)
 
 
-class BTFrequencyEntry(_EntryBase):
+class BTFrequencyEntry(EntryBase):
     """How often a threat occurs, per year."""
 
     attribute: str = "frequency"

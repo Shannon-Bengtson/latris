@@ -3,6 +3,7 @@ from __future__ import annotations
 import typer
 from rich.console import Console
 
+from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit, json_mode
 from latris.operations.project import (
     load_foundation,
@@ -11,21 +12,17 @@ from latris.operations.project import (
     update_selected_models,
 )
 from latris.repo import git
-from latris.repo.git import GitError, IdentityError
-from latris.repo.project import NotAProjectError
+from latris.repo.git import GitError
 
 app = typer.Typer(help="Inspect and update the project foundation.", no_args_is_help=True)
 console = Console()
 
 
 @app.command("show")
+@handle_cli_errors
 def show() -> None:
     """Print the current project foundation."""
-    try:
-        paths, foundation = load_foundation()
-    except NotAProjectError as exc:
-        console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
+    paths, foundation = load_foundation()
 
     if json_mode():
         emit(foundation, human=lambda: None)
@@ -47,25 +44,17 @@ def show() -> None:
 
 
 @app.command("set-question")
+@handle_cli_errors
 def set_question_cmd(
     statement: str = typer.Argument(..., help="The modelling question to record."),
 ) -> None:
     """Set or update the project's modelling question and commit."""
-    try:
-        root, sha = set_question(None, statement)
-    except NotAProjectError as exc:
-        console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except IdentityError as exc:
-        console.print(f"[red]identity error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except GitError as exc:
-        console.print(f"[red]git error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
+    root, sha = set_question(None, statement)
     console.print(f"[green]updated[/green] question ([cyan]{sha[:10]}[/cyan])")
 
 
 @app.command("set")
+@handle_cli_errors
 def set_field_cmd(
     field: str = typer.Argument(
         ...,
@@ -77,41 +66,16 @@ def set_field_cmd(
     value: str = typer.Argument(..., help="New value for the field."),
 ) -> None:
     """Set a free-text foundation field. Use `set-question` for the question itself."""
-    try:
-        root, sha = set_foundation_field(field, value)
-    except ValueError as exc:
-        console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=2) from exc
-    except NotAProjectError as exc:
-        console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except IdentityError as exc:
-        console.print(f"[red]identity error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except GitError as exc:
-        console.print(f"[red]git error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
+    root, sha = set_foundation_field(field, value)
     console.print(f"[green]set[/green] {field} ([cyan]{sha[:10]}[/cyan])")
 
 
 @app.command("select-models")
+@handle_cli_errors
 def select_models_cmd(
     model_types: list[str] = typer.Argument(..., help="Model type IDs to select (e.g. cld dag)."),
 ) -> None:
     """Set the project's selected model types."""
-    try:
-        root, sha = update_selected_models(model_types)
-    except NotAProjectError as exc:
-        console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except ValueError as exc:
-        console.print(f"[red]error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except IdentityError as exc:
-        console.print(f"[red]identity error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    except GitError as exc:
-        console.print(f"[red]git error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
+    root, sha = update_selected_models(model_types)
     label = ", ".join(model_types) or "(none)"
     console.print(f"[green]selected[/green] model types: {label} ([cyan]{sha[:10]}[/cyan])")

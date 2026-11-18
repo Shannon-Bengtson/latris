@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import Request
+from fastapi import Depends
+from starlette.requests import HTTPConnection
 
+from latris.operations import write_lock
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import NotAProjectError, find_project_root
 
 
-def get_project_root(request: Request) -> Path:
+def get_project_root(request: HTTPConnection) -> Path:
     """Return the project root path from app state or discovery."""
     root: Path | None = request.app.state.project_root
     if root is not None:
@@ -26,6 +30,30 @@ def get_project_root(request: Request) -> Path:
     if found is None:
         raise NotAProjectError("not inside a latris project. Run `latris init <name>` to create one.")
     return found
+
+
+Root = Annotated[Path, Depends(get_project_root)]
+"""The project root, injected — the type every route takes its root as."""
+
+_MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+async def serialise_writes(connection: HTTPConnection) -> AsyncIterator[None]:
+    """App-wide dependency: one mutating request at a time per project.
+
+    See :mod:`latris.operations.write_lock`. Reads (GET) and WebSockets run
+    freely; a request with no project to lock runs unlocked.
+    """
+    if connection.scope["type"] != "http" or connection.scope["method"] not in _MUTATING:
+        yield
+        return
+    try:
+        root = get_project_root(connection)  # type: ignore[arg-type]
+    except NotAProjectError:
+        yield
+        return
+    async with write_lock.hold(root):
+        yield
 
 
 def log_unhandled(exc: BaseException, message: str = "Unhandled server error") -> str:

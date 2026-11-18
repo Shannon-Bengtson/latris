@@ -16,7 +16,7 @@ from latris.operations.commit import auto_commit
 from latris.repo import git
 from latris.repo.lineage_index import build_lineage_index
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model, load_model_from_string
+from latris.repo.yaml_io import dump_model, load_model, load_model_from_string, load_model_or_default
 from latris.schema import (
     AssumptionLog,
     ChallengeLog,
@@ -104,7 +104,7 @@ def create_milestone(
         notes=notes,
     )
 
-    log = load_model(MilestoneLog, paths.milestones_yaml) if paths.milestones_yaml.exists() else MilestoneLog()
+    log = load_model_or_default(MilestoneLog, paths.milestones_yaml)
     log.entries.append(milestone)
     dump_model(log, paths.milestones_yaml)
 

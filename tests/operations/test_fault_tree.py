@@ -270,8 +270,8 @@ def test_routes(built):
     c = TestClient(create_app(project_root=root))
     assert c.get("/api/ft/check").json()["ready"] is True
     assert len(c.get("/api/ft/tree").json()["events"]) == 5
-    assert c.post("/api/ft/gate", json={"node": "Both pumps fail", "gate": "vote"}).status_code == 400
-    assert c.post("/api/ft/probability", json={"node": "Loss of cooling", "probability": 0.1}).status_code == 400
+    assert c.post("/api/ft/gate", json={"node": "Both pumps fail", "gate": "vote"}).status_code == 422
+    assert c.post("/api/ft/probability", json={"node": "Loss of cooling", "probability": 0.1}).status_code == 422
     r = c.post("/api/ft/probability", json={"node": "Pump B fails", "probability": 0.03})
     assert r.status_code == 200 and r.json()["commit_sha"]
     r = c.post("/api/ft/analyse", json={"record": False}).json()

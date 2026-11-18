@@ -262,7 +262,7 @@ def test_routes(built):
     r = c.post("/api/et/sequence", json={"end_state": "Contained release",
                                          "answers": [{"heading": "Gas detected", "answer": "yes"}]})
     assert r.status_code == 200
-    assert c.post("/api/et/probability", json={"node": "Fire", "p_yes": 0.5}).status_code == 400
+    assert c.post("/api/et/probability", json={"node": "Fire", "p_yes": 0.5}).status_code == 422
     r = c.post("/api/et/analyse", json={"record": False}).json()
     assert r["commit_sha"] is None and r["result"]["quantified"]
 

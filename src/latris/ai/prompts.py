@@ -17,6 +17,8 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from latris.ai import proposals as _proposals
 from latris.schema.model_types import get_model_type
 
+PromptMode = Literal["mutating", "read_only", "hybrid", "server_transformed"]
+
 
 def _validate_model_type(value: str) -> str:
     """Validate against the model-type registry; raises ValueError on unknown ID.
@@ -74,6 +76,11 @@ class PromptSpec:
     # default. Extraction/transformation ops run cool for consistent
     # granularity; generative critique keeps the default.
     temperature: float | None = None
+    # How a call's result is used: "mutating" (its proposal is applied),
+    # "read_only" (shown, never applied), "hybrid" (prose plus a bounded
+    # proposal) or "server_transformed" (the server turns it into the real
+    # proposal). Attached by ``_wire`` from ``_MODES``.
+    mode: PromptMode = "mutating"
 
 
 class _In(BaseModel):
@@ -1813,6 +1820,88 @@ _OP_TEMPERATURE: dict[str, float] = {
 }
 
 
+# Prompts where the LLM returns an intermediate result (e.g. search queries)
+# that the server transforms into the real proposal. These have no apply() on
+# their response model but must stay pending in preview mode so the user can
+# approve/reject the final result.
+_SERVER_TRANSFORMED = {"ExpandBibliography", "FindFoundationalReferences"}
+
+# Hybrid prompts produce critique prose AND a bounded structured proposal.
+# The CLI prints the prose alongside the apply summary, so reviewers see
+# both the critique and the audit-trail records that were created.
+_HYBRID = {
+    "AttackThisModel",
+    "FindCounterPathway",
+    "ScopeCheck",
+    "IdentifyResearchGaps",
+    "ScanEvidenceGaps",
+    "CrossReferenceCheck",
+    "EdgeReclassify",
+    "ChallengeEdge",
+    "EvidenceDemote",
+    "VerifyClaimAgainstSource",
+}
+
+
+_READ_ONLY = {
+    "ExplainThisElement",
+    # RecommendApproach is read-only: the user accepts a recommendation, which
+    # records a ModelChoice via its own route — the call never mutates.
+    "RecommendApproach",
+    # AttackThisModel, ScopeCheck, IdentifyResearchGaps, ScanEvidenceGaps,
+    # and CrossReferenceCheck are now hybrid: their Result classes have
+    # apply() methods that produce bounded provenance mutations
+    # (assumptions, exclusions, questions, evidence-link suggestions)
+    # alongside the critique prose that always renders into the report.
+    # SyntheticPeerReview stays read-only — its value is the synthetic
+    # external voice itself, and silent mutation from a synthetic
+    # reviewer would erode the provenance distinction between
+    # "AI surfaced a critique" and "the project formally accepted it".
+    "RunElicitationInterview",
+    "GeneratePack",
+    "SyntheticPeerReview",
+    "ProjectToFormalView",
+    "SummarizeReference",
+    # Compose extraction + synthesis (read-only)
+    "ExtractVariablesFromEvidence",
+    "ExtractCausalClaims",
+    "SuggestVariables",
+    "SuggestConnections",
+    # SuggestEdgePolarities is *mutating* — its apply() commits all
+    # suggestions via the Configure batch path. (Was previously read-only
+    # because the GUI staged suggestions and applied them via a separate
+    # /configure/apply-attributes call. The CLI dispatches apply directly.)
+    # Inline per-field AI — GUI inserts value into editable field, user saves via normal mutation
+    "FillProvenanceField",
+    # Interpretation prompts (all read-only)
+    "InterpretStructuralSummary",
+    "InterpretKeyFindings",
+    "InterpretSensitivity",
+    "InterpretAssumptions",
+    "InterpretEvidenceGaps",
+    "InterpretEvidenceCoverage",
+    "InterpretAnswer",
+    "InterpretImplications",
+    "InterpretConfidence",
+    "InterpretOpenQuestions",
+    # Story beat prose — register transform, no mutation
+    "StoryBeatProse",
+}
+
+
+def _modes() -> dict[str, PromptMode]:
+    modes: dict[str, PromptMode] = {}
+    for mode, names in (("server_transformed", _SERVER_TRANSFORMED), ("hybrid", _HYBRID), ("read_only", _READ_ONLY)):
+        for name in names:
+            if name in modes:
+                raise RuntimeError(f"prompt {name!r} is both {modes[name]} and {mode}")
+            modes[name] = mode  # type: ignore[assignment]
+    return modes
+
+
+_MODES = _modes()
+
+
 def _wire(raw: dict[str, PromptSpec]) -> dict[str, PromptSpec]:
     """Attach response model + per-op temperature to each spec.
 
@@ -1826,11 +1915,15 @@ def _wire(raw: dict[str, PromptSpec]) -> dict[str, PromptSpec]:
     orphan = set(_RESPONSE_MODELS) - set(raw)
     if orphan:
         raise RuntimeError(f"response models with no prompt spec: {sorted(orphan)}")
+    stray = set(_MODES) - set(raw)
+    if stray:
+        raise RuntimeError(f"modes given for unknown prompts: {sorted(stray)}")
     return {
         name: replace(
             spec,
             response_model=_RESPONSE_MODELS[name],
             temperature=_OP_TEMPERATURE.get(name),
+            mode=_MODES.get(name, "mutating"),
         )
         for name, spec in raw.items()
     }

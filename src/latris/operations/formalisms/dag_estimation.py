@@ -14,7 +14,7 @@ from latris.operations.formalisms import Analysis, ResultKind, register_analysis
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _f, _table
+    from latris.exporters import md
     from latris.operations.estimation import describe
 
     e, u = p["effect"], p["unadjusted"]
@@ -25,13 +25,13 @@ def _render(p: dict[str, Any]) -> list[str]:
     out += [f"Adjusted for {adj} — {how}. Model: {p['model']} regression, {p['se_type']} standard errors; "
             f"{p['n']} complete rows from {p['dataset']['name']}.", ""]
     if logistic:
-        rows = [["Adjusted", _f(e["odds_ratio"]), f"{_f(e['or_ci_low'])} – {_f(e['or_ci_high'])}", _f(e["p"])],
-                ["Unadjusted", _f(u["odds_ratio"]), f"{_f(u['or_ci_low'])} – {_f(u['or_ci_high'])}", _f(u["p"])]]
-        out += _table(["", "Odds ratio", "95% CI", "p"], rows)
+        rows = [[name, md.fmt(r["odds_ratio"]), f"{md.fmt(r['or_ci_low'])} – {md.fmt(r['or_ci_high'])}", md.fmt(r["p"])]
+                for name, r in (("Adjusted", e), ("Unadjusted", u))]
+        out += md.table(["", "Odds ratio", "95% CI", "p"], rows)
     else:
-        rows = [["Adjusted", _f(e["estimate"]), f"{_f(e['ci_low'])} – {_f(e['ci_high'])}", _f(e["p"])],
-                ["Unadjusted", _f(u["estimate"]), f"{_f(u['ci_low'])} – {_f(u['ci_high'])}", _f(u["p"])]]
-        out += _table(["", f"Change in {p['outcome']} per unit of {p['treatment']}", "95% CI", "p"], rows)
+        rows = [[name, md.fmt(r["estimate"]), f"{md.fmt(r['ci_low'])} – {md.fmt(r['ci_high'])}", md.fmt(r["p"])]
+                for name, r in (("Adjusted", e), ("Unadjusted", u))]
+        out += md.table(["", f"Change in {p['outcome']} per unit of {p['treatment']}", "95% CI", "p"], rows)
     if p["coding"]:
         out += ["Coded as 0/1: " + "; ".join(f"{k}: {v['0']} = 0, {v['1']} = 1" for k, v in p["coding"].items())
                 + ".", ""]

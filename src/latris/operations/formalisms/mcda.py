@@ -36,20 +36,20 @@ def _reversal_lines(p: dict[str, Any]) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.mcda import describe
 
     out = [describe(p) + ".", ""]
     crits = p["criteria"]
     rows = [[r["option"], f"{r['total']:.1f}", *(f"{r['contributions'][c]:.1f}" for c in crits)] for r in p["ranking"]]
-    out += _table(["Option", "Total (of 100)", *crits], rows)
+    out += md.table(["Option", "Total (of 100)", *crits], rows)
     rows = [[w["criterion"], f"{w['weight']:.0%}", f"{w['direction']} is better",
              f"{w['worst']:g} → {w['best']:g}" + (f" {w['units']}" if w["units"] else "")
              + (" (options' range)" if w["local_scale"] else ""),
              (w["source"] or "—") + ("; not verified" if w["weak"] else "")] for w in p["weights"]]
     out += ["Swing weights: how much moving from the worst to the best of each scale matters, relative to the "
             "other criteria's swings.", ""]
-    out += _table(["Criterion", "Weight", "Direction", "Scale (worst → best)", "Weight's source"], rows)
+    out += md.table(["Criterion", "Weight", "Direction", "Scale (worst → best)", "Weight's source"], rows)
     if p["rank_reversal"]:
         out += ["How far each weight would have to move, others keeping their proportions, before the top "
                 "choice changes:", ""]

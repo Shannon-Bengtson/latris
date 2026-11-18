@@ -8,6 +8,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Theory of Change (results chain) operations.", no_args_is_help=True)
@@ -141,7 +142,7 @@ def check(
 
 
 def _origin_opts(origin: str | None, source: str | None, verified: bool) -> dict:
-    out: dict = {"verification": "human-verified" if verified else "unverified"}
+    out: dict = {"verification": verification(verified)}
     if origin:
         out["origin"] = origin
     if source:
@@ -155,7 +156,7 @@ def prior(
     link: str = typer.Argument(..., help="The link, written 'From -> To' (or an edge ID)."),
     value: float = typer.Argument(..., help="Probability the link holds before any test, strictly between 0 and 1."),
     source: str | None = typer.Option(None, "--source", help="Source ID the prior rests on."),
-    origin: str | None = typer.Option(None, "--origin", help="human-direct | human-elicited | ai-proposed | …"),
+    origin: str | None = typer.Option(None, "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(False, "--verified", help="Mark the prior as checked by a person."),
     notes: str | None = typer.Option(None, "--notes"),
 ) -> None:

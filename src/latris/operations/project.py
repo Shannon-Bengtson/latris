@@ -187,3 +187,43 @@ def set_foundation_field(
         paths=[paths.project_yaml],
     )
     return paths.root, sha
+
+
+def update_foundation(
+    fields: dict[str, str | None] | None = None,
+    *,
+    statement: str | None = None,
+    selected_model_types: list[str] | None = None,
+    root: Path | None = None,
+) -> str | None:
+    """Apply several foundation edits as one commit; ``None`` when nothing changed.
+
+    ``fields`` maps free-text field names (see :func:`set_foundation_field`)
+    to new values; ``None`` values and unchanged ones are skipped. The
+    question and the model selection go through their own operations so
+    they keep their side effects, all inside one batch.
+    """
+    fields = {k: v for k, v in (fields or {}).items() if v is not None}
+    unknown = sorted(set(fields) - set(_EDITABLE_FOUNDATION_FIELDS))
+    if unknown:
+        raise ValueError(f"field must be one of {_EDITABLE_FOUNDATION_FIELDS}; got {unknown}")
+    paths, foundation = load_foundation(root)
+    changed = {k: v for k, v in fields.items() if getattr(foundation, k) != v}
+    statement_changed = statement is not None and statement != foundation.statement
+    models_changed = selected_model_types is not None and selected_model_types != foundation.selected_model_types
+    if not (changed or statement_changed or models_changed):
+        return None
+
+    updated = foundation.model_copy(update=changed)
+    subject = f"Updated project: {updated.name or 'untitled'}"
+    sha_before = git.head_sha(paths.root)
+    with batch(paths.root, subject=subject):
+        if changed:
+            dump_model(updated, paths.project_yaml)
+            auto_commit(paths.root, subject=subject, paths=[paths.project_yaml])
+        if statement_changed:
+            set_question(paths.root, statement)  # type: ignore[arg-type]
+        if models_changed:
+            update_selected_models(selected_model_types, root=paths.root)  # type: ignore[arg-type]
+    sha_after = git.head_sha(paths.root)
+    return sha_after if sha_after != sha_before else None

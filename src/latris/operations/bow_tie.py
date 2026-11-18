@@ -33,10 +33,9 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations import _ft_engine as engine
-from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.bow_tie import BT_ELEMENTS, BTBarrierEntry, BTBarrierSet, BTFrequencyEntry, BTFrequencySet
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
@@ -58,21 +57,7 @@ MAX_LINES = 500
 _UNSET = object()
 
 
-def _barrier_path(paths) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, "barrier")
-
-
-def _freq_path(paths) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, "frequency")
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
-
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
+_store = ViewStore(MODEL_TYPE, BT_ELEMENTS)
 
 
 # ── reads and writes ─────────────────────────────────────────────────
@@ -80,30 +65,19 @@ def _dump(path: Path, store) -> None:
 
 def get_elements(*, root: Path | None = None) -> dict[str, str]:
     """Entity id → bow-tie element."""
-    from latris.schema.roles import RoleSet
-
-    paths = require_project(root)
-    p = paths.role_path(MODEL_TYPE)
-    if not p.exists():
-        return {}
-    return {e.target_id: e.value for e in load_model(RoleSet, p).entries if e.value in BT_ELEMENTS}
+    return _store.roles(root)
 
 
 def get_barriers(*, root: Path | None = None) -> BTBarrierSet:
-    return _load(_barrier_path(require_project(root)), BTBarrierSet)
+    return _store.load(root, "barrier", BTBarrierSet)
 
 
 def get_frequencies(*, root: Path | None = None) -> BTFrequencySet:
-    return _load(_freq_path(require_project(root)), BTFrequencySet)
+    return _store.load(root, "frequency", BTFrequencySet)
 
 
 def _resolve(paths, target: str) -> tuple[str, str]:
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-    tid = resolve_target(target, substrate)
-    label = next((e.label for e in substrate.entities if e.id == tid), None)
-    if label is None:
-        raise ValueError(f"{target!r} is a link; bow-tie elements are factors")
-    return tid, label
+    return resolve_factor(paths, target, link_error=f"{target!r} is a link; bow-tie elements are factors")
 
 
 def set_element(target: str, element: str, *, root: Path | None = None) -> tuple[str, str]:
@@ -154,12 +128,10 @@ def set_barrier(
     if not changed:
         raise ValueError("nothing to set: give a type, status, owner, failure probability, notes or source")
     entry = BTBarrierEntry.model_validate({**data, **changed})
-    store.entries = [e for e in store.entries if e.target_id != tid] + [entry]
-    path = _barrier_path(paths)
-    _dump(path, store)
+    replace_entry(store, entry)
     body = "\n".join(f"{k}: {v}" for k, v in changed.items())
-    sha = auto_commit(paths.root, subject=f"Set bow-tie barrier {label}: {', '.join(changed)}",
-                      body=f"target: {tid}\n{body}", paths=[path])
+    sha = _store.save(paths, "barrier", store, subject=f"Set bow-tie barrier {label}: {', '.join(changed)}",
+        body=f"target: {tid}\n{body}")
     return entry, sha
 
 
@@ -179,12 +151,9 @@ def set_frequency(
     entry = BTFrequencyEntry(target_id=tid, frequency=frequency, origin=origin, source_id=source_id,
                              verification=verification, notes=notes)
     store = get_frequencies(root=paths.root)
-    store.entries = [e for e in store.entries if e.target_id != tid] + [entry]
-    path = _freq_path(paths)
-    _dump(path, store)
-    sha = auto_commit(paths.root, subject=f"Set bow-tie threat frequency {label} = {frequency:g}/year",
-                      body=f"target: {tid}\nfrequency: {frequency}\norigin: {origin}\nsource_id: {source_id}",
-                      paths=[path])
+    replace_entry(store, entry)
+    sha = _store.save(paths, "frequency", store, subject=f"Set bow-tie threat frequency {label} = {frequency:g}/year",
+        body=f"target: {tid}\nfrequency: {frequency}\norigin: {origin}\nsource_id: {source_id}")
     return entry, sha
 
 
@@ -389,8 +358,6 @@ def _frequencies(bt: BowTie, pfd: dict[str, float], freq: dict[str, float]) -> t
     return f_top, {c: f_top * _through(lines, pfd) for c, lines in by_cons.items()}
 
 
-def _weak(entry) -> bool:
-    return entry is None or entry.verification != "human-verified" or entry.contested
 
 
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
@@ -465,7 +432,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
             "type": e.barrier_type if e else None, "status": e.status if e else "in_place",
             "owner": e.owner if e else None, "pfd": e.pfd if e else None,
             "origin": e.origin if e else None, "source": e.source_id if e else None,
-            "verification": e.verification if e else None, "weak": e is None or e.pfd is None or _weak(e),
+            "verification": e.verification if e else None, "weak": e is None or e.pfd is None or e.is_weak,
             "lines": lines_of.get(b, 0), "escalation_factors": ef_on.get(b, []),
             "raw": raw.get(b),
         })

@@ -11,7 +11,7 @@ from typing import Literal
 from latris.operations._resolve import resolve_target as _resolve_target_id
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import (
     DataLink,
     DataLinkSet,
@@ -290,7 +290,7 @@ def add_data_link(
     if not any(d.id == dataset_id for d in library.entries):
         raise ValueError(f"unknown dataset {dataset_id!r}. Import a dataset first with `latris data import ...`")
 
-    store = load_model(DataLinkSet, paths.data_links_yaml) if paths.data_links_yaml.exists() else DataLinkSet()
+    store = load_model_or_default(DataLinkSet, paths.data_links_yaml)
 
     link = DataLink(
         target_id=target_id,

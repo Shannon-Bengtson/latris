@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations.evidence import add_data_link, add_evidence
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/evidence", tags=["evidence"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class AddEvidenceRequest(BaseModel):
