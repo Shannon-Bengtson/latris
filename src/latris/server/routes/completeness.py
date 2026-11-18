@@ -11,16 +11,14 @@ Endpoints:
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/completeness", tags=["completeness"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class CheckBody(BaseModel):
@@ -59,12 +57,9 @@ def override(
 ) -> dict[str, Any]:
     from latris.operations.completeness import override_missing_variable
 
-    try:
-        mv, sha = override_missing_variable(
-            model_type, missing_var_id, body.rationale, root=root
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    mv, sha = override_missing_variable(
+        model_type, missing_var_id, body.rationale, root=root
+    )
     return {"result": mv.model_dump(mode="json"), "commit_sha": sha}
 
 
@@ -72,10 +67,7 @@ def override(
 def dismiss(model_type: str, missing_var_id: str, root: Root) -> dict[str, Any]:
     from latris.operations.completeness import dismiss_missing_variable
 
-    try:
-        mv, sha = dismiss_missing_variable(model_type, missing_var_id, root=root)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    mv, sha = dismiss_missing_variable(model_type, missing_var_id, root=root)
     return {"result": mv.model_dump(mode="json"), "commit_sha": sha}
 
 
@@ -85,10 +77,7 @@ def mark_added(
 ) -> dict[str, Any]:
     from latris.operations.completeness import mark_added_to_model
 
-    try:
-        mv, sha = mark_added_to_model(
-            model_type, missing_var_id, body.entity_id, root=root
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    mv, sha = mark_added_to_model(
+        model_type, missing_var_id, body.entity_id, root=root
+    )
     return {"result": mv.model_dump(mode="json"), "commit_sha": sha}

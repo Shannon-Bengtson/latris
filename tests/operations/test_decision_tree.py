@@ -210,7 +210,7 @@ def test_routes_and_cli(built):
     root, _ = built
     c = TestClient(create_app(project_root=root))
     assert c.get("/api/dt/check").json()["ready"] is True
-    assert c.post("/api/dt/branch", json={"link": "Strategy -> Stay out", "probability": 0.1}).status_code == 400
+    assert c.post("/api/dt/branch", json={"link": "Strategy -> Stay out", "probability": 0.1}).status_code == 422
     r = c.post("/api/dt/analyse", json={"record": False}).json()
     assert r["commit_sha"] is None and r["result"]["best"] == "Launch"
     runner = CliRunner()

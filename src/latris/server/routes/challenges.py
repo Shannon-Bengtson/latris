@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import challenges as ch_ops
 from latris.schema import ChallengeState
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class OpenChallengeRequest(BaseModel):

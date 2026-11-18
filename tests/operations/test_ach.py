@@ -175,7 +175,7 @@ def test_routes_and_cli(built):
     c = TestClient(create_app(project_root=root))
     assert c.get("/api/ach/check").json()["ready"] is True
     assert c.post("/api/ach/rating", json={"item": "Window forced", "hypothesis": "Insider",
-                                           "rating": "Z"}).status_code == 400
+                                           "rating": "Z"}).status_code == 422
     r = c.post("/api/ach/analyse", json={"record": False}).json()
     assert r["commit_sha"] is None and r["result"]["leading"] == ["Insider"]
     runner = CliRunner()

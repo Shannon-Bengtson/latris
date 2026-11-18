@@ -6,23 +6,18 @@ sha}``; reads return plain data.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import bow_tie as bt
 from latris.operations.readiness import assess_readiness
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/bowtie", tags=["bowtie"])
-Root = Annotated[Path, Depends(get_project_root)]
 
-
-def _bad(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=400, detail=str(exc))
 
 
 class ElementRequest(BaseModel):
@@ -77,30 +72,21 @@ def check(root: Root) -> dict[str, Any]:
 
 @router.post("/element")
 def set_element(body: ElementRequest, root: Root) -> dict[str, Any]:
-    try:
-        target_id, sha = bt.set_element(body.node, body.element, root=root)
-    except (ValueError, LookupError) as exc:
-        raise _bad(exc) from exc
+    target_id, sha = bt.set_element(body.node, body.element, root=root)
     return {"result": {"target_id": target_id, "element": body.element}, "commit_sha": sha}
 
 
 @router.post("/barrier")
 def set_barrier(body: BarrierRequest, root: Root) -> dict[str, Any]:
     fields = body.model_dump(exclude={"node"}, exclude_unset=True)
-    try:
-        entry, sha = bt.set_barrier(body.node, root=root, **fields)
-    except (ValueError, LookupError) as exc:
-        raise _bad(exc) from exc
+    entry, sha = bt.set_barrier(body.node, root=root, **fields)
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 
 @router.post("/frequency")
 def set_frequency(body: FrequencyRequest, root: Root) -> dict[str, Any]:
-    try:
-        entry, sha = bt.set_frequency(body.node, body.frequency, origin=body.origin, source_id=body.source_id,
-                                      verification=body.verification, notes=body.notes, root=root)
-    except (ValueError, LookupError) as exc:
-        raise _bad(exc) from exc
+    entry, sha = bt.set_frequency(body.node, body.frequency, origin=body.origin, source_id=body.source_id,
+                                  verification=body.verification, notes=body.notes, root=root)
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 

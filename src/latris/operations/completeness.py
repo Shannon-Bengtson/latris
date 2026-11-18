@@ -18,6 +18,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from latris.operations.commit import auto_commit
+from latris.operations.errors import NotFoundError
 from latris.operations.provenance import add_exclusion
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
@@ -82,7 +83,7 @@ def get_missing_variable(
     for mv in report.entries:
         if mv.id == missing_var_id:
             return mv
-    raise ValueError(f"no missing-variable {missing_var_id!r} in {model_type} report")
+    raise NotFoundError(f"no missing-variable {missing_var_id!r} in {model_type} report")
 
 
 # ── Merging gate results ────────────────────────────────────────────────
@@ -213,7 +214,7 @@ def override_missing_variable(
     report = load_report(model_type, root=root)
     target = next((mv for mv in report.entries if mv.id == missing_var_id), None)
     if target is None:
-        raise ValueError(f"no missing-variable {missing_var_id!r} in {model_type} report")
+        raise NotFoundError(f"no missing-variable {missing_var_id!r} in {model_type} report")
     if target.disposition == "excluded":
         return target, ""
 
@@ -244,7 +245,7 @@ def dismiss_missing_variable(
     report = load_report(model_type, root=root)
     target = next((mv for mv in report.entries if mv.id == missing_var_id), None)
     if target is None:
-        raise ValueError(f"no missing-variable {missing_var_id!r} in {model_type} report")
+        raise NotFoundError(f"no missing-variable {missing_var_id!r} in {model_type} report")
     if target.disposition == "dismissed":
         return target, ""
     target.disposition = "dismissed"
@@ -267,7 +268,7 @@ def mark_added_to_model(
     report = load_report(model_type, root=root)
     target = next((mv for mv in report.entries if mv.id == missing_var_id), None)
     if target is None:
-        raise ValueError(f"no missing-variable {missing_var_id!r} in {model_type} report")
+        raise NotFoundError(f"no missing-variable {missing_var_id!r} in {model_type} report")
     target.disposition = "added_to_model"
     target.added_entity_id = entity_id
     sha = save_report(

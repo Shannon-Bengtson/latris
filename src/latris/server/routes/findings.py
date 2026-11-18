@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from latris.operations.findings import (
@@ -18,10 +17,9 @@ from latris.operations.findings import (
 from latris.schema import HumanActor, Maturity
 from latris.schema.common import ProvenanceOrigin
 from latris.schema.findings import FindingCategory, FindingSourceType
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/findings", tags=["findings"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class RecordFindingRequest(BaseModel):

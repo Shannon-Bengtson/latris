@@ -12,7 +12,7 @@ import contextlib
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +21,9 @@ from pydantic import BaseModel
 
 import latris
 from latris.ai.adapters import mock_enabled
+from latris.ai.adapters.base import LLMCallError
 from latris.operations._resolve import ResolveError
-from latris.repo.git import IdentityError
+from latris.repo.git import GitError, IdentityError
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import NotAProjectError
 from latris.repo.yaml_io import load_model
@@ -31,7 +32,7 @@ from latris.schema import (
     Substrate,
 )
 from latris.server.access import AccessTokenMiddleware, configured_token
-from latris.server.deps import get_project_root, log_unhandled, serialise_writes
+from latris.server.deps import Root, log_unhandled, serialise_writes
 from latris.server.perf import PerfMiddleware
 from latris.server.routes import (
     activity,
@@ -75,8 +76,6 @@ from latris.server.routes import (
 )
 from latris.server.state import load_full_state
 from latris.server.watch import manager, watch_project
-
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -570,15 +569,30 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
 
     @app.exception_handler(ValueError)
     async def _value_error(_request: Request, exc: ValueError) -> JSONResponse:
+        # A refusal from the domain ("only a leaf takes a probability").
+        # (Malformed request bodies are answered 422 by FastAPI before this.)
         return JSONResponse(status_code=422, content={"error": "validation_error", "detail": str(exc)})
 
     @app.exception_handler(LookupError)
     async def _lookup_error(_request: Request, exc: LookupError) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"error": "lookup_error", "detail": str(exc)})
+        return JSONResponse(status_code=404, content={"error": "not_found", "detail": str(exc)})
+
+    @app.exception_handler(LLMCallError)
+    async def _llm_error(_request: Request, exc: LLMCallError) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"error": "llm_error", "detail": str(exc)})
+
+    @app.exception_handler(GitError)
+    async def _git_error(_request: Request, exc: GitError) -> JSONResponse:
+        error_id = log_unhandled(exc, "git failed")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "git_error", "detail": f"Saving the change failed (error id {error_id})."},
+        )
 
     @app.exception_handler(RuntimeError)
     async def _runtime_error(_request: Request, exc: RuntimeError) -> JSONResponse:
-        return JSONResponse(status_code=502, content={"error": "llm_error", "detail": str(exc)})
+        # Raised with a message meant for the person ("needs the 'quant' extra").
+        return JSONResponse(status_code=500, content={"error": "runtime_error", "detail": str(exc)})
 
     @app.exception_handler(Exception)
     async def _unhandled_error(_request: Request, exc: Exception) -> JSONResponse:

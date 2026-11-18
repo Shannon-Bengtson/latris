@@ -6,23 +6,18 @@ sha}``; reads return plain data. Answers are ``{"heading": ..., "answer": "yes"|
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from latris.operations import event_tree as et
 from latris.operations.readiness import assess_readiness
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/et", tags=["et"])
-Root = Annotated[Path, Depends(get_project_root)]
 
-
-def _bad(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=400, detail=str(exc))
 
 
 class Answer(BaseModel):
@@ -76,10 +71,7 @@ def _pairs(answers: list[Answer]) -> list[tuple[str, str]]:
 
 
 def _call(fn, *args, **kwargs):
-    try:
-        return fn(*args, **kwargs)
-    except (ValueError, LookupError) as exc:
-        raise _bad(exc) from exc
+    return fn(*args, **kwargs)
 
 
 @router.get("/tree")

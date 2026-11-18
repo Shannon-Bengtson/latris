@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel
 
 from latris.operations import datasets as ds_ops
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 # ---------------------------------------------------------------------------

@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from contextlib import suppress
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from latris.ai import prompts as prompt_lib
@@ -24,7 +24,7 @@ from latris.operations import ai_bibliography
 from latris.repo import git
 from latris.repo.project import require_project
 from latris.schema import HumanActor
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -34,7 +34,6 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 # transformed proposal keyed by interaction_id so the apply endpoint can
 # retrieve it.  Cleared on approve/reject.
 _expand_bib_cache: dict[str, dict[str, Any]] = {}
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class AICallRequest(BaseModel):

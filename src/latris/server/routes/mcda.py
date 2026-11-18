@@ -5,19 +5,17 @@ Mirrors the `mcda` CLI surface. Mutations return ``{"result": ..., "commit_sha":
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import mcda
 from latris.operations.readiness import assess_readiness
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/mcda", tags=["mcda"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class ElementRequest(BaseModel):
@@ -55,10 +53,7 @@ class AnalyseRequest(BaseModel):
 
 
 def _call(fn, *args, **kwargs):
-    try:
-        return fn(*args, **kwargs)
-    except (ValueError, LookupError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return fn(*args, **kwargs)
 
 
 @router.get("/model")

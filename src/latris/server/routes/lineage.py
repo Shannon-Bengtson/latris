@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from latris.operations import lineage as lineage_ops
 from latris.operations import sync as sync_ops
 from latris.repo.git import GitError
 from latris.schema import Maturity
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 from latris.server.watch import mark_own_mutation
 
 router = APIRouter(prefix="/api/lineage", tags=["lineage"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 def _guard_sync(fn: Any) -> Any:

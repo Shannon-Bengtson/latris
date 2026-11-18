@@ -7,20 +7,18 @@ git-versioned artifact rather than browser localStorage.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 
 from latris.operations.report_config import (
     load_report_config,
     save_report_config,
 )
 from latris.schema.report_config import ReportConfig
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/report-config", tags=["report-config"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 @router.get("")

@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from latris.operations.readiness import assess_all_readiness, assess_readiness
 from latris.schema.model_types import get_model_type, list_model_types
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/model-types", tags=["model-types"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 @router.get("")

@@ -26,6 +26,7 @@ from typing import Any
 from latris.operations import formalisms
 from latris.operations.analysis_runs import RunPurpose, iter_runs, record_run
 from latris.operations.commit import auto_commit
+from latris.operations.errors import NotFoundError
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
@@ -315,7 +316,7 @@ def _find(run_ref: str, paths: ProjectPaths) -> AnalysisRun:
     exact = [r for r in runs if r.id == run_ref]
     matches = exact or [r for r in runs if r.id.startswith(run_ref) or r.id.split("_", 1)[-1].startswith(run_ref)]
     if not matches:
-        raise ValueError(f"no recorded result {run_ref!r}; see `latris results list`")
+        raise NotFoundError(f"no recorded result {run_ref!r}; see `latris results list`")
     if len(matches) > 1:
         raise ValueError(f"{run_ref!r} matches {len(matches)} results; give more of the id")
     return matches[0]
