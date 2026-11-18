@@ -200,6 +200,8 @@ def test_routes_and_cli(built):
     root, _ = built
     c = TestClient(create_app(project_root=root))
     assert c.get("/api/markov/check").json()["ready"] is True
+    m = c.get("/api/markov/model").json()
+    assert "state" in m["elements"].values() and m["transitions"] and m["start"]
     assert c.post("/api/markov/settings", json={"time_units": "fortnights"}).status_code == 400
     r = c.post("/api/markov/analyse", json={"record": False}).json()
     assert r["commit_sha"] is None and r["result"]["choice"]

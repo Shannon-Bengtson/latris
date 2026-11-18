@@ -64,6 +64,18 @@ def _call(fn, *args, **kwargs):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/model")
+def model(root: Root) -> dict[str, Any]:
+    """Everything the model is made of: states and strategies, transitions (by edge id), costs and utilities,
+    the starting cohort."""
+    return {
+        "elements": markov.get_elements(root=root),
+        "transitions": markov.get_transitions(root=root).model_dump(mode="json")["entries"],
+        "rewards": markov.get_rewards(root=root).model_dump(mode="json")["entries"],
+        "start": markov.get_start(root=root).model_dump(mode="json")["entries"],
+    }
+
+
 @router.get("/check")
 def check(root: Root) -> dict[str, Any]:
     r = assess_readiness("markov", root=root)

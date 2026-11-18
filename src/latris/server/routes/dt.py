@@ -68,6 +68,18 @@ def _call(fn, *args, **kwargs):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/tree")
+def tree(root: Root) -> dict[str, Any]:
+    """Everything the tree is made of: node elements, branches (by edge id), payoffs, chance names, settings."""
+    return {
+        "elements": dt.get_elements(root=root),
+        "branches": dt.get_branches(root=root).model_dump(mode="json")["entries"],
+        "payoffs": dt.get_payoffs(root=root).model_dump(mode="json")["entries"],
+        "chances": dt.get_chances(root=root).model_dump(mode="json")["entries"],
+        "settings": dt.get_settings(root=root).model_dump(mode="json"),
+    }
+
+
 @router.get("/check")
 def check(root: Root) -> dict[str, Any]:
     r = assess_readiness("decision_tree", root=root)

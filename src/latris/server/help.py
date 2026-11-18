@@ -221,9 +221,10 @@ Formalise turns your conceptual structure into a complete formal model. Choose t
 Each selected model type appears in the Formalise dropdown. With a model open you work in the representation(s) that type offers:
 
 - **Table** — a parameter grid for setting model-specific attributes (CLD polarity, FCM weights).
-- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector. Bayesian networks (states and probability tables) and system dynamics (roles, equations and values) are set here.
+- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector: Bayesian networks (states and probability tables), system dynamics (roles, equations and values), decision trees (decision, chance and payoff nodes; each branch's option or state, probability and value), Markov models (states, moves per cycle, costs, utilities, the starting cohort and the clock) and theories of change (each factor's level; process-tracing priors and evidence tests on links).
+- **Matrix** — MCDA (options, criteria, swing weights and the score grid) and ACH (hypotheses, evidence, credibility, relevance and the consistency grid). These have no links, so Build doesn't ask for a connected network when they are the only types selected.
 
-Model types the editor can't build yet (MCDA, ACH, decision trees, Markov models, theories of change, fault trees, event trees, bow-ties) say so, and show the report's figure and any recorded results instead; build and run them in a chat with the Latris connector or with the `latris` command line.
+Fault trees, event trees and bow-ties can't be built in the editor yet: they say so, and show the report's figure and any recorded results instead; build and run them in a chat with the Latris connector or with the `latris` command line.
 
 ## Moving on
 
@@ -382,6 +383,9 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **FCM:** weighted influence structure and simulation-oriented attributes.
 - **BN:** observe evidence on nodes and read posterior beliefs, shown as bars inside each node (see the Bayesian Networks topic).
 - **SD:** run the simulation (with saved scenarios to compare), Monte Carlo, sensitivity and loop dominance from the analysis pane; each factor shows its end-of-run value on the canvas (see the System Dynamics topic).
+- **BN, beyond evidence:** *set* a factor (a policy, not an observation), apply a saved scenario, record the query, find the most likely explanation, run sensitivity, Monte Carlo over the tables (after saying how well each table is known) and compare scenarios.
+- **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane.
+- **MCDA, ACH:** run the analysis from the matrix page; its charts, tables and the report's figure show there.
 
 Nodes take the shapes the report figure gives them — stocks as boxes, flows with a valve, sources and sinks as dashed clouds, BN nodes as belief-bar monitors — so the editor and the report read the same.
 
