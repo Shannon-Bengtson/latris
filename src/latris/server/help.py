@@ -218,10 +218,12 @@ Formalise turns your conceptual structure into a complete formal model. Choose t
 
 ## Per-model workspaces
 
-Each selected model type appears in the Formalise dropdown. With a model open you can switch its representation:
+Each selected model type appears in the Formalise dropdown. With a model open you work in the representation(s) that type offers:
 
-- **Table** — a parameter grid for setting model-specific attributes (e.g. CLD polarity, FCM weights).
-- **Canvas** — a read-only reference view of the structure.
+- **Table** — a parameter grid for setting model-specific attributes (CLD polarity, FCM weights).
+- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector. Bayesian networks (states and probability tables) and system dynamics (roles, equations and values) are set here.
+
+Model types the editor can't build yet (MCDA, ACH, decision trees, Markov models, theories of change, fault trees, event trees, bow-ties) say so, and show the report's figure and any recorded results instead; build and run them in a chat with the Latris connector or with the `latris` command line.
 
 ## Moving on
 
@@ -379,6 +381,13 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **DAG:** acyclicity checks, paths, d-separation, Markov blankets, and adjustment-set support.
 - **FCM:** weighted influence structure and simulation-oriented attributes.
 - **BN:** observe evidence on nodes and read posterior beliefs, shown as bars inside each node (see the Bayesian Networks topic).
+- **SD:** run the simulation (with saved scenarios to compare), Monte Carlo, sensitivity and loop dominance from the analysis pane; each factor shows its end-of-run value on the canvas (see the System Dynamics topic).
+
+Nodes take the shapes the report figure gives them — stocks as boxes, flows with a valve, sources and sinks as dashed clouds, BN nodes as belief-bar monitors — so the editor and the report read the same.
+
+## Recorded results
+
+Runs that are recorded (simulations, Monte Carlo, sensitivity, loop dominance, recorded BN queries and every newer model type's analyses) are listed under **Recorded results** in the analysis pane, with the same charts the report draws. Each says if the model has changed since it ran ("Out of date"), and **Hide from report** leaves it out of reports (the same as `latris results hide`).
 
 ## Workflow
 
@@ -919,6 +928,10 @@ Equations reference variables by slugified label (`Birth Rate` → `birth_rate`)
 - **`sd loops`** — which feedback loop drives the behaviour, and when (Loops That Matter, with the 2023 flow-to-stock revision): loops through the stocks and equations are scored at each step, and a loop (or the fewest loops) holding half the score dominates. Dominant loops built on unsourced or contested links are flagged. Scores are zero when the stocks stop changing — the method explains change, not equilibrium.
 - **`sd roles` / `sd equations` / `sd stocks` / `sd constants` / `sd tables`** — listings (`sd roles` gives each variable's name in equations).
 
+## In the editor
+
+In **Formalise**, select a factor to give it a role and its equation, value or graphical function; the canvas draws it as the report does (stock box, flow valve with its equation, constant with its value, source/sink cloud), and the readiness panel lists what's missing. In **Analyse**, the pane with nothing selected runs the simulation (clock overrides and saved scenarios to compare), saves scenarios, and runs Monte Carlo, sensitivity and loop dominance; selecting a constant or stock sets its uncertainty, and selecting any factor shows it over the last run. Every run is recorded and appears under **Recorded results** with the report's charts. Settings stored with the model (`sd set-settings`) and taking a factor back out of the simulation (`sd unset-role`) are on the command line and the chat connector.
+
 ## Results in reports
 
 Simulations, Monte Carlo runs, sensitivity and loop analyses (and BN queries) are recorded. Reports show the latest run of each analysis in a **Results** section — with charts in the hosted report and Word — and the interpretation's claims include what they found. Each heading says what the run was of (its scenarios, evidence or interventions) and when it ran. A result computed before the model last changed is marked out of date — and only a change to what that model type is made of counts, so editing the loop map doesn't age a simulation sharing its map. `latris results list` shows what reports use; `latris results hide <run>` leaves one out. A `latris link` carries the parameters and the analyses, and opening it recomputes the same results.
@@ -929,7 +942,7 @@ Once a model passes its unit check it runs on a compiled float path (identical r
 
 ## Not yet
 
-Calibration to data, arrays (subscripts), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, the GUI stock-and-flow canvas, and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
+Calibration to data, arrays (subscripts), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, drawing new stocks and flows on the canvas (the editor sets roles on factors drawn in Build), and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
 """,
     ),
     HelpTopic(
