@@ -31,7 +31,7 @@ from latris.schema import (
     Substrate,
 )
 from latris.server.access import AccessTokenMiddleware, configured_token
-from latris.server.deps import get_project_root, log_unhandled
+from latris.server.deps import get_project_root, log_unhandled, serialise_writes
 from latris.server.perf import PerfMiddleware
 from latris.server.routes import (
     activity,
@@ -520,6 +520,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
         title="latris API",
         version=latris.__version__,
         lifespan=lifespan,
+        dependencies=[Depends(serialise_writes)],
     )
 
     # Perf telemetry — no-ops unless ``LATRIS_PERF=1`` is set. Installed

@@ -34,6 +34,7 @@ from latris.ai import prompts as prompt_lib
 from latris.ai.adapters import get_adapter
 from latris.ai.adapters.base import ChatResult, LLMCallError
 from latris.ai.context import ContextPack, build_context
+from latris.operations import write_lock
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 
@@ -238,7 +239,7 @@ def run_call(
 
     adapter = get_adapter()
     try:
-        with creds.key_in_env([provider]):
+        with creds.key_in_env([provider]), write_lock.released():
             # Real adapter will actually need the key; mock ignores.
             result: ChatResult = adapter.chat(
                 model=model,

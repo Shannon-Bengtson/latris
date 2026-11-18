@@ -19,6 +19,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from latris.diff.semantic import read_log
+from latris.operations import write_lock
 from latris.repo.layout import ProjectPaths
 from latris.repo.yaml_io import load_model
 from latris.schema import (
@@ -213,7 +214,7 @@ def _try_ai_narrative(
             "Write clear, professional prose. No bullet lists."
         )
 
-        with creds.key_in_env([provider]):
+        with creds.key_in_env([provider]), write_lock.released():
             result = adapter.chat(
                 model=model,
                 system=system,

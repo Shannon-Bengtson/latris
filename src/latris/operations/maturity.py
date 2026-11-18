@@ -96,7 +96,9 @@ def _set_maturity_in_findings(target_id: str, maturity: Maturity, paths) -> Path
             found = True
     if not found:
         return None
-    _rewrite_findings(records, paths.findings_jsonl)
+    from latris.repo.yaml_io import rewrite_jsonl
+
+    rewrite_jsonl(records, paths.findings_jsonl)
     return paths.findings_jsonl
 
 
@@ -319,19 +321,6 @@ def compute_badges(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _rewrite_findings(records: list[Finding], path: Path) -> None:
-    """Atomically rewrite the findings JSONL file in place."""
-    import json
-
-    from ..repo.yaml_io import atomic_replace
-
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        for r in records:
-            f.write(json.dumps(r.model_dump(mode="json"), ensure_ascii=False) + "\n")
-    atomic_replace(tmp, path)
 
 
 __all__ = [
