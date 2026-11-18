@@ -458,11 +458,6 @@ def _sd_polarity(substrate, paths) -> dict[str, str]:
 
 def _outcome_ids(paths, model_type: str) -> set[str]:
     """Factors given the ``outcome`` role in this view (``latris view role``)."""
-    if model_type == "sd":
-        from latris.operations import sd as sd_ops
-
-        outcome = sd_ops.get_settings(root=paths.root).outcome
-        return {outcome} if outcome else set()
     plugin = formalisms.get(model_type)
     if plugin:
         return plugin.outcome_ids(paths)

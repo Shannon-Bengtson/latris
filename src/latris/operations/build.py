@@ -142,10 +142,10 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
 
         plugin = formalisms.get(model_type)
         allowed = get_model_type(model_type).allowed_roles
-        if plugin and plugin.outcome_role is None:
+        if plugin and plugin.outcome_role is None and plugin.set_outcome is None:
             problems.append(f"outcome: {plugin.outcome_refusal}")
-        elif not plugin and allowed and "outcome" not in allowed and model_type != "sd":  # SD: kept in settings
-            takes = sorted({"sd"} | {f.model_type for f in formalisms.all_formalisms() if f.outcome_role}
+        elif not plugin and allowed and "outcome" not in allowed:
+            takes = sorted({f.model_type for f in formalisms.all_formalisms() if f.outcome_role or f.set_outcome}
                            | {m.id for m in list_model_types() if "outcome" in m.allowed_roles})
             problems.append(f"outcome: {model_type} has no outcome role ({', '.join(takes)} do)")
     for plugin in formalisms.all_formalisms():
@@ -296,9 +296,6 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
         for d in spec.decisions:
             log_decision(d.statement, d.rationale, target_id=_target_id(d.target), root=paths.root)
             result.decisions += 1
-        default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
-        if spec.sd:
-            result.parameters += _apply_sd(spec.sd, default_origin, paths.root)
         if spec.interpretation:
             _apply_interpretation(spec, model_type, paths.root, result)
 
@@ -340,47 +337,6 @@ def _parents_first(scenarios: list) -> list:
     for s in scenarios:
         place(s)
     return out
-
-
-def _apply_sd(sd, default_origin: str, root: Path) -> int:
-    """Roles first (equations need them), then values, equations, tables, uncertainty, scenarios."""
-    from latris.operations import sd as sd_ops
-    from latris.operations import sd_scenarios, uncertainty
-
-    n = 0
-    for r in sd.roles:
-        sd_ops.set_role(r.node, r.role, root=root)
-        n += 1
-    if sd.settings:
-        sd_ops.set_settings(**{("method" if k == "integration_method" else k): v
-                               for k, v in sd.settings.items()}, root=root)
-        n += 1
-    for s in sd.stocks:
-        sd_ops.set_initial_value(s.node, s.value, s.units, non_negative=s.non_negative,
-                                 origin=s.origin or default_origin, source_id=s.source, root=root)
-        n += 1
-    for c in sd.constants:
-        sd_ops.set_constant(c.node, c.value, c.units, origin=c.origin or default_origin, source_id=c.source,
-                            root=root)
-        n += 1
-    for e in sd.equations:
-        sd_ops.set_equation(e.node, e.expression, e.units, origin=e.origin or default_origin, source_id=e.source,
-                            root=root)
-        n += 1
-    for t in sd.tables:
-        sd_ops.set_table(t.node, [tuple(p) for p in t.points], t.x_units, t.y_units, extrapolate=t.extrapolate,
-                         origin=t.origin or default_origin, source_id=t.source, root=root)
-        n += 1
-    for u in sd.uncertainty:
-        uncertainty.set_uncertainty(u.node, u.distribution, u.params, reason=u.reason, source_id=u.source,
-                                    origin=u.origin or default_origin, root=root)  # type: ignore[arg-type]
-        n += 1
-    for sc in _parents_first(sd.scenarios):
-        sd_scenarios.set_scenario(sc.name, sc.set, description=sc.description, extends=sc.extends,
-                                  reason=sc.reason, origin=sc.origin or default_origin,  # type: ignore[arg-type]
-                                  source_id=sc.source, root=root)
-        n += 1
-    return n
 
 
 def _apply_interpretation(spec: BuildSpec, model_type: str, root: Path, result: BuildResult) -> None:

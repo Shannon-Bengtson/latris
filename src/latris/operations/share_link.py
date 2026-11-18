@@ -191,11 +191,10 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
          if r.value == "outcome" and r.target_id in labels),
         None,
     ) if role_path.exists() else None
-    if model_type == "sd":
-        from latris.operations import sd as sd_ops
-
-        sd_outcome = sd_ops.get_settings(root=paths.root).outcome
-        outcome = labels.get(sd_outcome) if sd_outcome else None
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.set_outcome and plugin.outcome_role is None:
+        # An outcome kept outside the roles (SD keeps it with its settings).
+        outcome = next((labels[i] for i in sorted(plugin.outcome_ids(paths)) if i in labels), None)
 
     context = SpecContext(
         background=foundation.background or None, audience=foundation.audience or None,
@@ -208,61 +207,10 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         outcome=outcome, factors=factors, links=links, sources=sources,
         assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
         decisions=decisions, interpretation=interpretation,
-        sd=_export_sd(paths, labels), analyses=_export_analyses(paths),
+        analyses=_export_analyses(paths),
         **{f.spec_field: f.spec_export(paths, labels) for f in formalisms.all_formalisms() if f.spec_field},
     )
     return foundation, spec
-
-
-def _export_sd(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
-    """System Dynamics parameters as spec entries (origins kept; reviews are not carried)."""
-    from latris.operations import sd as sd_ops
-    from latris.operations import sd_scenarios, uncertainty
-    from latris.schema.build_spec import (
-        SpecScenario,
-        SpecSD,
-        SpecSDEquation,
-        SpecSDRole,
-        SpecSDStock,
-        SpecSDTable,
-        SpecSDValue,
-        SpecUncertainty,
-    )
-
-    def named(target_id: str) -> bool:
-        return target_id in labels
-
-    roles = [SpecSDRole(node=labels[r.target_id], role=r.value)
-             for r in sd_ops.get_roles(root=paths.root).entries if named(r.target_id)]
-    if not roles:
-        return None
-    stocks = [SpecSDStock(node=labels[e.target_id], value=e.initial_value, units=e.units,
-                          non_negative=e.non_negative, origin=e.origin, source=e.source_id)
-              for e in sd_ops.get_stocks(root=paths.root).entries if named(e.target_id)]
-    constants = [SpecSDValue(node=labels[e.target_id], value=e.value, units=e.units, origin=e.origin,
-                             source=e.source_id)
-                 for e in sd_ops.get_constants(root=paths.root).entries if named(e.target_id)]
-    equations = [SpecSDEquation(node=labels[e.target_id], expression=e.expression, units=e.units,
-                                origin=e.origin, source=e.source_id)
-                 for e in sd_ops.get_equations(root=paths.root).entries if named(e.target_id)]
-    tables = [SpecSDTable(node=labels[e.target_id], points=[(p.x, p.y) for p in e.points], x_units=e.x_units,
-                          y_units=e.y_units, extrapolate=e.extrapolate, origin=e.origin, source=e.source_id)
-              for e in sd_ops.get_tables(root=paths.root).entries if named(e.target_id)]
-    ranges = [SpecUncertainty(node=labels[e.target_id], distribution=e.distribution, params=e.params,
-                              reason=e.reason, origin=e.origin, source=e.source_id)
-              for e in uncertainty.sd_specs(paths).values() if named(e.target_id)]
-    scenarios = [
-        SpecScenario(
-            name=s.name, extends=s.extends, description=s.description, reason=s.reason, origin=s.origin,
-            source=s.source_id,
-            set=[f"{labels[o.target_id]}={o.value!r} {o.units}" for o in s.overrides if named(o.target_id)],
-        )
-        for s in sd_scenarios.load(paths).scenarios
-        if any(named(o.target_id) for o in s.overrides)
-    ]
-    stored = sd_ops.get_settings(root=paths.root).model_dump(exclude_none=True, exclude={"outcome"})
-    return SpecSD(settings=stored, roles=roles, stocks=stocks, constants=constants, equations=equations, tables=tables,
-                  uncertainty=ranges, scenarios=scenarios)
 
 
 def _export_analyses(paths):  # noqa: ANN001, ANN202

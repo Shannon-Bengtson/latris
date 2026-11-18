@@ -63,7 +63,6 @@ from latris.server.routes import (
     references,
     report_config,
     results,
-    sd,
     story,
     sync,
     view_attributes,
@@ -614,7 +613,6 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(story.router)
     app.include_router(sync.router)
     app.include_router(fcm.router)
-    app.include_router(sd.router)
     _include_formalism_routers(app)  # BN's routes come in here (its Formalism names them)
     app.include_router(results.router)
     app.include_router(history.router)

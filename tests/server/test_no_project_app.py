@@ -46,11 +46,14 @@ def test_project_bound_route_404s_without_project(client: TestClient, monkeypatc
 
 
 def test_every_route_is_registered_once():
-    """No router is included twice (BN's was, once explicitly and once through its Formalism)."""
-    from collections import Counter
+    """No router is included twice (BN's was, once explicitly and once through its Formalism): a duplicate
+    shows as a duplicate operation id when the OpenAPI document is built."""
+    import warnings
 
     from latris.server.app import create_app
 
     app = create_app(project_root=None)
-    seen = Counter((m, r.path) for r in app.routes for m in getattr(r, "methods", ()) or ())
-    assert [k for k, n in seen.items() if n > 1] == []
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # FastAPI warns "Duplicate Operation ID"
+        spec = app.openapi()
+    assert any(p.startswith("/api/sd/") for p in spec["paths"]) and any(p.startswith("/api/bn/") for p in spec["paths"])

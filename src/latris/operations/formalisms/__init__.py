@@ -15,11 +15,10 @@ a static pydantic field), then write one module here and add it to the
 imports at the bottom. ``tests/operations/test_formalisms.py`` checks every
 stable type is fully wired.
 
-The older types (CLD, DAG, FCM, SD) predate this and keep their own
-wiring; they aren't registered here yet (BN was the first to move). SD's
-*results* are: ``sd_results.py`` registers its five result kinds as analyses
-on ``sd`` that lead the report order, so reports, claims, chart markers and
-share-link replay have no SD branches left.
+The older types (CLD, DAG, FCM) predate this and keep their own wiring;
+they aren't registered here yet. BN and SD have moved: SD's model type is
+``sd.py`` and its five result kinds ``sd_results.py`` (analyses on ``sd``
+that lead the report order).
 
 Hooks import their operations lazily, so importing this package is cheap and
 can't create import cycles.
@@ -86,7 +85,9 @@ class Formalism:
     outcome_role: str | None
     outcome_refusal: str
     outcome_ids: Callable[[Any], set[str]]  # paths → ids of the outcome(s) of interest
-    set_outcome: Callable[[str, Path], Any] | None = None  # (target, root): give the outcome its role
+    # (target, root): give the outcome its role — or, with no ``outcome_role``, store it outside the roles
+    # (SD keeps it with its settings, since its roles are one per factor).
+    set_outcome: Callable[[str, Path], Any] | None = None
 
     # ── readiness ──
     structure_problems: Callable[[Path], list[Any]] | None = None  # root → problems (target_id, gap_type, message)
@@ -225,7 +226,8 @@ def default_origin(verified_by: str) -> str:
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
 _MODULES = (
-    "sd_results",  # SD's result kinds (SD itself isn't registered yet; its results lead the report order)
+    "sd_results",  # SD's result kinds, registered as leading analyses so they head the report order
+    "sd",
     "bn",
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
     "markov", "toc_impact",

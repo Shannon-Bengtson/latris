@@ -30,15 +30,13 @@ def set_role(
 
     Returns ``(target_id, commit_sha)``.
     """
-    if model_type == "sd" and role == "outcome":
-        # SD roles (stock, flow, ...) are one per factor, so the outcome is kept with the SD settings.
-        from latris.operations import sd as sd_ops
-
-        return sd_ops.set_outcome(target, root=root)
     from latris.operations import formalisms
 
     plugin = formalisms.get(model_type)
     if plugin and role == "outcome":
+        if plugin.set_outcome and plugin.outcome_role is None:
+            # Kept outside the roles (SD: with its settings, since its roles are one per factor).
+            return plugin.set_outcome(target, require_project(root).root)
         raise ValueError(plugin.outcome_refusal)
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:

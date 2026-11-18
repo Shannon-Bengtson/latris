@@ -43,7 +43,6 @@ from latris.cli import (  # noqa: E402
     provenance_cmd,
     ref_cmd,
     results_cmd,
-    sd_cmd,
     story_cmd,
     sync_cmd,
     view_cmd,
@@ -108,7 +107,6 @@ def _add_formalism_commands(app: typer.Typer) -> None:
 
 app.add_typer(fcm_cmd.app, name="fcm")
 app.add_typer(bn_cmd.app, name="bn")
-app.add_typer(sd_cmd.app, name="sd")
 _add_formalism_commands(app)
 app.add_typer(results_cmd.app, name="results")
 app.add_typer(data_cmd.app, name="data")

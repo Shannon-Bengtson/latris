@@ -916,6 +916,9 @@ Equations reference variables by slugified label (`Birth Rate` → `birth_rate`)
 
 ## Working with SD (the `sd` commands)
 
+Each is `latris sd …` on the command line (e.g. `latris sd check`, `latris sd simulate --scenario NAME`); the chat connector and the editor call the same operations.
+
+
 - **`sd set-role <node> <role>`** — stock, flow, auxiliary, constant, or source_sink.
 - **`sd set-settings --time-units month --final-time 36`** — the model's clock and run settings, stored with it (every run, and anyone opening a link, uses them; options on a run override). If the flows are per month but the clock runs in years, every run and `sd check` warn. **`latris view role sd <node> outcome`** marks what the model explains.
 - **`sd set-initial-value <stock> <value> --units …`** — a stock's starting value (`--non-negative` warns if a run drives it below zero).
