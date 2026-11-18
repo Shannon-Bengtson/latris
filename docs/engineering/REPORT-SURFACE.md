@@ -15,7 +15,8 @@ Reports have two surfaces, and the boundary between them is deliberate:
   markers that name a run and a chart kind. Everything here is plain text
   and renders anywhere.
 - **The app (`latris-app`, `latris_present`) owns the glossy surface.** The
-  typeset SVG figure (`figure/`), the SVG chart renderers (`charts.py`),
+  typeset SVG figure (`figure/`), the SVG chart renderers (`charts/`), both
+  dispatched per model type through `presenters/` (one module per type),
   the hosted report page and the Word export. Anything that isn't Markdown
   or Mermaid happens there, reached through the share link — the link is
   the hook that brings the reader into the app.
