@@ -683,6 +683,16 @@ def _mermaid(paths, entities, edges) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _parameterised_nodes(paths) -> set[str]:
+    """Factors with states, and every parent of a table."""
+    from latris.operations import bn as bn_ops
+
+    nodes = {e.target_id for e in bn_ops._load_state_spaces(paths).entries}
+    for target, cpt in bn_ops._effective_cpt_map(paths).items():
+        nodes |= {target, *cpt.parents}
+    return nodes
+
+
 def _problems(root: Path) -> list:
     from latris.operations import bn as bn_ops
 
@@ -784,6 +794,9 @@ register(Formalism(
                    claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})], chart_kinds=("bn-tornado",),
                    subtitle=_subtitle_target),
     ),
+    scope_noun="network",
+    parameterised_nodes=_parameterised_nodes,
+    scenario_store="latris.operations.bn_scenarios",
     spec_field="bn",
     spec_check=_check,
     spec_apply=_apply,

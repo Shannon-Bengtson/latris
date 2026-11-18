@@ -65,7 +65,7 @@ def test_capabilities_surface_manifest(tmp_path: Path, monkeypatch):
     assert set(types) == {s.id for s in list_model_types()}
     for t in types.values():
         assert (t["spec_field"] is None) == (t["spec_schema"] is None)
-        if t["registered"]:
+        if t["registered"] and t["spec_field"]:  # the causal types are made of the substrate: no block
             assert t["spec_schema"]["type"] == "object" and t["cli"]
     assert {r["kind"] for t in types.values() for r in t["results"]} == {r.kind for r in result_surfaces()}
     mcda = types["mcda"]["results"][0]

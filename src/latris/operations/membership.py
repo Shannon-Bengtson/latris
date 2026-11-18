@@ -66,21 +66,10 @@ def _mapped(paths: ProjectPaths, model_type: str) -> set[str]:
 
 def parameterised_nodes(paths: ProjectPaths, model_type: str) -> set[str]:
     """The factors a quantified model type computes on (empty for the qualitative types)."""
-    nodes: set[str] = set()
-    if model_type == "bn":
-        from latris.operations import bn as bn_ops
+    from latris.operations import formalisms
 
-        nodes = {e.target_id for e in bn_ops._load_state_spaces(paths).entries}
-        for target, cpt in bn_ops._effective_cpt_map(paths).items():
-            nodes |= {target, *cpt.parents}
-    elif model_type == "sd":
-        from latris.operations import sd as sd_ops
-
-        nodes = {e.target_id for e in sd_ops._load_roles(paths).entries}
-        for e in _substrate(paths).edges:
-            if e.kind == "flow":
-                nodes |= {e.from_id, e.to_id}
-    return nodes
+    plugin = formalisms.get(model_type)
+    return plugin.parameterised_nodes(paths) if plugin and plugin.parameterised_nodes else set()
 
 
 def _with_links(paths: ProjectPaths, nodes: set[str]) -> Members:

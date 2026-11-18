@@ -220,28 +220,25 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             [r.run.output_summary[:120] for r in exploratory[:5]],
         ))
 
-    if "sd" in types:
-        from latris.operations import sd as sd_ops
+    from latris.operations import formalisms
+    from latris.schema import Substrate
+    from latris.schema.model_types import get_model_type
 
-        gaps = sd_ops.check(root=paths.root)
-        if gaps:
-            items.append(HandoverItem(
-                "model_incomplete", len(gaps),
-                f"the System Dynamics model doesn't pass its check ({len(gaps)} gap{'s' if len(gaps) != 1 else ''})",
-                "`latris sd check` lists each gap and how to fix it",
-                [f"{g.element_label}: {g.message}" if g.element_label else g.message for g in gaps[:5]],
-            ))
-    if "bn" in types:
-        from latris.operations import bn as bn_ops
-
-        problems = bn_ops.structure_problems(root=paths.root)
+    for mt in types:
+        plugin = formalisms.get(mt)
+        if not (plugin and plugin.spec_field and plugin.structure_problems):
+            continue  # the causal types' structure is the readiness check's
+        problems = plugin.structure_problems(paths.root)
         if problems:
+            labels = formalisms.problem_labels(load_model(Substrate, paths.conceptual_yaml))
+            how = f"`latris {plugin.cli[1]} check` lists each gap and how to fix it" if plugin.cli else ""
             items.append(HandoverItem(
                 "model_incomplete", len(problems),
-                f"the Bayesian network doesn't pass its check ({len(problems)} gap"
+                f"the {get_model_type(mt).display_name} model doesn't pass its check ({len(problems)} gap"
                 f"{'s' if len(problems) != 1 else ''})",
-                "`latris bn check` lists each gap and how to fix it",
-                [p.message for p in problems[:5]],
+                how,
+                [f"{labels[p.target_id]}: {p.message}" if p.target_id in labels else p.message
+                 for p in problems[:5]],
             ))
 
     from latris.operations.integrity import check_integrity

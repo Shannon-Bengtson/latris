@@ -16,8 +16,8 @@ from latris.operations import formalisms
 from latris.operations.formalisms import CLAIM_SECTIONS, Formalism
 from latris.schema.model_types import get_model_type, list_model_types
 
-# Types that predate the plugin registry and keep their own wiring.
-LEGACY = {"cld", "dag", "fcm"}
+# Every stable type is a plugin now (the causal types from formalisms/causal.py).
+LEGACY: set[str] = set()
 PLUGINS = formalisms.all_formalisms()
 IDS = [f.model_type for f in PLUGINS]
 
@@ -51,10 +51,11 @@ def test_readiness_validators_match_the_spec(f):
 @pytest.mark.parametrize("f", PLUGINS, ids=IDS)
 def test_outcome(f):
     spec = get_model_type(f.model_type)
-    assert f.outcome_refusal
-    if f.outcome_role == "outcome":  # kept outside the roles (SD: with its settings), set through the hook
+    if f.outcome_role == "outcome":  # the type keeps its outcome its own way (SD: its settings; causal: a role)
         assert f.set_outcome is not None
-    elif f.outcome_role is not None:
+        return
+    assert f.outcome_refusal
+    if f.outcome_role is not None:
         assert f.outcome_role in spec.allowed_roles and f.set_outcome is not None
     assert "outcome" not in spec.allowed_roles  # "outcome" is refused with outcome_refusal
 
@@ -76,6 +77,9 @@ def test_build_spec_block(f):
     from latris.cli.build_cmd import build
     from latris.schema.build_spec import BuildSpec
 
+    if f.spec_field is None:  # made of the substrate itself (the causal types): nothing more to write
+        assert not (f.spec_check or f.spec_apply or f.spec_export or f.chat_ops)
+        return
     assert f.spec_field in BuildSpec.model_fields, f"add a {f.spec_field!r} field to BuildSpec"
     assert f.spec_check and f.spec_apply and f.spec_export
     assert f"``{f.spec_field}``" in (build.__doc__ or ""), "list the block's keys in `latris build --help`"
@@ -87,6 +91,10 @@ def test_foundations_and_help(f):
     from latris.server.help import HELP_TOPICS
 
     assert any(fd.applies_to == (f.model_type,) for fd in FOUNDATIONS), "add a foundations entry"
+    if f.cli is None:  # commands shared with the substrate: its help topic is about the type
+        name = get_model_type(f.model_type).display_name.lower()
+        assert any(name.rstrip("s") in t.title.lower() for t in HELP_TOPICS), f"add a help topic for {name}"
+        return
     command = f"latris {f.cli[1]} "
     assert any(command in t.body for t in HELP_TOPICS), f"add a help topic that shows `{command}…`"
 
@@ -96,10 +104,14 @@ def test_cli_and_routes_load(f):
     import typer
     from fastapi import APIRouter
 
+    if f.cli is None:
+        assert f.routes is None  # the causal types use the substrate's commands and routes
+        return
     module, name = f.cli
     assert isinstance(importlib.import_module(module).app, typer.Typer)
     assert isinstance(importlib.import_module(f.routes).router, APIRouter)
-    assert len({p.cli[1] for p in PLUGINS}) == len(PLUGINS)
+    with_cli = [p for p in PLUGINS if p.cli]
+    assert len({p.cli[1] for p in with_cli}) == len(with_cli)
 
 
 @pytest.mark.parametrize("f", PLUGINS, ids=IDS)
@@ -117,7 +129,7 @@ def test_hooks_run_on_an_empty_project(f, tmp_path: Path, git_identity):
         assert isinstance(formalisms.claims(f.model_type, paths, section), list)
     assert extract_claims("answer_to_question", f.model_type, root=root)
     assert f.outcome_ids(paths) == set()
-    assert f.spec_export(paths, {}) is None
+    assert f.spec_export is None or f.spec_export(paths, {}) is None
     assert f.structure_problems(root)  # an empty model is never complete
     assert mermaid(paths, model_type=f.model_type) == ""
 
@@ -164,6 +176,8 @@ def test_chat_ops_cover_the_block(f):
 
     from latris.schema.build_spec import BuildSpec
 
+    if f.spec_field is None:
+        return
     annotation = BuildSpec.model_fields[f.spec_field].annotation
     block = next(a for a in typing.get_args(annotation) if a is not type(None))
     covered = [field for op in f.chat_ops for field in op.fields]

@@ -40,7 +40,10 @@ four central entries: `ModelTypeSpec` (schema/model_types.py), the
 `BuildSpec` field and a model per analysis kind in the `SpecAnalysis` union
 (schema/build_spec.py), the
 foundations entry, and the help topic. `tests/operations/test_formalisms.py`
-names anything missing. Full list in ARCHITECTURE.md → "Adding a formalism".
+names anything missing. Declare how shared code should treat the type (fields
+on `Formalism`) and its chat surface (`ResultKind.tool`, `Formalism.chat_ops`)
+rather than branching on its name in shared code — `test_no_type_branches.py`
+fails if you do. Full list in ARCHITECTURE.md → "Adding a formalism".
 
 ## Entity resolution
 

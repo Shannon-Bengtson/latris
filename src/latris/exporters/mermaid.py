@@ -70,7 +70,7 @@ def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:
         own = plugin.mermaid(paths, entities, edges)
         if own:
             return own
-    direction = "TB" if model_type == "dag" else "LR"
+    direction = plugin.diagram_direction if plugin else "LR"
     alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
     lines = [f"flowchart {direction}"]
     levels: dict[str, str] = {}

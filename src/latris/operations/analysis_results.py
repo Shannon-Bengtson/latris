@@ -132,10 +132,11 @@ def fingerprint(
 def _scenario_defs(model_type: str, names: list[str], paths: ProjectPaths) -> dict[str, Any]:
     """Each named scenario's definition with every scenario it extends, so a change to a parent ages the
     results of the scenarios built on it. A name no longer saved hashes as None (the result goes stale)."""
-    if model_type == "bn":
-        from latris.operations import bn_scenarios as store
-    else:
-        from latris.operations import sd_scenarios as store
+    import importlib
+
+    plugin = formalisms.get(model_type)
+    store = importlib.import_module(plugin.scenario_store if plugin and plugin.scenario_store
+                                    else "latris.operations.sd_scenarios")
     def dump(s: Any) -> dict[str, Any]:
         # Without ``extends`` a scenario dumps exactly as before the field existed, so results recorded
         # earlier keep their fingerprint.

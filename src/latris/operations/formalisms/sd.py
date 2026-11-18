@@ -478,6 +478,19 @@ def _set_outcome(target: str, root: Path) -> Any:
     return sd_ops.set_outcome(target, root=root)
 
 
+def _parameterised_nodes(paths: Any) -> set[str]:
+    """Factors with an SD role, and both ends of every flow."""
+    from latris.operations import sd as sd_ops
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+
+    nodes = {e.target_id for e in sd_ops._load_roles(paths).entries}
+    for e in load_model(Substrate, paths.conceptual_yaml).edges:
+        if e.kind == "flow":
+            nodes |= {e.from_id, e.to_id}
+    return nodes
+
+
 @dataclass(frozen=True)
 class _Problem:
     target_id: str | None
@@ -592,6 +605,11 @@ register(Formalism(
                    run=_run_loops, definition=_def_loops, definition_reads_run=True, claims=_claims("_loops"),
                    charts=_charts_loops, chart_kinds=("loops",), subtitle=_subtitle("sd-loops")),
     ),
+    scope_noun="simulation",
+    findings_priority=("dynamics", "inference", "sensitivity", "structure"),
+    feedback_via_stocks=True,
+    parameterised_nodes=_parameterised_nodes,
+    scenario_store="latris.operations.sd_scenarios",
     spec_field="sd",
     spec_check=_check,
     spec_apply=_apply,

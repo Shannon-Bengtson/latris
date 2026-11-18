@@ -15,8 +15,8 @@ a static pydantic field), then write one module here and add it to the
 imports at the bottom. ``tests/operations/test_formalisms.py`` checks every
 stable type is fully wired.
 
-The older types (CLD, DAG, FCM, SD) predate this and keep their own
-wiring; they aren't registered here yet (BN was the first to move).
+Every stable type is registered: the causal types (CLD, DAG, FCM) from ``causal.py``, whose shared
+interpretation, readiness and diagram code reads their declared fields rather than their names.
 
 Hooks import their operations lazily, so importing this package is cheap and
 can't create import cycles.
@@ -137,6 +137,18 @@ class Formalism:
     # How chat writes the block: an operation per part of it (every block field covered by one).
     chat_ops: tuple[ChatOp, ...] = ()
 
+    # ── how shared code treats it (declared here rather than branching on the type's name) ──
+    scope_noun: str | None = None  # what its own factors are called in claims ("simulation", "network")
+    loop_claims: bool = False  # feedback-loop claims (polarity, loop participation) mean something here
+    acyclicity_claims: bool = False  # the structure claims confirm (or deny) that it is acyclic
+    findings_priority: tuple[str, ...] | None = None  # finding categories in the order its claims rank them
+    feedback_via_stocks: bool = False  # feedback runs through stocks (flows), never a causal-edge cycle
+    # paths → the factors it computes on (a quantified type sharing its map with a loop map)
+    parameterised_nodes: Callable[[Any], set[str]] | None = None
+    scenario_store: str | None = None  # module holding its saved scenarios (load(paths).scenarios)
+    diagram_direction: str = "LR"  # the generic diagram's layout: "LR" or "TB"
+    polarity_labels: bool = False  # its links are labelled with their polarity (+/−) in diagrams
+
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""
     mermaid_groups: Callable[[Any], tuple[list[str], dict[str, str], dict[str, str]]] | None = None
@@ -256,7 +268,7 @@ def default_origin(verified_by: str) -> str:
 _MODULES = (
     "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov", "toc_impact",
+    "markov", "toc_impact", "causal",
 )
 
 

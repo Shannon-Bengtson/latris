@@ -93,7 +93,6 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
     from latris.operations.findings import list_findings
     from latris.operations.interpret import load_interpretation
     from latris.schema.attributes import FloatSet
-    from latris.schema.roles import RoleSet
 
     paths = require_project(root)
     foundation = load_model(ProjectFoundation, paths.project_yaml)
@@ -188,17 +187,11 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         for s in load_interpretation(root=paths.root).sections
         if s.model_type == model_type and s.prose.strip()
     ]
-    role_path = paths.role_path(model_type)
-    outcome = next(
-        (labels[r.target_id] for r in _load(RoleSet, role_path).entries
-         if r.value == "outcome" and r.target_id in labels),
-        None,
-    ) if role_path.exists() else None
-    if model_type == "sd":
-        from latris.operations import sd as sd_ops
-
-        sd_outcome = sd_ops.get_settings(root=paths.root).outcome
-        outcome = labels.get(sd_outcome) if sd_outcome else None
+    plugin = formalisms.get(model_type)
+    # Only a type that takes an outcome (SD, the causal types, ToC, …) writes one; an event tree's end
+    # states are its outcomes but aren't given as a spec's ``outcome``.
+    outcome_ids = sorted(plugin.outcome_ids(paths)) if plugin and plugin.outcome_role else []
+    outcome = next((labels[i] for i in outcome_ids if i in labels), None)
 
     context = SpecContext(
         background=foundation.background or None, audience=foundation.audience or None,

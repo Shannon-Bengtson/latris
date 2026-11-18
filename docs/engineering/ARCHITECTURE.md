@@ -323,10 +323,23 @@ results need a dataset — and test against `latris.testing`, whose
 payload. A new type then reaches them, or fails their tests, when they pin
 the release that has it.
 
-BN and SD have moved into the registry (SD's outcome is kept with its
-settings, so its plugin sets it through `set_outcome`). CLD, DAG and FCM,
-the causal types, still keep their own wiring: the shared interpretation,
-readiness and diagram code is their implementation.
+Every stable type is registered: the causal types (CLD, DAG, FCM) from
+`formalisms/causal.py`. They are made of the substrate itself, so they have no
+build-spec block or command group of their own.
+
+**Declared, not branched.** Shared code never tests a type's name. What sets a
+type apart is a field on its `Formalism`, read by the shared code: `scope_noun`,
+`loop_claims`, `acyclicity_claims`, `findings_priority`, `feedback_via_stocks`,
+`parameterised_nodes`, `scenario_store`, `diagram_direction`,
+`polarity_labels`, plus the hooks above. `tests/operations/test_no_type_branches.py`
+fails on a comparison against a model-type id in `operations/` or `exporters/`
+outside a type's own modules.
+
+**The chat surface is declared too.** Each `ResultKind` declares its `tool`
+(`ChatTool`: the chat tool that runs it) and each formalism its `chat_ops`
+(`ChatOp`: one write operation per part of its build-spec block). latris-app
+generates its chat connector's analysis tools and `apply_changes` operations
+from the surface manifest, so a new type reaches chat with no app code.
 
 ## The five chokepoint files
 
