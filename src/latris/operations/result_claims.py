@@ -3,8 +3,8 @@
 Claims are what the model supports — the interpretation's prose must stick to
 them. Structural claims come from the diagram; these come from the numbers:
 what a simulation shows, what each scenario changes, how wide the uncertainty
-is and what drives it, which loop dominates. SD's claims live here; every
-registered formalism's claims live on its ``ResultKind`` hooks. Each claim is
+is and what drives it, which loop dominates. Every result kind's claims —
+SD's included (``formalisms/sd_results.py``) — live on its ``ResultKind`` hooks. Each claim is
 a deterministic sentence built from a recorded result, and results computed
 before the model last changed are left out (they no longer describe the
 model).
@@ -16,171 +16,14 @@ links — so the open questions surface it.
 
 from __future__ import annotations
 
-from typing import Any
-
 from latris.repo.layout import ProjectPaths
-
-_REVIEWED = "human-verified"
-
-
-def _f(x: float) -> str:
-    return f"{x:.4g}"
-
-
-def _who(origin: str | None) -> str:
-    return {"ai-proposed": "AI-proposed", "data-derived": "derived from data", "human-elicited": "elicited"}.get(
-        origin or "", "entered"
-    )
-
-
-def _simulation(p: dict[str, Any], out: dict[str, list[str]]) -> None:
-    labels, units, roles = p["labels"], p["units"], p["roles"]
-    base = p["scenarios"][0]
-    t = p["times"]
-    stocks = sorted((v for v in labels if roles.get(v) == "stock"), key=labels.get)[:3]
-    for s in stocks:
-        sm = base["summary"].get(s)
-        if not sm:
-            continue
-        peak = (
-            f", peaking at {_f(sm['peak'])} at t={_f(sm['peak_time'])}"
-            if sm["peak"] > max(sm["start"], sm["end"])
-            else ""
-        )
-        out["answer_to_question"].append(
-            f"Simulation (baseline): {labels[s]} goes from {_f(sm['start'])} to {_f(sm['end'])} {units[s]} "
-            f"over {t[0]:g}–{t[-1]:g} {p['time_units']}{peak}."
-        )
-    for sc in p["scenarios"][1:]:
-        changes = "; ".join(f"{o['label']} {o['baseline']} → {o['value']:g} {o['units']}" for o in sc["overrides"])
-        for s in stocks:
-            ch, sm = sc.get("change_vs_baseline", {}).get(s), sc["summary"].get(s)
-            if not ch or not sm:
-                continue
-            pct = f" ({ch['end_pct']:+.0f}%)" if ch.get("end_pct") is not None else ""
-            claim = (
-                f"Scenario {sc['name']} ({changes}): {labels[s]} ends at {_f(sm['end'])} {units[s]}, "
-                f"{_f(abs(ch['end']))} {units[s]} {'more' if ch['end'] >= 0 else 'less'} than the baseline{pct}."
-            )
-            out["answer_to_question"].append(claim)
-            out["implications"].append(claim)
-        if sc.get("verification") != _REVIEWED and sc.get("origin") == "ai-proposed":
-            out["open_questions"].append(f"Scenario {sc['name']}'s values are AI-proposed and not yet reviewed.")
-
-
-def _monte_carlo(p: dict[str, Any], out: dict[str, list[str]]) -> None:
-    on = f" on scenario {p['scenario']}" if p.get("scenario") else ""
-    t = p["times"][-1]
-    by_id = {prm["target_id"]: prm for prm in p["parameters"]}
-    for v in p["variables"]:
-        e = p["end"][v]
-        central = e.get("baseline")
-        claim = (
-            f"Across {p['succeeded']} sampled runs{on}, {p['labels'][v]} at {t:g} {p['time_units']} is between "
-            f"{_f(e['p2.5'])} and {_f(e['p97.5'])} {p['units'][v]} in 95% of runs (median {_f(e['p50'])}"
-            + (f"; the run with every value at its stated value gives {_f(central)}" if central is not None else "")
-            + ")."
-        )
-        out["sensitivity"].append(claim)
-        out["confidence_assessment"].append(claim)
-        width = e["p97.5"] - e["p2.5"]
-        if central is not None and width > 0 and abs(e["p50"] - central) > 0.1 * width:
-            out["confidence_assessment"].append(
-                f"The typical sampled run of {p['labels'][v]} ({_f(e['p50'])}) sits "
-                f"{'above' if e['p50'] > central else 'below'} the central-value run ({_f(central)}) because some "
-                "uncertainty ranges are lopsided; quote the range, not the central value, as the expected outcome."
-            )
-        drivers = [r for r in p["influence"][v] if r["rho"] is not None and abs(r["rho"]) >= 0.3]
-        if drivers:
-            top = drivers[0]
-            prm = by_id.get(top["target_id"], {})
-            unreviewed = prm.get("verification") != _REVIEWED
-            note = f", whose range is {_who(prm.get('origin'))} and not yet reviewed" if unreviewed else ""
-            out["sensitivity"].append(
-                f"The spread in {p['labels'][v]} comes mostly from {top['label']} "
-                f"(rank correlation {top['rho']:+.2f}){note}."
-            )
-            if unreviewed:
-                out["open_questions"].append(
-                    f"How wide is {top['label']} really? Its uncertainty range drives most of the spread in "
-                    f"{p['labels'][v]} but is {_who(prm.get('origin'))} and not yet reviewed."
-                )
-
-
-def _options(p: dict[str, Any], out: dict[str, list[str]]) -> None:
-    from latris.operations.sd_montecarlo import arm_label, describe_option
-
-    world = f"; in every run: {'; '.join(p['world'])}" if p.get("world") else ""
-    intro = (f"Options compared on {p['label']} ({p['metric_label']}), {p['succeeded']} paired draws of the "
-             f"uncertain values{world}. Each difference is measured against the arm named after 'vs'")
-    out["answer_to_question"].append(intro + ":")
-    for r in p["options"]:
-        claim = "  - " + describe_option(p, r)
-        out["answer_to_question"].append(claim)
-    for r in p["options"]:
-        d = r.get("difference")
-        if not d:
-            continue
-        ref = arm_label(r.get("reference", "baseline"))
-        if 0.1 < d["share_lower"] < 0.9:
-            out["confidence_assessment"].append(
-                f"Whether {r['name']} gives a lower {p['label']} ({p['metric_label']}) than {ref} is uncertain: "
-                f"lower in {d['share_lower']:.0%} of draws, higher in {d['share_higher']:.0%}{world}."
-            )
-        else:
-            out["implications"].append(describe_option(p, r) + ".")
-    for w in p.get("warnings", []):
-        out["open_questions"].append(w)
-
-
-def _sensitivity(p: dict[str, Any], out: dict[str, list[str]]) -> None:
-    rows = [r for r in p["parameters"] if r.get("swing")]
-    if not rows:
-        return
-    on = f" on scenario {p['scenario']}" if p.get("scenario") else ""
-    ranged = [r for r in rows if r.get("range_kind", "uncertainty") == "uncertainty"]
-    nudged = [r for r in rows if r.get("range_kind") == "pct"]
-    top = ranged[:3]
-    if top:
-        listed = ", ".join(f"{r['label']} (moves it by {_f(r['swing'])} {p['units']})" for r in top)
-        out["sensitivity"].append(
-            f"Across their stated uncertainty ranges, {p['label']}'s {p['metric_label']}{on} is most sensitive to "
-            f"{listed}."
-        )
-    if nudged:
-        listed = ", ".join(f"{r['label']} ({_f(r['swing'])} {p['units']})" for r in nudged[:3])
-        out["sensitivity"].append(
-            f"Values with no stated range, each moved ±{p['pct']:g}% (a probe, not their real uncertainty): "
-            f"{listed}."
-        )
-    for r in top + nudged[:2]:
-        if r.get("weak"):
-            out["open_questions"].append(
-                f"{r['label']} strongly affects {p['label']} but its value is {_who(r.get('origin'))} and not yet "
-                f"reviewed."
-            )
-
-
-def _loops(p: dict[str, Any], out: dict[str, list[str]]) -> None:
-    from latris.operations.sd_loops import describe
-
-    if not p["loops"]:
-        return
-    on = f" (scenario {p['scenario']})" if p.get("scenario") else ""
-    claim = f"Loop dominance{on}: {describe(p)}."
-    out["key_findings"].append(claim)
-    out["answer_to_question"].append(claim)
-    dominant = {lid for s in p["sets"] for per in s["dominant_periods"] for lid in per["loops"]}
-    for lp in p["loops"]:
-        if lp["id"] in dominant and lp["weak_links"]:
-            links = "; ".join(f"{w['link']} ({w['why']})" for w in lp["weak_links"][:3])
-            out["open_questions"].append(f"Loop {lp['id']} dominates for a period but rests on weak links: {links}.")
 
 
 def claims_by_section(model_type: str, paths: ProjectPaths) -> dict[str, list[str]]:
     """Claims per interpretation section from the current (non-stale) results of ``model_type``."""
     from collections import defaultdict
 
+    from latris.operations import formalisms
     from latris.operations.analysis_results import report_results
 
     out: dict[str, list[str]] = defaultdict(list)
@@ -190,22 +33,9 @@ def claims_by_section(model_type: str, paths: ProjectPaths) -> dict[str, list[st
     for r in results:
         kind, p = r.run.result_kind, r.payload
         try:
-            if kind == "sd-simulation":
-                _simulation(p, out)
-            elif kind == "sd-monte-carlo":
-                _monte_carlo(p, out)
-            elif kind == "sd-options":
-                _options(p, out)
-            elif kind == "sd-sensitivity":
-                _sensitivity(p, out)
-            elif kind == "sd-loops":
-                _loops(p, out)
-            else:
-                from latris.operations import formalisms
-
-                found = formalisms.result_kind(kind)
-                if found and found[1].claims:
-                    found[1].claims(p, out)
+            found = formalisms.result_kind(kind)
+            if found and found[1].claims:
+                found[1].claims(p, out)
         except (KeyError, TypeError, ValueError, IndexError):
             continue  # an unreadable result contributes no claims rather than a wrong one
     return out

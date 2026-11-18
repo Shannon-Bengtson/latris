@@ -121,7 +121,9 @@ def test_hooks_run_on_an_empty_project(f, tmp_path: Path, git_identity):
     assert mermaid(paths, model_type=f.model_type) == ""
 
 
-@pytest.mark.parametrize("a", formalisms.ANALYSES, ids=[a.result.kind for a in formalisms.ANALYSES])
+@pytest.mark.parametrize(
+    "a", formalisms.LEADING + formalisms.ANALYSES, ids=[a.result.kind for a in formalisms.LEADING + formalisms.ANALYSES]
+)
 def test_analysis_layers_are_registered_everywhere(a):
     from latris.operations.analysis_results import KIND_MODEL_TYPE, KIND_ORDER
     from latris.operations.foundations import _ANALYSIS_KIND_TO_ID, FOUNDATIONS
@@ -131,4 +133,6 @@ def test_analysis_layers_are_registered_everywhere(a):
     r = a.result
     assert r.kind in KIND_ORDER and KIND_MODEL_TYPE[r.kind] == a.model_type
     assert r.analysis in get_args(SpecAnalysis.model_fields["kind"].annotation)
-    assert _ANALYSIS_KIND_TO_ID.get(r.kind) in {fd.id for fd in FOUNDATIONS}, "map the kind to a foundations entry"
+    # sd-simulation is a core foundations entry of its own (see _ANALYSIS_KIND_TO_ID's note).
+    found = _ANALYSIS_KIND_TO_ID.get(r.kind, r.kind if r.kind == "sd-simulation" else None)
+    assert found in {fd.id for fd in FOUNDATIONS}, "map the kind to a foundations entry"

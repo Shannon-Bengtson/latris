@@ -16,7 +16,10 @@ imports at the bottom. ``tests/operations/test_formalisms.py`` checks every
 stable type is fully wired.
 
 The older types (CLD, DAG, FCM, SD) predate this and keep their own
-wiring; they aren't registered here yet (BN was the first to move).
+wiring; they aren't registered here yet (BN was the first to move). SD's
+*results* are: ``sd_results.py`` registers its five result kinds as analyses
+on ``sd`` that lead the report order, so reports, claims, chart markers and
+share-link replay have no SD branches left.
 
 Hooks import their operations lazily, so importing this package is cheap and
 can't create import cycles.
@@ -53,6 +56,11 @@ class ResultKind:
     # payload → what this run was of, for its heading ("given Hot week = yes"), so repeated
     # headings say which run is which.
     subtitle: Callable[[dict[str, Any]], str] | None = None
+    # payload → the heading's title when it depends on the run ("Sensitivity of Inflow"); else ``title``.
+    title_for: Callable[[dict[str, Any]], str] | None = None
+    # (payload, recorded AnalysisRun) → SpecAnalysis, for kinds whose run settings live on the run
+    # (its hyperparameters) rather than in the payload; preferred over ``definition`` when set.
+    run_definition: Callable[[dict[str, Any], Any], Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +121,8 @@ class Formalism:
 
 FORMALISMS: dict[str, Formalism] = {}
 ANALYSES: list[Analysis] = []
+# Analyses that lead the report order — SD's results, which came first before SD's results moved here.
+LEADING: list[Analysis] = []
 
 
 def _refuse_clash(new: list[ResultKind]) -> None:
@@ -131,9 +141,9 @@ def register(f: Formalism) -> Formalism:
     return f
 
 
-def register_analysis(a: Analysis) -> Analysis:
+def register_analysis(a: Analysis, *, lead: bool = False) -> Analysis:
     _refuse_clash([a.result])
-    ANALYSES.append(a)
+    (LEADING if lead else ANALYSES).append(a)
     return a
 
 
@@ -146,10 +156,13 @@ def all_formalisms() -> list[Formalism]:
 
 
 def _owned() -> list[tuple[str, ResultKind]]:
-    """Every registered result kind with the model type it belongs to — formalisms first, then analyses."""
-    return [(f.model_type, r) for f in FORMALISMS.values() for r in f.results] + [
-        (a.model_type, a.result) for a in ANALYSES
-    ]
+    """Every registered result kind with the model type it belongs to — leading analyses (SD's), then
+    formalisms, then the other analyses. This is the order reports show results in."""
+    return (
+        [(a.model_type, a.result) for a in LEADING]
+        + [(f.model_type, r) for f in FORMALISMS.values() for r in f.results]
+        + [(a.model_type, a.result) for a in ANALYSES]
+    )
 
 
 def result_kinds() -> list[ResultKind]:
@@ -171,7 +184,7 @@ def fingerprint_files(model_type: str, paths: Any) -> list[Path]:
     f = get(model_type)
     if f and f.fingerprint_files:
         out += f.fingerprint_files(paths)
-    for a in ANALYSES:
+    for a in LEADING + ANALYSES:
         if a.model_type == model_type and a.fingerprint_files:
             out += a.fingerprint_files(paths)
     return out
@@ -208,7 +221,8 @@ def default_origin(verified_by: str) -> str:
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
 _MODULES = (
-    "bn",  # first: its kinds follow the hardcoded sd-* ones in report order
+    "sd_results",  # SD's result kinds (SD itself isn't registered yet; its results lead the report order)
+    "bn",
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
     "markov", "toc_impact",
 )

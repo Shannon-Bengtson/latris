@@ -103,7 +103,10 @@ def test_every_plugin_result_kind_with_charts_is_namespaced():
                                      # BN migrated with its chart kinds unchanged — they are the
                                      # app's existing renderer contract ("posterior" predates the
                                      # namespacing rule and stays so the app keeps working).
-                                     "bn-", "posterior")), chart
+                                     "bn-", "posterior",
+                                     # SD's results moved into the registry the same way: "series",
+                                     # "bands", "tornado" and "loops" are the app's existing contract.
+                                     "series", "bands", "tornado", "loops")), chart
 
 
 def _safe_charts(r) -> list[tuple[str, dict]]:
@@ -156,3 +159,22 @@ def test_aggregate_diagrams_draw_what_each_formalism_computes_on(cld_bn_sd_root)
     assert "P mass" in sd_part and "Oxygen" not in sd_part
     # The CLD already draws every factor, so no "Whole model" repeat.
     assert "### Whole model" not in md
+
+
+def test_sd_results_are_registry_entries():
+    """SD's five result kinds render, chart and claim through the registry (latris#3, SD part)."""
+    from latris.exporters.results import chart_markers, result_heading
+    from latris.operations import formalisms
+
+    kinds = [r.kind for r in formalisms.result_kinds()]
+    assert kinds[:5] == ["sd-simulation", "sd-options", "sd-monte-carlo", "sd-sensitivity", "sd-loops"]
+    for k in kinds[:5]:
+        assert formalisms.kind_model_types()[k] == "sd"
+    assert chart_markers("sd-sensitivity", {}) == [("tornado", {})]
+    assert chart_markers("sd-loops", {"loops": []}) == []
+    assert chart_markers("sd-simulation", {"roles": {"a": "stock", "b": "flow"}, "labels": {"a": "A", "b": "B"}}) == [
+        ("series", {"vars": ["a"]})
+    ]
+    sens = {"label": "Inflow", "scenario": None}
+    assert result_heading("sd-sensitivity", sens) == "Sensitivity of Inflow: baseline"
+    assert result_heading("not-a-kind", {}) == "not-a-kind"
