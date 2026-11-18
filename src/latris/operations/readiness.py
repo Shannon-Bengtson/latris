@@ -833,7 +833,8 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
     """Build → Formalise: a minimal, fully-connected structure.
 
     Requires at least ``_MIN_NODES_FOR_FORMALISE`` nodes and a single
-    weakly-connected network — no orphan nodes and no disjoint sub-graphs.
+    weakly-connected network — no orphan nodes and no disjoint sub-graphs —
+    unless every selected model type is one without links (MCDA, ACH).
     """
     from latris.operations.graph_analysis import weakly_connected_components
 
@@ -849,6 +850,19 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
             light="red",
             summary="Build a minimal causal structure before formalising.",
             details=[f"Add at least {_MIN_NODES_FOR_FORMALISE} nodes (currently {n_nodes})."],
+        )
+
+    # Matrix types (MCDA, ACH) have no links: when every selected type is one, there's no network to connect.
+    from latris.operations import formalisms
+    from latris.schema import ProjectFoundation
+
+    selected = load_model(ProjectFoundation, paths.project_yaml).selected_model_types
+    if selected and all((f := formalisms.get(t)) is not None and not f.connected_structure for t in selected):
+        return TransitionStatus(
+            from_phase="build",
+            to_phase="formalise",
+            light="green",
+            summary="Ready to formalise (these model types don't need links between factors).",
         )
 
     node_ids = [e.id for e in entities]

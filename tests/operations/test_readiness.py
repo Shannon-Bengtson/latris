@@ -239,6 +239,22 @@ class TestBuildToFormalise:
         assert gate.light == "red"
         assert any("Lonely" in d for d in gate.details)
 
+    def test_green_unlinked_for_matrix_types(self, tmp_path: Path, git_identity, monkeypatch):
+        """MCDA/ACH factors have no links: when only such types are selected, no network is required."""
+        root = tmp_path / "proj"
+        init_project(root, statement="Which site?")
+        monkeypatch.chdir(root)
+        for label in ("North", "South", "Cost"):
+            node_ops.add_node(label, kind="variable", root=root)
+        add_model_choice("mcda", "", root=root)
+        add_model_choice("ach", "", root=root)
+        gate = assess_transition_readiness(root=root).transitions[1]
+        assert gate.light == "green"
+        # …but a type that lives on the network brings the gate back.
+        add_model_choice("cld", "", root=root)
+        gate = assess_transition_readiness(root=root).transitions[1]
+        assert gate.light == "red"
+
     def test_green_connected(self, project):
         """Fixture is Price→Demand→Quantity — ≥3 nodes, single network."""
         root, _, _, _ = project

@@ -221,6 +221,7 @@ def _definition(payload: dict[str, Any]):
 
 
 register(Formalism(
+    connected_structure=False,
     model_type="mcda",
     outcome_role=None,
     outcome_refusal=("An MCDA's result is the ranking of its options, not one outcome factor: give factors the "

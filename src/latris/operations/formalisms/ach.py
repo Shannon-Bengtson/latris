@@ -167,6 +167,7 @@ def _definition(payload: dict[str, Any]):
 
 
 register(Formalism(
+    connected_structure=False,
     model_type="ach",
     outcome_role=None,
     outcome_refusal=("ACH weighs competing hypotheses rather than explaining one outcome: give factors the "
