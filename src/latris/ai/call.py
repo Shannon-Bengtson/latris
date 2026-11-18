@@ -69,73 +69,11 @@ RESPONSE_MODELS: dict[str, type[BaseModel]] = {
 }
 
 
-# Prompts where the LLM returns an intermediate result (e.g. search queries)
-# that the server transforms into the real proposal. These have no apply() on
-# their response model but must stay pending in preview mode so the user can
-# approve/reject the final result.
-_SERVER_TRANSFORMED_PROMPTS = {"ExpandBibliography", "FindFoundationalReferences"}
-
-# Hybrid prompts produce critique prose AND a bounded structured proposal.
-# The CLI prints the prose alongside the apply summary, so reviewers see
-# both the critique and the audit-trail records that were created.
-HYBRID_PROMPTS = {
-    "AttackThisModel",
-    "FindCounterPathway",
-    "ScopeCheck",
-    "IdentifyResearchGaps",
-    "ScanEvidenceGaps",
-    "CrossReferenceCheck",
-    "EdgeReclassify",
-    "ChallengeEdge",
-    "EvidenceDemote",
-    "VerifyClaimAgainstSource",
-}
-
-
-READ_ONLY_PROMPTS = {
-    "ExplainThisElement",
-    # RecommendApproach is read-only: the user accepts a recommendation, which
-    # records a ModelChoice via its own route — the call never mutates.
-    "RecommendApproach",
-    # AttackThisModel, ScopeCheck, IdentifyResearchGaps, ScanEvidenceGaps,
-    # and CrossReferenceCheck are now hybrid: their Result classes have
-    # apply() methods that produce bounded provenance mutations
-    # (assumptions, exclusions, questions, evidence-link suggestions)
-    # alongside the critique prose that always renders into the report.
-    # SyntheticPeerReview stays read-only — its value is the synthetic
-    # external voice itself, and silent mutation from a synthetic
-    # reviewer would erode the provenance distinction between
-    # "AI surfaced a critique" and "the project formally accepted it".
-    "RunElicitationInterview",
-    "GeneratePack",
-    "SyntheticPeerReview",
-    "ProjectToFormalView",
-    "SummarizeReference",
-    # Compose extraction + synthesis (read-only)
-    "ExtractVariablesFromEvidence",
-    "ExtractCausalClaims",
-    "SuggestVariables",
-    "SuggestConnections",
-    # SuggestEdgePolarities is *mutating* — its apply() commits all
-    # suggestions via the Configure batch path. (Was previously read-only
-    # because the GUI staged suggestions and applied them via a separate
-    # /configure/apply-attributes call. The CLI dispatches apply directly.)
-    # Inline per-field AI — GUI inserts value into editable field, user saves via normal mutation
-    "FillProvenanceField",
-    # Interpretation prompts (all read-only)
-    "InterpretStructuralSummary",
-    "InterpretKeyFindings",
-    "InterpretSensitivity",
-    "InterpretAssumptions",
-    "InterpretEvidenceGaps",
-    "InterpretEvidenceCoverage",
-    "InterpretAnswer",
-    "InterpretImplications",
-    "InterpretConfidence",
-    "InterpretOpenQuestions",
-    # Story beat prose — register transform, no mutation
-    "StoryBeatProse",
-}
+# Each prompt's behaviour is its spec's ``mode`` (see ``prompts._MODES``);
+# these name sets are derived views kept for importers.
+_SERVER_TRANSFORMED_PROMPTS = {n for n, s in prompt_lib.PROMPT_LIBRARY.items() if s.mode == "server_transformed"}
+HYBRID_PROMPTS = {n for n, s in prompt_lib.PROMPT_LIBRARY.items() if s.mode == "hybrid"}
+READ_ONLY_PROMPTS = {n for n, s in prompt_lib.PROMPT_LIBRARY.items() if s.mode == "read_only"}
 
 
 def _provider_for(model: str) -> str:

@@ -47,24 +47,23 @@ def test_derived_response_models_match_specs() -> None:
         assert call_mod.RESPONSE_MODELS[name] is spec.response_model
 
 
-def test_behaviour_sets_are_subsets_of_the_library() -> None:
-    """READ_ONLY / HYBRID / server-transformed sets must reference only real
-    prompts — a typo'd or deleted name here silently mis-routes a prompt."""
-    lib = set(prompt_lib.PROMPT_LIBRARY)
-    for label, names in (
-        ("READ_ONLY_PROMPTS", call_mod.READ_ONLY_PROMPTS),
-        ("HYBRID_PROMPTS", call_mod.HYBRID_PROMPTS),
-        ("_SERVER_TRANSFORMED_PROMPTS", call_mod._SERVER_TRANSFORMED_PROMPTS),
-    ):
-        stray = set(names) - lib
-        assert not stray, f"{label} references unknown prompts: {sorted(stray)}"
+def test_behaviour_is_one_mode_per_spec() -> None:
+    """Each prompt's behaviour is a single ``mode`` on its spec, so a prompt
+    can't be both read-only and hybrid; call.py's name sets are views of it."""
+    by_mode: dict[str, set[str]] = {}
+    for name, spec in prompt_lib.PROMPT_LIBRARY.items():
+        by_mode.setdefault(spec.mode, set()).add(name)
+    assert by_mode.get("read_only", set()) == call_mod.READ_ONLY_PROMPTS
+    assert by_mode.get("hybrid", set()) == call_mod.HYBRID_PROMPTS
+    assert by_mode.get("server_transformed", set()) == call_mod._SERVER_TRANSFORMED_PROMPTS
 
 
-def test_read_only_and_hybrid_are_disjoint() -> None:
-    """A prompt is either read-only or hybrid (prose + bounded proposal), never
-    classified as both — the two sets must not overlap."""
-    overlap = set(call_mod.READ_ONLY_PROMPTS) & set(call_mod.HYBRID_PROMPTS)
-    assert not overlap, f"prompts classified as both read-only and hybrid: {sorted(overlap)}"
+def test_renderers_name_real_prompts() -> None:
+    """A renderer under a typo'd or deleted name would silently never run."""
+    from latris.ai.render import RENDERERS
+
+    stray = set(RENDERERS) - set(prompt_lib.PROMPT_LIBRARY)
+    assert not stray, f"renderers for unknown prompts: {sorted(stray)}"
 
 
 @pytest.mark.parametrize("spec", prompt_lib.list_all(), ids=lambda s: s.name)
