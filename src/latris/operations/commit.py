@@ -101,8 +101,8 @@ def auto_commit(
         # bytes), skip the commit and return the current HEAD SHA instead of
         # failing with "nothing to commit".
         with span("git_status"):
-            status = git.run_git(["status", "--porcelain"], cwd=root).stdout.strip()
-        if not status:
+            staged = git.has_staged_changes(root)
+        if not staged:
             with span("git_head_sha"):
                 return git.head_sha(root)
 

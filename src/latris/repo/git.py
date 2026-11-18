@@ -192,6 +192,15 @@ def add(cwd: Path, paths: list[Path]) -> None:
     run_git(["add", "--", *rel], cwd=cwd)
 
 
+def has_staged_changes(cwd: Path) -> bool:
+    """True when the index differs from HEAD — i.e. a commit would record something.
+
+    Untracked and unstaged files don't count: they are not part of the next
+    commit, so they must not make a no-op write look like a change.
+    """
+    return run_git(["diff", "--cached", "--quiet"], cwd=cwd, check=False).returncode != 0
+
+
 def commit(cwd: Path, message: str) -> str:
     """Create a commit with ``message``. Returns the new commit SHA."""
     run_git(["commit", "-m", message], cwd=cwd)
