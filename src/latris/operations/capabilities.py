@@ -279,6 +279,7 @@ def build_surface_manifest() -> dict[str, Any]:
             "short_name": spec.short_name,
             "registered": f is not None,
             "outcome_role": f.outcome_role if f else None,
+            "scope_noun": f.scope_noun if f else None,  # a quantified type that can share its map with a loop map
             "spec_field": field,
             "spec_schema": _spec_schema(field),
             "cli": f.cli[1] if f and f.cli else None,

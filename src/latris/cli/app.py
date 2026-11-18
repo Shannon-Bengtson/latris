@@ -17,7 +17,6 @@ from latris.cli import (  # noqa: E402
     ai_cmd,
     analyse_cmd,
     attr_cmd,
-    bn_cmd,
     build_cmd,
     capabilities_cmd,
     challenge_cmd,
@@ -29,7 +28,6 @@ from latris.cli import (  # noqa: E402
     elicit_cmd,
     evidence_cmd,
     export_cmd,
-    fcm_cmd,
     findings_cmd,
     foundations_cmd,
     history_cmd,
@@ -43,7 +41,6 @@ from latris.cli import (  # noqa: E402
     provenance_cmd,
     ref_cmd,
     results_cmd,
-    sd_cmd,
     story_cmd,
     sync_cmd,
     view_cmd,
@@ -106,10 +103,7 @@ def _add_formalism_commands(app: typer.Typer) -> None:
             app.add_typer(importlib.import_module(module).app, name=name)
 
 
-app.add_typer(fcm_cmd.app, name="fcm")
-app.add_typer(bn_cmd.app, name="bn")
-app.add_typer(sd_cmd.app, name="sd")
-_add_formalism_commands(app)
+_add_formalism_commands(app)  # every formalism's own group (sd, bn, fcm, mcda, ft, …), from its plugin
 app.add_typer(results_cmd.app, name="results")
 app.add_typer(data_cmd.app, name="data")
 app.add_typer(lineage_cmd.app, name="version")

@@ -1,11 +1,12 @@
 """The causal types — causal loop diagram, causal DAG and fuzzy cognitive map — as formalism plugins.
 
 They are made of the substrate itself (factors, links, polarity, weights on links), so they have no
-build-spec block and no command group of their own; the shared interpretation, readiness and diagram
-code is written for them. What sets each apart is declared here, so shared code reads a field instead of
-testing the type's name: loop claims for the loop maps (CLD, FCM), acyclicity claims and a top-to-bottom
-diagram for the DAG, and an outcome that is an ordinary role (``latris view role <type> <factor>
-outcome``). DAG's effect estimation is an analysis layer on it (``dag_estimation.py``).
+build-spec block, and CLD and DAG no command group of their own (FCM has ``latris fcm``); the shared
+interpretation, readiness and diagram code is written for them. What sets each apart is declared here,
+so shared code reads a field instead of testing the type's name: loop claims and polarity labels for the
+loop maps, acyclicity claims and a top-to-bottom diagram for the DAG, and an outcome that is an ordinary
+role (``latris view role <type> <factor> outcome``). DAG's effect estimation is an analysis layer on it
+(``dag_estimation.py``).
 """
 
 from __future__ import annotations
@@ -76,4 +77,4 @@ def _causal(model_type: str, **declared: Any) -> Formalism:
 
 register(_causal("cld", loop_claims=True, polarity_labels=True))
 register(_causal("dag", acyclicity_claims=True, diagram_direction="TB"))
-register(_causal("fcm", loop_claims=True))
+register(_causal("fcm", loop_claims=True, cli=("latris.cli.fcm_cmd", "fcm"), routes="latris.server.routes.fcm"))
