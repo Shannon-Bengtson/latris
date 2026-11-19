@@ -96,3 +96,16 @@ def test_approve_mapping(client: TestClient) -> None:
     resp = client.post(f"/api/views/mappings/{node_id}/cld/approve")
     assert resp.status_code == 200
     assert resp.json()["result"]["maturity"] == "approved"
+
+
+def test_auto_project_again_writes_nothing(client: TestClient, project_with_graph: Path) -> None:
+    """Opening a model type re-projects it; when nothing changed the view file isn't rewritten, so the
+    file watcher reports no edit (which would clear the canvas's overlays) and nothing is committed."""
+    from latris.repo import git
+    from latris.repo.layout import ProjectPaths
+
+    client.post("/api/views/dag/auto-project")
+    view = ProjectPaths(project_with_graph).view_yaml("dag")
+    head, mtime = git.head_sha(project_with_graph), view.stat().st_mtime_ns
+    assert client.post("/api/views/dag/auto-project").json()["mappings"] == []
+    assert git.head_sha(project_with_graph) == head and view.stat().st_mtime_ns == mtime

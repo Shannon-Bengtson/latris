@@ -53,7 +53,9 @@ class SemanticEvent:
     def __post_init__(self) -> None:
         if self.target_id is None:
             self.target_id = self.details.get("id")
-        if self.kind.endswith("_added") or self.kind in ("project_initialised", "challenge_opened"):
+        if self.kind.startswith("mapping_"):  # putting a factor in or out of a view changes the factor
+            self.change = "changed"
+        elif self.kind.endswith("_added") or self.kind in ("project_initialised", "challenge_opened"):
             self.change = "added"
         elif self.kind.endswith("_removed"):
             self.change = "removed"
@@ -405,16 +407,18 @@ def _diff_mappings(
         events.append(
             SemanticEvent(
                 "mapping_added",
-                f"Mapped {_name(m.l2_id)} ↔ {m.l3_view}/{_id_short(m.l3_id)}",
+                f"Put {_name(m.l2_id)} in the {m.l3_view} view",
                 path,
+                target_id=m.l2_id,
             )
         )
     for m in removed:
         events.append(
             SemanticEvent(
                 "mapping_removed",
-                f"Unmapped {_name(m.l2_id)} ↔ {m.l3_view}/{_id_short(m.l3_id)}",
+                f"Took {_name(m.l2_id)} out of the {m.l3_view} view",
                 path,
+                target_id=m.l2_id,
             )
         )
     return events

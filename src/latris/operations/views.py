@@ -94,6 +94,8 @@ def project_view(
 
     view = View(kind=view_kind, entity_ids=entity_ids, edge_ids=edge_ids)
     view_path = paths.view_yaml(view_kind)
+    if view_path.exists() and load_model(View, view_path) == view:
+        return view  # unchanged: no write, so a watcher sees no edit and nothing is committed
     dump_model(view, view_path)
     auto_commit(
         paths.root,
