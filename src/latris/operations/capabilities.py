@@ -248,8 +248,9 @@ def analysis_catalog(model_type: str | None = None) -> list[dict[str, Any]]:
     and its title, the analysis that runs it with the JSON schema of its options (each option described,
     and marked with ``x-input`` saying what it is: a factor, a scenario…), its chart kinds, whether it needs
     a dataset, its chat tool, and the method it stands on (method, citation, what for, limits — from the
-    foundations registry the report's Methods section reads). Surfaces generate their run controls from this — the chat connector's
-    tools, the editor's analysis forms — so an analysis a formalism declares reaches them with no code."""
+    foundations registry the report's Methods section reads). Surfaces generate their run controls from
+    this — the chat connector's tools, the editor's analysis forms — so an analysis a formalism declares
+    reaches them with no code."""
     from dataclasses import asdict
 
     from latris.operations import formalisms

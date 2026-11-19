@@ -1340,6 +1340,10 @@ Lineage tracks named versions, milestones, and alternatives in a Git-backed proj
 - **Alternative:** a new version branch from a milestone or current state.
 - **Current version:** the branch or lineage node currently being edited.
 
+## Comparing versions
+
+**Compare with…** in the versions panel lists what changed between the version you're on and another version or a model checkpoint — factors and links added, changed and removed, and the rest of the record (sources, assumptions, decisions) — naming each factor and link. **Show on the canvas** marks what was added and changed on the model; what was removed is listed, since it isn't there to mark. From the command line: `latris version compare <from> <to>`, where either side is a version or a checkpoint.
+
 ## When to branch — and when to use a scenario instead
 
 Create alternatives when a modelling assumption, framing, or stakeholder view would change the structure enough that simple notes are not enough: a different link, equation or mechanism; a competing expert view.

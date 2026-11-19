@@ -235,3 +235,30 @@ def reconcile(
         f"[green]reconciled[/green] '{result['branch']}' (kept {result['keep']}); "
         f"the other line is archived as [cyan]{result['archived_version_id']}[/cyan]"
     )
+
+
+@app.command("compare")
+@handle_cli_errors
+def compare(
+    a: str = typer.Argument(..., help="From: a version (id, name or branch) or a model checkpoint (id or name)."),
+    b: str = typer.Argument(..., help="To: a version or a model checkpoint."),
+) -> None:
+    """What changed from A to B: factors and links added, changed and removed, and the rest of the record."""
+    from dataclasses import asdict
+
+    from latris.cli._output import emit
+
+    events = ops.compare_versions(a, b)
+
+    def human() -> None:
+        if not events:
+            console.print("No changes.")
+            return
+        for change in ("added", "changed", "removed"):
+            group = [e for e in events if e.change == change]
+            if group:
+                console.print(f"[bold]{change.capitalize()} ({len(group)})[/bold]")
+                for e in group:
+                    console.print(f"  · {e.summary}", markup=False, highlight=False)
+
+    emit([asdict(e) for e in events], human=human)

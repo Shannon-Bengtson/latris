@@ -9,6 +9,7 @@ makes `latris log/diff/status` readable.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from latris.repo import git
-from latris.repo.layout import ProjectPaths
+from latris.repo.layout import STATE_DIR_NAME, ProjectPaths
 from latris.repo.yaml_io import load_model, load_model_from_string
 from latris.schema import (
     AssumptionLog,
@@ -44,6 +45,29 @@ class SemanticEvent:
     summary: str
     path: str = ""
     details: dict[str, Any] = field(default_factory=dict)
+    target_id: str | None = None  # the factor or link the event is about, when it's about one
+    # What happened to the thing the event is about: added, removed, or changed (an attribute set on a
+    # factor, a source attached to a link, a challenge resolved… all change something already there).
+    change: str = ""  # derived from kind (kept a plain field so serialisers include it)
+
+    def __post_init__(self) -> None:
+        if self.target_id is None:
+            self.target_id = self.details.get("id")
+        if self.kind.endswith("_added") or self.kind in ("project_initialised", "challenge_opened"):
+            self.change = "added"
+        elif self.kind.endswith("_removed"):
+            self.change = "removed"
+        else:
+            self.change = "changed"
+
+
+# Labels of the factors and links in the two states being compared, so a summary names what changed
+# ("description on Rainfall") rather than its id. Set by the engine for the length of one diff.
+_LABELS: ContextVar[dict[str, str] | None] = ContextVar("_LABELS", default=None)
+
+
+def _name(element_id: str) -> str:
+    return (_LABELS.get() or {}).get(element_id) or _id_short(element_id)
 
 
 # ---------- helpers ----------
@@ -140,6 +164,7 @@ def _diff_substrate(
                     "node_renamed",
                     f'Renamed node {_id_short(old_e.id)}: "{old_e.label}" → "{new_e.label}"',
                     path,
+                    {"id": new_e.id},
                 )
             )
         if old_e.kind != new_e.kind:
@@ -148,6 +173,7 @@ def _diff_substrate(
                     "node_retyped",
                     f'Retyped node "{new_e.label}": {old_e.kind} → {new_e.kind}',
                     path,
+                    {"id": new_e.id},
                 )
             )
         if old_e.maturity != new_e.maturity:
@@ -156,6 +182,7 @@ def _diff_substrate(
                     "node_maturity_changed",
                     f'Node "{new_e.label}" maturity: {old_e.maturity} → {new_e.maturity}',
                     path,
+                    {"id": new_e.id},
                 )
             )
         if old_e.origin != new_e.origin:
@@ -164,6 +191,7 @@ def _diff_substrate(
                     "node_origin_changed",
                     f'Node "{new_e.label}" origin: {old_e.origin} → {new_e.origin}',
                     path,
+                    {"id": new_e.id},
                 )
             )
         if old_e.verification != new_e.verification:
@@ -172,6 +200,7 @@ def _diff_substrate(
                     "node_verification_changed",
                     f'Node "{new_e.label}" verification: {old_e.verification} → {new_e.verification}',
                     path,
+                    {"id": new_e.id},
                 )
             )
 
@@ -209,6 +238,7 @@ def _diff_substrate(
                     "edge_kind_changed",
                     f'Changed edge kind "{src}" → "{dst}": {old_e.kind} → {new_e.kind}',
                     path,
+                    {"id": new_e.id},
                 )
             )
         if old_e.maturity != new_e.maturity:
@@ -217,6 +247,7 @@ def _diff_substrate(
                     "edge_maturity_changed",
                     f'Edge "{src}" → "{dst}" maturity: {old_e.maturity} → {new_e.maturity}',
                     path,
+                    {"id": new_e.id},
                 )
             )
         if old_e.origin != new_e.origin:
@@ -225,6 +256,7 @@ def _diff_substrate(
                     "edge_origin_changed",
                     f'Edge "{src}" → "{dst}" origin: {old_e.origin} → {new_e.origin}',
                     path,
+                    {"id": new_e.id},
                 )
             )
         if old_e.verification != new_e.verification:
@@ -233,6 +265,7 @@ def _diff_substrate(
                     "edge_verification_changed",
                     f'Edge "{src}" → "{dst}" verification: {old_e.verification} → {new_e.verification}',
                     path,
+                    {"id": new_e.id},
                 )
             )
 
@@ -264,16 +297,18 @@ def _diff_attribute_set(
         events.append(
             SemanticEvent(
                 "attribute_set",
-                f"Set {e.attribute} on {_id_short(e.target_id)}: {_fmt_value(e.value)}",
+                f"Set {e.attribute} on {_name(e.target_id)}: {_fmt_value(e.value)}",
                 path,
+                target_id=e.target_id,
             )
         )
     for e in removed:
         events.append(
             SemanticEvent(
                 "attribute_removed",
-                f"Removed {e.attribute} from {_id_short(e.target_id)}",
+                f"Removed {e.attribute} from {_name(e.target_id)}",
                 path,
+                target_id=e.target_id,
             )
         )
     for o, n in changed:
@@ -292,8 +327,9 @@ def _diff_attribute_set(
             events.append(
                 SemanticEvent(
                     "attribute_changed",
-                    f"{n.attribute} on {_id_short(n.target_id)}: {'; '.join(parts)}",
+                    f"{n.attribute} on {_name(n.target_id)}: {'; '.join(parts)}",
                     path,
+                    target_id=n.target_id,
                 )
             )
     return events
@@ -316,16 +352,18 @@ def _diff_evidence(
         events.append(
             SemanticEvent(
                 "evidence_attached",
-                f'Attached "{e.bibkey}" to {_id_short(e.target_id)}/{e.attribute}',
+                f'Attached "{e.bibkey}" to {_name(e.target_id)}/{e.attribute}',
                 path,
+                target_id=e.target_id,
             )
         )
     for e in removed:
         events.append(
             SemanticEvent(
                 "evidence_detached",
-                f'Detached "{e.bibkey}" from {_id_short(e.target_id)}/{e.attribute}',
+                f'Detached "{e.bibkey}" from {_name(e.target_id)}/{e.attribute}',
                 path,
+                target_id=e.target_id,
             )
         )
     for o, n in changed:
@@ -342,8 +380,9 @@ def _diff_evidence(
             events.append(
                 SemanticEvent(
                     "evidence_changed",
-                    f'Evidence "{n.bibkey}" on {_id_short(n.target_id)}/{n.attribute}: {"; ".join(parts)}',
+                    f'Evidence "{n.bibkey}" on {_name(n.target_id)}/{n.attribute}: {"; ".join(parts)}',
                     path,
+                    target_id=n.target_id,
                 )
             )
     return events
@@ -366,7 +405,7 @@ def _diff_mappings(
         events.append(
             SemanticEvent(
                 "mapping_added",
-                f"Mapped {_id_short(m.l2_id)} ↔ {m.l3_view}/{_id_short(m.l3_id)}",
+                f"Mapped {_name(m.l2_id)} ↔ {m.l3_view}/{_id_short(m.l3_id)}",
                 path,
             )
         )
@@ -374,7 +413,7 @@ def _diff_mappings(
         events.append(
             SemanticEvent(
                 "mapping_removed",
-                f"Unmapped {_id_short(m.l2_id)} ↔ {m.l3_view}/{_id_short(m.l3_id)}",
+                f"Unmapped {_name(m.l2_id)} ↔ {m.l3_view}/{_id_short(m.l3_id)}",
                 path,
             )
         )
@@ -395,8 +434,9 @@ def _diff_challenges(
         events.append(
             SemanticEvent(
                 "challenge_opened",
-                f"Opened challenge on {_id_short(c.target_id)}{suffix}: {_truncate(c.argument, 40)}",
+                f"Opened challenge on {_name(c.target_id)}{suffix}: {_truncate(c.argument, 40)}",
                 path,
+                target_id=c.target_id,
             )
         )
     for c in removed:
@@ -539,6 +579,13 @@ DIFF_REGISTRY: list[tuple[str, type[BaseModel], Callable]] = [
 
 # ---------- engine ----------
 
+# Not changes to the model: latris's own bookkeeping (versions, checkpoints) and generated exports.
+_NOT_THE_MODEL = (f"{STATE_DIR_NAME}/", _rel("reports_dir") + "/")
+
+
+def _is_model_file(path: str) -> bool:
+    return not path.startswith(_NOT_THE_MODEL)
+
 
 def _file_at_commit(root: Path, sha: str, relpath: str) -> str | None:
     """Raw file content at ``sha``, or ``None`` if the file didn't exist there."""
@@ -612,10 +659,35 @@ def _parse_name_status_z(stream: str) -> list[tuple[str, str]]:
     return out
 
 
+def _labels(*substrates: Substrate | None) -> dict[str, str]:
+    """Factor labels and "From → To" link names across the states compared (the later state wins)."""
+    out: dict[str, str] = {}
+    for sub in substrates:
+        if sub is None:
+            continue
+        nodes = {e.id: e.label for e in sub.entities}
+        out.update(nodes)
+        out.update({e.id: f"{nodes.get(e.from_id, '?')} → {nodes.get(e.to_id, '?')}" for e in sub.edges})
+    return out
+
+
 def diff_commits(root: Path, base: str, head: str) -> list[SemanticEvent]:
+    conceptual = _rel("conceptual_yaml")
+    token = _LABELS.set(_labels(
+        _load_at(root, base, conceptual, Substrate), _load_at(root, head, conceptual, Substrate),
+    ))
+    try:
+        return _diff_commits(root, base, head)
+    finally:
+        _LABELS.reset(token)
+
+
+def _diff_commits(root: Path, base: str, head: str) -> list[SemanticEvent]:
     events: list[SemanticEvent] = []
     registry = {p: (cls, fn) for p, cls, fn in DIFF_REGISTRY}
     for status, path in _changed_files_between(root, base, head):
+        if not _is_model_file(path):
+            continue
         if path in registry:
             cls, fn = registry[path]
             old = None if status == "A" else _load_at(root, base, path, cls)
@@ -633,9 +705,22 @@ def diff_commits(root: Path, base: str, head: str) -> list[SemanticEvent]:
 
 
 def diff_working_tree(root: Path) -> list[SemanticEvent]:
+    conceptual = _rel("conceptual_yaml")
+    token = _LABELS.set(_labels(
+        _load_at(root, "HEAD", conceptual, Substrate), _load_at(root, None, conceptual, Substrate),
+    ))
+    try:
+        return _diff_working_tree(root)
+    finally:
+        _LABELS.reset(token)
+
+
+def _diff_working_tree(root: Path) -> list[SemanticEvent]:
     events: list[SemanticEvent] = []
     registry = {p: (cls, fn) for p, cls, fn in DIFF_REGISTRY}
     for status, path in _working_tree_changes(root):
+        if not _is_model_file(path):
+            continue
         if path in registry:
             cls, fn = registry[path]
             is_new = status in ("A", "?", "??")

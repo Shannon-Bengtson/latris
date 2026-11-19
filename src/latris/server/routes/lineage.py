@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from latris.diff.semantic import SemanticEvent
 from latris.operations import lineage as lineage_ops
 from latris.operations import sync as sync_ops
 from latris.repo.git import GitError
@@ -152,12 +153,14 @@ def set_preferred(body: PreferredRequest, root: Root) -> dict[str, Any]:
     return {"version_id": version_id, "commit_sha": sha}
 
 
-@router.get("/compare")
+@router.get("/compare", response_model=list[SemanticEvent])
 def compare_versions(
     root: Root,
-    a: str = Query(..., description="Version A (ID, name, or branch)"),
-    b: str = Query(..., description="Version B (ID, name, or branch)"),
-) -> list[dict[str, Any]]:
+    a: str = Query(..., description="From: a version (ID, name, or branch) or a model checkpoint (ID or name)"),
+    b: str = Query(..., description="To: a version or a model checkpoint"),
+) -> list[SemanticEvent]:
+    """What changed from A to B, each change naming the factor or link it's about (``target_id``) and
+    whether it was added, removed or changed (``change``)."""
     return lineage_ops.compare_versions(a, b, root=root)
 
 

@@ -2327,6 +2327,11 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("Show the full tree — root with two alternative branches.")
     ex.run(["version", "tree"])
 
+    ex.note("Compare versions: what the meteorology alternative changed since the baseline checkpoint, "
+            "factors and links named, grouped into added, changed and removed. Either side is a version or "
+            "a model checkpoint.")
+    ex.run(["version", "compare", "Baseline CLD", "What-if: add meteorology"])
+
     ex.note("Switch back to the original and update the version metadata.")
     ex.run(["version", "switch", "main"])
     ex.run(["version", "update", "--name", "Air Quality CLD v1", "--maturity", "approved"])

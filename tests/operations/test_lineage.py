@@ -276,8 +276,30 @@ def test_compare_versions(project: Path) -> None:
     add_node("Supply", root=project)
 
     events = compare_versions("main", alt.id, root=project)
-    # Should detect at least the added node.
-    assert len(events) > 0
+    supply = next(e for e in events if e.kind == "node_added")
+    assert supply.change == "added" and supply.target_id and "Supply" in supply.summary
+
+
+def test_compare_names_elements_and_takes_a_checkpoint(project: Path) -> None:
+    from latris.operations.attributes import set_attribute
+    from latris.operations.edges import add_edge
+    from latris.operations.nodes import add_node, remove_node
+
+    ensure_root_lineage(project)
+    price, _ = add_node("Price", root=project)
+    demand, _ = add_node("Demand", root=project)
+    gone, _ = add_node("Gone", root=project)
+    create_milestone("Before review", root=project)
+    edge, _ = add_edge(price.id, demand.id, root=project)
+    set_attribute(price.id, "description", "What it costs.", root=project)
+    remove_node(gone.id, root=project)
+
+    events = compare_versions("Before review", "main", root=project)
+    by = {(e.change, e.kind): e for e in events}
+    assert by[("added", "edge_added")].target_id == edge.id
+    described = by[("changed", "attribute_set")]
+    assert described.target_id == price.id and "description on Price" in described.summary
+    assert by[("removed", "node_removed")].target_id == gone.id
 
 
 # -- set_preferred / _read_preferred --
