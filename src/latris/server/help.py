@@ -403,6 +403,8 @@ Nodes take the shapes the report figure gives them — stocks as boxes, flows wi
 
 Runs that are recorded (simulations, Monte Carlo, sensitivity, loop dominance, recorded BN queries and every other model type's analyses) are listed under **Recorded results** in the pane on the right. Click one to read it at full width over the canvas or table, with the same charts and tables the report shows; **Close** or Escape returns. Each says if the model has changed since it ran ("Out of date"), and **Hide from report** leaves it out of reports (the same as `latris results hide`).
 
+Under **Analyses** (or **More analyses**), the pane offers every other analysis Latris has for the model type as a form — DAG effect estimates, theory-of-change impact, fuzzy-cognitive-map steady states, Bayesian-network queries with uncertain evidence or interventions, system-dynamics option comparisons under uncertainty, and any added later. Each option is labelled and explained; factors, states, scenarios, datasets and columns are picked from the model. **Run** records the result and opens it.
+
 MCDA, analysis of competing hypotheses and event trees are edited as grids in the centre; their readiness, **Run the analysis** and recorded results are in the pane on the right, as for every other model type. Click a factor's name in a grid to show its details there.
 
 ## Workflow
@@ -890,7 +892,7 @@ Every CPT row carries its own provenance — `origin` (human-direct, human-elici
 - **`latris bn set-noisy-or <node> -c "<parent>=<state>:<prob>" --leak …`** — a *canonical model* for high-fan-in binary nodes: each cause contributes independently, so k causes need k probabilities + a leak instead of 2^k rows.
 - **`latris bn set-weighted <node> --base 0.02,0.98 -w "Bloom=severe:3" -w "Barrier=failed:2.5"`** — a full table from a base distribution and a weight per parent state (logits; ±1 moderate, ±3 strong), for many-state parents where Noisy-OR doesn't fit. Every weight 0 gives the base in every row; a two-state node is logistic regression; `--toward` picks which end positive weights push to.
 - **`latris bn remove-states <node>`** — take a factor out of the network (its states and table go; it stays in the loop map).
-- **`latris bn learn <dataset>`** — fit CPTs from data. Rows you elicited or verified are **protected**; data fills only the gaps. Learned rows are stamped data-derived and the run is logged.
+- **`latris bn learn <dataset>`** — fit CPTs from data. Rows you elicited or verified are **protected**; data fills only the gaps. Learned rows are stamped data-derived and the run is logged. In the editor: Formalise → **Learn the tables from data** previews what each table would become, then **Apply to the tables**.
 - **`latris bn check`** — readiness: state spaces defined, CPTs complete + normalised, acyclic.
 - **`latris bn marginals` / `latris bn query --evidence … --query …`** — exact inference. Each query is recorded (`--no-record` to skip); reports show the latest one per evidence set, posterior against prior, with a chart.
 - **`latris bn sensitivity <target> --state …`** — rank the parameters that move a conclusion, flagging the ones that aren't human-verified.
@@ -949,7 +951,7 @@ Each is `latris sd …` on the command line (e.g. `latris sd check`, `latris sd 
 
 ## In the editor
 
-In **Formalise**, double-click the canvas for a new factor (name and role, placed where you clicked) and drag from one factor to another to link them — a flow when it joins a flow to a stock or cloud, otherwise an information link — or use **Add to the model**, and select a factor to give it a role and its equation, value or graphical function; the canvas draws it as the report does (stock box, flow valve with its equation, constant with its value, source/sink cloud), and the readiness panel lists what's missing. In **Analyse**, the pane with nothing selected runs the simulation (clock overrides and saved scenarios to compare), saves scenarios, and runs Monte Carlo, sensitivity and loop dominance; selecting a constant or stock sets its uncertainty, and selecting any factor shows it over the last run. Every run is recorded and appears under **Recorded results** with the report's charts. Settings stored with the model (`sd set-settings`) and taking a factor back out of the simulation (`sd unset-role`) are on the command line and the chat connector.
+In **Formalise**, double-click the canvas for a new factor (name and role, placed where you clicked) and drag from one factor to another to link them — a flow when it joins a flow to a stock or cloud, otherwise an information link — or use **Add to the model**, and select a factor to give it a role and its equation, value or graphical function; the canvas draws it as the report does (stock box, flow valve with its equation, constant with its value, source/sink cloud), and the readiness panel lists what's missing. In **Analyse**, the pane with nothing selected runs the simulation (clock overrides and saved scenarios to compare), saves scenarios (a scenario can build on another: its values, then the new ones), and runs Monte Carlo, sensitivity and loop dominance; **Options compared under uncertainty** (under More analyses) compares scenarios on the same draws, with values that hold in every run; selecting a constant or stock sets its uncertainty, and selecting any factor shows it over the last run. Every run is recorded and appears under **Recorded results** with the report's charts. Settings stored with the model (`sd set-settings`) and taking a factor back out of the simulation (`sd unset-role`) are on the command line and the chat connector.
 
 ## Results in reports
 
@@ -1015,7 +1017,7 @@ DAG views require directionality and acyclicity. Feedback loops that are valid i
 
 ## Analysis outputs
 
-DAG analysis supports path enumeration, d-separation, Markov blankets, and adjustment-set reasoning.
+DAG analysis supports path enumeration, d-separation, Markov blankets, and adjustment-set reasoning. In the editor's Analyse pane, **Identification** takes a treatment and an outcome and lists every valid adjustment set; click one to see it on the canvas. **Effect estimate** (under Analyses) estimates the effect from a dataset.
 
 ## Estimating the effect
 
