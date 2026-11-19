@@ -401,7 +401,9 @@ Nodes take the shapes the report figure gives them — stocks as boxes, flows wi
 
 ## Recorded results
 
-Runs that are recorded (simulations, Monte Carlo, sensitivity, loop dominance, recorded BN queries and every newer model type's analyses) are listed under **Recorded results** in the analysis pane, with the same charts the report draws. Each says if the model has changed since it ran ("Out of date"), and **Hide from report** leaves it out of reports (the same as `latris results hide`).
+Runs that are recorded (simulations, Monte Carlo, sensitivity, loop dominance, recorded BN queries and every other model type's analyses) are listed under **Recorded results** in the pane on the right. Click one to read it at full width over the canvas or table, with the same charts and tables the report shows; **Close** or Escape returns. Each says if the model has changed since it ran ("Out of date"), and **Hide from report** leaves it out of reports (the same as `latris results hide`).
+
+MCDA, analysis of competing hypotheses and event trees are edited as grids in the centre; their readiness, **Run the analysis** and recorded results are in the pane on the right, as for every other model type. Click a factor's name in a grid to show its details there.
 
 ## Workflow
 
