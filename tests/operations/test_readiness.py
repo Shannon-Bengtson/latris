@@ -426,7 +426,10 @@ class TestInterpretToCommunicate:
         gate = t.transitions[4]
         assert gate.light == "yellow"
 
-    def test_green_with_stakeholder(self, project):
+    def test_green_only_when_nothing_is_left_to_hand_over(self, project, monkeypatch):
+        """Past the structural summary the light is the handover check, so the two never disagree."""
+        from latris.operations import handover
+
         root, _, _, _ = project
         self._pass_earlier_gates(root)
         store = InterpretationStore(
@@ -436,13 +439,16 @@ class TestInterpretToCommunicate:
             ]
         )
         save_interpretation(store, root=root)
-        t = assess_transition_readiness(root=root)
-        gate = t.transitions[4]
-        assert gate.light == "green"
+        left = handover.handover_check(root=root)
+        gate = assess_transition_readiness(root=root).transitions[4]
+        assert not left.ready and gate.light == "yellow"
+        assert gate.details == [i.message for i in left.items]
+        monkeypatch.setattr(handover, "handover_check", lambda **_: handover.HandoverReport("dag", True, []))
+        assert assess_transition_readiness(root=root).transitions[4].light == "green"
 
     def test_yellow_when_model_rationale_missing(self, project):
-        """A formalism selected without a recorded rationale yellows the gate —
-        the report's Modelling Approach section needs it. Never red."""
+        """A formalism selected without a recorded rationale is on the handover list, so it yellows the
+        gate — the report's Modelling Approach section needs it. Never red."""
         root, _, _, _ = project
         update_selected_models(["dag"], root=root)  # selected, but no ModelChoice logged
         store = InterpretationStore(
@@ -455,7 +461,7 @@ class TestInterpretToCommunicate:
         t = assess_transition_readiness(root=root)
         gate = t.transitions[4]
         assert gate.light == "yellow"
-        assert any("rationale" in d.lower() for d in gate.details)
+        assert any("no reason recorded for choosing" in d for d in gate.details)
 
 
 # ---------------------------------------------------------------------------

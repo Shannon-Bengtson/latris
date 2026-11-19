@@ -918,6 +918,9 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["check", "integrity"])
     ex.note("Before handing the model to a board: what's left, and how to fix each (exits 1 until clear).")
     ex.run(["check", "handover"], expect_fail=True)
+    ex.note("One item is the reason for the model type — the report's Modelling Approach says it. Record it "
+            "(this also chooses the type if it isn't one yet), and that item leaves the list:")
+    ex.run(["project", "choose", "cld", "--why", "Volunteer departures feed back on the workload of those who stay."])
     ex.note("The context opens the report — who it's for, the situation, and the person's own expectation "
             "to compare with the answer:")
     ex.run(["--json", "project", "show"])

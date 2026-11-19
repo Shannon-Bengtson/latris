@@ -94,7 +94,8 @@ def handover(
                 console.print(f"     · {ex}", markup=False, highlight=False)
             if item.count > len(item.examples) and item.examples:
                 console.print(f"     · … and {item.count - len(item.examples)} more", highlight=False)
-            console.print(f"   [dim]fix: {item.fix}[/dim]\n", highlight=False)
+            console.print(f"   [dim]fix: {item.fix} — {item.command}[/dim]\n" if item.command
+                          else f"   [dim]fix: {item.fix}[/dim]\n", highlight=False)
 
     emit(asdict(report), human=human)
     if not report.ready:

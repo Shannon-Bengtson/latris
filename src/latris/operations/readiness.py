@@ -1072,48 +1072,25 @@ def _assess_interpret_to_communicate(paths) -> TransitionStatus:
             details=["No structural summary with claims found."],
         )
 
-    # Check stakeholder sections
-    stakeholder_types = {"answer_to_question", "implications"}
-    stakeholder_done = any(s.section_type in stakeholder_types and s.generation_state in populated_states for s in sections)  # noqa: E501
+    # Past that, the light is the handover check: green when nothing is left before the model is ready to
+    # share, yellow with what's left otherwise — the same list Communicate shows, so they can't disagree.
+    from latris.operations.handover import handover_check
 
-    if not stakeholder_done:
-        missing = []
-        if not any(s.section_type == "answer_to_question" and s.generation_state in populated_states for s in sections):
-            missing.append("Answer to Modelling Question")
-        if not any(s.section_type == "implications" and s.generation_state in populated_states for s in sections):
-            missing.append("Implications & Interventions")
+    report = handover_check(root=paths.root)
+    if not report.ready:
+        n = sum(1 for _ in report.items)
         return TransitionStatus(
             from_phase="interpret",
             to_phase="communicate",
             light="yellow",
-            summary="Structural summary done; consider stakeholder sections.",
-            details=[f"Not yet populated: {', '.join(missing)}."],
+            summary=f"Not ready to share yet: {n} thing{'s' if n != 1 else ''} to do.",
+            details=[i.message for i in report.items],
         )
-
-    # Soft nudge: each selected formalism should carry a recorded selection
-    # rationale — it feeds the report's "Modelling Approach" section. Never a
-    # red block; auditability is enforced at the published artefact, not here.
-    from latris.operations.project import current_model_choices
-    from latris.schema import ProjectFoundation
-
-    foundation = load_model(ProjectFoundation, paths.project_yaml)
-    selected = foundation.selected_model_types or []
-    choices = current_model_choices(root=paths.root)
-    missing_rationale = [m for m in selected if not (choices.get(m) and choices[m].rationale.strip())]
-    if missing_rationale:
-        return TransitionStatus(
-            from_phase="interpret",
-            to_phase="communicate",
-            light="yellow",
-            summary="Ready to communicate; record why each formalism was chosen.",
-            details=[f"No selection rationale recorded for: {', '.join(missing_rationale)}."],
-        )
-
     return TransitionStatus(
         from_phase="interpret",
         to_phase="communicate",
         light="green",
-        summary="Ready to communicate.",
+        summary="Ready to share.",
     )
 
 

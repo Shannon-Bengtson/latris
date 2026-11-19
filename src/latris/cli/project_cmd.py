@@ -79,3 +79,18 @@ def select_models_cmd(
     root, sha = update_selected_models(model_types)
     label = ", ".join(model_types) or "(none)"
     console.print(f"[green]selected[/green] model types: {label} ([cyan]{sha[:10]}[/cyan])")
+
+
+@app.command("choose")
+@handle_cli_errors
+def choose_cmd(
+    model_type: str = typer.Argument(..., help="Model type ID (e.g. sd)."),
+    why: str = typer.Option(
+        ..., "--why", help="Why this model type suits the question (the report's Modelling Approach)."
+    ),
+) -> None:
+    """Choose a model type and record why (or record a new reason for one already chosen)."""
+    from latris.operations.project import add_model_choice
+
+    _root, sha = add_model_choice(model_type, why)
+    console.print(f"[green]chose[/green] {model_type}: {why} ([cyan]{sha[:10]}[/cyan])", highlight=False)
