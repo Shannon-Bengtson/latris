@@ -1032,6 +1032,12 @@ A Fuzzy Cognitive Map is a weighted directed graph. Each edge has a causal stren
 
 FCM analysis depends on edge weights and, for simulation, node activation settings. Missing weights reduce readiness.
 
+## Commands
+
+- **`latris fcm set-weight <edge> <weight>`** — a link's influence, from -1 (strongly opposes) to +1 (strongly drives).
+- **`latris fcm weights`** — every weight.
+- **`latris fcm infer`** — run the map to its steady state (which factors end up high or low).
+
 ## Practical caution
 
 FCM weights are judgement-rich. Link weights to elicitation, evidence, or rationale so they are not mistaken for measured parameters.

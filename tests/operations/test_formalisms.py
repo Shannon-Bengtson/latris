@@ -17,8 +17,8 @@ from latris.operations import formalisms
 from latris.operations.formalisms import CLAIM_SECTIONS, Formalism
 from latris.schema.model_types import get_model_type, list_model_types
 
-# Types that predate the plugin registry and keep their own wiring.
-LEGACY = {"cld", "dag", "fcm"}
+# Types that predate the plugin registry and keep their own wiring — none left.
+LEGACY: set[str] = set()  # every stable type is registered (latris#3)
 PLUGINS = formalisms.all_formalisms()
 IDS = [f.model_type for f in PLUGINS]
 
@@ -56,8 +56,9 @@ def test_outcome(f):
     if f.outcome_role is not None:
         assert f.outcome_role in spec.allowed_roles and f.set_outcome is not None
     # "outcome" is refused with outcome_refusal — or, with set_outcome and no outcome_role, kept outside
-    # the roles (SD: with its settings).
-    assert "outcome" not in spec.allowed_roles
+    # the roles (SD: with its settings) — unless it is the type's outcome role (the causal maps).
+    if f.outcome_role != "outcome":
+        assert "outcome" not in spec.allowed_roles
 
 
 @pytest.mark.parametrize("f", PLUGINS, ids=IDS)
@@ -77,6 +78,10 @@ def test_build_spec_block(f):
     from latris.cli.build_cmd import build
     from latris.schema.build_spec import BuildSpec
 
+    if f.spec_field is None:
+        # The causal maps have no block: a link's polarity or weight rides on the link.
+        assert f.model_type in ("cld", "dag", "fcm")
+        return
     assert f.spec_field in BuildSpec.model_fields, f"add a {f.spec_field!r} field to BuildSpec"
     assert f.spec_check and f.spec_apply and f.spec_export
     assert f"``{f.spec_field}``" in (build.__doc__ or ""), "list the block's keys in `latris build --help`"
@@ -88,6 +93,8 @@ def test_foundations_and_help(f):
     from latris.server.help import HELP_TOPICS
 
     assert any(fd.applies_to == (f.model_type,) for fd in FOUNDATIONS), "add a foundations entry"
+    if f.cli is None:  # CLD and DAG use the shared `latris analyse` commands
+        return
     command = f"latris {f.cli[1]} "
     assert any(command in t.body for t in HELP_TOPICS), f"add a help topic that shows `{command}…`"
 
@@ -97,10 +104,13 @@ def test_cli_and_routes_load(f):
     import typer
     from fastapi import APIRouter
 
-    module, name = f.cli
-    assert isinstance(importlib.import_module(module).app, typer.Typer)
-    assert isinstance(importlib.import_module(f.routes).router, APIRouter)
-    assert len({p.cli[1] for p in PLUGINS}) == len(PLUGINS)
+    if f.cli:
+        module, name = f.cli
+        assert isinstance(importlib.import_module(module).app, typer.Typer)
+    if f.routes:
+        assert isinstance(importlib.import_module(f.routes).router, APIRouter)
+    with_cli = [p.cli[1] for p in PLUGINS if p.cli]
+    assert len(set(with_cli)) == len(with_cli)
 
 
 @pytest.mark.parametrize("f", PLUGINS, ids=IDS)
@@ -118,7 +128,7 @@ def test_hooks_run_on_an_empty_project(f, tmp_path: Path, git_identity):
         assert isinstance(formalisms.claims(f.model_type, paths, section), list)
     assert extract_claims("answer_to_question", f.model_type, root=root)
     assert f.outcome_ids(paths) == set()
-    assert f.spec_export(paths, {}) is None
+    assert f.spec_export is None or f.spec_export(paths, {}) is None
     assert f.structure_problems(root)  # an empty model is never complete
     assert mermaid(paths, model_type=f.model_type) == ""
 

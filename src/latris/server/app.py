@@ -49,7 +49,6 @@ from latris.server.routes import (
     edges,
     evidence,
     export,
-    fcm,
     findings,
     history,
     interpret,
@@ -612,7 +611,6 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(report_config.router)
     app.include_router(story.router)
     app.include_router(sync.router)
-    app.include_router(fcm.router)
     _include_formalism_routers(app)  # BN's routes come in here (its Formalism names them)
     app.include_router(results.router)
     app.include_router(history.router)

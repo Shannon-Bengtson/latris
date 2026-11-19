@@ -15,10 +15,9 @@ a static pydantic field), then write one module here and add it to the
 imports at the bottom. ``tests/operations/test_formalisms.py`` checks every
 stable type is fully wired.
 
-The older types (CLD, DAG, FCM) predate this and keep their own wiring;
-they aren't registered here yet. BN and SD have moved: SD's model type is
-``sd.py`` and its five result kinds ``sd_results.py`` (analyses on ``sd``
-that lead the report order).
+Every stable type is registered here. The causal maps (CLD, DAG, FCM)
+are ``qualitative.py``; SD's model type is ``sd.py`` and its five result
+kinds ``sd_results.py`` (analyses on ``sd`` that lead the report order).
 
 Hooks import their operations lazily, so importing this package is cheap and
 can't create import cycles.
@@ -226,6 +225,7 @@ def default_origin(verified_by: str) -> str:
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
 _MODULES = (
+    "qualitative",  # CLD, DAG, FCM — the causal maps every other type can share
     "sd_results",  # SD's result kinds, registered as leading analyses so they head the report order
     "sd",
     "bn",

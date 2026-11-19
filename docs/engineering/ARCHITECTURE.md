@@ -235,7 +235,7 @@ src/latris/
 │   ├── graph_analysis.py # pure CLD loop / DAG structural analysis algorithms
 │   ├── activation.py  # registry-driven model type dispatch
 │   ├── _activations.py # model type registrations (CLD, DAG)
-│   ├── formalisms/    # one plugin module per model type (all but CLD/DAG/FCM; BN and SD included) — see "Adding a formalism"
+│   ├── formalisms/    # one plugin module per model type (every stable type) — see "Adding a formalism"
 │   ├── view_roles.py  # formalism-specific entity role operations
 │   ├── _data_engine.py # pandas engine: 39 operations, stats, preview
 │   ├── _resolve.py, batch.py

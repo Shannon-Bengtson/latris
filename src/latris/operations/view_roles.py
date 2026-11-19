@@ -33,7 +33,7 @@ def set_role(
     from latris.operations import formalisms
 
     plugin = formalisms.get(model_type)
-    if plugin and role == "outcome":
+    if plugin and role == "outcome" and plugin.outcome_role != "outcome":  # "outcome" as a role: set below
         if plugin.set_outcome and plugin.outcome_role is None:
             # Kept outside the roles (SD: with its settings, since its roles are one per factor).
             return plugin.set_outcome(target, require_project(root).root)

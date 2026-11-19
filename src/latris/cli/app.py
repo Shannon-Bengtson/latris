@@ -29,7 +29,6 @@ from latris.cli import (  # noqa: E402
     elicit_cmd,
     evidence_cmd,
     export_cmd,
-    fcm_cmd,
     findings_cmd,
     foundations_cmd,
     history_cmd,
@@ -105,7 +104,6 @@ def _add_formalism_commands(app: typer.Typer) -> None:
             app.add_typer(importlib.import_module(module).app, name=name)
 
 
-app.add_typer(fcm_cmd.app, name="fcm")
 app.add_typer(bn_cmd.app, name="bn")
 _add_formalism_commands(app)
 app.add_typer(results_cmd.app, name="results")
