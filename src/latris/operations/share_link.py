@@ -88,6 +88,11 @@ class ShareLink:
     long: bool  # past COMFORTABLE_LINK_CHARS
 
 
+def spec_data(spec: BuildSpec) -> dict:
+    """A build spec as the JSON ``latris build --spec`` reads (aliases, nothing empty or left at its default)."""
+    return spec.model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+
+
 def export_spec(*, model_type: str | None = None, root: Path | None = None) -> tuple[ProjectFoundation, BuildSpec]:
     """The project as a build spec — the inverse of ``latris build``."""
     from latris.operations.findings import list_findings

@@ -147,9 +147,10 @@ def export_spec(
     import json
 
     from latris.operations.share_link import export_spec as export
+    from latris.operations.share_link import spec_data
 
     _, spec = export(model_type=model_type)
-    data = spec.model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
+    data = spec_data(spec)
     if json_mode():
         from latris.cli._output import emit
 
