@@ -84,3 +84,16 @@ def test_routes_preview_then_build(sd_bathtub_root):
     assert p["ok"] and p["result"]["reused_factors"] == 1 and p["changes"]
     r = c.post("/api/build", json={"spec": spec, "existing": "reuse"})
     assert r.status_code == 200 and r.json()["commit_sha"]
+
+
+def test_routes_take_the_spec_as_written(sd_bathtub_root):
+    from fastapi.testclient import TestClient
+
+    from latris.server.app import create_app
+
+    c = TestClient(create_app(project_root=sd_bathtub_root))
+    p = c.post("/api/build/preview", json={"text": SPEC, "existing": "reuse"}).json()  # YAML, as in a file
+    assert p["ok"] and p["result"]["factors"] == 1
+    assert c.post("/api/build/preview", json={"text": SPEC, "spec": {}}).status_code == 422
+    bad = c.post("/api/build/preview", json={"text": "factors: [oops"})
+    assert bad.status_code == 422 and "not valid YAML or JSON" in bad.json()["detail"]

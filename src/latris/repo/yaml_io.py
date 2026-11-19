@@ -192,9 +192,16 @@ def load_model_from_string(cls: type[T], text: str) -> T:
     """Parse YAML from a string and validate into an instance of ``cls``.
 
     Used by lineage operations to parse ``git show`` output without
-    writing to a temp file.
+    writing to a temp file, and to read text a person supplies (a build spec): text that isn't valid YAML
+    or JSON raises ``ValueError`` saying where, like any other invalid input.
     """
-    return cls.model_validate(_parse(text))
+    from ruamel.yaml.error import YAMLError
+
+    try:
+        data = _parse(text)
+    except YAMLError as exc:
+        raise ValueError(f"not valid YAML or JSON: {' '.join(str(exc).split())}") from exc
+    return cls.model_validate(data)
 
 
 def dump_jsonl_append(record: BaseModel, path: Path) -> None:
