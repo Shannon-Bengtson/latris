@@ -1987,7 +1987,13 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
     ex.note("The whole model as a build spec — what `latris link` carries and `latris build --spec` reads back "
             "(apps and chat connectors write a model type's values through the same blocks).")
-    ex.run(["export", "spec"])
+    exported = ex.run(["export", "spec"])
+    ex.note("Importing a spec into a project that already has some of it. By default an overlap is refused; "
+            "`--dry-run` says so without changing anything. `--reuse` uses what's already there as it is — "
+            "the spec fills only what it lacks — and the dry run lists what would be added, reused and changed.")
+    ex.run(["build", "--spec", "-", "--dry-run"], input=exported, expect_fail=True)
+    ex.run(["build", "--spec", "-", "--dry-run", "--reuse"], input=exported)
+    ex.run(["build", "--spec", "-", "--reuse"], input=exported)
     os.chdir(ex.root)
 
     # ── 11h. Analysis of competing hypotheses ─────────────────────────
