@@ -937,7 +937,7 @@ Each is `latris sd …` on the command line (e.g. `latris sd check`, `latris sd 
 
 ## In the editor
 
-In **Formalise**, add a factor already in the simulation (name and role) or connect two with a flow or an information link from **Add to the model**, and select a factor to give it a role and its equation, value or graphical function; the canvas draws it as the report does (stock box, flow valve with its equation, constant with its value, source/sink cloud), and the readiness panel lists what's missing. In **Analyse**, the pane with nothing selected runs the simulation (clock overrides and saved scenarios to compare), saves scenarios, and runs Monte Carlo, sensitivity and loop dominance; selecting a constant or stock sets its uncertainty, and selecting any factor shows it over the last run. Every run is recorded and appears under **Recorded results** with the report's charts. Settings stored with the model (`sd set-settings`) and taking a factor back out of the simulation (`sd unset-role`) are on the command line and the chat connector.
+In **Formalise**, double-click the canvas for a new factor (name and role, placed where you clicked) and drag from one factor to another to link them — a flow when it joins a flow to a stock or cloud, otherwise an information link — or use **Add to the model**, and select a factor to give it a role and its equation, value or graphical function; the canvas draws it as the report does (stock box, flow valve with its equation, constant with its value, source/sink cloud), and the readiness panel lists what's missing. In **Analyse**, the pane with nothing selected runs the simulation (clock overrides and saved scenarios to compare), saves scenarios, and runs Monte Carlo, sensitivity and loop dominance; selecting a constant or stock sets its uncertainty, and selecting any factor shows it over the last run. Every run is recorded and appears under **Recorded results** with the report's charts. Settings stored with the model (`sd set-settings`) and taking a factor back out of the simulation (`sd unset-role`) are on the command line and the chat connector.
 
 ## Results in reports
 
@@ -949,7 +949,7 @@ Once a model passes its unit check it runs on a compiled float path (identical r
 
 ## Not yet
 
-Calibration to data, arrays (subscripts), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, drawing stocks and flows by dragging on the canvas (the editor adds them from a form), and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
+Calibration to data, arrays (subscripts), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
 """,
     ),
     HelpTopic(

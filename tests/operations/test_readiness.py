@@ -282,6 +282,23 @@ class TestBuildToFormalise:
         body = TestClient(create_app(project_root=root)).get("/api/model-types/mcda/elements").json()
         assert list(body["elements"].values()) == ["option"] and body["connected_structure"] is False
 
+    def test_a_factor_being_formalised_is_not_an_orphan(self, sd_bathtub_root, monkeypatch):
+        """A stock just added in Formalise has no links yet: SD's check reports that, not Build's gate."""
+        from latris.operations import sd as sd_ops
+        from latris.operations.project import add_model_choice
+
+        root = sd_bathtub_root
+        monkeypatch.chdir(root)
+        add_model_choice("cld", "", root=root)
+        add_model_choice("sd", "", root=root)
+        node_ops.add_node("Rain", kind="variable", root=root)
+        node_ops.add_node("Snow", kind="variable", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "red"  # two unconnected factors
+        sd_ops.set_role("Rain", "auxiliary", root=root)
+        sd_ops.set_role("Snow", "auxiliary", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "green"
+        assert any(g.element_label == "Rain" for g in sd_ops.check(root=root))  # SD still flags it
+
     def test_green_connected(self, project):
         """Fixture is Price→Demand→Quantity — ≥3 nodes, single network."""
         root, _, _, _ = project

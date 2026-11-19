@@ -834,7 +834,8 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
 
     Requires at least ``_MIN_NODES_FOR_FORMALISE`` nodes and a single
     weakly-connected network — no orphan nodes and no disjoint sub-graphs —
-    unless every selected model type is one without links (MCDA, ACH, event tree).
+    unless every selected model type is one without links (MCDA, ACH, event tree). Factors
+    with a role in a selected formal type are left out of the network check.
     """
     from latris.operations.graph_analysis import weakly_connected_components
 
@@ -865,14 +866,19 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
             light="green",
             summary="Ready to formalise (these model types don't need links between factors).",
         )
-    # In a mixed project, a link-free type's elements (an MCDA option, an event tree's heading) are
-    # unlinked by nature: they don't count as orphans of the network.
-    if link_free:
+    # A factor with a role in a selected formal type isn't an orphan of the Build network: a link-free
+    # type's elements (an MCDA option, an event tree's heading) are unlinked by nature, and a factor
+    # being formalised (an SD stock just added in Formalise) has its missing links reported by that
+    # type's own readiness. Only the causal maps' roles ("outcome") leave a factor in the network check.
+    from latris.operations.membership import QUALITATIVE
+
+    claimed = [t for t in selected if t not in QUALITATIVE]
+    if claimed:
         from latris.schema.roles import RoleSet
 
         elements = {
             r.target_id
-            for t in link_free
+            for t in claimed
             if paths.role_path(t).exists()
             for r in load_model(RoleSet, paths.role_path(t)).entries
         }
