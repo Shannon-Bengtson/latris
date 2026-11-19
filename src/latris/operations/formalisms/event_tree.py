@@ -240,6 +240,7 @@ def _definition(payload: dict[str, Any]):
 
 
 register(Formalism(
+    connected_structure=False,  # headings and sequences, not links
     model_type="event_tree",
     outcome_role=None,
     outcome_refusal=(

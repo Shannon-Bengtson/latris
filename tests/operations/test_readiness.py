@@ -248,12 +248,39 @@ class TestBuildToFormalise:
             node_ops.add_node(label, kind="variable", root=root)
         add_model_choice("mcda", "", root=root)
         add_model_choice("ach", "", root=root)
+        add_model_choice("event_tree", "", root=root)
         gate = assess_transition_readiness(root=root).transitions[1]
         assert gate.light == "green"
         # …but a type that lives on the network brings the gate back.
         add_model_choice("cld", "", root=root)
         gate = assess_transition_readiness(root=root).transitions[1]
         assert gate.light == "red"
+
+    def test_link_free_elements_are_not_orphans_in_a_mixed_project(self, tmp_path: Path, git_identity, monkeypatch):
+        """A loop map plus MCDA: the options are unlinked by nature, so only the loop map must be connected."""
+        from latris.operations import mcda
+
+        root = tmp_path / "proj"
+        init_project(root, statement="Which site?")
+        monkeypatch.chdir(root)
+        a, _ = node_ops.add_node("Cost", kind="variable", root=root)
+        b, _ = node_ops.add_node("Demand", kind="variable", root=root)
+        c, _ = node_ops.add_node("Price", kind="variable", root=root)
+        edge_ops.add_edge(a.id, c.id, kind="causal", root=root)
+        edge_ops.add_edge(c.id, b.id, kind="causal", root=root)
+        node_ops.add_node("North site", kind="variable", root=root)
+        add_model_choice("cld", "", root=root)
+        add_model_choice("mcda", "", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "red"  # North site: an orphan
+        mcda.set_element("North site", "option", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "green"
+
+        from fastapi.testclient import TestClient
+
+        from latris.server.app import create_app
+
+        body = TestClient(create_app(project_root=root)).get("/api/model-types/mcda/elements").json()
+        assert list(body["elements"].values()) == ["option"] and body["connected_structure"] is False
 
     def test_green_connected(self, project):
         """Fixture is Price→Demand→Quantity — ≥3 nodes, single network."""

@@ -222,9 +222,8 @@ Each selected model type appears in the Formalise dropdown. With a model open yo
 
 - **Table** — a parameter grid for setting model-specific attributes (CLD polarity, FCM weights).
 - **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector: Bayesian networks (states and probability tables), system dynamics (roles, equations and values), decision trees (decision, chance and payoff nodes; each branch's option or state, probability and value), Markov models (states, moves per cycle, costs, utilities, the starting cohort and the clock) and theories of change (each factor's level; process-tracing priors and evidence tests on links).
-- **Matrix** — MCDA (options, criteria, swing weights and the score grid) and ACH (hypotheses, evidence, credibility, relevance and the consistency grid). These have no links, so Build doesn't ask for a connected network when they are the only types selected.
-
-Fault trees, event trees and bow-ties can't be built in the editor yet: they say so, and show the report's figure and any recorded results instead; build and run them in a chat with the Latris connector or with the `latris` command line.
+  Fault trees (event types, gates — AND, OR, k of n — and basic-event probabilities) and bow-ties (threats and their frequencies, barriers with type, status, owner and failure probability, the top event and consequences) are set here too, with a median and error factor for any value whose uncertainty you know.
+- **Matrix** — MCDA (options, criteria, swing weights and the score grid), ACH (hypotheses, evidence, credibility, relevance and the consistency grid) and event trees (the initiating frequency, the headings in order with their probabilities — conditional ones too — and each sequence's end state). These have no links: Build doesn't ask for their elements to be connected, and the other types' canvases leave them out.
 
 ## Moving on
 
@@ -386,6 +385,7 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **BN, beyond evidence:** *set* a factor (a policy, not an observation), apply a saved scenario, record the query, find the most likely explanation, run sensitivity, Monte Carlo over the tables (after saying how well each table is known) and compare scenarios.
 - **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane.
 - **MCDA, ACH:** run the analysis from the matrix page; its charts, tables and the report's figure show there.
+- **Fault tree, bow-tie, event tree:** analyse (cut sets and importance; consequence frequencies through the barriers; end-state frequencies), then Monte Carlo over the ranges you set.
 
 Nodes take the shapes the report figure gives them — stocks as boxes, flows with a valve, sources and sinks as dashed clouds, BN nodes as belief-bar monitors — so the editor and the report read the same.
 

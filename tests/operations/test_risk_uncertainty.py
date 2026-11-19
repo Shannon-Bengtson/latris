@@ -249,6 +249,9 @@ def test_report_claims_spec_round_trip_cli_and_routes(release):
     r = client.post("/api/et/uncertainty", json={"target": "Ignition", "params": {"median": 0.1,
                                                                                     "error_factor": 3}})
     assert r.status_code == 200 and r.json()["result"]["distribution"] == "lognormal"
+    listed = client.get("/api/et/uncertainty").json()
+    assert listed["count"] == 3 and {u["distribution"] for u in listed["uncertainty"]} >= {"lognormal"}
+    assert client.get("/api/ft/uncertainty").json()["count"] == 0  # each type lists only its own
     r = client.post("/api/et/monte-carlo", json={"runs": 300, "record": False})
     assert r.status_code == 200 and r.json()["commit_sha"] is None
     assert client.post("/api/ft/monte-carlo", json={"runs": 300}).status_code == 400  # no fault tree here

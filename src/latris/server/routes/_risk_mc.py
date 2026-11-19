@@ -34,6 +34,16 @@ class MonteCarloRequest(BaseModel):
 
 
 def add_routes(router: APIRouter, model_type: str) -> None:
+    @router.get("/uncertainty")
+    def list_uncertainty(root: Root) -> dict[str, Any]:
+        """This model's ranges: each target, the cell it describes (event trees: its condition), the
+        distribution and its parameters."""
+        from latris.operations import risk_uncertainty as ru
+        from latris.repo.project import require_project
+
+        rows = [e.model_dump(mode="json") for e in ru.specs(model_type, require_project(root)).values()]
+        return {"uncertainty": rows, "count": len(rows)}
+
     @router.post("/uncertainty")
     def set_uncertainty(body: UncertaintyRequest, root: Root) -> dict[str, Any]:
         from latris.operations import risk_uncertainty as ru

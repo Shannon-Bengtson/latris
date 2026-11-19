@@ -834,7 +834,7 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
 
     Requires at least ``_MIN_NODES_FOR_FORMALISE`` nodes and a single
     weakly-connected network — no orphan nodes and no disjoint sub-graphs —
-    unless every selected model type is one without links (MCDA, ACH).
+    unless every selected model type is one without links (MCDA, ACH, event tree).
     """
     from latris.operations.graph_analysis import weakly_connected_components
 
@@ -852,18 +852,33 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
             details=[f"Add at least {_MIN_NODES_FOR_FORMALISE} nodes (currently {n_nodes})."],
         )
 
-    # Matrix types (MCDA, ACH) have no links: when every selected type is one, there's no network to connect.
+    # Link-free types (MCDA, ACH, event trees): when every selected type is one, there's no network to connect.
     from latris.operations import formalisms
     from latris.schema import ProjectFoundation
 
     selected = load_model(ProjectFoundation, paths.project_yaml).selected_model_types
-    if selected and all((f := formalisms.get(t)) is not None and not f.connected_structure for t in selected):
+    link_free = [t for t in selected if (f := formalisms.get(t)) is not None and not f.connected_structure]
+    if selected and len(link_free) == len(selected):
         return TransitionStatus(
             from_phase="build",
             to_phase="formalise",
             light="green",
             summary="Ready to formalise (these model types don't need links between factors).",
         )
+    # In a mixed project, a link-free type's elements (an MCDA option, an event tree's heading) are
+    # unlinked by nature: they don't count as orphans of the network.
+    if link_free:
+        from latris.schema.roles import RoleSet
+
+        elements = {
+            r.target_id
+            for t in link_free
+            if paths.role_path(t).exists()
+            for r in load_model(RoleSet, paths.role_path(t)).entries
+        }
+        entities = [e for e in entities if e.id not in elements]
+        edges = [e for e in edges if e.from_id not in elements and e.to_id not in elements]
+        n_nodes = len(entities)
 
     node_ids = [e.id for e in entities]
     label_by_id = {e.id: e.label for e in entities}

@@ -93,9 +93,9 @@ class Formalism:
     structure_problems: Callable[[Path], list[Any]] | None = None  # root → problems (target_id, gap_type, message)
     validators: dict[str, tuple[str, ...]] = field(default_factory=dict)  # validator name → gap types it reports
     whole_label: str = "(model)"  # how a problem about the whole model is labelled
-    # Does the model live on a connected causal network? Matrix types (MCDA, ACH) don't: their factors
-    # are options, criteria, hypotheses and evidence with no links, so Build's "one connected network"
-    # gate doesn't apply when every selected type says False.
+    # Does the model live on a connected causal network? Matrix types (MCDA, ACH) and event trees don't:
+    # their factors are options, criteria, hypotheses, evidence, headings and end states, with no links.
+    # Build's "one connected network" gate leaves their elements out (all of it when every type is one).
     connected_structure: bool = True
 
     # ── interpretation ──
