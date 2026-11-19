@@ -67,12 +67,32 @@ def _problems(model_type: str):
     return problems
 
 
+def _dag_claims(paths, section: str) -> list[str]:  # noqa: ANN001
+    """A DAG's structure claim: acyclic as its readiness confirms, or how many cycles stop it being one."""
+    if section != "structure":
+        return []
+    from latris.operations.graph_analysis import causal_edges, find_all_loops
+    from latris.operations.readiness import assess_readiness
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+
+    if not any(g.gap_type == "cycle_detected" for g in assess_readiness("dag", root=paths.root).gaps):
+        return ["DAG structure confirmed (acyclic by readiness gate)."]
+    loops = find_all_loops(causal_edges(load_model(Substrate, paths.conceptual_yaml).edges))
+    return [
+        f"DAG readiness FAILS: substrate contains {len(loops)} cycle(s). The substrate is not projectable to a "
+        "valid DAG view without dropping or redirecting edges."
+    ]
+
+
 _REFUSAL = "Mark the factor the model explains with `latris view role {t} <factor> outcome`."
 
-for _t, _cli, _routes in (
-    ("cld", None, None),
-    ("dag", None, None),
-    ("fcm", ("latris.cli.fcm_cmd", "fcm"), "latris.server.routes.fcm"),
+for _t, _label, _extra in (
+    ("cld", "Loop map", {"feedback_claims": True, "link_attribute": ("polarity", "polarity (+/-)")}),
+    ("dag", "Causal DAG", {"diagram_direction": "TB", "claims": _dag_claims}),
+    ("fcm", "FCM", {"feedback_claims": True, "link_attribute": ("weight", "weight (float in [-1, +1])"),
+                    "cli": ("latris.cli.fcm_cmd", "fcm"),
+                    "routes": "latris.server.routes.fcm"}),
 ):
     register(Formalism(
         model_type=_t,
@@ -81,6 +101,7 @@ for _t, _cli, _routes in (
         outcome_ids=_outcome_ids(_t),
         set_outcome=_set_outcome(_t),
         structure_problems=_problems(_t),
-        cli=_cli,
-        routes=_routes,
+        whole_map=True,
+        source_label=_label,
+        **_extra,
     ))

@@ -54,6 +54,11 @@ class ResultKind:
     # payload → what this run was of, for its heading ("given Hot week = yes"), so repeated
     # headings say which run is which.
     subtitle: Callable[[dict[str, Any]], str] | None = None
+    # A run of this kind drops out of reports once a later run of the same kind covers all its scenarios
+    # (a simulation of baseline + A is superseded by baseline + A + B).
+    superseded_by_wider: bool = False
+    # recorded AnalysisRun → True when the run includes an unsaved what-if (the handover check flags it).
+    unsaved_what_if: Callable[[Any], bool] | None = None
     # payload → the heading's title when it depends on the run ("Sensitivity of Inflow"); else ``title``.
     title_for: Callable[[dict[str, Any]], str] | None = None
     # (payload, recorded AnalysisRun) → SpecAnalysis, for kinds whose run settings live on the run
@@ -96,6 +101,31 @@ class Formalism:
     # their factors are options, criteria, hypotheses, evidence, headings and end states, with no links.
     # Build's "one connected network" gate leaves their elements out (all of it when every type is one).
     connected_structure: bool = True
+
+    # ── what the type is made of (``operations/membership.py``) ──
+    whole_map: bool = False  # the causal maps: every factor and link of the map
+    computes_on: Callable[[Any], set[str]] | None = None  # paths → the factors a quantified type computes on
+    # (gap type, message) when a quantified type sharing a map has no factors yet (its readiness gap).
+    empty_scope_gap: tuple[str, str] | None = None
+
+    # ── wording ──
+    source_label: str | None = None  # how a pooled claim names this type ("Simulation: …"); default the id
+    scope_noun: str | None = None  # what the type's own factors are called in claims ("the simulation has …")
+    feedback_claims: bool = False  # loop claims (mechanisms, longest loop, participation) — the causal maps
+    feedback_through_stocks: bool = False  # feedback runs through stocks, so it never shows as a causal cycle
+    # Finding categories, most telling first, for the key findings section.
+    finding_priority: tuple[str, ...] = ("inference", "dynamics", "sensitivity", "structure")
+    diagram_direction: str = "LR"  # the generic sketch's direction (a DAG reads top to bottom)
+    # The value a link carries in this type, and how it's described to the AI: (attribute, description) —
+    # a CLD's polarity, an FCM's weight. Diagrams label links with it when it's the polarity.
+    link_attribute: tuple[str, str] | None = None
+    # The model's name in the handover check, which reports its structure problems ("the Bayesian
+    # network doesn't pass its check"), with the command that lists them; None: not checked there.
+    handover_name: str | None = None
+    handover_command: str | None = None
+
+    # ── scenarios (staleness of results that ran them) ──
+    scenario_store: str | None = None  # module with ``load(paths).scenarios`` (sd_scenarios, bn_scenarios)
 
     # ── interpretation ──
     claims: Claims | None = None
@@ -196,6 +226,22 @@ def fingerprint_files(model_type: str, paths: Any) -> list[Path]:
 
 def for_analysis(analysis: str) -> ResultKind | None:
     return next((r for r in result_kinds() if r.analysis == analysis), None)
+
+
+def label(model_type: str) -> str:
+    """How pooled claims name a model type."""
+    f = get(model_type)
+    return f.source_label if f and f.source_label else model_type.upper()
+
+
+def quantified() -> tuple[str, ...]:
+    """Types that compute on part of the map (their factors join when parameterised)."""
+    return tuple(f.model_type for f in FORMALISMS.values() if f.computes_on)
+
+
+def whole_map_types() -> tuple[str, ...]:
+    """The causal maps — whole-map types every other type can share a map with."""
+    return tuple(f.model_type for f in FORMALISMS.values() if f.whole_map)
 
 
 def claims(model_type: str, paths: Any, section: str) -> list[str]:

@@ -464,13 +464,19 @@ def _definition(kind: str, p: dict[str, Any], h: dict[str, Any]) -> Any:
     raise ValueError(f"not an SD result kind: {kind!r}")
 
 
+def _unsaved_what_if(run: Any) -> bool:
+    from latris.operations.sd_scenarios import WHAT_IF
+
+    return f'"{WHAT_IF}' in run.analysis_key
+
+
 def _kind(kind: str, title: str, render: Any, analysis: str, claims: Any, *, charts: Any = None,
-          heading: Any = None) -> ResultKind:
+          heading: Any = None, **extra: Any) -> ResultKind:
     return ResultKind(
         kind=kind, title=title, render=render, analysis=analysis, run=_run,
         definition=lambda p: _definition(kind, p, {}),
         run_definition=lambda p, run: _definition(kind, p, run.hyperparameters),
-        claims=claims, charts=charts, subtitle=lambda p: _sd_subtitle(kind, p), title_for=heading,
+        claims=claims, charts=charts, subtitle=lambda p: _sd_subtitle(kind, p), title_for=heading, **extra,
     )
 
 
@@ -482,7 +488,7 @@ def _simulation_charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 
 for _rk in (
     _kind("sd-simulation", "Simulation", _render_simulation, "simulate", _claims_simulation,
-          charts=_simulation_charts),
+          charts=_simulation_charts, superseded_by_wider=True, unsaved_what_if=_unsaved_what_if),
     _kind("sd-options", "Options compared under uncertainty", _render_options, "compare", _claims_options),
     _kind("sd-monte-carlo", "Uncertainty (Monte Carlo)", _render_monte_carlo, "monte_carlo", _claims_monte_carlo,
           charts=lambda p: [("bands", {"vars": [v]}) for v in p["variables"][:4]]),

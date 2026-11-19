@@ -585,13 +585,13 @@ def assess_readiness(
         if validator_gaps:
             structural_ok = False
             gaps.extend(validator_gaps)
-    if scope is not None and spec.id == "bn" and not scope.entity_ids:
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(spec.id)
+    if scope is not None and plugin and plugin.empty_scope_gap and not scope.entity_ids:
         structural_ok = False
-        gaps.append(ReadinessGap(
-            "", "(model)", "empty_network",
-            "No factor is in the Bayesian network yet. A factor joins it when it gets states (set_states); "
-            "the rest of the map stays in the loop map.",
-        ))
+        gap_type, message = plugin.empty_scope_gap
+        gaps.append(ReadinessGap("", "(model)", gap_type, message))
 
     # 2. Model-specific attributes
     attr_met, attr_total, attr_gaps = _check_model_attributes(
@@ -870,9 +870,7 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
     # type's elements (an MCDA option, an event tree's heading) are unlinked by nature, and a factor
     # being formalised (an SD stock just added in Formalise) has its missing links reported by that
     # type's own readiness. Only the causal maps' roles ("outcome") leave a factor in the network check.
-    from latris.operations.membership import QUALITATIVE
-
-    claimed = [t for t in selected if t not in QUALITATIVE]
+    claimed = [t for t in selected if not ((f := formalisms.get(t)) and f.whole_map)]
     if claimed:
         from latris.schema.roles import RoleSet
 

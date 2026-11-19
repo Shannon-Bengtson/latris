@@ -287,6 +287,15 @@ declares a `Formalism` with the hooks the shared code calls:
 | `spec_field`, `spec_check`, `spec_apply`, `spec_export` | `build --spec` and share links |
 | `mermaid` (full diagram) or `mermaid_groups` (columns) | the report's diagram |
 | `cli` (module, command), `routes` (module) | `cli/app.py`, `server/app.py` |
+| `connected_structure`, `whole_map`, `computes_on`, `empty_scope_gap` | Build's connectivity gate, `membership` (what the type computes on), readiness |
+| `source_label`, `scope_noun`, `feedback_claims`, `feedback_through_stocks`, `finding_priority`, `link_attribute` | interpretation wording and the AI context |
+| `diagram_direction` | the generic Mermaid and DOT sketches |
+| `handover_name`, `handover_command` | the handover check (`model_incomplete`) |
+| `scenario_store` | result staleness when a run used saved scenarios |
+| `ResultKind.superseded_by_wider`, `ResultKind.unsaved_what_if` | which runs reports show; the handover check |
+
+Shared code never tests a model type's id: `tests/test_no_type_branches.py` fails on a branch such as
+`model_type == "sd"` outside the type's own modules — add a field here instead.
 
 Four things stay central on purpose, because each is a single registry or a
 static schema:

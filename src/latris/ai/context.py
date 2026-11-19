@@ -1817,7 +1817,11 @@ def _build_suggest_edge_polarities(paths: ProjectPaths, inputs: dict[str, Any]) 
     source_hint = inputs.get("source_hint", "ai")
 
     # Existing polarity/weight assignments — let the LLM see what's already set.
-    attr_name = "polarity" if model_type == "cld" else "weight"
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+    attr_name, attr_label = (plugin.link_attribute if plugin and plugin.link_attribute
+                             else ("weight", "weight (float in [-1, +1])"))
     attr_path = paths.view_attribute_path(model_type, attr_name)
     existing_attrs = load_model(PolaritySet, attr_path) if attr_path.exists() else PolaritySet()
     existing_lines = [f"  - {e.target_id}: {e.value}" for e in existing_attrs.entries]
@@ -1898,7 +1902,6 @@ def _build_suggest_edge_polarities(paths: ProjectPaths, inputs: dict[str, Any]) 
         if ev_lines:
             evidence_block = _format_block("Evidence attached to these edges", ev_lines)
 
-    attr_label = "polarity (+/-)" if model_type == "cld" else "weight (float in [-1, +1])"
     user_message = (
         f"# Project foundation\n"
         f"{_foundation_summary(foundation)}"

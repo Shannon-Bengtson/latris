@@ -161,6 +161,22 @@ def _export(paths, labels: dict[str, str]):  # noqa: ANN001, ANN202
                   uncertainty=ranges, scenarios=scenarios)
 
 
+# ── membership ───────────────────────────────────────────────────────
+
+
+def _computes_on(paths) -> set[str]:  # noqa: ANN001
+    """The factors with an SD role, plus anything a flow edge touches."""
+    from latris.operations import sd as sd_ops
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+
+    nodes = {e.target_id for e in sd_ops._load_roles(paths).entries}
+    for e in load_model(Substrate, paths.conceptual_yaml).edges:
+        if e.kind == "flow":
+            nodes |= {e.from_id, e.to_id}
+    return nodes
+
+
 # ── diagram ──────────────────────────────────────────────────────────
 
 _SHAPES = {
@@ -212,6 +228,14 @@ register(Formalism(
     spec_apply=_apply,
     spec_export=_export,
     mermaid=_mermaid,
+    computes_on=_computes_on,
+    source_label="Simulation",
+    scope_noun="simulation",
+    feedback_through_stocks=True,  # feedback runs through stocks (flow edges), never a causal-edge cycle
+    finding_priority=("dynamics", "inference", "sensitivity", "structure"),
+    handover_name="System Dynamics model",
+    handover_command="latris sd check",
+    scenario_store="latris.operations.sd_scenarios",
     cli=("latris.cli.sd_cmd", "sd"),
     routes="latris.server.routes.sd",
 ))

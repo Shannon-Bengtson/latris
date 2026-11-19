@@ -43,7 +43,10 @@ def render(paths: ProjectPaths, view: ViewKind = "system_map") -> str:
         edges = list(substrate.edges)
 
     graph_name = _dot_escape(paths.root.name)
-    rankdir = "TB" if view == "dag" else "LR"
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(view)
+    rankdir = plugin.diagram_direction if plugin else "LR"
 
     lines: list[str] = [
         f'digraph "{graph_name}" {{',
@@ -69,7 +72,7 @@ def render(paths: ProjectPaths, view: ViewKind = "system_map") -> str:
 
     # Edges
     for e in edges:
-        if view == "cld":
+        if plugin and plugin.link_attribute and plugin.link_attribute[0] == "polarity":
             pol = polarity.get((e.id, "polarity"))
             edge_label = pol.value if pol else ""
             attrs = f'label="{_dot_escape(edge_label)}"' if edge_label else ""

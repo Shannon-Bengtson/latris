@@ -13,7 +13,6 @@ from latris.operations.commit import auto_commit
 from latris.operations.interpret_registry import (
     MODEL_WIDE,
     MODEL_WIDE_SECTIONS,
-    SOURCE_LABEL,
     get_sections_for_model_types,
 )
 from latris.repo import git
@@ -190,7 +189,7 @@ def _model_wide_claims(section_type: InterpretSectionId, paths) -> list[str]:
             if claim.startswith("  - "):
                 out.append(claim)  # an item of the claim before it
             else:
-                out.append(f"{SOURCE_LABEL.get(mt, mt.upper())}: {claim}")
+                out.append(f"{formalisms.label(mt)}: {claim}")
     return out
 
 
@@ -348,8 +347,10 @@ def _load_findings(paths, model_type: str | None = None) -> list[Finding]:
     return list_findings(model_type=model_type, root=paths.root)
 
 
-# What a quantified model type's own factors are called in claims ("12 of 18 simulation links ...").
-SCOPE_NOUN = {"sd": "simulation", "bn": "network"}
+def _scope_noun(model_type: str | None) -> str | None:
+    """What a quantified model type's own factors are called in claims ("12 of 18 simulation links ...")."""
+    f = formalisms.get(model_type)
+    return f.scope_noun if f else None
 
 
 def _scoped_substrate(paths, model_type: str | None):
@@ -381,7 +382,7 @@ def _coverage_ids(substrate, paths=None, model_type: str | None = None) -> tuple
     ``by-definition`` (e.g. departures reduce the number of volunteers)
     need no source, so they aren't counted.
     """
-    prefix = f"{SCOPE_NOUN[model_type]} " if model_type in SCOPE_NOUN and paths is not None and _is_scoped(
+    prefix = f"{_scope_noun(model_type)} " if _scope_noun(model_type) and paths is not None and _is_scoped(
         paths, model_type) else ""
     edge_ids = {e.id for e in substrate.edges}
     if edge_ids:
@@ -558,10 +559,10 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
 
     n_entities = len(substrate.entities)
     n_edges = len(substrate.edges)
-    if model_type in SCOPE_NOUN and _is_scoped(paths, model_type):
+    if _scope_noun(model_type) and _is_scoped(paths, model_type):
         whole = load_model(Substrate, paths.conceptual_yaml)
         claims.append(
-            f"The {SCOPE_NOUN[model_type]} has {n_entities} factors and {n_edges} links "
+            f"The {_scope_noun(model_type)} has {n_entities} factors and {n_edges} links "
             f"(the whole map: {len(whole.entities)} and {len(whole.edges)})."
         )
     else:
@@ -572,7 +573,9 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
     # produce the "self-amplifying system" overclaim caught in the
     # 4DWW capability run.
     causal = causal_edges(substrate.edges)
-    if model_type in ("cld", "fcm") and causal:
+    plugin = formalisms.get(model_type)
+    feedback = bool(plugin and plugin.feedback_claims)
+    if feedback and causal:
         # Load polarity for classification
         polarity_path = paths.view_attribute_path(model_type, "polarity")
         polarity_map: dict[str, str] = {}
@@ -607,24 +610,7 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
         else:
             claims.append("No feedback loops detected (acyclic structure).")
 
-    # DAG-specific: confirm acyclicity, or report cycle-detected
-    # readiness failure if the substrate isn't projectable to a DAG.
-    if model_type == "dag":
-        from latris.operations.readiness import assess_readiness
-
-        dag_readiness = assess_readiness("dag", root=paths.root)
-        cycle_gaps = [g for g in dag_readiness.gaps if g.gap_type == "cycle_detected"]
-        if cycle_gaps:
-            substrate_loops = find_all_loops(causal_edges(substrate.edges))
-            claims.append(
-                f"DAG readiness FAILS: substrate contains "
-                f"{len(substrate_loops)} cycle(s). The substrate is not "
-                "projectable to a valid DAG view without dropping or "
-                "redirecting edges."
-            )
-        else:
-            claims.append("DAG structure confirmed (acyclic by readiness gate).")
-
+    # The type's own structure claims (a DAG confirms its acyclicity, a fault tree its gates, …).
     claims.extend(formalisms.claims(model_type, paths, "structure"))
 
     # Add any recorded structural findings
@@ -672,7 +658,8 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
             )
 
     # Loop participation
-    if model_type in ("cld", "fcm") and causal:
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.feedback_claims and causal:
         loops = find_all_loops(_feedback(substrate, paths))
         if loops:
             from latris.operations.graph_analysis import compute_loop_participation
@@ -688,9 +675,9 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
     # Add recorded findings (ranked)
     findings = _load_findings(paths, model_type)
     if findings:
-        priority_cats: list[FindingCategory] = (
-            ["dynamics", "inference", "sensitivity", "structure"] if model_type == "sd"
-            else ["inference", "dynamics", "sensitivity", "structure"]
+        plugin = formalisms.get(model_type)
+        priority_cats: list[FindingCategory] = list(  # type: ignore[arg-type]
+            plugin.finding_priority if plugin else ("inference", "dynamics", "sensitivity", "structure")
         )
         accepted = [f for f in findings if f.maturity == "approved"]
         drafts = [f for f in findings if f.maturity == "proposed"]
@@ -741,7 +728,8 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
         # not dynamic leverage. Capability-run reviewers correctly flagged
         # the "highest leverage" framing as overclaim on DAGs.
         # SD feedback runs through stocks (flow edges), so it never shows as a causal-edge cycle.
-        has_loops = bool(find_all_loops(_feedback(substrate, paths))) or model_type == "sd"
+        through_stocks = bool((p := formalisms.get(model_type)) and p.feedback_through_stocks)
+        has_loops = bool(find_all_loops(_feedback(substrate, paths))) or through_stocks
 
         top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
         if top:
@@ -917,7 +905,8 @@ def _extract_answer(model_type: str, paths) -> list[str]:
     causal = causal_edges(substrate.edges)
 
     # Key structural insights relevant to answering the question
-    if model_type in ("cld", "fcm") and causal:
+    plugin = formalisms.get(model_type)
+    if plugin and plugin.feedback_claims and causal:
         polarity_path = paths.view_attribute_path(model_type, "polarity")
         polarity_map: dict[str, str] = {}
         if polarity_path.exists():

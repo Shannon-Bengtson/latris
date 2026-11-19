@@ -113,10 +113,12 @@ def fingerprint(
 def _scenario_defs(model_type: str, names: list[str], paths: ProjectPaths) -> dict[str, Any]:
     """Each named scenario's definition with every scenario it extends, so a change to a parent ages the
     results of the scenarios built on it. A name no longer saved hashes as None (the result goes stale)."""
-    if model_type == "bn":
-        from latris.operations import bn_scenarios as store
-    else:
-        from latris.operations import sd_scenarios as store
+    import importlib
+
+    plugin = formalisms.get(model_type)
+    if plugin is None or plugin.scenario_store is None:
+        return {}
+    store = importlib.import_module(plugin.scenario_store)
     def dump(s: Any) -> dict[str, Any]:
         # Without ``extends`` a scenario dumps exactly as before the field existed, so results recorded
         # earlier keep their fingerprint.
@@ -281,11 +283,14 @@ def report_results(
         latest[(run.result_kind, run.analysis_key)] = run  # file order is chronological
 
     runs = list(latest.values())
-    sims = [r for r in runs if r.result_kind == "sd-simulation"]
+    # A run superseded by a later one of the same kind covering all its scenarios drops out (a simulation of
+    # baseline + A after baseline + A + B ran). The kind says whether it works that way.
+    wider = {r.kind for r in formalisms.result_kinds() if r.superseded_by_wider}
     runs = [
         r for r in runs
-        if r.result_kind != "sd-simulation"
-        or not any(o is not r and o.id > r.id and _scope(r) <= _scope(o) for o in sims)
+        if r.result_kind not in wider
+        or not any(o is not r and o.result_kind == r.result_kind and o.id > r.id and _scope(r) <= _scope(o)
+                   for o in runs)
     ]
     out: list[ReportResult] = []
     for kind in KIND_ORDER:

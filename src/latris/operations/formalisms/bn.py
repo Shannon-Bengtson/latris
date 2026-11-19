@@ -504,6 +504,19 @@ def _claims(paths, section: str) -> list[str]:
     return []
 
 
+# ── membership ───────────────────────────────────────────────────────
+
+
+def _computes_on(paths) -> set[str]:  # noqa: ANN001
+    """The factors with states or a probability table, and those tables' parents."""
+    from latris.operations import bn as bn_ops
+
+    nodes = {e.target_id for e in bn_ops._load_state_spaces(paths).entries}
+    for target, cpt in bn_ops._effective_cpt_map(paths).items():
+        nodes |= {target, *cpt.parents}
+    return nodes
+
+
 # ── build spec and share links ───────────────────────────────────────
 
 
@@ -725,6 +738,14 @@ register(Formalism(
     spec_apply=_apply,
     spec_export=_export,
     mermaid=_mermaid,
+    computes_on=_computes_on,
+    empty_scope_gap=("empty_network", "No factor is in the Bayesian network yet. A factor joins it when it gets "
+                     "states (set_states); the rest of the map stays in the loop map."),
+    source_label="Network",
+    scope_noun="network",
+    handover_name="Bayesian network",
+    handover_command="latris bn check",
+    scenario_store="latris.operations.bn_scenarios",
     cli=("latris.cli.bn_cmd", "bn"),
     routes="latris.server.routes.bn",
 ))

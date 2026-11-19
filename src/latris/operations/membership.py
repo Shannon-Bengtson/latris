@@ -34,8 +34,19 @@ from dataclasses import dataclass
 from latris.repo.layout import ProjectPaths
 from latris.repo.yaml_io import load_model
 
-QUANTIFIED = ("sd", "bn")
-QUALITATIVE = ("cld", "dag", "fcm")
+# Read from the registry: types with ``computes_on`` (SD, BN) and the whole-map causal maps (CLD, DAG, FCM).
+QUANTIFIED: tuple[str, ...] = ()
+QUALITATIVE: tuple[str, ...] = ()
+
+
+def _refresh() -> None:
+    global QUANTIFIED, QUALITATIVE
+    from latris.operations import formalisms
+
+    QUANTIFIED, QUALITATIVE = formalisms.quantified(), formalisms.whole_map_types()
+
+
+_refresh()
 WHOLE_MAP = "system_map"
 
 
@@ -66,21 +77,10 @@ def _mapped(paths: ProjectPaths, model_type: str) -> set[str]:
 
 def parameterised_nodes(paths: ProjectPaths, model_type: str) -> set[str]:
     """The factors a quantified model type computes on (empty for the qualitative types)."""
-    nodes: set[str] = set()
-    if model_type == "bn":
-        from latris.operations import bn as bn_ops
+    from latris.operations import formalisms
 
-        nodes = {e.target_id for e in bn_ops._load_state_spaces(paths).entries}
-        for target, cpt in bn_ops._effective_cpt_map(paths).items():
-            nodes |= {target, *cpt.parents}
-    elif model_type == "sd":
-        from latris.operations import sd as sd_ops
-
-        nodes = {e.target_id for e in sd_ops._load_roles(paths).entries}
-        for e in _substrate(paths).edges:
-            if e.kind == "flow":
-                nodes |= {e.from_id, e.to_id}
-    return nodes
+    f = formalisms.get(model_type)
+    return f.computes_on(paths) if f and f.computes_on else set()
 
 
 def _with_links(paths: ProjectPaths, nodes: set[str]) -> Members:
