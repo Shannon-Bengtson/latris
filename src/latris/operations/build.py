@@ -244,7 +244,7 @@ def build_from_spec(
     ref_keys = {r.bibkey for r in library.entries}
     _check(spec, substrate, ref_keys, model_type, reuse=reuse)
     result = BuildResult()
-    subject = f"Built model from spec: {len(spec.factors)} factors, {len(spec.links)} links"
+    subject = _subject(spec, substrate, reuse)
 
     node_ids = {e.label.casefold(): e.id for e in substrate.entities}
     edge_ids = {
@@ -395,6 +395,20 @@ def build_from_spec(
     return result
 
 
+def _subject(spec: BuildSpec, substrate: Substrate, reuse: bool) -> str:
+    """The build's commit subject: how many factors and links it adds, and, reusing, how many it found."""
+    if not reuse:
+        return f"Built model from spec: {len(spec.factors)} factors, {len(spec.links)} links"
+    labels = {e.label.casefold(): e.id for e in substrate.entities}
+    links = {(e.from_id, e.to_id, e.kind) for e in substrate.edges}
+    old_f = sum(f.label.casefold() in labels for f in spec.factors)
+    old_l = sum((labels.get(lk.from_.casefold()), labels.get(lk.to.casefold()), lk.kind) in links for lk in spec.links)
+    return (
+        f"Built model from spec: {len(spec.factors) - old_f} new factors, {len(spec.links) - old_l} new links"
+        f" ({old_f} factors and {old_l} links already there)"
+    )
+
+
 def _parents_first(scenarios: list) -> list:
     """Scenarios ordered so each comes after the one it extends (a parent must exist to be extended)."""
     by_name = {s.name.lower(): s for s in scenarios}
@@ -444,7 +458,7 @@ class BuildPreview:
     problems: list[str] = field(default_factory=list)  # why it can't be built, when it can't
     result: BuildResult | None = None  # what was added and reused
     changes: list[dict] = field(default_factory=list)  # the semantic diff: {kind, summary, path, details}
-    analyses: list[str] = field(default_factory=list)  # the analyses it would run and record
+    analyses: list[str] = field(default_factory=list)  # the analyses it would run and record, by title
 
 
 def preview_build(
@@ -461,9 +475,11 @@ def preview_build(
     from dataclasses import asdict
 
     from latris.diff.semantic import diff_commits
+    from latris.operations.analysis_results import result_surfaces
 
     paths = require_project(root)
-    analyses = [a.kind for a in spec.analyses]
+    titles = {r.analysis: r.title for r in result_surfaces()}
+    analyses = [titles.get(a.kind, a.kind) for a in spec.analyses]
     with tempfile.TemporaryDirectory(prefix="latris-preview-") as tmp:
         copy = Path(tmp) / "project"
         shutil.copytree(paths.root, copy, symlinks=True)

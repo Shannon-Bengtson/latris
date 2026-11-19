@@ -607,6 +607,10 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 
 Use Markdown for transparent text output and Word for stakeholder-ready documents. The Markdown report opens with a Mermaid sketch of the model, which GitHub and most chat tools draw as a diagram. **Build spec (.json)** exports the model itself — factors, links, sources, the model type's values and its analyses — as `latris export spec` does; `latris build --spec` (or a chat with the Latris connector) rebuilds it elsewhere.
 
+## Importing a build spec
+
+**Import a build spec** (command palette, or the link in the Export dialog) builds a spec — YAML or JSON — into the open project. Factors, links and sources the project already has are used as they are; the spec only fills what they lack (an empty description, a missing polarity or weight). Before anything changes you see what it would add, what it found already there, what it would change and which analyses it would run and record — or why it can't be built. Import makes it one commit. From the command line: `latris build --spec FILE --reuse`, with `--dry-run` for the same preview.
+
 ## Practical advice
 
 Generate interpretation sections before relying on them in the report builder. Report mode can show that a section exists but has not yet been generated.

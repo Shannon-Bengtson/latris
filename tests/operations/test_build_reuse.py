@@ -44,6 +44,8 @@ def test_reuse_keeps_what_is_there_and_adds_the_rest(sd_bathtub_root):
     assert labels.count("Water") == 1 and "Overflow" in labels
     after = get_attribute(water.id, "description", root=sd_bathtub_root)
     assert after == (before or "From the spec")  # theirs only fills a gap
+    subject = git.recent_commits(sd_bathtub_root, 1)[0]["subject"]
+    assert subject == "Built model from spec: 1 new factors, 1 new links (1 factors and 0 links already there)"
 
 
 def test_reimporting_your_own_export_reuses_everything(sd_bathtub_root):
@@ -64,6 +66,12 @@ def test_preview_changes_nothing_and_matches_the_build(sd_bathtub_root):
     assert any(c["kind"] == "node_added" and "Overflow" in c["summary"] for c in p.changes)
     real = build_from_spec(_spec(), existing="reuse", root=sd_bathtub_root)
     assert (real.factors, real.reused_factors, len(real.links)) == (p.result.factors, p.result.reused_factors, len(p.result.links))
+
+
+def test_preview_names_the_analyses_it_would_run(sd_bathtub_root):
+    spec = load_spec(SPEC + "analyses:\n  - kind: simulate\n")
+    p = preview_build(spec, existing="reuse", root=sd_bathtub_root)
+    assert p.analyses == ["Simulation"]
 
 
 def test_preview_says_why_it_cannot_build(sd_bathtub_root):
