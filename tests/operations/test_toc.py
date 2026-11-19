@@ -278,7 +278,7 @@ def test_server_routes(built):
     body = client.get("/api/toc/levels").json()
     assert body["count"] == 4 and body["order"][0] == "input"
     r = client.post("/api/toc/level", json={"node": "Training sessions", "level": "nonsense"})
-    assert r.status_code == 400
+    assert r.status_code == 422
     r = client.post("/api/toc/level", json={"node": "Training sessions", "level": "activity"})
     assert r.status_code == 200 and r.json()["commit_sha"]
     r = client.post("/api/toc/check", json={"record": False})

@@ -5,7 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
+    Formalism,
+    ResultKind,
+    default_origin,
+    register,
+    spec_verification,
+)
 
 
 def _threshold_lines(p: dict[str, Any]) -> list[str]:
@@ -22,13 +30,13 @@ def _threshold_lines(p: dict[str, Any]) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.decision_tree import describe, fmt
 
     u = p["units"]
     out = [describe(p) + ".", ""]
     if p.get("options"):
-        out += _table([f"{p['root']} — option", f"Expected value ({p['objective']})", ""],
+        out += md.table([f"{p['root']} — option", f"Expected value ({p['objective']})", ""],
                       [[o["option"], fmt(o["ev"], u), "best" if o["best"] else ""] for o in p["options"]])
     if len(p["strategy"]) > 1:
         out += ["Optimal strategy: " + "; then ".join(f"at {s['decision']}, {s['choose']}" for s in p["strategy"])
@@ -40,7 +48,7 @@ def _render(p: dict[str, Any]) -> list[str]:
                 for x in sorted(ev["per_uncertainty"], key=lambda x: -x["evpi"])]
         out += ["Expected value of perfect information — the most it is worth paying to know each uncertainty "
                 "before choosing:", ""]
-        out += _table(["Uncertainty", "States", "EVPI", "Best choice if known"], rows)
+        out += md.table(["Uncertainty", "States", "EVPI", "Best choice if known"], rows)
         if ev["all"]:
             out += [f"Knowing everything before choosing would be worth up to {fmt(ev['all']['evpi'], u)} "
                     "(treating the uncertainties as independent).", ""]
@@ -208,10 +216,36 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="dt_analyse")
+    return make_analysis(kind="dt_analyse")
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'dt-analysis': ('analyse_decision_tree',
+        'Roll back the decision tree: the best strategy by expected value, what perfect information on '
+        'each uncertainty is worth (EVPI), and the probabilities at which the best choice changes. '
+        'Recorded with a chart.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_dt_settings', ('objective', 'units'),
+        'Whether the tree maximises or minimises, and the units of its payoffs.'),
+    ChatOp('set_dt_element', ('elements',),
+        'Make a factor a decision, chance or terminal node.'),
+    ChatOp('set_dt_branch', ('branches',),
+        "A branch from a node to its child ('Parent -> Child'): its label, and its probability under "
+        'a chance node or value.'),
+    ChatOp('set_dt_payoff', ('payoffs',),
+        "A terminal node's payoff."),
+    ChatOp('set_dt_uncertainty', ('uncertainties',),
+        'Name the uncertainty a chance node resolves; chance nodes with the same name are the same '
+        'uncertainty under different choices (for the value of information).'),
+)
 
 register(Formalism(
     model_type="decision_tree",
@@ -230,12 +264,15 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the probabilities and payoffs to see what would change the choice.",
-    results=(ResultKind(kind="dt-analysis", title="Decision tree: best choice and the value of information",
-                        render=_render, analysis="dt_analyse", run=_run, definition=_definition, charts=_charts),),
+    results=(ResultKind(tool=ChatTool(*_TOOLS['dt-analysis']),
+                        kind="dt-analysis", title="Decision tree: best choice and the value of information",
+                        render=_render, analysis="dt_analyse", run=_run, definition=_definition, charts=_charts,
+                        chart_kinds=("dt-ev",)),),
     spec_field="decision_tree",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.dt_cmd", "dt"),
     routes="latris.server.routes.dt",

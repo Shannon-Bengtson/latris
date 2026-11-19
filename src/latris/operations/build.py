@@ -20,7 +20,7 @@ from latris.operations import formalisms
 from latris.operations.batch import batch
 from latris.repo import git
 from latris.repo.project import require_project
-from latris.repo.yaml_io import load_model, load_model_from_string
+from latris.repo.yaml_io import load_model, load_model_from_string, load_model_or_default
 from latris.schema import ProjectFoundation, ReferenceLibrary, Substrate
 from latris.schema.build_spec import LINK_ARROWS, BuildSpec, SpecAssumption, SpecCitation
 from latris.schema.references import SNAPSHOT_EXTRACT_MAX
@@ -40,8 +40,10 @@ class BuildResult:
     interpretation: int = 0
     parameters: int = 0  # SD/BN roles, values, equations, tables, uncertainty ranges, scenarios
     analyses: list[str] = field(default_factory=list)  # run ids of the analyses replayed after building
+    carried: list[str] = field(default_factory=list)  # run ids of results carried as the sender's
     outcome: str | None = None
     notes: list[str] = field(default_factory=list)  # parts that couldn't be applied, and why
+    info: list[str] = field(default_factory=list)  # what applying the values tells you (formalisms' spec_info)
     missing_extras: bool = False  # an analysis couldn't run because an optional part isn't installed
     commit_sha: str = ""
 
@@ -142,10 +144,10 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
 
         plugin = formalisms.get(model_type)
         allowed = get_model_type(model_type).allowed_roles
-        if plugin and plugin.outcome_role is None and plugin.set_outcome is None:
+        if plugin and plugin.outcome_role is None:
             problems.append(f"outcome: {plugin.outcome_refusal}")
         elif not plugin and allowed and "outcome" not in allowed:
-            takes = sorted({f.model_type for f in formalisms.all_formalisms() if f.outcome_role or f.set_outcome}
+            takes = sorted({f.model_type for f in formalisms.all_formalisms() if f.outcome_role}
                            | {m.id for m in list_model_types() if "outcome" in m.allowed_roles})
             problems.append(f"outcome: {model_type} has no outcome role ({', '.join(takes)} do)")
     for plugin in formalisms.all_formalisms():
@@ -187,7 +189,7 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     library = (
-        load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
+        load_model_or_default(ReferenceLibrary, paths.references_yaml)
     )
     foundation = load_model(ProjectFoundation, paths.project_yaml)
     model_type = spec.model_type or next(iter(foundation.selected_model_types), "cld")
@@ -275,6 +277,8 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             block = getattr(spec, f.spec_field) if f.spec_field else None
             if block is not None:
                 result.parameters += f.spec_apply(block, verified_by, paths.root)
+                if f.spec_info:
+                    result.info += f.spec_info(block, paths.root)
         if spec.outcome and not plugin:
             set_role(spec.outcome, model_type, "outcome", root=paths.root)
             result.outcome = spec.outcome
@@ -313,7 +317,11 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             result.notes.append(f"analysis {a.kind!r} not run: {exc} — install with: {INSTALL}")
         except ValueError as exc:
             result.notes.append(f"analysis {a.kind!r} not run: {exc}")
-    if result.analyses:
+    if spec.carried_results:
+        from latris.operations.carried_results import import_carried
+
+        result.carried = import_carried(spec.carried_results, root=paths.root)
+    if result.analyses or result.carried:
         result.commit_sha = git.head_sha(paths.root)
     return result
 

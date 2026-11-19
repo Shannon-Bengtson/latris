@@ -26,7 +26,7 @@ from latris.operations._units import parse_unit
 from latris.operations.commit import auto_commit
 from latris.operations.sd_inference import SDSimulationResult
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin
 from latris.schema.roles import RoleSet
@@ -56,17 +56,13 @@ def _path(paths, attribute: str) -> Path:
 
 def _load(paths, cls, attribute: str):
     p = _path(paths, attribute)
-    return load_model(cls, p) if p.exists() else cls()
+    return load_model_or_default(cls, p)
 
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
 
 
 def _load_roles(paths) -> RoleSet:
     p = paths.role_path(_MODEL_TYPE)
-    return load_model(RoleSet, p) if p.exists() else RoleSet()
+    return load_model_or_default(RoleSet, p)
 
 
 def _resolve(paths, target: str) -> tuple[Substrate, str, str]:
@@ -172,7 +168,7 @@ def set_equation(
     store = _load(paths, SDEquationSet, "equations")
     _upsert(store, entry)
     path = _path(paths, "equations")
-    _dump(path, store)
+    dump_model(store, path)
     sha = auto_commit(
         paths.root,
         subject=f"Set SD equation on {label}: {parsed.expression} [{entry.units}]",
@@ -206,7 +202,7 @@ def set_initial_value(
     store = _load(paths, SDStockSet, "initial_value")
     _upsert(store, entry)
     path = _path(paths, "initial_value")
-    _dump(path, store)
+    dump_model(store, path)
     sha = auto_commit(
         paths.root,
         subject=f"Set SD initial value on {label}: {value} {entry.units}",
@@ -236,7 +232,7 @@ def set_constant(
     store = _load(paths, SDConstantSet, "constant")
     _upsert(store, entry)
     path = _path(paths, "constant")
-    _dump(path, store)
+    dump_model(store, path)
     sha = auto_commit(
         paths.root,
         subject=f"Set SD constant {label} = {value} {entry.units}",
@@ -276,7 +272,7 @@ def set_table(
     store = _load(paths, SDTableSet, "table")
     _upsert(store, entry)
     path = _path(paths, "table")
-    _dump(path, store)
+    dump_model(store, path)
     sha = auto_commit(
         paths.root,
         subject=f"Set SD table on {label} ({len(points)} point(s))",
@@ -285,6 +281,17 @@ def set_table(
         paths=[path],
     )
     return entry, sha
+
+
+def equation_reads(expression: str, *, root: Path | None = None) -> dict[str, str]:
+    """The names an equation reads, each with the factor it resolves to ({"drain_rate": "Drain Rate"});
+    a name no factor has maps to itself, so a typo shows."""
+    from latris.operations._sd_eval import parse, slugify
+
+    paths = require_project(root)
+    labels = [e.label for e in load_model(Substrate, paths.conceptual_yaml).entities]
+    by_name = {slugify(label): label for label in labels}
+    return {n: by_name.get(n, n) for n in sorted(parse(expression).names)}
 
 
 # ── reads ────────────────────────────────────────────────────────────
@@ -377,7 +384,7 @@ def _settings_path(paths) -> Path:
 
 def get_settings(*, root: Path | None = None) -> SDStoredSettings:
     p = _settings_path(require_project(root))
-    return load_model(SDStoredSettings, p) if p.exists() else SDStoredSettings()
+    return load_model_or_default(SDStoredSettings, p)
 
 
 def set_settings(
@@ -403,7 +410,7 @@ def set_settings(
     if problems:
         raise ValueError("; ".join(p.message for p in problems))
     path = _settings_path(paths)
-    _dump(path, updated)
+    dump_model(updated, path)
     shown = ", ".join(f"{k}={v}" for k, v in given.items() if v is not None)
     sha = auto_commit(paths.root, subject=f"Set SD settings: {shown}", paths=[path])
     return updated, sha
@@ -415,7 +422,7 @@ def set_outcome(target: str, *, root: Path | None = None) -> tuple[str, str]:
     _, target_id, label = _resolve(paths, target)
     current = get_settings(root=paths.root)
     path = _settings_path(paths)
-    _dump(path, current.model_copy(update={"outcome": target_id}))
+    dump_model(current.model_copy(update={"outcome": target_id}), path)
     sha = auto_commit(paths.root, subject=f"Set SD outcome: {label}", paths=[path])
     return target_id, sha
 

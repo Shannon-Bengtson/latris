@@ -15,10 +15,10 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 
-class RoleEntry(_EntryBase):
+class RoleEntry(EntryBase):
     """A role assignment: entity X has role Y within a model-type view."""
 
     attribute: str = "role"

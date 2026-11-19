@@ -1,0 +1,168 @@
+{
+ "model_type": "theory_of_change",
+ "factors": [
+  {
+   "label": "Mentor training",
+   "kind": "concept"
+  },
+  {
+   "label": "Weekly mentoring sessions",
+   "kind": "concept"
+  },
+  {
+   "label": "Students mentored",
+   "kind": "concept"
+  },
+  {
+   "label": "School attendance",
+   "kind": "concept"
+  },
+  {
+   "label": "Grades",
+   "kind": "concept"
+  },
+  {
+   "label": "School completion",
+   "kind": "concept"
+  }
+ ],
+ "links": [
+  {
+   "from": "Mentor training",
+   "to": "Weekly mentoring sessions"
+  },
+  {
+   "from": "Weekly mentoring sessions",
+   "to": "Students mentored"
+  },
+  {
+   "from": "Students mentored",
+   "to": "School attendance",
+   "sources": [
+    "lee2020"
+   ]
+  },
+  {
+   "from": "School attendance",
+   "to": "Grades"
+  },
+  {
+   "from": "Grades",
+   "to": "School completion",
+   "sources": [
+    "lee2020"
+   ]
+  },
+  {
+   "from": "Students mentored",
+   "to": "School completion"
+  }
+ ],
+ "sources": [
+  {
+   "key": "lee2020",
+   "title": "Mentoring and school attendance (illustrative)",
+   "year": 2020
+  }
+ ],
+ "assumptions": [
+  {
+   "text": "Students who feel someone expects them at school turn up more often.",
+   "target": "Students mentored -> School attendance"
+  },
+  {
+   "text": "Better grades keep students enrolled through the final years.",
+   "target": "Grades -> School completion"
+  }
+ ],
+ "toc": {
+  "levels": [
+   {
+    "node": "Mentor training",
+    "level": "input"
+   },
+   {
+    "node": "Weekly mentoring sessions",
+    "level": "activity"
+   },
+   {
+    "node": "Students mentored",
+    "level": "output"
+   },
+   {
+    "node": "School attendance",
+    "level": "short_term_outcome"
+   },
+   {
+    "node": "Grades",
+    "level": "long_term_outcome"
+   },
+   {
+    "node": "School completion",
+    "level": "impact"
+   }
+  ],
+  "priors": [
+   {
+    "link": "Students mentored -> School attendance",
+    "prior": 0.6,
+    "notes": "Prior evaluations of school mentoring mostly find small attendance gains.",
+    "source": "lee2020",
+    "origin": "human-direct"
+   }
+  ],
+  "tests": [
+   {
+    "link": "Students mentored -> School attendance",
+    "name": "attendance up in mentored cohort",
+    "p_if_true": 0.9,
+    "p_if_false": 0.5,
+    "found": true,
+    "description": "Registers show mentored students attending more than before.",
+    "origin": "human-direct"
+   },
+   {
+    "link": "Students mentored -> School attendance",
+    "name": "students credit their mentor",
+    "p_if_true": 0.4,
+    "p_if_false": 0.05,
+    "description": "In exit interviews, students say unprompted that their mentor got them to school.",
+    "origin": "human-direct"
+   },
+   {
+    "link": "Grades -> School completion",
+    "name": "completion rises with grades in the cohort",
+    "p_if_true": 0.85,
+    "p_if_false": 0.4,
+    "found": false,
+    "origin": "human-direct"
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "toc_impact",
+   "outcome": "School attendance",
+   "dataset": "registers",
+   "time": "month",
+   "at": "2024-01-01",
+   "columns": {
+    "School attendance": "attendance_pct"
+   }
+  },
+  {
+   "kind": "toc_impact",
+   "outcome": "School attendance",
+   "dataset": "schools",
+   "time": "year",
+   "at": "2021",
+   "group": "school",
+   "treated": [
+    "Northfield"
+   ],
+   "columns": {
+    "School attendance": "attendance_pct"
+   }
+  }
+ ]
+}

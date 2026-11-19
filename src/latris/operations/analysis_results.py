@@ -26,20 +26,40 @@ from typing import Any
 from latris.operations import formalisms
 from latris.operations.analysis_runs import RunPurpose, iter_runs, record_run
 from latris.operations.commit import auto_commit
+from latris.operations.errors import NotFoundError
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import AnalysisRun, ReportSelection, Substrate, new_id
 
-# Order results appear in reports (the registry's order: SD's kinds lead), and the most of each kind a
-# client report shows.
-KIND_ORDER: tuple[str, ...] = tuple(r.kind for r in formalisms.result_kinds())
+
+@dataclass(frozen=True)
+class ResultSurface:
+    """What a surface (report, share link, app) needs to know about one result kind, without running it."""
+
+    kind: str  # ``AnalysisRun.result_kind``
+    model_type: str
+    title: str  # the Results heading
+    analysis: str  # the build-spec ``SpecAnalysis.kind`` that runs it
+    chart_kinds: tuple[str, ...]  # every ``latris-chart`` kind its results may carry
+    needs_dataset: bool  # reads a dataset, so a share link can't re-run it
+
+
+def result_surfaces() -> list[ResultSurface]:
+    """Every result kind reports can show, in report order (registration order)."""
+    owned = formalisms.kind_model_types()
+    return [ResultSurface(r.kind, owned[r.kind], r.title, r.analysis, r.chart_kinds, r.needs_dataset)
+            for r in formalisms.result_kinds()]
+
+
+# Order results appear in reports (registration order), and the most of each kind a client report shows.
+KIND_ORDER: tuple[str, ...] = tuple(r.kind for r in result_surfaces())
 REPORT_LIMIT: dict[str, int] = {
     r.kind: r.report_limit for r in formalisms.result_kinds() if r.report_limit is not None
 }
 _DEFAULT_LIMIT = 4
 
-KIND_MODEL_TYPE = formalisms.kind_model_types()
+KIND_MODEL_TYPE = {r.kind: r.model_type for r in result_surfaces()}
 
 
 # ── fingerprints ─────────────────────────────────────────────────────
@@ -116,9 +136,8 @@ def _scenario_defs(model_type: str, names: list[str], paths: ProjectPaths) -> di
     import importlib
 
     plugin = formalisms.get(model_type)
-    if plugin is None or plugin.scenario_store is None:
-        return {}
-    store = importlib.import_module(plugin.scenario_store)
+    store = importlib.import_module(plugin.scenario_store if plugin and plugin.scenario_store
+                                    else "latris.operations.sd_scenarios")
     def dump(s: Any) -> dict[str, Any]:
         # Without ``extends`` a scenario dumps exactly as before the field existed, so results recorded
         # earlier keep their fingerprint.
@@ -237,7 +256,7 @@ def load_payload(run: AnalysisRun, *, root: Path | None = None) -> dict[str, Any
 
 def _selection(paths: ProjectPaths) -> ReportSelection:
     p = paths.analysis_report_yaml
-    return load_model(ReportSelection, p) if p.exists() else ReportSelection()
+    return load_model_or_default(ReportSelection, p)
 
 
 @dataclass(frozen=True)
@@ -283,8 +302,9 @@ def report_results(
         latest[(run.result_kind, run.analysis_key)] = run  # file order is chronological
 
     runs = list(latest.values())
-    # A run superseded by a later one of the same kind covering all its scenarios drops out (a simulation of
-    # baseline + A after baseline + A + B ran). The kind says whether it works that way.
+    # A newer run of a kind that a wider run supersedes (a simulation of the whole model) replaces it.
+    from latris.operations import formalisms
+
     wider = {r.kind for r in formalisms.result_kinds() if r.superseded_by_wider}
     runs = [
         r for r in runs
@@ -317,7 +337,7 @@ def _find(run_ref: str, paths: ProjectPaths) -> AnalysisRun:
     exact = [r for r in runs if r.id == run_ref]
     matches = exact or [r for r in runs if r.id.startswith(run_ref) or r.id.split("_", 1)[-1].startswith(run_ref)]
     if not matches:
-        raise ValueError(f"no recorded result {run_ref!r}; see `latris results list`")
+        raise NotFoundError(f"no recorded result {run_ref!r}; see `latris results list`")
     if len(matches) > 1:
         raise ValueError(f"{run_ref!r} matches {len(matches)} results; give more of the id")
     return matches[0]

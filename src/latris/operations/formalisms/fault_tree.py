@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
     Formalism,
     ResultKind,
     _risk_mc,
@@ -80,32 +82,32 @@ def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
+    from latris.exporters import md
     from latris.operations.fault_tree import describe
 
     out = [describe(p) + ".", ""]
     if p.get("quantified"):
         pr = p["probability"]
-        out += [f"Top-event probability: **{_f(pr['exact'])}** (exact, assuming independent basic events); "
-                f"rare-event approximation {_f(pr['rare_event'])}, min-cut upper bound "
-                f"{_f(pr['min_cut_upper_bound'])}.", ""]
+        out += [f"Top-event probability: **{md.fmt(pr['exact'])}** (exact, assuming independent basic events); "
+                f"rare-event approximation {md.fmt(pr['rare_event'])}, min-cut upper bound "
+                f"{md.fmt(pr['min_cut_upper_bound'])}.", ""]
     if p.get("cut_sets"):
-        rows = [[" AND ".join(c["events"]), str(c["order"]),
-                 _f(c["probability"]) if c["probability"] is not None else "—"] for c in p["cut_sets"][:_MAX_ROWS]]
-        out += _table(["Minimal cut set", "Order", "Probability"], rows)
-        if p["cut_sets_total"] > _MAX_ROWS:
-            out += [f"_…and {p['cut_sets_total'] - _MAX_ROWS} more cut set(s)._", ""]
+        rows = [[" AND ".join(c["events"]), str(c["order"]), md.fmt(c["probability"])]
+                for c in p["cut_sets"][:md.MAX_ROWS]]
+        out += md.table(["Minimal cut set", "Order", "Probability"], rows)
+        if p["cut_sets_total"] > md.MAX_ROWS:
+            out += [f"_…and {p['cut_sets_total'] - md.MAX_ROWS} more cut set(s)._", ""]
     if p.get("importance"):
         rows = [
-            [i["event"], _f(i["probability"]), f"{i['fussell_vesely']:.3f}", _f(i["birnbaum"]),
-             _f(i["raw"]) if i["raw"] is not None else "—",
+            [i["event"], md.fmt(i["probability"]), f"{i['fussell_vesely']:.3f}", md.fmt(i["birnbaum"]),
+             md.fmt(i["raw"]) if i["raw"] is not None else "—",
              i["origin"] + (f" ({i['source']})" if i["source"] else "") + ("; not verified" if i["weak"] else "")]
-            for i in p["importance"][:_MAX_ROWS]
+            for i in p["importance"][:md.MAX_ROWS]
         ]
         out += ["Importance, most first. *Fussell–Vesely*: the share of the top-event probability that needs the "
                 "event; *Birnbaum*: how far the top-event probability moves between the event surely happening "
                 "and surely not; *RAW*: how many times likelier the top event is if the event happens.", ""]
-        out += _table(["Basic event", "Probability", "Fussell–Vesely", "Birnbaum", "RAW", "Where it came from"],
+        out += md.table(["Basic event", "Probability", "Fussell–Vesely", "Birnbaum", "RAW", "Where it came from"],
                       rows)
     if p.get("outside_inputs"):
         out += ["Left out of the tree (inputs from factors that have no fault-tree type): "
@@ -232,10 +234,34 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="ft_analyse", max_order=payload.get("max_order"))
+    return make_analysis(kind="ft_analyse", max_order=payload.get("max_order"))
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'ft-analysis': ('analyse_fault_tree',
+        'Fault tree: minimal cut sets (up to max_order), single points of failure, the top-event '
+        "probability and each event's importance (Fussell-Vesely, Birnbaum, RAW), flagging important "
+        'values nobody has verified. Recorded with a chart.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_ft_event', ('events',),
+        'Make a factor a top, intermediate, basic or undeveloped event (link inputs to the event they '
+        "feed with kind 'logical')."),
+    ChatOp('set_ft_gate', ('gates',),
+        "The gate combining an event's inputs: and, or, or vote (k out of n)."),
+    ChatOp('set_ft_probability', ('probabilities',),
+        "A basic event's probability, with its source."),
+    ChatOp('set_ft_uncertainty', ('uncertainty',),
+        'An uncertainty on a probability: a distribution and its parameters, with the reason; '
+        'monte_carlo_fault_tree samples it.'),
+)
 
 register(Formalism(
     model_type="fault_tree",
@@ -257,13 +283,16 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Give every basic event a probability to rank the events by importance.",
-    results=(ResultKind(kind="ft-analysis", title="Fault tree: cut sets, probability and importance", render=_render,
-                        analysis="ft_analyse", run=_run, definition=_definition, charts=_charts),
+    results=(ResultKind(tool=ChatTool(*_TOOLS['ft-analysis']),
+                        kind="ft-analysis", title="Fault tree: cut sets, probability and importance", render=_render,
+                        analysis="ft_analyse", run=_run, definition=_definition, charts=_charts,
+                        chart_kinds=("ft-importance",)),
              _risk_mc.result_kind("fault_tree")),
     spec_field="ft",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.ft_cmd", "ft"),
     routes="latris.server.routes.ft",

@@ -196,7 +196,7 @@ def test_cli_and_routes(project):
 
     client = TestClient(create_app(project_root=project))
     r = client.post("/api/toc/test", json={"link": "Engagement -> Attainment", "name": "x", "p_if_true": 0.5})
-    assert r.status_code == 400
+    assert r.status_code == 422
     r = client.post("/api/toc/test", json={"link": "Engagement -> Attainment", "name": "x", "p_if_true": 0.5,
                                            "p_if_false": 0.1, "found": False})
     assert r.status_code == 200 and r.json()["result"]["type"] == "smoking gun"

@@ -5,14 +5,22 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
+    Formalism,
+    ResultKind,
+    default_origin,
+    register,
+    spec_verification,
+)
 
 _SOURCE_WORDS = {"checked": "its source checked", "cited": "a source not yet checked", "none": "no source",
                  "contested": "a source against it"}
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.ach import describe
 
     out = [describe(p) + ".", ""]
@@ -20,11 +28,11 @@ def _render(p: dict[str, Any]) -> list[str]:
             for r in p["ranking"]]
     out += ["Hypotheses, least evidence against first (Heuer: favour the hypothesis the evidence fails to rule "
             "out, not the one with most in its favour).", ""]
-    out += _table(["Hypothesis", "Weighted inconsistency", "Evidence against it", "Consistent items"], rows)
+    out += md.table(["Hypothesis", "Weighted inconsistency", "Evidence against it", "Consistent items"], rows)
     hyps = p["hypotheses"]
     rows = [[m["item"], *(m["ratings"][h] for h in hyps), f"{m['credibility']}/{m['relevance']}",
              _SOURCE_WORDS[m["sources"]]] for m in p["matrix"]]
-    out += _table(["Evidence", *hyps, "Credibility/relevance", "Source"], rows)
+    out += md.table(["Evidence", *hyps, "Credibility/relevance", "Source"], rows)
     out += ["CC very consistent · C consistent · N neutral or not applicable · I inconsistent · II very "
             "inconsistent.", ""]
     if p["linchpins"]:
@@ -161,10 +169,31 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="ach_analyse")
+    return make_analysis(kind="ach_analyse")
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'ach-analysis': ('analyse_ach',
+        'Analysis of competing hypotheses: the hypotheses ranked by how much evidence is inconsistent '
+        "with them (the one the evidence fails to rule out first), items that don't discriminate, and the "
+        'linchpins the conclusion turns on. Recorded with a chart.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_ach_element', ('elements',),
+        'Make a factor a hypothesis or an evidence item.'),
+    ChatOp('set_ach_item', ('items',),
+        "An evidence item's credibility and relevance, and its source."),
+    ChatOp('set_ach_rating', ('ratings',),
+        'How consistent one evidence item is with one hypothesis: CC (very consistent), C, N '
+        '(neutral), I or II (very inconsistent), with the rationale.'),
+)
 
 register(Formalism(
     connected_structure=False,
@@ -183,14 +212,17 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Rate every item against every hypothesis to find the linchpins.",
-    results=(ResultKind(kind="ach-analysis", title="Competing hypotheses", render=_render, analysis="ach_analyse",
-                        run=_run, definition=_definition, charts=_charts),),
+    results=(ResultKind(tool=ChatTool(*_TOOLS['ach-analysis']),
+                        kind="ach-analysis", title="Competing hypotheses", render=_render, analysis="ach_analyse",
+                        run=_run, definition=_definition, charts=_charts,
+                        chart_kinds=("ach-matrix",)),),
     # The analysis reads each item's own citations (checked or not).
     fingerprint_files=lambda paths: [paths.evidence_links_yaml],
     spec_field="ach",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.ach_cmd", "ach"),
     routes="latris.server.routes.ach",

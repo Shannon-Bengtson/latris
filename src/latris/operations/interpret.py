@@ -17,7 +17,7 @@ from latris.operations.interpret_registry import (
 )
 from latris.repo import git
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema.common import now_utc
 from latris.schema.findings import Finding, FindingCategory
 from latris.schema.ids import new_id
@@ -349,8 +349,14 @@ def _load_findings(paths, model_type: str | None = None) -> list[Finding]:
 
 def _scope_noun(model_type: str | None) -> str | None:
     """What a quantified model type's own factors are called in claims ("12 of 18 simulation links ...")."""
-    f = formalisms.get(model_type)
-    return f.scope_noun if f else None
+    plugin = formalisms.get(model_type)
+    return plugin.scope_noun if plugin else None
+
+
+def _declares(model_type: str | None, flag: str) -> bool:
+    """A formalism's declared treatment (``loop_claims``, ``acyclicity_claims``, …)."""
+    plugin = formalisms.get(model_type)
+    return bool(plugin and getattr(plugin, flag))
 
 
 def _scoped_substrate(paths, model_type: str | None):
@@ -507,7 +513,7 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
     evidence = (
-        load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
+        load_model_or_default(EvidenceLinkSet, evidence_path)
     )
 
     all_ids, _ = _coverage_ids(substrate, paths, model_type)
@@ -573,9 +579,7 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
     # produce the "self-amplifying system" overclaim caught in the
     # 4DWW capability run.
     causal = causal_edges(substrate.edges)
-    plugin = formalisms.get(model_type)
-    feedback = bool(plugin and plugin.feedback_claims)
-    if feedback and causal:
+    if _declares(model_type, "loop_claims") and causal:
         # Load polarity for classification
         polarity_path = paths.view_attribute_path(model_type, "polarity")
         polarity_map: dict[str, str] = {}
@@ -610,7 +614,24 @@ def _extract_structural_summary(model_type: str, paths) -> list[str]:
         else:
             claims.append("No feedback loops detected (acyclic structure).")
 
-    # The type's own structure claims (a DAG confirms its acyclicity, a fault tree its gates, …).
+    # DAG-specific: confirm acyclicity, or report cycle-detected
+    # readiness failure if the substrate isn't projectable to a DAG.
+    if _declares(model_type, "acyclicity_claims"):
+        from latris.operations.readiness import assess_readiness
+
+        dag_readiness = assess_readiness(model_type, root=paths.root)
+        cycle_gaps = [g for g in dag_readiness.gaps if g.gap_type == "cycle_detected"]
+        if cycle_gaps:
+            substrate_loops = find_all_loops(causal_edges(substrate.edges))
+            claims.append(
+                f"DAG readiness FAILS: substrate contains "
+                f"{len(substrate_loops)} cycle(s). The substrate is not "
+                "projectable to a valid DAG view without dropping or "
+                "redirecting edges."
+            )
+        else:
+            claims.append("DAG structure confirmed (acyclic by readiness gate).")
+
     claims.extend(formalisms.claims(model_type, paths, "structure"))
 
     # Add any recorded structural findings
@@ -658,8 +679,7 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
             )
 
     # Loop participation
-    plugin = formalisms.get(model_type)
-    if plugin and plugin.feedback_claims and causal:
+    if _declares(model_type, "loop_claims") and causal:
         loops = find_all_loops(_feedback(substrate, paths))
         if loops:
             from latris.operations.graph_analysis import compute_loop_participation
@@ -677,7 +697,8 @@ def _extract_key_findings(model_type: str, paths) -> list[str]:
     if findings:
         plugin = formalisms.get(model_type)
         priority_cats: list[FindingCategory] = list(  # type: ignore[arg-type]
-            plugin.finding_priority if plugin else ("inference", "dynamics", "sensitivity", "structure")
+            plugin.findings_priority if plugin and plugin.findings_priority
+            else ("inference", "dynamics", "sensitivity", "structure")
         )
         accepted = [f for f in findings if f.maturity == "approved"]
         drafts = [f for f in findings if f.maturity == "proposed"]
@@ -728,8 +749,7 @@ def _extract_sensitivity(model_type: str, paths) -> list[str]:
         # not dynamic leverage. Capability-run reviewers correctly flagged
         # the "highest leverage" framing as overclaim on DAGs.
         # SD feedback runs through stocks (flow edges), so it never shows as a causal-edge cycle.
-        through_stocks = bool((p := formalisms.get(model_type)) and p.feedback_through_stocks)
-        has_loops = bool(find_all_loops(_feedback(substrate, paths))) or through_stocks
+        has_loops = bool(find_all_loops(_feedback(substrate, paths))) or _declares(model_type, "feedback_via_stocks")
 
         top = _leverage_candidates(centrality, causal, _outcome_ids(paths, model_type))[:3]
         if top:
@@ -800,7 +820,7 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
-    evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
+    evidence = load_model_or_default(EvidenceLinkSet, evidence_path)
 
     linked_ids = _for_ids(evidence)
     supported_ids = _supported_ids(evidence)
@@ -831,8 +851,8 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
-    evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
-    refs = load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
+    evidence = load_model_or_default(EvidenceLinkSet, evidence_path)
+    refs = load_model_or_default(ReferenceLibrary, paths.references_yaml)
 
     all_ids, noun = _coverage_ids(substrate, paths, model_type)
 
@@ -905,8 +925,7 @@ def _extract_answer(model_type: str, paths) -> list[str]:
     causal = causal_edges(substrate.edges)
 
     # Key structural insights relevant to answering the question
-    plugin = formalisms.get(model_type)
-    if plugin and plugin.feedback_claims and causal:
+    if _declares(model_type, "loop_claims") and causal:
         polarity_path = paths.view_attribute_path(model_type, "polarity")
         polarity_map: dict[str, str] = {}
         if polarity_path.exists():
@@ -991,7 +1010,7 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
 
     substrate = _scoped_substrate(paths, model_type)
     evidence_path = paths.evidence_links_yaml
-    evidence = load_model(EvidenceLinkSet, evidence_path) if evidence_path.exists() else EvidenceLinkSet()
+    evidence = load_model_or_default(EvidenceLinkSet, evidence_path)
 
     all_ids, noun = _coverage_ids(substrate, paths, model_type)
     total_elements = len(all_ids)

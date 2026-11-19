@@ -65,14 +65,21 @@ def list_results(
 @app.command("show")
 @handle_cli_errors
 def show(run: str = typer.Argument(..., help="Run ID or a prefix of it.")) -> None:
-    """Show one recorded result in full."""
+    """Show one recorded result in full (with --json: also its report section and the claims it supports)."""
     import json
 
     from latris.operations import analysis_results as ar
 
     record, payload = ar.get_result(run)
     if json_mode():
-        emit({"run": record.model_dump(mode="json"), "result": payload}, human=lambda: None)
+        from latris.exporters.results import render_result
+        from latris.operations.result_claims import claims_for
+
+        stale = next((r.stale for r in ar.report_results(include_hidden=True) if r.run.id == record.id), False)
+        report = "\n".join(render_result(record, payload, stale=stale)) if payload is not None else ""
+        claims = claims_for(record.result_kind, payload) if payload is not None else {}
+        emit({"run": record.model_dump(mode="json"), "result": payload, "report": report, "claims": claims},
+             human=lambda: None)
         return
     console.print(f"[bold]{record.result_kind}[/bold] · {record.id}\n{escape(record.output_summary)}\n")
     console.print(escape(json.dumps(payload, indent=1)[:20000]))

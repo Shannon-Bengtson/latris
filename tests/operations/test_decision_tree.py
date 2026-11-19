@@ -213,7 +213,7 @@ def test_routes_and_cli(built):
     t = c.get("/api/dt/tree").json()
     assert "decision" in t["elements"].values() and t["branches"] and t["payoffs"]
     assert t["settings"]["objective"] in ("maximise", "minimise")
-    assert c.post("/api/dt/branch", json={"link": "Strategy -> Stay out", "probability": 0.1}).status_code == 400
+    assert c.post("/api/dt/branch", json={"link": "Strategy -> Stay out", "probability": 0.1}).status_code == 422
     r = c.post("/api/dt/analyse", json={"record": False}).json()
     assert r["commit_sha"] is None and r["result"]["best"] == "Launch"
     runner = CliRunner()

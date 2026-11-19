@@ -1,38 +1,29 @@
-"""Canvas layout persistence — GET/PUT for node positions and sizes."""
+"""Canvas layout persistence — GET/PUT for node positions and sizes.
+
+The layout file is gitignored by default (coordinates aren't model content),
+so a PUT writes it without committing.
+"""
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-import yaml
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from latris.repo.layout import ProjectPaths
+from latris.repo.yaml_io import dump_model, load_model_or_default
 from latris.schema.layout_ui import CanvasLayout
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/layout", tags=["layout"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 @router.get("")
 def get_layout(root: Root) -> dict[str, Any]:
-    paths = ProjectPaths(root)
-    layout_file = paths.layout_dir / "canvas.layout.yaml"
-    if not layout_file.exists():
-        return CanvasLayout().model_dump(mode="json")
-    raw = yaml.safe_load(layout_file.read_text(encoding="utf-8")) or {}
-    return CanvasLayout.model_validate(raw).model_dump(mode="json")
+    return load_model_or_default(CanvasLayout, ProjectPaths(root).canvas_layout_yaml).model_dump(mode="json")
 
 
 @router.put("")
 def put_layout(body: CanvasLayout, root: Root) -> dict[str, str]:
-    paths = ProjectPaths(root)
-    paths.layout_dir.mkdir(parents=True, exist_ok=True)
-    layout_file = paths.layout_dir / "canvas.layout.yaml"
-    layout_file.write_text(
-        yaml.dump(body.model_dump(mode="json", exclude_none=True), default_flow_style=False),
-        encoding="utf-8",
-    )
+    dump_model(body, ProjectPaths(root).canvas_layout_yaml)
     return {"status": "ok"}

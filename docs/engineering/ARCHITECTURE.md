@@ -267,6 +267,7 @@ src/latris/
 ├── server/            # FastAPI + WebSocket backend for the GUI
 │   ├── app.py, deps.py, state.py, watch.py, help.py
 │   └── routes/        # 27 route modules by domain
+├── testing/           # example projects per model type (in the wheel) for apps' contract tests
 └── cli/               # Typer app — thin
     ├── app.py         # root + --version + doctor
     └── *_cmd.py       # one module per command group
@@ -274,8 +275,8 @@ src/latris/
 
 ## Adding a formalism
 
-Each newer model type (Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH, decision tree, Markov)
-plugs in through **one module** in `src/latris/operations/formalisms/`. It
+Every model type (the causal types, SD, BN, Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH,
+decision tree, Markov) plugs in through **one module** in `src/latris/operations/formalisms/`. It
 declares a `Formalism` with the hooks the shared code calls:
 
 | Hook | Used by |
@@ -284,15 +285,18 @@ declares a `Formalism` with the hooks the shared code calls:
 | `outcome_role`, `outcome_refusal`, `outcome_ids`, `set_outcome` | `view_roles.set_role`, interpretation, `build --spec` `outcome:` |
 | `claims(paths, section)`, `centrality`, `own_implications`, `sensitivity_fallback` | interpretation claims |
 | `results` (`ResultKind`: kind, title, `render`, analysis, `run`, `definition`), `fingerprint_files` | `analysis_results` (report order, staleness), the report's Results section, `analysis_replay` (build-spec analyses and share links) |
+| `ResultKind.tool` (`ChatTool`: name, description) | the chat tool latris-app generates for the analysis (options: its `SpecAnalysis` model, documented in `ANALYSIS_OPTION_DOCS`) |
+| `ResultKind.charts` + `chart_kinds` (every kind it may emit), `needs_dataset` | the report's `latris-chart` markers; the surface manifest (`latris capabilities --surface`) that apps built on latris read |
 | `spec_field`, `spec_check`, `spec_apply`, `spec_export` | `build --spec` and share links |
+| `spec_info` | what applying the values tells the author (`build`'s `info`, e.g. which factors an SD equation reads), shown in chat after the operation |
 | `mermaid` (full diagram) or `mermaid_groups` (columns) | the report's diagram |
 | `cli` (module, command), `routes` (module) | `cli/app.py`, `server/app.py` |
-| `connected_structure`, `whole_map`, `computes_on`, `empty_scope_gap` | Build's connectivity gate, `membership` (what the type computes on), readiness |
-| `source_label`, `scope_noun`, `feedback_claims`, `feedback_through_stocks`, `finding_priority`, `link_attribute` | interpretation wording and the AI context |
-| `diagram_direction` | the generic Mermaid and DOT sketches |
-| `handover_name`, `handover_command` | the handover check (`model_incomplete`) |
+| `whole_map`, `parameterised_nodes`, `connected_structure`, `empty_scope_gap` | `membership` (the whole map, or the factors a quantified type computes on), Build's connectivity gate, readiness |
+| `source_label`, `scope_noun`, `loop_claims`, `acyclicity_claims`, `feedback_via_stocks`, `findings_priority` | interpretation wording and claims |
+| `link_attribute` (the value its links carry: CLD polarity, FCM weight) | the AI context; `formalisms.attribute_home("polarity")` tells exporters where polarity is stored |
+| `diagram_direction`, `polarity_labels` | the generic Mermaid and DOT sketches |
 | `scenario_store` | result staleness when a run used saved scenarios |
-| `ResultKind.superseded_by_wider`, `ResultKind.unsaved_what_if` | which runs reports show; the handover check |
+| `ResultKind.superseded_by_wider` | which runs reports show (a newer run over a wider scope replaces an older one) |
 
 Shared code never tests a model type's id: `tests/test_no_type_branches.py` fails on a branch such as
 `model_type == "sd"` outside the type's own modules — add a field here instead.
@@ -303,20 +307,51 @@ static schema:
 1. the `ModelTypeSpec` in `schema/model_types.py` (availability, roles,
    validator names);
 2. its build-spec block — a pydantic field on `BuildSpec`
-   (`schema/build_spec.py`), and its analysis kind in `SpecAnalysis.kind`;
+   (`schema/build_spec.py`), and a model per analysis kind (only its own options), added to the
+   `SpecAnalysis` union;
 3. its entry in the foundations registry (`operations/foundations.py`);
 4. its help topic (`server/help.py`), and its keys in `latris build --help`.
 
 The steps for a new type: schema for its parameters (with round-trip tests)
-→ its operations module (setters, structure check, analysis, `record`) →
+→ its operations module (setters, structure check, analysis, `record`; storage through
+`operations/_view_store.ViewStore` — load, `replace_entry`, `save` + commit, roles,
+`resolve_factor` — and `EntryBase.is_weak` for unverified or contested numbers) →
 CLI and routes modules → the plugin module, added to `_MODULES` in
 `formalisms/__init__.py` (registration order = the order commands, routes
 and report sections appear in) → the four central entries → tests and the
-worked example. `tests/operations/test_formalisms.py` fails, naming what is
-missing, if a stable type is half-wired.
+worked example → an example project in `latris/testing/examples/` that
+records every new result kind. `tests/operations/test_formalisms.py` and
+`tests/testing/test_examples.py` fail, naming what is missing, if a stable
+type is half-wired — including a chart kind emitted but not declared, or a
+result kind no example records.
 
-The older types (CLD, DAG, FCM, BN, SD) predate the registry and keep their
-own wiring.
+**Surfaces built on latris.** Apps (the hosted report, share links, chat
+connectors) don't keep their own lists of model types: they read the
+surface manifest (`latris capabilities --surface`,
+`operations/capabilities.build_surface_manifest`) — per stable type, its
+build-spec block and JSON schema, its result kinds, chart kinds and which
+results need a dataset — and test against `latris.testing`, whose
+`example_payloads()` builds the example projects and returns every recorded
+payload. A new type then reaches them, or fails their tests, when they pin
+the release that has it.
+
+Every stable type is registered: the causal types (CLD, DAG, FCM) from
+`formalisms/causal.py`. They are made of the substrate itself, so they have no
+build-spec block or command group of their own.
+
+**Declared, not branched.** Shared code never tests a type's name. What sets a
+type apart is a field on its `Formalism`, read by the shared code: `scope_noun`,
+`loop_claims`, `acyclicity_claims`, `findings_priority`, `feedback_via_stocks`,
+`parameterised_nodes`, `scenario_store`, `diagram_direction`,
+`polarity_labels`, plus the hooks above. `tests/operations/test_no_type_branches.py`
+fails on a comparison against a model-type id in `operations/` or `exporters/`
+outside a type's own modules.
+
+**The chat surface is declared too.** Each `ResultKind` declares its `tool`
+(`ChatTool`: the chat tool that runs it) and each formalism its `chat_ops`
+(`ChatOp`: one write operation per part of its build-spec block). latris-app
+generates its chat connector's analysis tools and `apply_changes` operations
+from the surface manifest, so a new type reaches chat with no app code.
 
 ## The five chokepoint files
 

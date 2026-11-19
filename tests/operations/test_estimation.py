@@ -184,7 +184,7 @@ def test_route(project):
     assert r.json()["result"]["adjustment"] == ["Age"]
     r = c.post("/api/analysis/estimate", json={"treatment": "Exercise", "outcome": "Heart health",
                                                "dataset": "survey"})
-    assert r.status_code == 400 and "no column for Exercise" in r.json()["detail"]
+    assert r.status_code == 422 and "no column for Exercise" in r.json()["detail"]
 
 
 def test_build_spec_runs_and_share_link_replays(project, tmp_path, git_identity):
@@ -199,10 +199,11 @@ analyses:
     result = build_from_spec(spec, root=project)
     assert result.analyses and not result.notes
     _, exported = export_spec(model_type="dag", root=project)
-    defs = [a for a in exported.analyses if a.kind == "dag_estimate"]
-    assert defs and defs[0].dataset == "survey" and defs[0].columns == {"Exercise": "exercise_hours"}
-    # A copy without the dataset can't rerun it, and says so instead of silently dropping it.
+    # It read a dataset a link can't carry, so the link carries the result as the sender's instead.
+    assert not [a for a in exported.analyses if a.kind == "dag_estimate"]
+    (carried,) = [c for c in exported.carried_results if c.kind == "dag-estimate"]
+    assert carried.datasets[0]["name"] == "survey"
     copy = tmp_path / "copy"
     init_project(copy, statement="copy")
     out = build_from_spec(exported, root=copy)
-    assert any("dag_estimate" in n and "survey" in n for n in out.notes)
+    assert out.carried and not out.notes

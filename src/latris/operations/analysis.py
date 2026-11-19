@@ -25,7 +25,7 @@ from latris.operations.coherence_checks import (
 from latris.operations.fcm_inference import FCMInferenceResult, fcm_infer
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import DescriptionSet, FloatSet, PolaritySet, Substrate
 from latris.schema.settings import FCMSettings
 
@@ -121,7 +121,7 @@ def infer_fcm(
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     weight_path = paths.view_attribute_path("fcm", "weight")
-    store = load_model(FloatSet, weight_path) if weight_path.exists() else FloatSet()
+    store = load_model_or_default(FloatSet, weight_path)
     weight_map = {e.target_id: e.value for e in store.entries}
     entity_ids = [e.id for e in substrate.entities]
     return fcm_infer(
@@ -143,7 +143,7 @@ def run_coherence_check(root: Path | None = None) -> list[CoherenceFinding]:
     substrate = load_model(Substrate, paths.conceptual_yaml)
     descs = load_model(DescriptionSet, paths.descriptions_yaml)
     pol_path = paths.view_attribute_path("cld", "polarity")
-    pol_set = load_model(PolaritySet, pol_path) if pol_path.exists() else PolaritySet()
+    pol_set = load_model_or_default(PolaritySet, pol_path)
 
     desc_lookup = {(d.target_id, d.attribute): d for d in descs.entries}
     pol_lookup = {(p.target_id, p.attribute): p for p in pol_set.entries}

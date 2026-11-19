@@ -1,0 +1,184 @@
+{
+ "model_type": "mcda",
+ "factors": [
+  {
+   "label": "Riverside",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "North Park",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Old Depot",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Build cost",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Travel time",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Bed capacity",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "links": [],
+ "sources": [],
+ "assumptions": [],
+ "questions": [],
+ "findings": [],
+ "challenges": [],
+ "decisions": [],
+ "interpretation": [],
+ "mcda": {
+  "elements": [
+   {
+    "node": "Bed capacity",
+    "type": "criterion"
+   },
+   {
+    "node": "Build cost",
+    "type": "criterion"
+   },
+   {
+    "node": "Travel time",
+    "type": "criterion"
+   },
+   {
+    "node": "North Park",
+    "type": "option"
+   },
+   {
+    "node": "Old Depot",
+    "type": "option"
+   },
+   {
+    "node": "Riverside",
+    "type": "option"
+   }
+  ],
+  "criteria": [
+   {
+    "node": "Build cost",
+    "weight": 50.0,
+    "direction": "lower",
+    "worst": 80.0,
+    "best": 30.0,
+    "units": "$m",
+    "source": "board-workshop-2026-03",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Travel time",
+    "weight": 30.0,
+    "direction": "lower",
+    "worst": 40.0,
+    "best": 10.0,
+    "units": "min",
+    "source": "board-workshop-2026-03",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Bed capacity",
+    "weight": 20.0,
+    "direction": "higher",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ],
+  "scores": [
+   {
+    "option": "Riverside",
+    "criterion": "Build cost",
+    "value": 45.0,
+    "source": "cost-plan-v2",
+    "origin": "human-direct",
+    "verified": true
+   },
+   {
+    "option": "Riverside",
+    "criterion": "Travel time",
+    "value": 25.0,
+    "source": "transport-model",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "option": "Riverside",
+    "criterion": "Bed capacity",
+    "value": 300.0,
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "option": "North Park",
+    "criterion": "Build cost",
+    "value": 55.0,
+    "source": "cost-plan-v2",
+    "origin": "human-direct",
+    "verified": true
+   },
+   {
+    "option": "North Park",
+    "criterion": "Travel time",
+    "value": 15.0,
+    "source": "transport-model",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "option": "North Park",
+    "criterion": "Bed capacity",
+    "value": 320.0,
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "option": "Old Depot",
+    "criterion": "Build cost",
+    "value": 60.0,
+    "source": "cost-plan-v2",
+    "origin": "human-direct",
+    "verified": true
+   },
+   {
+    "option": "Old Depot",
+    "criterion": "Travel time",
+    "value": 30.0,
+    "source": "transport-model",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "option": "Old Depot",
+    "criterion": "Bed capacity",
+    "value": 250.0,
+    "origin": "human-direct",
+    "verified": false
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "mcda_analyse"
+  }
+ ]
+}

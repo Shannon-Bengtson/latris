@@ -262,7 +262,7 @@ def test_routes(built):
     c = TestClient(create_app(project_root=root))
     assert c.get("/api/bowtie/check").json()["ready"] is True
     assert len(c.get("/api/bowtie/elements").json()["elements"]) == 5
-    assert c.post("/api/bowtie/frequency", json={"node": "Fire", "frequency": 1}).status_code == 400
+    assert c.post("/api/bowtie/frequency", json={"node": "Fire", "frequency": 1}).status_code == 422
     r = c.post("/api/bowtie/barrier", json={"node": "Gas detection", "status": "in_place"})
     assert r.status_code == 200 and r.json()["result"]["pfd"] == 0.2  # untouched fields kept
     r = c.post("/api/bowtie/analyse", json={"record": False}).json()

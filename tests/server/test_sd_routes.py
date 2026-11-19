@@ -46,7 +46,7 @@ def test_mutations(diagram_client):
     assert r.status_code == 200 and r.json()["result"]["initial_value"] == 3
 
     r = diagram_client.post("/api/sd/role", json={"node": "Water", "role": "reservoir"})
-    assert r.status_code == 400
+    assert r.status_code == 422
 
     diagram_client.post("/api/sd/role", json={"node": "Drain Rate", "role": "constant"})
     r = diagram_client.post("/api/sd/constants", json={"node": "Drain Rate", "value": 0.1, "units": "1/year"})
@@ -58,7 +58,7 @@ def test_mutations(diagram_client):
     assert r.status_code == 200 and r.json()["result"]["expression"] == "water * drain_rate"
     r = diagram_client.post("/api/sd/equation", json={"node": "Outflow", "expression": "water +",
                                                       "units": "liter/year"})
-    assert r.status_code == 400 and "cannot parse" in r.json()["detail"]
+    assert r.status_code == 422 and "cannot parse" in r.json()["detail"]
 
     r = diagram_client.post("/api/sd/tables", json={
         "node": "Outflow", "points": [{"x": 0, "y": 0}, {"x": 1, "y": 1}],
@@ -79,18 +79,18 @@ def test_simulate(client):
 
 def test_simulate_rejects_bad_requests(client):
     assert client.post("/api/sd/simulate", json={"method": "midpoint"}).status_code == 422
-    assert client.post("/api/sd/simulate", json={"final_time": -1, "record": False}).status_code == 400
+    assert client.post("/api/sd/simulate", json={"final_time": -1, "record": False}).status_code == 422
 
 
 def test_simulate_incomplete_model(diagram_client):
     r = diagram_client.post("/api/sd/simulate", json={"record": False})
-    assert r.status_code == 400 and "not ready to simulate" in r.json()["detail"]
+    assert r.status_code == 422 and "not ready to simulate" in r.json()["detail"]
 
 
 def test_scenarios_and_results(client):
     pytest.importorskip("scipy")
     bad = client.post("/api/sd/scenario", json={"name": "Wrong", "set": ["Drain Rate=1 liter"]})
-    assert bad.status_code == 400 and "can't replace" in bad.json()["detail"]
+    assert bad.status_code == 422 and "can't replace" in bad.json()["detail"]
     ok = client.post("/api/sd/scenario", json={"name": "Faster drain", "set": ["Drain Rate=0.2"]})
     assert ok.status_code == 200 and ok.json()["commit_sha"]
     assert client.get("/api/sd/scenarios").json()["count"] == 1
@@ -116,7 +116,7 @@ def test_uncertainty_monte_carlo_and_sensitivity(client):
     pytest.importorskip("scipy")
     bad = client.post("/api/sd/uncertainty", json={"target": "Drain Rate", "distribution": "uniform",
                                                    "params": {"min": 1, "max": 2}})
-    assert bad.status_code == 400
+    assert bad.status_code == 422
     ok = client.post("/api/sd/uncertainty", json={"target": "Drain Rate", "distribution": "uniform",
                                                   "params": {"min": 0.05, "max": 0.2}})
     assert ok.status_code == 200
@@ -125,7 +125,7 @@ def test_uncertainty_monte_carlo_and_sensitivity(client):
     assert mc["result"]["succeeded"] == 20 and mc["run_id"]
     sens = client.post("/api/sd/sensitivity", json={"variable": "Water", "final_time": 5, "record": False}).json()
     assert sens["result"]["parameters"][0]["label"] == "Drain Rate" and "run_id" not in sens
-    assert client.post("/api/sd/sensitivity", json={"variable": "Nope"}).status_code == 400
+    assert client.post("/api/sd/sensitivity", json={"variable": "Nope"}).status_code == 422
     assert client.delete("/api/sd/uncertainty/Drain Rate").status_code == 200
 
 
@@ -133,4 +133,4 @@ def test_loops_route(client):
     pytest.importorskip("scipy")
     body = client.post("/api/sd/loops", json={"final_time": 5, "dt": 0.1, "method": "euler"}).json()
     assert body["result"]["loops"][0]["id"] == "B1" and body["run_id"]
-    assert client.post("/api/sd/loops", json={"start": 4, "end": 1}).status_code == 400
+    assert client.post("/api/sd/loops", json={"start": 4, "end": 1}).status_code == 422

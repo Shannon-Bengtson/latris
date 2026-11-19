@@ -202,7 +202,7 @@ def test_routes_and_cli(built):
     assert c.get("/api/markov/check").json()["ready"] is True
     m = c.get("/api/markov/model").json()
     assert "state" in m["elements"].values() and m["transitions"] and m["start"]
-    assert c.post("/api/markov/settings", json={"time_units": "fortnights"}).status_code == 400
+    assert c.post("/api/markov/settings", json={"time_units": "fortnights"}).status_code == 422
     r = c.post("/api/markov/analyse", json={"record": False}).json()
     assert r["commit_sha"] is None and r["result"]["choice"]
     runner = CliRunner()

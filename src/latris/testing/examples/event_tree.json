@@ -1,0 +1,586 @@
+{
+ "model_type": "event_tree",
+ "factors": [
+  {
+   "label": "Flammable gas under pressure",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Loss of containment",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Corrosion",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Overpressure",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Impact damage",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Inspection programme",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Corrosion inhibitor",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Pressure relief valve",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Gas detection",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Emergency shutdown",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Bypass permit",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Fire",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Toxic exposure",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Detector bypassed for maintenance",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Relief valve not tested",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Isolation succeeds",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Ignition",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Contained release",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Jet fire",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Gas cloud dispersed",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Gas detected",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "links": [
+  {
+   "from": "Flammable gas under pressure",
+   "to": "Loss of containment",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Corrosion",
+   "to": "Inspection programme",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Inspection programme",
+   "to": "Corrosion inhibitor",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Corrosion inhibitor",
+   "to": "Loss of containment",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Overpressure",
+   "to": "Pressure relief valve",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Pressure relief valve",
+   "to": "Loss of containment",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Impact damage",
+   "to": "Loss of containment",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Loss of containment",
+   "to": "Gas detection",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Gas detection",
+   "to": "Emergency shutdown",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Emergency shutdown",
+   "to": "Fire",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Gas detection",
+   "to": "Toxic exposure",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Detector bypassed for maintenance",
+   "to": "Bypass permit",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Bypass permit",
+   "to": "Gas detection",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Relief valve not tested",
+   "to": "Pressure relief valve",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "sources": [],
+ "assumptions": [],
+ "questions": [],
+ "findings": [],
+ "challenges": [],
+ "decisions": [],
+ "interpretation": [],
+ "bowtie": {
+  "elements": [
+   {
+    "node": "Flammable gas under pressure",
+    "type": "hazard"
+   },
+   {
+    "node": "Loss of containment",
+    "type": "top_event"
+   },
+   {
+    "node": "Corrosion",
+    "type": "threat"
+   },
+   {
+    "node": "Impact damage",
+    "type": "threat"
+   },
+   {
+    "node": "Overpressure",
+    "type": "threat"
+   },
+   {
+    "node": "Fire",
+    "type": "consequence"
+   },
+   {
+    "node": "Toxic exposure",
+    "type": "consequence"
+   },
+   {
+    "node": "Bypass permit",
+    "type": "barrier"
+   },
+   {
+    "node": "Corrosion inhibitor",
+    "type": "barrier"
+   },
+   {
+    "node": "Emergency shutdown",
+    "type": "barrier"
+   },
+   {
+    "node": "Gas detection",
+    "type": "barrier"
+   },
+   {
+    "node": "Inspection programme",
+    "type": "barrier"
+   },
+   {
+    "node": "Pressure relief valve",
+    "type": "barrier"
+   },
+   {
+    "node": "Detector bypassed for maintenance",
+    "type": "escalation_factor"
+   },
+   {
+    "node": "Relief valve not tested",
+    "type": "escalation_factor"
+   }
+  ],
+  "barriers": [
+   {
+    "node": "Inspection programme",
+    "type": "human",
+    "status": "in_place",
+    "owner": "Integrity engineer",
+    "pfd": 0.1,
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Corrosion inhibitor",
+    "type": "passive_hardware",
+    "status": "degraded",
+    "owner": "Chemicals supervisor",
+    "pfd": 0.5,
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": false,
+    "notes": "Dosing pump out of service since March"
+   },
+   {
+    "node": "Gas detection",
+    "type": "active_hardware",
+    "status": "in_place",
+    "owner": "Instrument technician",
+    "pfd": 0.1,
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Emergency shutdown",
+    "type": "active_hardware_human",
+    "status": "in_place",
+    "pfd": 0.05,
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Bypass permit",
+    "type": "human",
+    "status": "in_place",
+    "owner": "Shift supervisor",
+    "pfd": 0.5,
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Pressure relief valve",
+    "type": "passive_hardware",
+    "status": "in_place",
+    "owner": "Maintenance lead",
+    "pfd": 0.01,
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": true
+   }
+  ],
+  "frequencies": [
+   {
+    "node": "Corrosion",
+    "frequency": 0.1,
+    "source": "site-incident-log",
+    "origin": "data-derived",
+    "verified": false
+   },
+   {
+    "node": "Overpressure",
+    "frequency": 0.5,
+    "source": "site-incident-log",
+    "origin": "data-derived",
+    "verified": false
+   },
+   {
+    "node": "Impact damage",
+    "frequency": 0.01,
+    "source": "site-incident-log",
+    "origin": "data-derived",
+    "verified": false
+   }
+  ],
+  "uncertainty": [
+   {
+    "origin": "human-direct",
+    "node": "Gas detection",
+    "distribution": "lognormal",
+    "params": {
+     "mean": 0.12498844582331568,
+     "sd": 0.09371726341295636,
+     "max": 1.0
+    },
+    "given": {},
+    "reason": "median 0.1, error factor 3",
+    "verified": false
+   },
+   {
+    "origin": "human-direct",
+    "source": "site-incident-log",
+    "node": "Overpressure",
+    "distribution": "triangular",
+    "params": {
+     "min": 0.2,
+     "mode": 0.5,
+     "max": 1.0
+    },
+    "given": {},
+    "reason": "",
+    "verified": true
+   },
+   {
+    "origin": "human-direct",
+    "node": "Pressure relief valve",
+    "distribution": "lognormal",
+    "params": {
+     "mean": 0.026639800977355473,
+     "sd": 0.06577814058734102,
+     "max": 1.0
+    },
+    "given": {},
+    "reason": "median 0.01, error factor 10; generic LOPA value; site test records not reviewed",
+    "verified": false
+   }
+  ]
+ },
+ "event_tree": {
+  "elements": [
+   {
+    "node": "Loss of containment",
+    "type": "initiating_event"
+   },
+   {
+    "node": "Gas detected",
+    "type": "functional_event"
+   },
+   {
+    "node": "Ignition",
+    "type": "functional_event"
+   },
+   {
+    "node": "Isolation succeeds",
+    "type": "functional_event"
+   },
+   {
+    "node": "Contained release",
+    "type": "end_state"
+   },
+   {
+    "node": "Gas cloud dispersed",
+    "type": "end_state"
+   },
+   {
+    "node": "Jet fire",
+    "type": "end_state"
+   }
+  ],
+  "order": [
+   "Gas detected",
+   "Isolation succeeds",
+   "Ignition"
+  ],
+  "sequences": [
+   {
+    "answers": {
+     "Gas detected": "yes",
+     "Isolation succeeds": "yes"
+    },
+    "end_state": "Contained release"
+   },
+   {
+    "answers": {
+     "Gas detected": "yes",
+     "Isolation succeeds": "no",
+     "Ignition": "yes"
+    },
+    "end_state": "Jet fire"
+   },
+   {
+    "answers": {
+     "Gas detected": "yes",
+     "Isolation succeeds": "no",
+     "Ignition": "no"
+    },
+    "end_state": "Gas cloud dispersed"
+   },
+   {
+    "answers": {
+     "Gas detected": "no",
+     "Ignition": "yes"
+    },
+    "end_state": "Jet fire"
+   },
+   {
+    "answers": {
+     "Gas detected": "no",
+     "Ignition": "no"
+    },
+    "end_state": "Gas cloud dispersed"
+   }
+  ],
+  "probabilities": [
+   {
+    "node": "Gas detected",
+    "p_yes": 0.9,
+    "given": {},
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": true
+   },
+   {
+    "node": "Isolation succeeds",
+    "p_yes": 0.95,
+    "given": {},
+    "source": "lopa-generic-values",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "node": "Ignition",
+    "p_yes": 0.1,
+    "given": {},
+    "origin": "human-elicited",
+    "verified": false
+   },
+   {
+    "node": "Ignition",
+    "p_yes": 0.3,
+    "given": {
+     "Gas detected": "no"
+    },
+    "origin": "human-elicited",
+    "verified": false
+   }
+  ],
+  "frequency": {
+   "node": "Loss of containment",
+   "frequency": 0.02,
+   "source": "bow-tie analysis",
+   "origin": "data-derived",
+   "verified": false
+  },
+  "uncertainty": [
+   {
+    "origin": "human-direct",
+    "node": "Ignition",
+    "distribution": "beta",
+    "params": {
+     "alpha": 3.0,
+     "beta": 7.0
+    },
+    "given": {
+     "Gas detected": "no"
+    },
+    "reason": "elicited: 'about 30%, could be 10–60%'",
+    "verified": false
+   },
+   {
+    "origin": "human-direct",
+    "node": "Loss of containment",
+    "distribution": "lognormal",
+    "params": {
+     "mean": 0.032279515848572415,
+     "sd": 0.04089341849845361
+    },
+    "given": {},
+    "reason": "median 0.02, error factor 5",
+    "verified": false
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "et_analyse"
+  },
+  {
+   "kind": "et_monte_carlo",
+   "runs": 400,
+   "seed": 1234,
+   "sampling": "lhs",
+   "target": "Jet fire (per year)"
+  }
+ ]
+}

@@ -33,9 +33,9 @@ server's ``apply_changes`` operations so one vocabulary serves both.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from latris.schema.attributes import Confidence
 from latris.schema.common import ProvenanceOrigin
@@ -607,79 +607,331 @@ class SpecBN(_Spec):
     scenarios: list[SpecBNScenario] = Field(default_factory=list)
 
 
-class SpecAnalysis(_Spec):
-    """An analysis to run (and record, so the report shows it) once the model is built.
+# ── analyses ─────────────────────────────────────────────────────────
+#
+# One model per analysis kind, so each takes only its own options (a wrong option is refused, not
+# ignored) and its JSON schema says exactly what it needs. ``SpecAnalysis`` is their union,
+# discriminated by ``kind``. Adding an analysis: a model here, added to the union.
 
-    kind: simulate (scenarios, set) | monte_carlo (runs, seed, sampling, variables, scenario)
-    | compare (options under uncertainty, on the same draws: scenarios, variable, metric, runs, seed, sampling,
-      reference — 'baseline' or a compared scenario every option is measured against)
-    | sensitivity (variable, metric, pct, scenario) | loops (scenario, start, end)
-    | bn_query (evidence, soft, likelihood, query) | bn_explain (evidence, soft, likelihood, over)
-    | bn_monte_carlo (target, state, evidence, soft, likelihood, runs, seed; scenario)
-    | bn_compare (BN options on the same table draws: target, state, scenarios, evidence, soft, likelihood,
-      reference, runs, seed; bn_query also takes scenario)
-    | bn_sensitivity (target, state, evidence) | toc_check (theory-of-change pathways; no options)
-    | toc_trace (process tracing: each link's posterior from its tests, pathway confidence; no options)
-    | ft_monte_carlo / bowtie_monte_carlo / et_monte_carlo (uncertainty in the top-event probability or the
-      frequencies: runs, seed, sampling; target: the output to headline)
-    | toc_impact (interrupted time series, or difference-in-differences with group and treated: outcome,
-      dataset, time, at, group, treated, columns)
-    | ft_analyse (fault-tree cut sets, probability and importance; max_order)
-    | bowtie_analyse (bow-tie lines, barrier flags and frequencies; no options)
-    | et_analyse (event-tree sequences and end states; no options)
-    | dag_estimate (effect of treatment on outcome from a dataset: treatment, outcome, dataset, adjust,
-      columns, estimator) | mcda_analyse (ranking and weight sensitivity; no options)
-    | ach_analyse (competing hypotheses: ranking, linchpins; no options)
-    | dt_analyse (decision tree: best strategy, EVPI, probability thresholds; no options)
-    | markov_analyse (Markov cohort: costs, outcomes, incremental cost-effectiveness; no options).
-    ``soft`` is {node: {state: probability}} (certainty); ``likelihood`` {node: {state: weight}}.
-    ``settings``: initial_time, final_time, dt, saveper, method, time_units.
-    """
 
-    kind: Literal[
-        "simulate", "monte_carlo", "compare", "sensitivity", "loops", "bn_query", "bn_explain", "bn_monte_carlo",
-        "bn_compare",
-        "bn_sensitivity", "toc_check", "ft_analyse", "bowtie_analyse", "et_analyse", "dag_estimate",
-        "mcda_analyse", "ach_analyse", "dt_analyse", "markov_analyse", "toc_trace", "toc_impact",
-        "ft_monte_carlo", "bowtie_monte_carlo", "et_monte_carlo",
-    ]
+# What each analysis option means, wherever it appears (a kind's own field description wins). The JSON
+# schemas apps and chat tools read carry these, so options are documented once.
+ANALYSIS_OPTION_DOCS: dict[str, str] = {
+    "settings": "The clock: initial_time, final_time, dt, saveper, method (euler | rk2 | rk4 | adaptive), "
+                "time_units (e.g. 'month'). Missing keys come from the model's SD settings.",
+    "apply_to_all": "Values that hold in every run, the baseline included (a 'world'), as 'Factor=value [units]'.",
+    "scenarios": "Saved scenarios (options) to run or compare, by name.",
+    "set": "Unsaved changes to try as one more scenario, as 'Factor=value [units]'.",
+    "scenario": "A saved scenario to run on instead of the baseline.",
+    "runs": "Number of sampled draws.",
+    "seed": "Random seed; the same seed gives the same draws.",
+    "sampling": "lhs (Latin hypercube, default) or random.",
+    "variables": "Factors to report (default: the stocks).",
+    "variable": "The factor whose result is measured.",
+    "metric": "final | peak | peak-time | min | mean | total | at:T (the value at time T).",
+    "reference": "The arm every option is measured against: 'baseline' or one of the options.",
+    "pct": "Swing for values without an uncertainty range, in percent (default 10).",
+    "start": "Start of the window to score (default: the whole run).",
+    "end": "End of the window to score (default: the whole run).",
+    "evidence": "Observed states, factor → state, e.g. {'Rain': 'yes'}.",
+    "soft": "Uncertain observations, factor → {state: probability}: {'Wet': {'yes': 0.8}} makes P(Wet = yes) 80%.",
+    "likelihood": "Relative weights for an observation, factor → {state: weight}.",
+    "interventions": "Factors SET to a state (an option or policy), factor → state: what if we make it so.",
+    "query": "Factors whose probabilities to report (default: all).",
+    "over": "Factors the explanation covers (default: every unobserved factor).",
+    "target": "The factor (or output) the result is about.",
+    "state": "The state of target whose probability is the result.",
+    "max_order": "List cut sets up to this order (default: all).",
+    "treatment": "The factor whose effect is estimated.",
+    "outcome": "The factor the effect is on.",
+    "dataset": "A dataset registered with `latris data add`, by name.",
+    "adjust": "Factors to adjust for (default: the smallest valid set the model identifies).",
+    "columns": "Factor label → dataset column, where names differ.",
+    "estimator": "auto | linear | logistic.",
+    "time": "The dataset's time column (numbers or dates).",
+    "at": "The first period the intervention could affect.",
+    "group": "Difference-in-differences: the column saying which group a row is in.",
+    "treated": "Difference-in-differences: the group value(s) that received the intervention.",
+}
+
+
+def _describe_options(schema: dict[str, Any], cls: Any = None) -> None:
+    for name, prop in (schema.get("properties") or {}).items():
+        if name in ANALYSIS_OPTION_DOCS and "description" not in prop:
+            prop["description"] = ANALYSIS_OPTION_DOCS[name]
+
+
+class _Analysis(_Spec):
+    """An analysis to run (and record, so the report shows it) once the model is built."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, json_schema_extra=_describe_options)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_empty_foreign_keys(cls, data: Any) -> Any:
+        # Specs and links written before analyses were typed carried every option of every kind; an
+        # empty one this kind doesn't take is dropped, a set one is still refused.
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if k in cls.model_fields or v not in (None, {}, [], "")}
+        return data
+
+
+class _Settings(_Analysis):
+    # initial_time, final_time, dt, saveper, method, time_units
     settings: dict[str, float | str] = Field(default_factory=dict)
-    scenarios: list[str] = Field(default_factory=list)
-    set: list[str] = Field(default_factory=list)
-    # simulate / monte_carlo / compare / sensitivity: values that hold in every run, the baseline included
+
+
+class _World(_Settings):
+    # values that hold in every run, the baseline included
     apply_to_all: list[str] = Field(default_factory=list)
-    scenario: str | None = None
+
+
+class _Draws(_Analysis):
     runs: int | None = None
     seed: int | None = None
     sampling: Literal["lhs", "random"] | None = None
-    variables: list[str] = Field(default_factory=list)
-    variable: str | None = None
-    metric: str | None = None
-    reference: str | None = None  # compare: the arm every option is measured against
-    pct: float | None = None
-    start: float | None = None
-    end: float | None = None
+
+
+class _Evidence(_Analysis):
     evidence: dict[str, str] = Field(default_factory=dict)
-    soft: dict[str, dict[str, float]] = Field(default_factory=dict)
-    likelihood: dict[str, dict[str, float]] = Field(default_factory=dict)
-    interventions: dict[str, str] = Field(default_factory=dict)  # bn_query: factors SET to a state (do-operator)
-    query: list[str] = Field(default_factory=list)
-    over: list[str] = Field(default_factory=list)
+    soft: dict[str, dict[str, float]] = Field(default_factory=dict)  # {node: {state: probability}} (certainty)
+    likelihood: dict[str, dict[str, float]] = Field(default_factory=dict)  # {node: {state: weight}}
+
+
+class _Target(_Analysis):
     target: str | None = None
     state: str | None = None
-    max_order: int | None = Field(default=None, ge=1)  # ft_analyse: list cut sets up to this order
-    # dag_estimate: the effect of treatment on outcome, from a registered dataset
+
+
+class SimulateAnalysis(_World):
+    """System dynamics: simulate the baseline and saved scenarios; ``set`` is a what-if."""
+
+    kind: Literal["simulate"]
+    scenarios: list[str] = Field(default_factory=list)
+    set: list[str] = Field(default_factory=list)
+
+
+class MonteCarloAnalysis(_World, _Draws):
+    """System dynamics: uncertainty bands from the ranges set on values."""
+
+    kind: Literal["monte_carlo"]
+    variables: list[str] = Field(default_factory=list)
+    scenario: str | None = None
+
+
+class CompareAnalysis(_World, _Draws):
+    """System dynamics: options under uncertainty, on the same draws."""
+
+    kind: Literal["compare"]
+    scenarios: list[str] = Field(default_factory=list)
+    variable: str | None = None
+    metric: str | None = None
+    reference: str | None = None  # the arm every option is measured against: 'baseline' or a compared scenario
+
+
+class SensitivityAnalysis(_World):
+    """System dynamics: which values move ``variable`` most."""
+
+    kind: Literal["sensitivity"]
+    variable: str | None = None
+    metric: str | None = None
+    pct: float | None = None
+    scenario: str | None = None
+
+
+class LoopsAnalysis(_Settings):
+    """System dynamics: which feedback loop drives the behaviour (over ``start``–``end``)."""
+
+    kind: Literal["loops"]
+    scenario: str | None = None
+    start: float | None = None
+    end: float | None = None
+
+
+class BnQueryAnalysis(_Evidence):
+    """Bayesian network: the probability of each state of ``query`` (all factors if empty)."""
+
+    kind: Literal["bn_query"]
+    interventions: dict[str, str] = Field(default_factory=dict)  # factors SET to a state (do-operator)
+    query: list[str] = Field(default_factory=list)
+    scenario: str | None = None
+
+
+class BnExplainAnalysis(_Evidence):
+    """Bayesian network: the most likely combination of causes (over ``over``)."""
+
+    kind: Literal["bn_explain"]
+    over: list[str] = Field(default_factory=list)
+
+
+class BnMonteCarloAnalysis(_Evidence, _Target):
+    """Bayesian network: how sure P(target = state) is, given how well each table is known."""
+
+    kind: Literal["bn_monte_carlo"]
+    runs: int | None = None
+    seed: int | None = None
+    scenario: str | None = None
+
+
+class BnCompareAnalysis(_Evidence, _Target):
+    """Bayesian network: options (BN scenarios) on the same table draws."""
+
+    kind: Literal["bn_compare"]
+    scenarios: list[str] = Field(default_factory=list)
+    reference: str | None = None
+    runs: int | None = None
+    seed: int | None = None
+
+
+class BnSensitivityAnalysis(_Target):
+    """Bayesian network: which table entries move P(target = state) most."""
+
+    kind: Literal["bn_sensitivity"]
+    evidence: dict[str, str] = Field(default_factory=dict)
+
+
+class TocCheckAnalysis(_Analysis):
+    """Theory of change: pathways and their evidence."""
+
+    kind: Literal["toc_check"]
+
+
+class TocTraceAnalysis(_Analysis):
+    """Theory of change: process tracing — each link's posterior from its tests, pathway confidence."""
+
+    kind: Literal["toc_trace"]
+
+
+class TocImpactAnalysis(_Analysis):
+    """Theory of change: impact on ``outcome`` from a dataset — interrupted time series, or
+    difference-in-differences with ``group`` and ``treated``."""
+
+    kind: Literal["toc_impact"]
+    outcome: str | None = None
+    dataset: str | None = None
+    time: str | None = None  # the dataset's time column (numbers or dates)
+    at: str | float | None = None  # the first period the intervention could affect
+    group: str | None = None  # difference-in-differences: the column saying which group a row is in
+    treated: list[str] = Field(default_factory=list)  # … and the group value(s) that received it
+    columns: dict[str, str] = Field(default_factory=dict)  # factor label → dataset column, where names differ
+
+
+class FtAnalyseAnalysis(_Analysis):
+    """Fault tree: cut sets (up to ``max_order``), top-event probability and importance."""
+
+    kind: Literal["ft_analyse"]
+    max_order: int | None = Field(default=None, ge=1)
+
+
+class BowtieAnalyseAnalysis(_Analysis):
+    """Bow-tie: lines, barrier flags and frequencies."""
+
+    kind: Literal["bowtie_analyse"]
+
+
+class EtAnalyseAnalysis(_Analysis):
+    """Event tree: sequences and end states."""
+
+    kind: Literal["et_analyse"]
+
+
+class RiskMonteCarloAnalysis(_Draws):
+    """Fault tree, bow-tie or event tree: uncertainty in the top-event probability or the frequencies;
+    ``target`` is the output to headline."""
+
+    kind: Literal["ft_monte_carlo", "bowtie_monte_carlo", "et_monte_carlo"]
+    target: str | None = None
+
+
+class DagEstimateAnalysis(_Analysis):
+    """DAG: the effect of ``treatment`` on ``outcome`` from a registered dataset."""
+
+    kind: Literal["dag_estimate"]
     treatment: str | None = None
     outcome: str | None = None
     dataset: str | None = None
     adjust: list[str] = Field(default_factory=list)  # empty: the smallest valid set of measured factors
     columns: dict[str, str] = Field(default_factory=dict)  # factor label → dataset column, where names differ
     estimator: Literal["auto", "linear", "logistic"] | None = None
-    # toc_impact: interrupted time series (no group) or difference-in-differences, for outcome from dataset
-    time: str | None = None  # the dataset's time column (numbers or dates)
-    at: str | float | None = None  # the first period the intervention could affect
-    group: str | None = None  # difference-in-differences: the column saying which group a row is in
-    treated: list[str] = Field(default_factory=list)  # … and the group value(s) that received it
+
+
+class McdaAnalyseAnalysis(_Analysis):
+    """MCDA: ranking and weight sensitivity."""
+
+    kind: Literal["mcda_analyse"]
+
+
+class AchAnalyseAnalysis(_Analysis):
+    """ACH: competing hypotheses ranked, linchpins."""
+
+    kind: Literal["ach_analyse"]
+
+
+class DtAnalyseAnalysis(_Analysis):
+    """Decision tree: best strategy, EVPI, probability thresholds."""
+
+    kind: Literal["dt_analyse"]
+
+
+class MarkovAnalyseAnalysis(_Analysis):
+    """Markov cohort: costs, outcomes, incremental cost-effectiveness."""
+
+    kind: Literal["markov_analyse"]
+
+
+ANALYSIS_MODELS: tuple[type[_Analysis], ...] = (
+    SimulateAnalysis, MonteCarloAnalysis, CompareAnalysis, SensitivityAnalysis, LoopsAnalysis,
+    BnQueryAnalysis, BnExplainAnalysis, BnMonteCarloAnalysis, BnCompareAnalysis, BnSensitivityAnalysis,
+    TocCheckAnalysis, TocTraceAnalysis, TocImpactAnalysis, FtAnalyseAnalysis, BowtieAnalyseAnalysis,
+    EtAnalyseAnalysis, RiskMonteCarloAnalysis, DagEstimateAnalysis, McdaAnalyseAnalysis, AchAnalyseAnalysis,
+    DtAnalyseAnalysis, MarkovAnalyseAnalysis,
+)
+
+SpecAnalysis = Annotated[
+    SimulateAnalysis | MonteCarloAnalysis | CompareAnalysis | SensitivityAnalysis | LoopsAnalysis
+    | BnQueryAnalysis | BnExplainAnalysis | BnMonteCarloAnalysis | BnCompareAnalysis | BnSensitivityAnalysis
+    | TocCheckAnalysis | TocTraceAnalysis | TocImpactAnalysis | FtAnalyseAnalysis | BowtieAnalyseAnalysis
+    | EtAnalyseAnalysis | RiskMonteCarloAnalysis | DagEstimateAnalysis | McdaAnalyseAnalysis | AchAnalyseAnalysis
+    | DtAnalyseAnalysis | MarkovAnalyseAnalysis,
+    Field(discriminator="kind"),
+]
+
+
+def analysis_model(kind: str) -> type[_Analysis]:
+    """The model for one analysis kind (KeyError if there's none)."""
+    for m in ANALYSIS_MODELS:
+        if kind in get_args(m.model_fields["kind"].annotation):
+            return m
+    raise KeyError(kind)
+
+
+def analysis_kinds() -> tuple[str, ...]:
+    """Every analysis kind a spec can name."""
+    return tuple(k for m in ANALYSIS_MODELS for k in get_args(m.model_fields["kind"].annotation))
+
+
+def make_analysis(**fields: Any) -> SpecAnalysis:
+    """An analysis of ``fields["kind"]``, validated against that kind's model."""
+    return analysis_model(fields["kind"]).model_validate(fields)
+
+
+class SpecCarriedResult(_Spec):
+    """A recorded result a link carries as the sender's, because it can't be re-run where the link opens: it
+    read a dataset, and links don't carry data. Written by ``latris link`` / ``export spec``, not by hand.
+
+    The payload names factors and links by label (``{{node:Label}}``, ``{{link:From -> To}}``); the build maps
+    them to this project's ids. The report shows it as computed by the sender, with the datasets it read.
+    """
+
+    kind: str  # the result kind, e.g. "dag-estimate"
+    model_type: str
+    key: str  # which runs count as the same analysis
+    summary: str = ""
+    purpose: str = "other"
+    algorithm: str = ""
+    library_version: str = ""
+    datasets: list[dict[str, str]] = Field(default_factory=list)  # each dataset it read: name, sha256
+    payload: dict[str, Any]
 
 
 class BuildSpec(_Spec):
@@ -708,3 +960,5 @@ class BuildSpec(_Spec):
     decision_tree: SpecDT | None = None  # Decision tree nodes, branches, payoffs, uncertainties
     markov: SpecMarkov | None = None  # Markov states, strategies, transitions, rewards, start, settings
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building
+    # results that read a dataset: carried as the sender's, recorded after the analyses
+    carried_results: list[SpecCarriedResult] = Field(default_factory=list)

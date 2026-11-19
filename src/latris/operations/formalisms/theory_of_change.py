@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
     Formalism,
     ResultKind,
     default_origin,
@@ -77,33 +79,33 @@ def _claims(paths, section: str) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
+    from latris.exporters import md
     from latris.operations.toc import describe
 
     out = [describe(p) + ".", ""]
     if p.get("problems"):
         out += [f"The results chain is incomplete ({len(p['problems'])} structure problem(s)):", ""]
-        out += [f"- {_esc(x['label'])}: {_esc(x['message'])}" for x in p["problems"][:_MAX_ROWS]]
+        out += [f"- {md.esc(x['label'])}: {md.esc(x['message'])}" for x in p["problems"][:md.MAX_ROWS]]
         out.append("")
     order = {"contested": 0, "untested": 1, "cited": 2, "checked": 3}
     pws = sorted(p["pathways"], key=lambda x: order.get(x["status"], 9))
     if pws:
         rows = [[" → ".join(x["path"]), x["status"], ", ".join(x["weak_links"]) or "—"]
-                for x in pws[:_MAX_ROWS]]
-        out += _table(["Pathway", "Weakest link", "Links not yet checked"], rows)
-        if len(pws) > _MAX_ROWS:
-            out += [f"_…and {len(pws) - _MAX_ROWS} more pathway(s)._", ""]
+                for x in pws[:md.MAX_ROWS]]
+        out += md.table(["Pathway", "Weakest link", "Links not yet checked"], rows)
+        if len(pws) > md.MAX_ROWS:
+            out += [f"_…and {len(pws) - md.MAX_ROWS} more pathway(s)._", ""]
     on = [lk for lk in p["links"] if lk["on_pathway"]]
     if on:
         rows = [
             [lk["label"], lk["status"], str(lk["sources_for"]), str(lk["sources_for_checked"]),
              str(lk["sources_against"]), str(lk["assumptions"]), "skips levels" if lk["leap"] else ""]
-            for lk in sorted(on, key=lambda lk: order.get(lk["status"], 9))[: _MAX_ROWS * 2]
+            for lk in sorted(on, key=lambda lk: order.get(lk["status"], 9))[: md.MAX_ROWS * 2]
         ]
         out += ["Each link on a pathway, weakest first. *Checked*: a source was read and found to support it; "
                 "*cited*: it has a source not yet checked; *untested*: no source; *contested*: a source argues "
                 "against it.", ""]
-        out += _table(["Link", "Evidence", "Sources for", "Checked", "Against", "Assumptions", "Note"], rows)
+        out += md.table(["Link", "Evidence", "Sources for", "Checked", "Against", "Assumptions", "Note"], rows)
     return out
 
 
@@ -207,9 +209,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="toc_check")
+    return make_analysis(kind="toc_check")
 
 
 def _pct(x: float) -> str:
@@ -217,16 +219,16 @@ def _pct(x: float) -> str:
 
 
 def _render_trace(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _table
+    from latris.exporters import md
     from latris.operations.process_tracing import describe
 
-    out = [_esc(describe(p)) + ".", ""]
+    out = [md.esc(describe(p)) + ".", ""]
     if p["pathways"]:
         rows = [[" → ".join(x["path"]), _pct(x["confidence"]), f"{x['weakest']} ({_pct(x['weakest_posterior'])})"]
-                for x in p["pathways"][:_MAX_ROWS]]
+                for x in p["pathways"][:md.MAX_ROWS]]
         out += ["How believable each pathway is, all its links together (the product of their posteriors, "
                 "treating the links as independent):", ""]
-        out += _table(["Pathway", "Confidence", "Weakest link"], rows)
+        out += md.table(["Pathway", "Confidence", "Weakest link"], rows)
     rows = []
     for lk in p["links"]:
         done = [t for t in lk["tests"] if t["found"] is not None]
@@ -236,17 +238,21 @@ def _render_trace(p: dict[str, Any]) -> list[str]:
     if rows:
         out += ["Each link: its prior, the tests carried out (type, result, and the factor each multiplied the "
                 "odds by) and the posterior.", ""]
-        out += _table(["Link", "Prior", "Tests", "Posterior", "Verdict"], rows[: _MAX_ROWS * 2])
+        out += md.table(["Link", "Prior", "Tests", "Posterior", "Verdict"], rows[: md.MAX_ROWS * 2])
     pending = [(lk["link"], t) for lk in p["links"] for t in lk["pending"]]
     if pending:
         rows = [[name, t["test"], t["type"], _pct(t["if_found"]), _pct(t["if_not_found"])]
                 for name, t in sorted(pending, key=lambda c: -abs(c[1]["if_found"] - c[1]["if_not_found"]))]
         out += ["Tests not yet carried out, most informative first — the link's posterior if the evidence is "
                 "found, and if it isn't:", ""]
-        out += _table(["Link", "Test", "Type", "If found", "If not found"], rows[:_MAX_ROWS])
+        out += md.table(["Link", "Test", "Type", "If found", "If not found"], rows[:md.MAX_ROWS])
     if p["rests_on_unverified"]:
-        out += ["Tests whose judgements nobody has verified: " + _esc(", ".join(p["rests_on_unverified"])) + ".", ""]
+        out += ["Tests whose judgements nobody has verified: " + md.esc(", ".join(p["rests_on_unverified"])) + ".", ""]
     return out
+
+
+def _charts_pathways(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("toc-evidence", {})] if any(x.get("on_pathway") for x in p.get("links") or []) else []
 
 
 def _charts_trace(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -288,15 +294,42 @@ def _run_trace(a, root: Path) -> str:
 
 
 def _definition_trace(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="toc_trace")
+    return make_analysis(kind="toc_trace")
 
 
 def _fingerprint(paths) -> list[Path]:
     # The pathway check reads each link's sources, checks, assumptions and confidence.
     return [paths.evidence_links_yaml, paths.assumptions_yaml, paths.confidence_yaml]
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'toc-pathways': ('check_theory_of_change',
+        'Theory of change: each pathway from activity to impact with the evidence and assumptions behind '
+        'every step, by its weakest link (untested, cited, supported or contested). Recorded with a '
+        'chart.'),
+    'toc-process-trace': ('trace_theory_of_change',
+        "Process tracing on the theory of change: each link's posterior confidence from its prior and "
+        "evidence tests (hoop, smoking gun, doubly decisive, straw in the wind), and each pathway's "
+        'confidence. Recorded with a chart.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_toc_level', ('levels',),
+        'Place a factor on the results chain: input, activity, output, short_term_outcome, '
+        'long_term_outcome or impact.'),
+    ChatOp('set_toc_prior', ('priors',),
+        'Process tracing: the prior confidence that a link holds, before the evidence tests.'),
+    ChatOp('set_toc_test', ('tests',),
+        'Process tracing: an evidence test on a link: how likely the evidence is if the link holds '
+        "(p_if_true) and if it doesn't (p_if_false), which makes it a hoop, smoking-gun, "
+        'doubly-decisive or straw-in-the-wind test, and whether it was found.'),
+)
 
 register(Formalism(
     model_type="theory_of_change",
@@ -316,16 +349,20 @@ register(Formalism(
     claims=_claims,
     centrality=True,
     own_implications=True,
-    results=(ResultKind(kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
-                        analysis="toc_check", run=_run, definition=_definition),
-             ResultKind(kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
+    results=(ResultKind(tool=ChatTool(*_TOOLS['toc-pathways']),
+                        kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
+                        analysis="toc_check", run=_run, definition=_definition,
+                        charts=_charts_pathways, chart_kinds=("toc-evidence",)),
+             ResultKind(tool=ChatTool(*_TOOLS['toc-process-trace']),
+                        kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
                         analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace,
-                        charts=_charts_trace)),
+                        charts=_charts_trace, chart_kinds=("trace-dumbbell",))),
     fingerprint_files=_fingerprint,
     spec_field="toc",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid_groups=_groups,
     cli=("latris.cli.toc_cmd", "toc"),
     routes="latris.server.routes.toc",

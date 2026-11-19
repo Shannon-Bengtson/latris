@@ -8,12 +8,12 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit
 
 app = typer.Typer(help="Markov cohort models: costs and outcomes over time, and cost-effectiveness.",
                   no_args_is_help=True)
 console = Console()
-_ORIGINS = "human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
 
 
 def _sha(sha: str) -> str:
@@ -42,7 +42,7 @@ def transition(
     probability: float = typer.Argument(..., help="Probability of moving along it in one cycle."),
     strategy: str = typer.Option(None, "--strategy", help="Only under this strategy (default: every strategy)."),
     source: str = typer.Option(None, "--source"),
-    origin: str = typer.Option("human-direct", "--origin", help=_ORIGINS),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(False, "--verified"),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -51,7 +51,7 @@ def transition(
 
     entry, sha = markov.set_transition(link, probability, strategy=strategy, origin=origin,  # type: ignore[arg-type]
                                        source_id=source, notes=notes,
-                                       verification="human-verified" if verified else "unverified")
+                                       verification=verification(verified))
     emit(entry, human=lambda: console.print(f"[green]set[/green] {escape(link)} = {probability:g}"
                                             + (f" under {escape(strategy)}" if strategy else "") + f" · {_sha(sha)}"),
          commit_sha=sha)
@@ -65,7 +65,7 @@ def reward(
     utility: float = typer.Option(None, "--utility", help="Utility weight per year (1 = full health, 0 = dead)."),
     strategy: str = typer.Option(None, "--strategy", help="Only under this strategy (default: every strategy)."),
     source: str = typer.Option(None, "--source"),
-    origin: str = typer.Option(None, "--origin", help=_ORIGINS),
+    origin: str = typer.Option(None, "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(None, "--verified/--unverified"),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -75,7 +75,7 @@ def reward(
     given = {"cost": cost, "utility": utility, "source_id": source, "origin": origin, "notes": notes}
     kwargs = {k: v for k, v in given.items() if v is not None}
     if verified is not None:
-        kwargs["verification"] = "human-verified" if verified else "unverified"
+        kwargs["verification"] = verification(verified)
     entry, sha = markov.set_reward(state, strategy=strategy, **kwargs)
     emit(entry, human=lambda: console.print(f"[green]set[/green] {escape(state)}: {', '.join(kwargs)}"
                                             + (f" under {escape(strategy)}" if strategy else "") + f" · {_sha(sha)}"),

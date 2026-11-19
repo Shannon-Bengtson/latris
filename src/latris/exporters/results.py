@@ -16,38 +16,20 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from latris.exporters import md
+from latris.operations.carried_results import carried_note
 from latris.repo.layout import ProjectPaths
 
 _HUMAN_VERIFIED = "human-verified"
-_MAX_ROWS = 8
+_MAX_ROWS, _esc, _f, _table, _grounding = md.MAX_ROWS, md.esc, md.fmt, md.table, md.grounding
 
 
-def _f(x: Any) -> str:
-    if x is None:
-        return "—"
-    if isinstance(x, float | int):
-        return f"{x:.4g}"
-    return str(x)
 
 
-def _esc(text: Any) -> str:
-    return str(text).replace("|", "\\|").replace("\n", " ")
 
 
-def _table(headers: list[str], rows: list[list[str]]) -> list[str]:
-    out = ["| " + " | ".join(headers) + " |", "|" + "|".join("---" for _ in headers) + "|"]
-    out += ["| " + " | ".join(_esc(c) for c in row) + " |" for row in rows]
-    out.append("")
-    return out
 
 
-def _grounding(origin: str | None, verification: str | None) -> str:
-    if verification == _HUMAN_VERIFIED:
-        return "reviewed"
-    who = {"ai-proposed": "AI-proposed", "data-derived": "from data", "human-elicited": "elicited"}.get(
-        origin or "", "entered"
-    )
-    return f"{who}, not yet reviewed"
 
 
 def _marker(run_id: str, chart: str, **extra: Any) -> list[str]:
@@ -71,8 +53,6 @@ def _stale_note(stale: bool, run_id: str, show_ids: bool) -> list[str]:
 
 
 # ── per kind ─────────────────────────────────────────────────────────
-# Every result kind — SD's included — renders through its registry entry (``ResultKind.render``);
-# see ``operations/formalisms/``.
 
 
 def _heading(kind: str, title: str, p: dict[str, Any], plugin_kind: Any) -> str:
@@ -85,38 +65,12 @@ def _heading(kind: str, title: str, p: dict[str, Any], plugin_kind: Any) -> str:
     return f"{title}: {sub}" if sub else title
 
 
-def result_heading(kind: str, payload: dict[str, Any]) -> str:
-    """A recorded result's heading as reports show it ("Simulation: baseline vs Tax")."""
+def _charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """The ``latris-chart`` markers for one result: its result kind's ``charts`` hook."""
     from latris.operations import formalisms
 
     found = formalisms.result_kind(kind)
-    plugin_kind = found[1] if found else None
-    if plugin_kind is None:
-        return kind
-    try:
-        title = plugin_kind.title_for(payload) if plugin_kind.title_for else plugin_kind.title
-    except (KeyError, TypeError, ValueError, IndexError):
-        title = plugin_kind.title
-    return _heading(kind, title, payload, plugin_kind)
-
-
-def chart_markers(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    """The charts to draw for one result, as ``(chart kind, extra keys)`` — its registry entry's ``charts``
-    hook. The app draws them (``latris_present.charts.draw``) in reports and in the editor's results panel."""
-    from latris.operations import formalisms
-
-    found = formalisms.result_kind(kind)
-    if found and found[1].charts:
-        return found[1].charts(payload)
-    return []
-
-
-def result_body(kind: str, payload: dict[str, Any]) -> list[str]:
-    """A recorded result's Markdown body (its tables); raises if the payload can't be read."""
-    from latris.operations import formalisms
-
-    found = formalisms.result_kind(kind)
-    return found[1].render(payload) if found else []
+    return found[1].charts(payload) if found and found[1].charts else []
 
 
 def render_results(
@@ -140,16 +94,40 @@ def render_results(
         "",
     ]
     for res in results:
-        kind, p = res.run.result_kind, res.payload
-        out.append(f"### {result_heading(kind, p)}")
-        out.append("")
-        out += [f"_Run {_run_date(res.run.id)}._", ""]
-        out += _stale_note(res.stale, res.run.id, show_ids)
-        if chart_markers:
-            for chart, extra in globals()["chart_markers"](kind, p):
-                out += _marker(res.run.id, chart, **extra)
-        try:
-            out += result_body(kind, p)
-        except (KeyError, TypeError, ValueError, IndexError):
-            out += [f"_This result couldn't be shown ({res.run.output_summary})._", ""]
+        out += render_result(res.run, res.payload, stale=res.stale, chart_markers=chart_markers, show_ids=show_ids)
+    return out
+
+
+def result_heading(kind: str, p: dict[str, Any]) -> str:
+    """The heading a report gives one recorded result (its title, and what it was of): public, so a surface
+    that lists results (the app's results panel) names them as the report does."""
+    from latris.operations import formalisms
+
+    found = formalisms.result_kind(kind)
+    plugin_kind = found[1] if found else None
+    title = kind
+    if plugin_kind:
+        title = plugin_kind.title_for(p) if plugin_kind.title_for else plugin_kind.title
+    return _heading(kind, title, p, plugin_kind)
+
+
+def render_result(run: Any, p: dict[str, Any], *, stale: bool = False, chart_markers: bool = False,
+                  show_ids: bool = True) -> list[str]:
+    """One result's section of the report: heading, date, notes, chart markers and its table."""
+    from latris.operations import formalisms
+
+    kind = run.result_kind
+    found = formalisms.result_kind(kind)
+    plugin_kind = found[1] if found else None
+    out = [f"### {result_heading(kind, p)}", "", f"_Run {_run_date(run.id)}._", ""]
+    out += _stale_note(stale, run.id, show_ids)
+    out += carried_note(run.hyperparameters)
+    if chart_markers:
+        for chart, extra in _charts(kind, p):
+            out += _marker(run.id, chart, **extra)
+    try:
+        if plugin_kind:
+            out += plugin_kind.render(p)
+    except (KeyError, TypeError, ValueError, IndexError):
+        out += [f"_This result couldn't be shown ({run.output_summary})._", ""]
     return out

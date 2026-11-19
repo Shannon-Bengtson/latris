@@ -34,20 +34,13 @@ from dataclasses import dataclass
 from latris.repo.layout import ProjectPaths
 from latris.repo.yaml_io import load_model
 
-# Read from the registry: types with ``computes_on`` (SD, BN) and the whole-map causal maps (CLD, DAG, FCM).
-QUANTIFIED: tuple[str, ...] = ()
-QUALITATIVE: tuple[str, ...] = ()
+WHOLE_MAP = "system_map"
 
 
-def _refresh() -> None:
-    global QUANTIFIED, QUALITATIVE
+def _quantified(model_type: str) -> bool:
     from latris.operations import formalisms
 
-    QUANTIFIED, QUALITATIVE = formalisms.quantified(), formalisms.whole_map_types()
-
-
-_refresh()
-WHOLE_MAP = "system_map"
+    return formalisms.quantified(model_type)
 
 
 @dataclass(frozen=True)
@@ -79,8 +72,8 @@ def parameterised_nodes(paths: ProjectPaths, model_type: str) -> set[str]:
     """The factors a quantified model type computes on (empty for the qualitative types)."""
     from latris.operations import formalisms
 
-    f = formalisms.get(model_type)
-    return f.computes_on(paths) if f and f.computes_on else set()
+    plugin = formalisms.get(model_type)
+    return plugin.parameterised_nodes(paths) if plugin and plugin.parameterised_nodes else set()
 
 
 def _with_links(paths: ProjectPaths, nodes: set[str]) -> Members:
@@ -93,12 +86,13 @@ def _with_links(paths: ProjectPaths, nodes: set[str]) -> Members:
 
 def shares_map(paths: ProjectPaths, model_type: str) -> bool:
     """True when ``model_type`` shares the project's map with a qualitative model type (a loop map, DAG or FCM)."""
+    from latris.operations import formalisms
     from latris.schema import ProjectFoundation
 
-    if model_type not in QUANTIFIED or not paths.project_yaml.exists():
+    if not _quantified(model_type) or not paths.project_yaml.exists():
         return False
     selected = load_model(ProjectFoundation, paths.project_yaml).selected_model_types
-    return any(t in QUALITATIVE for t in selected)
+    return any(t in formalisms.whole_map_types() for t in selected)
 
 
 def members(paths: ProjectPaths, model_type: str | None) -> Members | None:
@@ -110,7 +104,7 @@ def members(paths: ProjectPaths, model_type: str | None) -> Members | None:
     if not model_type or model_type == WHOLE_MAP:
         return None
     mapped = _mapped(paths, model_type)
-    if model_type in QUANTIFIED:
+    if _quantified(model_type):
         # Mappings can add to what a simulation or network computes on, never take away from it.
         substrate = _substrate(paths)
         nodes = parameterised_nodes(paths, model_type) | {e.id for e in substrate.entities if e.id in mapped}
@@ -129,7 +123,7 @@ def members(paths: ProjectPaths, model_type: str | None) -> Members | None:
 
 def check_scope(paths: ProjectPaths, model_type: str) -> Members | None:
     """What ``model_type``'s readiness checks look at (``None``: the whole map). See the module docstring."""
-    if model_type in QUANTIFIED:
+    if _quantified(model_type):
         return members(paths, model_type) if shares_map(paths, model_type) else None
     return members(paths, model_type)
 

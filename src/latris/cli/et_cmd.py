@@ -8,12 +8,12 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Event tree operations.", no_args_is_help=True)
 console = Console()
 
-_ORIGINS = "human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
 
 
 def _sha(sha: str) -> str:
@@ -105,7 +105,7 @@ def probability(
     given: list[str] = typer.Option(None, "--given", help="Only on branches with this earlier answer "
                                                           "('Heading=yes|no'); repeatable."),
     source: str = typer.Option(None, "--source", help="Where it came from (a reference, a fault-tree run, …)."),
-    origin: str = typer.Option("human-direct", "--origin", help=_ORIGINS),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(False, "--verified", help="A person has checked the value."),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -113,7 +113,7 @@ def probability(
     from latris.operations import event_tree as et
 
     entry, sha = et.set_probability(heading, p_yes, given=et.parse_answers(given or []), origin=origin,  # type: ignore[arg-type]
-                                    source_id=source, verification="human-verified" if verified else "unverified",
+                                    source_id=source, verification=verification(verified),
                                     notes=notes)
     if json_mode():
         emit(entry, human=lambda: None, commit_sha=sha)
@@ -129,7 +129,7 @@ def frequency(
     target: str = typer.Argument(..., help="The initiating event."),
     per_year: float = typer.Argument(..., help="How often it occurs, per year."),
     source: str = typer.Option(None, "--source", help="Where it came from (a reference, a bow-tie or fault-tree run)."),
-    origin: str = typer.Option("human-direct", "--origin", help=_ORIGINS),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(False, "--verified", help="A person has checked the value."),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -137,7 +137,7 @@ def frequency(
     from latris.operations import event_tree as et
 
     entry, sha = et.set_frequency(target, per_year, origin=origin, source_id=source,  # type: ignore[arg-type]
-                                  verification="human-verified" if verified else "unverified", notes=notes)
+                                  verification=verification(verified), notes=notes)
     if json_mode():
         emit(entry, human=lambda: None, commit_sha=sha)
         return

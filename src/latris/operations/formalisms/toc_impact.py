@@ -10,38 +10,39 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Analysis, ResultKind, register_analysis
+from latris.operations.formalisms import Analysis, ChatTool, ResultKind, register_analysis
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _esc, _f, _table
+    from latris.exporters import md
     from latris.operations.impact import describe
 
     e = p["effect"]
-    out = [_esc(describe(p)) + ".", ""]
+    out = [md.esc(describe(p)) + ".", ""]
     if p["method"] == "its":
-        rows = [[name, _f(c["estimate"]), f"{_f(c['ci_low'])} – {_f(c['ci_high'])}", _f(c["p"])]
+        rows = [[name, md.fmt(c["estimate"]), f"{md.fmt(c['ci_low'])} – {md.fmt(c['ci_high'])}", md.fmt(c["p"])]
                 for name, c in (("Trend before (per period)", p["pre_trend"]),
                                 ("Step at the start", p["level_change"]),
                                 ("Change of slope (per period)", p["slope_change"]),
                                 ("Effect by the last period", e))]
-        out += _table(["", "Estimate", "95% CI", "p"], rows)
-        out += [f"Projected without the intervention, {p['outcome']} would have been {_f(p['counterfactual_end'])} "
+        out += md.table(["", "Estimate", "95% CI", "p"], rows)
+        out += [f"Projected without the intervention, {p['outcome']} would have been {md.fmt(p['counterfactual_end'])} "
                 f"at the last period. Standard errors: {p['se_type']}.", ""]
     else:
         m = p["means"]
-        rows = [["Treated", _f(m["treated_before"]), _f(m["treated_after"]),
-                 _f(m["treated_after"] - m["treated_before"])],
-                ["Comparison", _f(m["comparison_before"]), _f(m["comparison_after"]),
-                 _f(m["comparison_after"] - m["comparison_before"])]]
-        out += _table(["Group", "Before", "After", "Change"], rows)
+        rows = [["Treated", md.fmt(m["treated_before"]), md.fmt(m["treated_after"]),
+                 md.fmt(m["treated_after"] - m["treated_before"])],
+                ["Comparison", md.fmt(m["comparison_before"]), md.fmt(m["comparison_after"]),
+                 md.fmt(m["comparison_after"] - m["comparison_before"])]]
+        out += md.table(["Group", "Before", "After", "Change"], rows)
         pt = p["pre_trend_difference"]
-        trend = (f"Before the start the groups' trends differed by {_f(pt['estimate'])} per period (p = "
-                 f"{_f(pt['p'])})." if pt.get("testable") else "Parallel pre-trends couldn't be checked.")
-        out += [f"Difference-in-differences {_f(e['estimate'])} (95% CI {_f(e['ci_low'])} – {_f(e['ci_high'])}, "
-                f"p = {_f(e['p'])}); {p['se_type']} standard errors. {trend}", ""]
+        trend = (f"Before the start the groups' trends differed by {md.fmt(pt['estimate'])} per period (p = "
+                 f"{md.fmt(pt['p'])})." if pt.get("testable") else "Parallel pre-trends couldn't be checked.")
+        out += [f"Difference-in-differences {md.fmt(e['estimate'])} "
+                f"(95% CI {md.fmt(e['ci_low'])} – {md.fmt(e['ci_high'])}, "
+                f"p = {md.fmt(e['p'])}); {p['se_type']} standard errors. {trend}", ""]
     if p["warnings"]:
-        out += ["Cautions: " + _esc("; ".join(p["warnings"])) + ".", ""]
+        out += ["Cautions: " + md.esc("; ".join(p["warnings"])) + ".", ""]
     out += ["This is the intervention's impact only if: " + " ".join(p["assumptions"]), ""]
     return out
 
@@ -81,9 +82,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(
+    return make_analysis(
         kind="toc_impact", outcome=p["outcome"], dataset=p["dataset"]["name"], time=p["time"], at=p["at"],
         group=p["group"], treated=p["treated"],
         columns={p["outcome"]: p["column"]} if p["column"] != p["outcome"] else {},
@@ -95,10 +96,20 @@ def _fingerprint(paths) -> list[Path]:
     return [paths.data_datasets_yaml, *files]
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'toc-impact': ('estimate_impact',
+        'Impact on an outcome from a registered dataset: interrupted time series, or '
+        'difference-in-differences with group and treated, with validity cautions. Needs a dataset '
+        '(latris data add).'),
+}
+
 register_analysis(Analysis(
     model_type="theory_of_change",
-    result=ResultKind(kind="toc-impact", title="Theory of change: impact estimate", render=_render,
+    result=ResultKind(tool=ChatTool(*_TOOLS['toc-impact']),
+                      kind="toc-impact", title="Theory of change: impact estimate", render=_render,
                       analysis="toc_impact", run=_run, definition=_definition, claims=_claims,
-                      charts=_charts),
+                      charts=_charts, chart_kinds=("impact-its", "impact-did"), needs_dataset=True),
     fingerprint_files=_fingerprint,
 ))

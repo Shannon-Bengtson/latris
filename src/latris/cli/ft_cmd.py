@@ -8,6 +8,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Fault tree operations.", no_args_is_help=True)
@@ -76,7 +77,7 @@ def probability(
     value: float = typer.Argument(..., help="Probability in [0, 1] over the period the tree is about."),
     source: str = typer.Option(None, "--source", help="Where it came from (a reference key, dataset, …)."),
     origin: str = typer.Option(
-        "human-direct", "--origin", help="human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
+        "human-direct", "--origin", help=ORIGIN_HELP
     ),
     verified: bool = typer.Option(False, "--verified", help="A person has checked this value against its source."),
     notes: str = typer.Option(None, "--notes", help="e.g. the failure rate and exposure time it came from."),
@@ -85,7 +86,7 @@ def probability(
     from latris.operations import fault_tree as ft
 
     entry, sha = ft.set_probability(target, value, origin=origin, source_id=source,  # type: ignore[arg-type]
-                                    verification="human-verified" if verified else "unverified", notes=notes)
+                                    verification=verification(verified), notes=notes)
     if json_mode():
         emit(entry, human=lambda: None, commit_sha=sha)
         return

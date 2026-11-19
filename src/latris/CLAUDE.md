@@ -4,8 +4,12 @@
 
 `schema/` → `repo/` → `operations/` → `cli/` (strict dependency
 direction — never import upward). `ai/` and `diff/` sit beside
-operations. `exporters/` depends on schema + repo. `server/` is at
-the same layer as `cli/` (both consume `operations/`).
+operations. `exporters/` reads schema, repo and operations (read-only,
+imported lazily inside functions; an exporter never mutates).
+`exporters/md.py` is a leaf of pure Markdown helpers: the formalism
+plugins in `operations/formalisms/` render their report sections with
+it, never with an exporter's private helpers. `server/` is at the same
+layer as `cli/` (both consume `operations/`).
 
 ## Five chokepoints
 
@@ -37,9 +41,13 @@ All access to these concerns goes through exactly one file:
 
 One module in `operations/formalisms/` declaring a `Formalism`, plus
 four central entries: `ModelTypeSpec` (schema/model_types.py), the
-`BuildSpec` field and `SpecAnalysis.kind` (schema/build_spec.py), the
+`BuildSpec` field and a model per analysis kind in the `SpecAnalysis` union
+(schema/build_spec.py), the
 foundations entry, and the help topic. `tests/operations/test_formalisms.py`
-names anything missing. Full list in ARCHITECTURE.md → "Adding a formalism".
+names anything missing. Declare how shared code should treat the type (fields
+on `Formalism`) and its chat surface (`ResultKind.tool`, `Formalism.chat_ops`)
+rather than branching on its name in shared code — `test_no_type_branches.py`
+fails if you do. Full list in ARCHITECTURE.md → "Adding a formalism".
 
 ## Entity resolution
 
@@ -57,8 +65,14 @@ injects an explicit path via `Depends(get_project_root)`.
 
 - **App factory** in `server/app.py` — lifespan manages file
   watcher + WebSocket `ConnectionManager`.
-- **Dependency injection** via `server/deps.py` — each route file
-  defines `Root = Annotated[Path, Depends(get_project_root)]`.
+- **Dependency injection** via `server/deps.py` — routes take
+  `root: Root` (`from latris.server.deps import Root`).
+- **Errors** map to statuses in one place (`server/app.py`): `ValueError`
+  422, `LookupError` (`operations.errors.NotFoundError`) 404, `GitError`
+  500, `LLMCallError` 502. Routes don't catch these themselves.
+- **One writer per project**: an app-wide dependency holds
+  `operations/write_lock` for every mutating request; the LLM call
+  sites release it while waiting on the model.
 - **Route pattern** — router with `/api/<domain>` prefix, pydantic
   request body, calls `operations/` directly, returns
   `{"result": ..., "commit_sha": ...}`.

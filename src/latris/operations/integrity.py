@@ -34,7 +34,7 @@ from typing import Any, Literal
 
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import iter_jsonl, load_model, load_raw
+from latris.repo.yaml_io import iter_jsonl, load_model, load_model_or_default, load_raw
 from latris.schema.ids import parse_id
 
 Severity = Literal["error", "warning", "info"]
@@ -236,7 +236,7 @@ def check_integrity(*, root: Path | None = None) -> IntegrityReport:
 
     # ── Evidence and references ────────────────────────────────────────
     library = (
-        load_model(ReferenceLibrary, paths.references_yaml) if paths.references_yaml.exists() else ReferenceLibrary()
+        load_model_or_default(ReferenceLibrary, paths.references_yaml)
     )
     bibkeys = {r.bibkey for r in library.entries}
     ev_rows = _entries(paths.evidence_links_yaml)

@@ -918,7 +918,7 @@ System Dynamics models how quantities accumulate and drain over time. **Stocks**
 
 SD uses the same entities and edges as every other view. Each SD variable is an ordinary entity with an SD **role**. Material movement uses **flow** edges, always `stock → flow → stock` (either end may be a source_sink cloud). "X appears in Y's equation" uses a **causal** edge X → Y — an information link. The SD model is whatever has an SD role plus anything a flow edge touches.
 
-**Sharing a map with a loop map.** A factor joins the simulation when it gets an SD role (and the network when it gets states); everything else stays in the loop map. So you can quantify part of a CLD *in place*: give its key factors roles, and links from the rest of the loop map into them stay loop-map links — `sd check` lists them as advisories ("stays in the loop map"), never as gaps. In a model shared with a loop map, a causal link into a stock or one no equation uses is likewise an advisory. `sd unset-role <node>` takes a factor back out (its role and SD values go; the factor, its links and citations stay). In a model that is only a simulation, an unclassified factor feeding it is still a gap.
+**Sharing a map with a loop map.** A factor joins the simulation when it gets an SD role (and the network when it gets states); everything else stays in the loop map. So you can quantify part of a CLD *in place*: give its key factors roles, and links from the rest of the loop map into them stay loop-map links — `sd check` lists them as advisories ("stays in the loop map"), never as gaps. In a model shared with a loop map, a causal link into a stock or one no equation uses is likewise an advisory. `sd unset-role <node>` takes a factor back out (its role and SD values go; the factor, its links and citations stay). In a model that is only a simulation, an unclassified factor feeding it is still a gap. The factor the model explains is set with `latris view role sd <factor> outcome` (kept with the SD settings, since SD roles are one per factor) and `latris sd simulate` runs it.
 
 ## Equations and units
 
@@ -951,7 +951,7 @@ In **Formalise**, double-click the canvas for a new factor (name and role, place
 
 ## Results in reports
 
-Simulations, Monte Carlo runs, sensitivity and loop analyses (and BN queries) are recorded. Reports show the latest run of each analysis in a **Results** section — with charts in the hosted report and Word — and the interpretation's claims include what they found. Each heading says what the run was of (its scenarios, evidence or interventions) and when it ran. A result computed before the model last changed is marked out of date — and only a change to what that model type is made of counts, so editing the loop map doesn't age a simulation sharing its map. `latris results list` shows what reports use; `latris results hide <run>` leaves one out. A `latris link` carries the parameters and the analyses, and opening it recomputes the same results.
+Simulations, Monte Carlo runs, sensitivity and loop analyses (and BN queries) are recorded. Reports show the latest run of each analysis in a **Results** section — with charts in the hosted report and Word — and the interpretation's claims include what they found. Each heading says what the run was of (its scenarios, evidence or interventions) and when it ran. A result computed before the model last changed is marked out of date — and only a change to what that model type is made of counts, so editing the loop map doesn't age a simulation sharing its map. `latris results list` shows what reports use; `latris results hide <run>` leaves one out. A `latris link` carries the parameters and the analyses, and opening it recomputes the same results. An analysis that read a dataset (effect or impact estimation) can't be re-run without the data, which links don't carry, so its result travels as the sender's, and the report says it was computed by the sender and from which dataset.
 
 ## Integration methods
 
@@ -1040,7 +1040,7 @@ A Fuzzy Cognitive Map is a weighted directed graph. Each edge has a causal stren
 
 ## Required attributes
 
-FCM analysis depends on edge weights and, for simulation, node activation settings. Missing weights reduce readiness.
+FCM analysis depends on edge weights and, for simulation, node activation settings. Missing weights reduce readiness. `latris fcm weights` lists the weights set so far.
 
 ## Commands
 

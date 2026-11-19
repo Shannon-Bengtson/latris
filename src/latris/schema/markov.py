@@ -3,7 +3,7 @@
 A Markov model lives on the ordinary substrate: health (or other) states are
 entities with the view role ``state``, the strategies being compared have the
 role ``strategy``, and a transition is an ordinary edge between two states.
-Stored, each value with provenance (``_EntryBase``):
+Stored, each value with provenance (``EntryBase``):
 
 - ``views/parameters/markov-transition.yaml`` — :class:`MarkovTransitionSet`:
   the per-cycle probability of moving along an edge, for every strategy or
@@ -21,13 +21,13 @@ from typing import Literal
 
 from pydantic import Field
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 MarkovElement = Literal["state", "strategy"]
 MARKOV_ELEMENTS: tuple[str, ...] = ("state", "strategy")
 
 
-class MarkovTransitionEntry(_EntryBase):
+class MarkovTransitionEntry(EntryBase):
     """The probability of moving along an edge (``target_id``) in one cycle."""
 
     attribute: str = "transition"
@@ -40,7 +40,7 @@ class MarkovTransitionSet(_Base):
     entries: list[MarkovTransitionEntry] = Field(default_factory=list)
 
 
-class MarkovRewardEntry(_EntryBase):
+class MarkovRewardEntry(EntryBase):
     """A state's (``target_id``) cost per cycle and utility weight per year."""
 
     attribute: str = "reward"
@@ -54,7 +54,7 @@ class MarkovRewardSet(_Base):
     entries: list[MarkovRewardEntry] = Field(default_factory=list)
 
 
-class MarkovStartEntry(_EntryBase):
+class MarkovStartEntry(EntryBase):
     attribute: str = "start"
     proportion: float = Field(ge=0.0, le=1.0)
 

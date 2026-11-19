@@ -10,6 +10,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="System Dynamics (stock-and-flow) operations.", no_args_is_help=True)
@@ -100,7 +101,7 @@ def set_equation(
     target: str = typer.Argument(..., help="Flow or auxiliary: ID, ID prefix, or label."),
     expression: str = typer.Argument(..., help="e.g. 'water * drain_rate' (names are slugified labels)."),
     units: str = typer.Option(..., "--units", "-u", help="Result units, e.g. 'liter/year' or 'dimensionless'."),
-    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     source: str | None = typer.Option(None, "--source", help="Source ID."),
 ) -> None:
     """Set a flow's or auxiliary's equation.
@@ -112,12 +113,10 @@ def set_equation(
     stock's units per time unit.
     """
     from latris.operations import sd as sd_ops
-    from latris.operations._sd_eval import parse, slugify
 
     entry, sha = sd_ops.set_equation(target, expression, units, origin=origin, source_id=source)
     if json_mode():
-        by_name = {slugify(label): label for label in _labels().values()}
-        reads = {n: by_name.get(n, n) for n in sorted(parse(entry.expression).names)}
+        reads = sd_ops.equation_reads(entry.expression)
         emit({**entry.model_dump(mode="json"), "reads": reads}, human=lambda: None, commit_sha=sha)
         return
     console.print(
@@ -162,7 +161,7 @@ def set_initial_value(
     value: float = typer.Argument(..., help="Value at the initial time."),
     units: str = typer.Option(..., "--units", "-u", help="Stock units, e.g. 'liter' or 'person'."),
     non_negative: bool = typer.Option(False, "--non-negative", help="Warn if a run drives this stock below zero."),
-    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     source: str | None = typer.Option(None, "--source", help="Source ID."),
 ) -> None:
     """Set a stock's initial value."""
@@ -214,7 +213,7 @@ def set_constant(
     target: str = typer.Argument(..., help="Constant: ID, ID prefix, or label."),
     value: float = typer.Argument(..., help="The constant's value."),
     units: str = typer.Option(..., "--units", "-u", help="Units, e.g. '1/year' or 'dimensionless'."),
-    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     source: str | None = typer.Option(None, "--source", help="Source ID."),
 ) -> None:
     """Set a constant's value."""
@@ -264,7 +263,7 @@ def set_table(
     x_units: str = typer.Option(..., "--x-units", help="Units of the TABLE() input."),
     y_units: str = typer.Option(..., "--y-units", help="Units of the TABLE() output."),
     extrapolate: str = typer.Option("clamp", "--extrapolate", help="Outside the points: 'clamp' or 'linear'."),
-    origin: str = typer.Option("human-elicited", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-elicited", "--origin", help=ORIGIN_HELP),
     source: str | None = typer.Option(None, "--source", help="Source ID."),
 ) -> None:
     """Set the piecewise-linear lookup a flow/auxiliary calls as TABLE(x).
@@ -554,7 +553,7 @@ def set_scenario(
         "Comparisons measure this scenario against it (e.g. a delayed option extends the undelayed one)."),
     reason: str = typer.Option("", "--reason", help="Why these values (assumption, policy, source)."),
     source: str | None = typer.Option(None, "--source", help="Source ID backing the values."),
-    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
 ) -> None:
     """Save a named what-if: the model with some constants or initial values changed.
 
@@ -643,7 +642,7 @@ def set_uncertainty(
     scale: float | None = typer.Option(None, "--scale", help="Gamma scale."),
     reason: str = typer.Option("", "--reason", help="Why this range (e.g. 'inventory reports 90–140')."),
     source: str | None = typer.Option(None, "--source", help="Source ID backing the range."),
-    origin: str = typer.Option("human-direct", "--origin", help="Provenance origin."),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
 ) -> None:
     """Say how uncertain a constant or initial value is, as a distribution in its own units.
 

@@ -32,13 +32,20 @@ def _settings(raw: dict[str, Any]) -> dict[str, Any]:
 
 def run_analysis(a: SpecAnalysis, *, root: Path | None = None) -> str:
     """Run and record one analysis; returns the run id."""
+    paths = require_project(root)
     from latris.operations import formalisms
 
-    paths = require_project(root)
     rk = formalisms.for_analysis(a.kind)
     if rk:
         return rk.run(a, paths.root)
     raise ValueError(f"unknown analysis kind {a.kind!r}")
+
+
+def _what_if(payload: dict[str, Any]) -> list[str]:
+    for sc in payload.get("scenarios", [])[1:]:
+        if sc["name"] == "what-if":
+            return [f"{o['label']}={o['value']!r} {o['units']}" for o in sc.get("overrides", [])]
+    return []
 
 
 def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
@@ -50,9 +57,9 @@ def definitions(*, root: Path | None = None) -> list[SpecAnalysis]:
     out: list[SpecAnalysis] = []
     results = sorted((r for r in report_results(root=paths.root) if not r.stale), key=lambda r: r.run.id)
     for r in results:
-        p, kind = r.payload, r.run.result_kind
+        h, p, kind = r.run.hyperparameters, r.payload, r.run.result_kind
         found = formalisms.result_kind(kind)
         if found:
             rk = found[1]
-            out.append(rk.run_definition(p, r.run) if rk.run_definition else rk.definition(p))
+            out.append(rk.definition(p, h) if rk.definition_reads_run else rk.definition(p))
     return out

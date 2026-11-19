@@ -1,0 +1,815 @@
+{
+ "model_type": "sd",
+ "factors": [
+  {
+   "label": "Vehicle Emissions",
+   "description": "Total pollutant output from road transport including PM2.5, NOx, and CO.",
+   "sources": [
+    "who2021",
+    "chen2022"
+   ]
+  },
+  {
+   "label": "Air Quality Index",
+   "description": "Composite measure of ambient air pollution concentration."
+  },
+  {
+   "label": "Respiratory Health",
+   "description": "Population-level respiratory morbidity and mortality rates."
+  },
+  {
+   "label": "Green Infrastructure",
+   "kind": "concept"
+  },
+  {
+   "label": "Transport Policy",
+   "kind": "decision"
+  },
+  {
+   "label": "Service Outage"
+  },
+  {
+   "label": "Grid Failure"
+  },
+  {
+   "label": "Cyber Attack"
+  },
+  {
+   "label": "Clinic Visits"
+  },
+  {
+   "label": "PM2.5 Load"
+  },
+  {
+   "label": "Emission"
+  },
+  {
+   "label": "Dispersal"
+  },
+  {
+   "label": "Emission Rate"
+  },
+  {
+   "label": "Dispersal Rate"
+  },
+  {
+   "label": "Urban Sources"
+  },
+  {
+   "label": "Regional Air"
+  },
+  {
+   "label": "Stagnation Effect"
+  },
+  {
+   "label": "Reference Load"
+  },
+  {
+   "label": "Perceived Load"
+  },
+  {
+   "label": "Perception Delay"
+  },
+  {
+   "label": "Winter Inversion"
+  },
+  {
+   "label": "One Year"
+  },
+  {
+   "label": "Industrial Emissions",
+   "description": "Pollutant output from industrial point sources including factories and power plants."
+  },
+  {
+   "label": "Atmospheric Dispersion",
+   "kind": "concept",
+   "description": "The process by which pollutants spread through the atmosphere via wind, turbulence, and chemical reactions."
+  },
+  {
+   "label": "Receptor Exposure",
+   "description": "The concentration of pollutants experienced by human populations at ground level."
+  },
+  {
+   "label": "Peer support",
+   "kind": "concept"
+  },
+  {
+   "label": "Our local change",
+   "kind": "concept"
+  }
+ ],
+ "links": [
+  {
+   "from": "Vehicle Emissions",
+   "to": "Air Quality Index",
+   "polarity": "-",
+   "reason": "More vehicle emissions raise pollutant load, worsening the AQI.",
+   "weight": -0.7,
+   "confidence": "high",
+   "sources": [
+    "who2021"
+   ],
+   "contradicts": [
+    "dispersal2024"
+   ]
+  },
+  {
+   "from": "Air Quality Index",
+   "to": "Respiratory Health",
+   "polarity": "-",
+   "weight": -0.6
+  },
+  {
+   "from": "Green Infrastructure",
+   "to": "Air Quality Index",
+   "polarity": "+",
+   "weight": 0.5
+  },
+  {
+   "from": "Transport Policy",
+   "to": "Vehicle Emissions",
+   "kind": "decision_rule",
+   "polarity": "-",
+   "weight": -0.8
+  },
+  {
+   "from": "Green Infrastructure",
+   "to": "Respiratory Health"
+  },
+  {
+   "from": "Air Quality Index",
+   "to": "Clinic Visits"
+  },
+  {
+   "from": "Respiratory Health",
+   "to": "Clinic Visits"
+  },
+  {
+   "from": "Urban Sources",
+   "to": "Emission",
+   "kind": "flow"
+  },
+  {
+   "from": "Emission",
+   "to": "PM2.5 Load",
+   "kind": "flow"
+  },
+  {
+   "from": "PM2.5 Load",
+   "to": "Dispersal",
+   "kind": "flow"
+  },
+  {
+   "from": "Dispersal",
+   "to": "Regional Air",
+   "kind": "flow"
+  },
+  {
+   "from": "Emission Rate",
+   "to": "Emission"
+  },
+  {
+   "from": "Dispersal Rate",
+   "to": "Dispersal"
+  },
+  {
+   "from": "PM2.5 Load",
+   "to": "Stagnation Effect"
+  },
+  {
+   "from": "Reference Load",
+   "to": "Stagnation Effect"
+  },
+  {
+   "from": "Stagnation Effect",
+   "to": "Dispersal"
+  },
+  {
+   "from": "PM2.5 Load",
+   "to": "Perceived Load"
+  },
+  {
+   "from": "Perception Delay",
+   "to": "Perceived Load"
+  },
+  {
+   "from": "One Year",
+   "to": "Winter Inversion"
+  },
+  {
+   "from": "Industrial Emissions",
+   "to": "Atmospheric Dispersion",
+   "description": "Industrial stack emissions enter the atmosphere and undergo dispersion governed by meteorological conditions."
+  },
+  {
+   "from": "Atmospheric Dispersion",
+   "to": "Receptor Exposure",
+   "description": "Dispersion patterns determine ground-level concentrations at receptor locations."
+  },
+  {
+   "from": "Transport Policy",
+   "to": "Green Infrastructure",
+   "polarity": "+",
+   "reason": "More supportive transport policy increases green-infrastructure investment.",
+   "description": "Urban transport policies frequently mandate green corridors and tree planting along major roads to mitigate pollution exposure."
+  }
+ ],
+ "sources": [
+  {
+   "key": "who2021",
+   "title": "WHO Global Air Quality Guidelines 2021",
+   "authors": [
+    "World Health Organization"
+   ],
+   "year": 2021,
+   "doi": "10.1186/978-92-4-003422-8"
+  },
+  {
+   "key": "defra2023",
+   "title": "Air Quality Strategy for England",
+   "authors": [
+    "DEFRA"
+   ],
+   "year": 2023
+  },
+  {
+   "key": "dispersal2024",
+   "title": "Wind dispersal and local air quality (illustrative source)",
+   "year": 2024
+  },
+  {
+   "key": "chen2022",
+   "title": "Urban air quality modelling review",
+   "authors": [
+    "Chen, L.",
+    "Wang, S."
+   ],
+   "year": 2022
+  }
+ ],
+ "assumptions": [
+  {
+   "text": "Linear dose-response between emissions and AQI",
+   "rationale": "Simplification appropriate for policy-level modelling."
+  },
+  {
+   "text": "Indoor air quality is out of scope"
+  },
+  {
+   "text": "Polarity is uniformly negative at city-annual scale",
+   "target": "Vehicle Emissions -> Air Quality Index",
+   "rationale": "Simplification; spatial heterogeneity noted as caveat."
+  },
+  {
+   "text": "Atmospheric dispersion follows Gaussian plume behaviour.",
+   "target": "Atmospheric Dispersion",
+   "rationale": "Standard assumption in regulatory air quality modelling."
+  },
+  {
+   "text": "Linear dose-response relationship",
+   "target": "Vehicle Emissions",
+   "rationale": "Surfaced by AttackThisModel: The model assumes a linear relationship between emission volumes and health outcomes. Epidemiological evidence suggests threshold effects and non-linear exposure-response curves, particularly for PM2.5 at low concentrations."
+  },
+  {
+   "text": "Policy mandates are funded, not merely aspirational.",
+   "target": "Transport Policy -> Green Infrastructure",
+   "rationale": "Unfunded mandates rarely produce infrastructure on the ground."
+  }
+ ],
+ "questions": [
+  "Should we model seasonal variation in AQI?",
+  "Is green infrastructure effect direct or mediated?",
+  "Should we model non-linear dose-response for this pathway?",
+  "[high] No evidence for the emission-to-AQ mechanism. — Suggested: Attach epidemiological study on PM2.5 pathways.",
+  "[medium] Green Infrastructure effectiveness is assumed, not cited. — Suggested: Add urban ecology reference.",
+  "urban air quality emissions dispersion ventilation dose-response meta-analysis\n\nWhy: Need empirical control for ventilation regimes."
+ ],
+ "challenges": [
+  {
+   "argument": "The assumed negative polarity (more emissions -> worse air quality) may be too simplistic. Wind patterns and atmospheric mixing can decouple local emissions from local concentrations.",
+   "target": "Vehicle Emissions -> Air Quality Index"
+  }
+ ],
+ "decisions": [
+  {
+   "statement": "Exclude industrial emissions from initial scope",
+   "rationale": "Focus on transport for Phase 1; industrial sources added in Phase 2."
+  },
+  {
+   "statement": "Keep as single composite index rather than per-pollutant",
+   "rationale": "Per-pollutant split deferred to Phase 2.",
+   "target": "Air Quality Index"
+  }
+ ],
+ "sd": {
+  "settings": {
+   "time_units": "year",
+   "final_time": 10.0,
+   "dt": 0.05
+  },
+  "roles": [
+   {
+    "node": "PM2.5 Load",
+    "role": "stock"
+   },
+   {
+    "node": "Emission",
+    "role": "flow"
+   },
+   {
+    "node": "Dispersal",
+    "role": "flow"
+   },
+   {
+    "node": "Emission Rate",
+    "role": "constant"
+   },
+   {
+    "node": "Dispersal Rate",
+    "role": "constant"
+   },
+   {
+    "node": "Urban Sources",
+    "role": "source_sink"
+   },
+   {
+    "node": "Regional Air",
+    "role": "source_sink"
+   },
+   {
+    "node": "Stagnation Effect",
+    "role": "auxiliary"
+   },
+   {
+    "node": "Reference Load",
+    "role": "constant"
+   },
+   {
+    "node": "Perceived Load",
+    "role": "auxiliary"
+   },
+   {
+    "node": "Perception Delay",
+    "role": "constant"
+   }
+  ],
+  "stocks": [
+   {
+    "origin": "data-derived",
+    "node": "PM2.5 Load",
+    "value": 20.0,
+    "units": "tonne",
+    "non_negative": true
+   }
+  ],
+  "constants": [
+   {
+    "origin": "data-derived",
+    "node": "Emission Rate",
+    "value": 120.0,
+    "units": "tonne/year"
+   },
+   {
+    "origin": "human-elicited",
+    "node": "Dispersal Rate",
+    "value": 2.0,
+    "units": "1/year"
+   },
+   {
+    "origin": "human-direct",
+    "node": "Reference Load",
+    "value": 50.0,
+    "units": "tonne"
+   },
+   {
+    "origin": "human-direct",
+    "node": "Perception Delay",
+    "value": 18.0,
+    "units": "month"
+   }
+  ],
+  "equations": [
+   {
+    "origin": "human-direct",
+    "node": "Emission",
+    "expression": "emission_rate",
+    "units": "tonne/year"
+   },
+   {
+    "origin": "human-direct",
+    "node": "Stagnation Effect",
+    "expression": "TABLE(pm2_5_load / reference_load)",
+    "units": "dimensionless"
+   },
+   {
+    "origin": "human-direct",
+    "node": "Dispersal",
+    "expression": "pm2_5_load * dispersal_rate * stagnation_effect",
+    "units": "tonne/year"
+   },
+   {
+    "origin": "human-direct",
+    "node": "Perceived Load",
+    "expression": "SMOOTH(pm2_5_load, perception_delay)",
+    "units": "tonne"
+   }
+  ],
+  "tables": [
+   {
+    "origin": "human-elicited",
+    "node": "Stagnation Effect",
+    "points": [
+     [
+      0.0,
+      1.0
+     ],
+     [
+      1.0,
+      0.8
+     ],
+     [
+      2.0,
+      0.5
+     ]
+    ],
+    "x_units": "dimensionless",
+    "y_units": "dimensionless"
+   }
+  ],
+  "uncertainty": [
+   {
+    "origin": "human-direct",
+    "node": "Emission Rate",
+    "distribution": "triangular",
+    "params": {
+     "min": 90.0,
+     "mode": 120.0,
+     "max": 140.0
+    },
+    "reason": "Inventory reports 90–140 t/yr"
+   },
+   {
+    "origin": "human-direct",
+    "node": "Dispersal Rate",
+    "distribution": "lognormal",
+    "params": {
+     "mean": 2.0,
+     "sd": 0.4
+    },
+    "reason": "Wind-speed variability across years"
+   }
+  ],
+  "scenarios": [
+   {
+    "name": "Clean transport",
+    "set": [
+     "Emission Rate=6.5 tonne/month"
+    ],
+    "description": "Electrified buses and freight",
+    "reason": "Policy target: one-third cut",
+    "origin": "human-direct"
+   },
+   {
+    "name": "Street trees",
+    "set": [
+     "Dispersal Rate=2.4 1/year"
+    ],
+    "reason": "Canopy target raises dispersal by a fifth",
+    "origin": "human-direct"
+   },
+   {
+    "name": "Clean transport and trees",
+    "set": [
+     "Dispersal Rate=2.4 1/year"
+    ],
+    "extends": "Clean transport",
+    "reason": "Both measures together",
+    "origin": "human-direct"
+   }
+  ]
+ },
+ "bn": {
+  "states": [
+   {
+    "node": "Transport Policy",
+    "states": [
+     "lax",
+     "strict"
+    ]
+   },
+   {
+    "node": "Green Infrastructure",
+    "states": [
+     "low",
+     "high"
+    ],
+    "ordered": true
+   },
+   {
+    "node": "Vehicle Emissions",
+    "states": [
+     "low",
+     "high"
+    ],
+    "ordered": true
+   },
+   {
+    "node": "Air Quality Index",
+    "states": [
+     "good",
+     "moderate",
+     "poor"
+    ],
+    "ordered": true
+   },
+   {
+    "node": "Respiratory Health",
+    "states": [
+     "good",
+     "poor"
+    ]
+   },
+   {
+    "node": "Service Outage",
+    "states": [
+     "yes",
+     "no"
+    ]
+   },
+   {
+    "node": "Grid Failure",
+    "states": [
+     "yes",
+     "no"
+    ]
+   },
+   {
+    "node": "Cyber Attack",
+    "states": [
+     "yes",
+     "no"
+    ]
+   }
+  ],
+  "tables": [
+   {
+    "origin": "data-derived",
+    "source": "analysis-run_01M7PCJEE7GGRAAXNWDRWAT874",
+    "node": "Transport Policy",
+    "probabilities": [
+     0.5,
+     0.5
+    ]
+   },
+   {
+    "origin": "data-derived",
+    "source": "analysis-run_01M7PCJEE7GGRAAXNWDRWAT874",
+    "node": "Green Infrastructure",
+    "probabilities": [
+     0.5,
+     0.5
+    ]
+   },
+   {
+    "origin": "human-elicited",
+    "source": "who2021",
+    "node": "Vehicle Emissions",
+    "parents": [
+     "Transport Policy"
+    ],
+    "probabilities": [
+     0.3,
+     0.7,
+     0.8,
+     0.2
+    ]
+   },
+   {
+    "origin": "data-derived",
+    "source": "analysis-run_01M7PCJEE7GGRAAXNWDRWAT874",
+    "node": "Air Quality Index",
+    "parents": [
+     "Vehicle Emissions",
+     "Green Infrastructure"
+    ],
+    "probabilities": [
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333,
+     0.3333333333333333
+    ]
+   },
+   {
+    "origin": "human-elicited",
+    "node": "Respiratory Health",
+    "parents": [
+     "Air Quality Index",
+     "Green Infrastructure"
+    ],
+    "probabilities": [
+     0.9,
+     0.1,
+     0.93,
+     0.07,
+     0.75,
+     0.25,
+     0.8,
+     0.2,
+     0.45,
+     0.55,
+     0.55,
+     0.45
+    ]
+   },
+   {
+    "origin": "human-direct",
+    "node": "Grid Failure",
+    "probabilities": [
+     0.05,
+     0.95
+    ]
+   },
+   {
+    "origin": "human-direct",
+    "node": "Cyber Attack",
+    "probabilities": [
+     0.02,
+     0.98
+    ]
+   }
+  ],
+  "noisy_or": [
+   {
+    "origin": "human-elicited",
+    "node": "Service Outage",
+    "causes": [
+     {
+      "parent": "Grid Failure",
+      "active_state": "yes",
+      "probability": 0.8
+     },
+     {
+      "parent": "Cyber Attack",
+      "active_state": "yes",
+      "probability": 0.6
+     }
+    ],
+    "leak": 0.01,
+    "active": "yes"
+   }
+  ],
+  "uncertainty": [
+   {
+    "origin": "human-direct",
+    "node": "Respiratory Health",
+    "n": 10.0,
+    "reason": "Elicited from one clinician"
+   },
+   {
+    "origin": "human-direct",
+    "node": "Air Quality Index",
+    "n": 180.0,
+    "reason": "Learned from 180 monitoring rows"
+   }
+  ],
+  "scenarios": [
+   {
+    "name": "Street trees",
+    "tables": [
+     "Green Infrastructure=0.2,0.8"
+    ],
+    "reason": "Canopy programme: most districts reach high green infrastructure",
+    "origin": "human-direct"
+   },
+   {
+    "name": "Street trees and filters",
+    "extends": "Street trees",
+    "tables": [
+     "Air Quality Index[Vehicle Emissions=high]=0.5,0.35,0.15"
+    ],
+    "reason": "Roadside filters: high-emission streets get the air of low-emission ones",
+    "origin": "human-direct"
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "simulate",
+   "settings": {
+    "initial_time": 0.0,
+    "final_time": 10.0,
+    "dt": 0.05,
+    "time_units": "year",
+    "method": "euler"
+   },
+   "scenarios": [
+    "Clean transport"
+   ]
+  },
+  {
+   "kind": "compare",
+   "settings": {
+    "initial_time": 0.0,
+    "final_time": 10.0,
+    "dt": 0.05,
+    "time_units": "year",
+    "method": "euler"
+   },
+   "scenarios": [
+    "Clean transport",
+    "Street trees"
+   ],
+   "runs": 40,
+   "seed": 1234,
+   "sampling": "lhs",
+   "variable": "PM2.5 Load",
+   "metric": "total"
+  },
+  {
+   "kind": "monte_carlo",
+   "settings": {
+    "initial_time": 0.0,
+    "final_time": 10.0,
+    "dt": 0.05,
+    "time_units": "year",
+    "method": "euler"
+   },
+   "runs": 40,
+   "seed": 1234,
+   "sampling": "lhs",
+   "variables": [
+    "PM2.5 Load"
+   ]
+  },
+  {
+   "kind": "sensitivity",
+   "settings": {
+    "initial_time": 0.0,
+    "final_time": 10.0,
+    "dt": 0.05,
+    "time_units": "year",
+    "method": "euler"
+   },
+   "variable": "PM2.5 Load",
+   "metric": "final"
+  },
+  {
+   "kind": "loops",
+   "settings": {
+    "initial_time": 0.0,
+    "final_time": 10.0,
+    "dt": 0.05,
+    "time_units": "year",
+    "method": "euler"
+   }
+  },
+  {
+   "kind": "bn_query",
+   "evidence": {
+    "Transport Policy": "strict"
+   },
+   "query": [
+    "Respiratory Health"
+   ]
+  },
+  {
+   "kind": "bn_explain",
+   "evidence": {
+    "Respiratory Health": "poor"
+   }
+  },
+  {
+   "kind": "bn_monte_carlo",
+   "target": "Respiratory Health",
+   "state": "poor",
+   "evidence": {
+    "Transport Policy": "strict"
+   },
+   "runs": 200,
+   "seed": 1234
+  },
+  {
+   "kind": "bn_compare",
+   "target": "Respiratory Health",
+   "state": "poor",
+   "scenarios": [
+    "Street trees"
+   ],
+   "runs": 200,
+   "seed": 1234
+  },
+  {
+   "kind": "bn_sensitivity",
+   "target": "Respiratory Health",
+   "state": "poor"
+  }
+ ]
+}

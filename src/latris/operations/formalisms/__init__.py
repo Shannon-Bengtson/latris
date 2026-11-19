@@ -15,9 +15,8 @@ a static pydantic field), then write one module here and add it to the
 imports at the bottom. ``tests/operations/test_formalisms.py`` checks every
 stable type is fully wired.
 
-Every stable type is registered here. The causal maps (CLD, DAG, FCM)
-are ``qualitative.py``; SD's model type is ``sd.py`` and its five result
-kinds ``sd_results.py`` (analyses on ``sd`` that lead the report order).
+Every stable type is registered: the causal types (CLD, DAG, FCM) from ``causal.py``, whose shared
+interpretation, readiness and diagram code reads their declared fields rather than their names.
 
 Hooks import their operations lazily, so importing this package is cheap and
 can't create import cycles.
@@ -32,6 +31,28 @@ from typing import Any
 
 Claims = Callable[[Any, str], list[str]]  # (paths, section) → claims; sections below
 CLAIM_SECTIONS = ("structure", "answer", "gaps", "implications", "sensitivity")
+
+
+@dataclass(frozen=True)
+class ChatTool:
+    """How a chat assistant runs an analysis: a tool of its own, which latris-app generates from the surface
+    manifest (``latris capabilities --surface``). Its options are the analysis's build-spec model
+    (``schema/build_spec.py``), whose field descriptions document them."""
+
+    name: str  # e.g. "query_bn", "analyse_mcda"
+    description: str  # what it answers and when to reach for it; mention options by their spec names
+
+
+@dataclass(frozen=True)
+class ChatOp:
+    """How a chat assistant writes part of a formalism's build-spec block: one operation, which latris-app
+    generates from the surface manifest. ``fields`` names block fields: one field holding a list of entries
+    gives an operation that adds or updates one entry (its fields are the entry's); anything else gives an
+    operation that sets those fields' values. It is applied as a partial ``build --spec``."""
+
+    name: str  # e.g. "set_mcda_score"
+    fields: tuple[str, ...]
+    description: str
 
 
 @dataclass(frozen=True)
@@ -54,16 +75,21 @@ class ResultKind:
     # payload → what this run was of, for its heading ("given Hot week = yes"), so repeated
     # headings say which run is which.
     subtitle: Callable[[dict[str, Any]], str] | None = None
-    # A run of this kind drops out of reports once a later run of the same kind covers all its scenarios
-    # (a simulation of baseline + A is superseded by baseline + A + B).
-    superseded_by_wider: bool = False
-    # recorded AnalysisRun → True when the run includes an unsaved what-if (the handover check flags it).
-    unsaved_what_if: Callable[[Any], bool] | None = None
-    # payload → the heading's title when it depends on the run ("Sensitivity of Inflow"); else ``title``.
+    # Every chart kind ``charts`` may emit, declared so surfaces that draw them (the app) can be checked
+    # against the library without running anything. Required when ``charts`` is set.
+    chart_kinds: tuple[str, ...] = ()
+    # The run reads a dataset (``latris data``), not only the model: a share link can't re-run it.
+    needs_dataset: bool = False
+    # ``definition`` also needs the run's hyperparameters (e.g. SD's clock and saved scenario names, which
+    # older payloads don't hold): it is then called as ``definition(payload, hyperparameters)``.
+    definition_reads_run: bool = False
+    # payload → the result's heading, when it depends on the run ("Sensitivity of PM2.5 Load"); else ``title``.
     title_for: Callable[[dict[str, Any]], str] | None = None
-    # (payload, recorded AnalysisRun) → SpecAnalysis, for kinds whose run settings live on the run
-    # (its hyperparameters) rather than in the payload; preferred over ``definition`` when set.
-    run_definition: Callable[[dict[str, Any], Any], Any] | None = None
+    # The chat tool that runs it (every result kind declares one; the app leaves out those needing a dataset).
+    tool: ChatTool | None = None
+    # A newer run over the same or a wider scope replaces it in reports (a simulation of the whole model
+    # supersedes an older one of part of it); otherwise reports keep the latest run per analysis key.
+    superseded_by_wider: bool = False
 
 
 @dataclass(frozen=True)
@@ -89,43 +115,12 @@ class Formalism:
     outcome_role: str | None
     outcome_refusal: str
     outcome_ids: Callable[[Any], set[str]]  # paths → ids of the outcome(s) of interest
-    # (target, root): give the outcome its role — or, with no ``outcome_role``, store it outside the roles
-    # (SD keeps it with its settings, since its roles are one per factor).
-    set_outcome: Callable[[str, Path], Any] | None = None
+    set_outcome: Callable[[str, Path], Any] | None = None  # (target, root): give the outcome its role
 
     # ── readiness ──
     structure_problems: Callable[[Path], list[Any]] | None = None  # root → problems (target_id, gap_type, message)
     validators: dict[str, tuple[str, ...]] = field(default_factory=dict)  # validator name → gap types it reports
     whole_label: str = "(model)"  # how a problem about the whole model is labelled
-    # Does the model live on a connected causal network? Matrix types (MCDA, ACH) and event trees don't:
-    # their factors are options, criteria, hypotheses, evidence, headings and end states, with no links.
-    # Build's "one connected network" gate leaves their elements out (all of it when every type is one).
-    connected_structure: bool = True
-
-    # ── what the type is made of (``operations/membership.py``) ──
-    whole_map: bool = False  # the causal maps: every factor and link of the map
-    computes_on: Callable[[Any], set[str]] | None = None  # paths → the factors a quantified type computes on
-    # (gap type, message) when a quantified type sharing a map has no factors yet (its readiness gap).
-    empty_scope_gap: tuple[str, str] | None = None
-
-    # ── wording ──
-    source_label: str | None = None  # how a pooled claim names this type ("Simulation: …"); default the id
-    scope_noun: str | None = None  # what the type's own factors are called in claims ("the simulation has …")
-    feedback_claims: bool = False  # loop claims (mechanisms, longest loop, participation) — the causal maps
-    feedback_through_stocks: bool = False  # feedback runs through stocks, so it never shows as a causal cycle
-    # Finding categories, most telling first, for the key findings section.
-    finding_priority: tuple[str, ...] = ("inference", "dynamics", "sensitivity", "structure")
-    diagram_direction: str = "LR"  # the generic sketch's direction (a DAG reads top to bottom)
-    # The value a link carries in this type, and how it's described to the AI: (attribute, description) —
-    # a CLD's polarity, an FCM's weight. Diagrams label links with it when it's the polarity.
-    link_attribute: tuple[str, str] | None = None
-    # The model's name in the handover check, which reports its structure problems ("the Bayesian
-    # network doesn't pass its check"), with the command that lists them; None: not checked there.
-    handover_name: str | None = None
-    handover_command: str | None = None
-
-    # ── scenarios (staleness of results that ran them) ──
-    scenario_store: str | None = None  # module with ``load(paths).scenarios`` (sd_scenarios, bn_scenarios)
 
     # ── interpretation ──
     claims: Claims | None = None
@@ -142,6 +137,30 @@ class Formalism:
     spec_check: Callable[[Any, Callable[[str], bool], str | None], list[str]] | None = None  # (block, known, outcome)
     spec_apply: Callable[[Any, str, Path], int] | None = None  # (block, verified_by, root) → values set
     spec_export: Callable[[Any, dict[str, str]], Any] | None = None  # (paths, labels) → block or None
+    # (block, root) → what applying it tells the author, e.g. which factors each SD equation reads; returned
+    # by ``build`` as ``info`` (not ``notes``, which say what failed).
+    spec_info: Callable[[Any, Path], list[str]] | None = None
+    # How chat writes the block: an operation per part of it (every block field covered by one).
+    chat_ops: tuple[ChatOp, ...] = ()
+
+    # ── how shared code treats it (declared here rather than branching on the type's name) ──
+    scope_noun: str | None = None  # what its own factors are called in claims ("simulation", "network")
+    loop_claims: bool = False  # feedback-loop claims (polarity, loop participation) mean something here
+    acyclicity_claims: bool = False  # the structure claims confirm (or deny) that it is acyclic
+    findings_priority: tuple[str, ...] | None = None  # finding categories in the order its claims rank them
+    feedback_via_stocks: bool = False  # feedback runs through stocks (flows), never a causal-edge cycle
+    # paths → the factors it computes on (a quantified type sharing its map with a loop map)
+    parameterised_nodes: Callable[[Any], set[str]] | None = None
+    scenario_store: str | None = None  # module holding its saved scenarios (load(paths).scenarios)
+    diagram_direction: str = "LR"  # the generic diagram's layout: "LR" or "TB"
+    polarity_labels: bool = False  # its links are labelled with their polarity (+/−) in diagrams
+    whole_map: bool = False  # it is the project's whole map (the causal types), not factors given a role in it
+    connected_structure: bool = True  # it lives on links; False for MCDA, ACH, event trees (elements, no links)
+    # (attribute, how the AI is told to fill it): the value each link carries in this type, e.g. polarity
+    link_attribute: tuple[str, str] | None = None
+    # (gap type, message): readiness when nothing has joined it yet, for a type sharing the map
+    empty_scope_gap: tuple[str, str] | None = None
+    source_label: str | None = None  # how a claim pooled from several types names this one ("Network")
 
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""
@@ -155,14 +174,20 @@ class Formalism:
 
 FORMALISMS: dict[str, Formalism] = {}
 ANALYSES: list[Analysis] = []
-# Analyses that lead the report order — SD's results, which came first before SD's results moved here.
-LEADING: list[Analysis] = []
+
+
+def _check_declared(new: list[ResultKind]) -> None:
+    for r in new:
+        if bool(r.charts) != bool(r.chart_kinds):
+            raise ValueError(f"result kind {r.kind!r}: declare chart_kinds exactly when it has a charts hook")
 
 
 def _refuse_clash(new: list[ResultKind]) -> None:
     kinds = {r.kind for r in result_kinds()}
     analyses = {r.analysis for r in result_kinds()}
-    clash = (kinds & {r.kind for r in new}) | (analyses & {r.analysis for r in new})
+    tools = {r.tool.name for r in result_kinds() if r.tool}
+    clash = ((kinds & {r.kind for r in new}) | (analyses & {r.analysis for r in new})
+             | (tools & {r.tool.name for r in new if r.tool}))
     if clash:
         raise ValueError(f"result or analysis kind(s) {sorted(clash)} already registered")
 
@@ -170,14 +195,16 @@ def _refuse_clash(new: list[ResultKind]) -> None:
 def register(f: Formalism) -> Formalism:
     if f.model_type in FORMALISMS:
         raise ValueError(f"formalism {f.model_type!r} registered twice")
+    _check_declared(list(f.results))
     _refuse_clash(list(f.results))
     FORMALISMS[f.model_type] = f
     return f
 
 
-def register_analysis(a: Analysis, *, lead: bool = False) -> Analysis:
+def register_analysis(a: Analysis) -> Analysis:
+    _check_declared([a.result])
     _refuse_clash([a.result])
-    (LEADING if lead else ANALYSES).append(a)
+    ANALYSES.append(a)
     return a
 
 
@@ -190,13 +217,10 @@ def all_formalisms() -> list[Formalism]:
 
 
 def _owned() -> list[tuple[str, ResultKind]]:
-    """Every registered result kind with the model type it belongs to — leading analyses (SD's), then
-    formalisms, then the other analyses. This is the order reports show results in."""
-    return (
-        [(a.model_type, a.result) for a in LEADING]
-        + [(f.model_type, r) for f in FORMALISMS.values() for r in f.results]
-        + [(a.model_type, a.result) for a in ANALYSES]
-    )
+    """Every registered result kind with the model type it belongs to — formalisms first, then analyses."""
+    return [(f.model_type, r) for f in FORMALISMS.values() for r in f.results] + [
+        (a.model_type, a.result) for a in ANALYSES
+    ]
 
 
 def result_kinds() -> list[ResultKind]:
@@ -212,13 +236,35 @@ def kind_model_types() -> dict[str, str]:
     return {r.kind: mt for mt, r in _owned()}
 
 
+def label(model_type: str) -> str:
+    """How a claim pooled from several model types names this one."""
+    f = get(model_type)
+    return f.source_label if f and f.source_label else model_type.upper()
+
+
+def quantified(model_type: str | None) -> bool:
+    """A type that computes on its own factors (parameters given to part of the map), e.g. SD, BN."""
+    f = get(model_type)
+    return bool(f and f.parameterised_nodes)
+
+
+def whole_map_types() -> tuple[str, ...]:
+    return tuple(f.model_type for f in FORMALISMS.values() if f.whole_map)
+
+
+def attribute_home(attribute: str) -> str | None:
+    """The model type whose links carry ``attribute`` (where its values are stored), e.g. polarity → cld."""
+    return next((f.model_type for f in FORMALISMS.values() if f.link_attribute and f.link_attribute[0] == attribute),
+                None)
+
+
 def fingerprint_files(model_type: str, paths: Any) -> list[Path]:
     """Inputs beyond structure, roles and parameters that this model type's results read."""
     out: list[Path] = []
     f = get(model_type)
     if f and f.fingerprint_files:
         out += f.fingerprint_files(paths)
-    for a in LEADING + ANALYSES:
+    for a in ANALYSES:
         if a.model_type == model_type and a.fingerprint_files:
             out += a.fingerprint_files(paths)
     return out
@@ -226,22 +272,6 @@ def fingerprint_files(model_type: str, paths: Any) -> list[Path]:
 
 def for_analysis(analysis: str) -> ResultKind | None:
     return next((r for r in result_kinds() if r.analysis == analysis), None)
-
-
-def label(model_type: str) -> str:
-    """How pooled claims name a model type."""
-    f = get(model_type)
-    return f.source_label if f and f.source_label else model_type.upper()
-
-
-def quantified() -> tuple[str, ...]:
-    """Types that compute on part of the map (their factors join when parameterised)."""
-    return tuple(f.model_type for f in FORMALISMS.values() if f.computes_on)
-
-
-def whole_map_types() -> tuple[str, ...]:
-    """The causal maps — whole-map types every other type can share a map with."""
-    return tuple(f.model_type for f in FORMALISMS.values() if f.whole_map)
 
 
 def claims(model_type: str, paths: Any, section: str) -> list[str]:
@@ -271,12 +301,9 @@ def default_origin(verified_by: str) -> str:
 # Registration order is the order commands, routes and report sections appear in — kept explicit here
 # (not as import statements, which formatters re-sort).
 _MODULES = (
-    "qualitative",  # CLD, DAG, FCM — the causal maps every other type can share
-    "sd_results",  # SD's result kinds, registered as leading analyses so they head the report order
-    "sd",
-    "bn",
+    "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov", "toc_impact",
+    "markov", "toc_impact", "causal",
 )
 
 

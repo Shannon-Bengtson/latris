@@ -15,7 +15,8 @@ Reports have two surfaces, and the boundary between them is deliberate:
   markers that name a run and a chart kind. Everything here is plain text
   and renders anywhere.
 - **The app (`latris-app`, `latris_present`) owns the glossy surface.** The
-  typeset SVG figure (`figure/`), the SVG chart renderers (`charts.py`),
+  typeset SVG figure (`figure/`), the SVG chart renderers (`charts/`), both
+  dispatched per model type through `presenters/` (one module per type),
   the hosted report page and the Word export. Anything that isn't Markdown
   or Mermaid happens there, reached through the share link — the link is
   the hook that brings the reader into the app.
@@ -65,6 +66,35 @@ Markers per result kind:
 
 Markov and ITS payloads already record the series these charts need; no
 payload changes for them.
+
+Each `ResultKind` with a `charts` hook also **declares** `chart_kinds` —
+every kind the hook may emit — and `needs_dataset` when the run reads a
+dataset. Registration refuses a `charts` hook without `chart_kinds`, and
+`tests/testing/test_examples.py` checks the declaration against what the
+`latris.testing` example projects actually emit, both ways. `analysis_results.result_surfaces()` lists every kind, all from the registry
+(SD's included, since it became a plugin).
+
+## The contract apps test against
+
+The app doesn't copy lists or payloads from here:
+
+- **`latris capabilities --surface`** (`build_surface_manifest()`): per
+  stable model type, whether it's a plugin, its outcome role, its
+  build-spec block and that block's JSON schema, its CLI group, and its
+  result kinds with their analysis, chart kinds and `needs_dataset`.
+  `manifest_version` changes only when a key is removed or changes meaning.
+- **`latris.testing`**: one example project per model type, shipped in the
+  wheel (`examples/*.json` build specs plus small CSVs).
+  `build_example(name, root)` builds one; `example_payloads(workdir)`
+  builds all and returns every recorded payload by result kind. Together
+  they record every result kind (tested), so the app can render each one
+  against the pinned release instead of copies that drift.
+- **`exporters.markdown.diagram_sections(paths, model_type=None)`**: what
+  each diagram in the report's Diagram section draws (model type, or
+  `WHOLE_MODEL`, and its `###` heading), in order. `render` composes the
+  section from the same function, so a surface that draws its own figure
+  per diagram (hosted page, Word, review pack) shows exactly the report's
+  diagrams.
 
 ## The aggregate report
 

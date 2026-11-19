@@ -13,7 +13,7 @@ from latris.operations._attribute_helpers import upsert_entry
 from latris.operations._resolve import resolve_target
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import Substrate
 from latris.schema.model_types import get_model_type
 from latris.schema.roles import RoleEntry, RoleSet
@@ -33,11 +33,16 @@ def set_role(
     from latris.operations import formalisms
 
     plugin = formalisms.get(model_type)
-    if plugin and role == "outcome" and plugin.outcome_role != "outcome":  # "outcome" as a role: set below
-        if plugin.set_outcome and plugin.outcome_role is None:
-            # Kept outside the roles (SD: with its settings, since its roles are one per factor).
-            return plugin.set_outcome(target, require_project(root).root)
+    if plugin and role == "outcome":
+        if plugin.outcome_role == "outcome" and plugin.set_outcome:  # the type keeps its outcome its own way
+            return plugin.set_outcome(target, root)
         raise ValueError(plugin.outcome_refusal)
+    return assign_role(target, model_type, role, root=root)
+
+
+def assign_role(target: str, model_type: str, role: str, *, root: Path | None = None) -> tuple[str, str]:
+    """Write a role (checked against the type's allowed roles), without asking the type's plugin first —
+    what a plugin's own ``set_outcome`` uses when its outcome is an ordinary role (the causal types)."""
     spec = get_model_type(model_type)
     if spec.allowed_roles and role not in spec.allowed_roles:
         raise ValueError(f"{role!r} is not a valid role for {spec.display_name}. Valid: {spec.allowed_roles}")
@@ -50,7 +55,7 @@ def set_role(
     # Ensure the roles directory exists on first write.
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    store = load_model(RoleSet, file_path) if file_path.exists() else RoleSet()
+    store = load_model_or_default(RoleSet, file_path)
     upsert_entry(
         store,
         target_id,
@@ -77,6 +82,6 @@ def get_roles(
     """Load all role assignments for a model type."""
     paths = require_project(root)
     file_path = paths.role_path(model_type)
-    return load_model(RoleSet, file_path) if file_path.exists() else RoleSet()
+    return load_model_or_default(RoleSet, file_path)
 
 

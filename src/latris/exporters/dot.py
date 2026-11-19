@@ -16,7 +16,7 @@ from typing import Literal
 
 from latris.exporters._scope import view_member_ids
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import PolaritySet, Substrate
 
 ViewKind = Literal["system_map", "cld", "dag"]
@@ -29,8 +29,10 @@ def _dot_escape(text: str) -> str:
 
 def render(paths: ProjectPaths, view: ViewKind = "system_map") -> str:
     substrate = load_model(Substrate, paths.conceptual_yaml)
-    pol_path = paths.view_attribute_path("cld", "polarity")
-    pol_set = load_model(PolaritySet, pol_path) if pol_path.exists() else PolaritySet()
+    from latris.operations import formalisms
+
+    home = formalisms.attribute_home("polarity")  # the type whose links carry polarity (the loop map)
+    pol_set = load_model_or_default(PolaritySet, paths.view_attribute_path(home, "polarity")) if home else PolaritySet()
     polarity = {(e.target_id, e.attribute): e for e in pol_set.entries}
 
     # Filter by mappings if any exist for this view.
@@ -72,7 +74,7 @@ def render(paths: ProjectPaths, view: ViewKind = "system_map") -> str:
 
     # Edges
     for e in edges:
-        if plugin and plugin.link_attribute and plugin.link_attribute[0] == "polarity":
+        if plugin and plugin.polarity_labels:
             pol = polarity.get((e.id, "polarity"))
             edge_label = pol.value if pol else ""
             attrs = f'label="{_dot_escape(edge_label)}"' if edge_label else ""

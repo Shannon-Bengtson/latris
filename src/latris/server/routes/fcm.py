@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import analysis as analysis_ops
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model_or_default
 from latris.schema import FloatSet
 from latris.schema.settings import FCMSettings
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/fcm", tags=["fcm"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 @router.get("/weights")
@@ -24,7 +22,7 @@ def get_weights(root: Root) -> dict[str, Any]:
     """Return all FCM edge weights with provenance."""
     paths = ProjectPaths(root)
     weight_path = paths.view_attribute_path("fcm", "weight")
-    store = load_model(FloatSet, weight_path) if weight_path.exists() else FloatSet()
+    store = load_model_or_default(FloatSet, weight_path)
     return {
         "weights": [
             {

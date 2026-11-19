@@ -192,7 +192,6 @@ def set_uncertainty(
     s = unc.load(paths)
     s.entries = [e for e in s.entries if not (e.target_id == t["id"] and e.parameter_cell_id == t["cell"])] + [entry]
     path = paths.parameter_uncertainty_yaml
-    path.parent.mkdir(parents=True, exist_ok=True)
     dump_model(s, path)
     pretty = ", ".join(f"{k}={v:.4g}" for k, v in entry.params.items())
     subject = f"Set uncertainty on {t['label']} ({t['quantity']}): {distribution}({pretty})"

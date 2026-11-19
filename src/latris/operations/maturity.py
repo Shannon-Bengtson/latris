@@ -24,7 +24,7 @@ from latris.operations._actor import author as _author
 from latris.operations._resolve import resolve_edge, resolve_edge_by_name, resolve_entity
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, iter_jsonl, load_model
+from latris.repo.yaml_io import dump_model, iter_jsonl, load_model, load_model_or_default
 from latris.schema import (
     EvidenceLinkSet,
     Finding,
@@ -96,7 +96,9 @@ def _set_maturity_in_findings(target_id: str, maturity: Maturity, paths) -> Path
             found = True
     if not found:
         return None
-    _rewrite_findings(records, paths.findings_jsonl)
+    from latris.repo.yaml_io import rewrite_jsonl
+
+    rewrite_jsonl(records, paths.findings_jsonl)
     return paths.findings_jsonl
 
 
@@ -227,7 +229,7 @@ def approve(
         signed_at=now_utc(),
         notes=notes,
     )
-    log = load_model(SignoffLog, paths.signoffs_yaml) if paths.signoffs_yaml.exists() else SignoffLog()
+    log = load_model_or_default(SignoffLog, paths.signoffs_yaml)
     log.entries.append(signoff)
     dump_model(log, paths.signoffs_yaml)
 
@@ -319,19 +321,6 @@ def compute_badges(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _rewrite_findings(records: list[Finding], path: Path) -> None:
-    """Atomically rewrite the findings JSONL file in place."""
-    import json
-
-    from ..repo.yaml_io import atomic_replace
-
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        for r in records:
-            f.write(json.dumps(r.model_dump(mode="json"), ensure_ascii=False) + "\n")
-    atomic_replace(tmp, path)
 
 
 __all__ = [

@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
     Formalism,
     ResultKind,
     _risk_mc,
@@ -78,19 +80,19 @@ def _claims(paths, section: str) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
+    from latris.exporters import md
     from latris.operations.bow_tie import describe, flags
 
     out = [describe(p) + ".", ""]
     if p.get("quantified"):
         fr = p["frequency"]
-        cons = "; ".join(f"{c} {_f(v)}" for c, v in fr["consequences"].items())
-        out += [f"Top-event frequency: **{_f(fr['top'])} per year** (layer of protection, barriers assumed "
+        cons = "; ".join(f"{c} {md.fmt(v)}" for c, v in fr["consequences"].items())
+        out += [f"Top-event frequency: **{md.fmt(fr['top'])} per year** (layer of protection, barriers assumed "
                 f"independent); consequences per year: {cons}.", ""]
     rows = [[ln["side"], ln["from"] + " → " + ln["to"], " → ".join(ln["barriers"]) or "—", str(ln["effective"])]
-            for ln in sorted(p["lines"], key=lambda ln: (ln["effective"], ln["side"]))[: _MAX_ROWS * 2]]
+            for ln in sorted(p["lines"], key=lambda ln: (ln["effective"], ln["side"]))[: md.MAX_ROWS * 2]]
     if rows:
-        out += _table(["Side", "Line", "Barriers", "Effective"], rows)
+        out += md.table(["Side", "Line", "Barriers", "Effective"], rows)
     f = flags(p)
     notes = [(f["unprotected"], "No effective barrier"), (f["single_barrier"], "Resting on one barrier"),
              (f["shared"], "Barriers on more than one line (one failure takes them all)"),
@@ -100,13 +102,13 @@ def _render(p: dict[str, Any]) -> list[str]:
     if any(items for items, _ in notes):
         out.append("")
     if p.get("quantified"):
-        rows = [[b["barrier"], b["side"], _f(b["pfd"]), _f(b["raw"]),
+        rows = [[b["barrier"], b["side"], md.fmt(b["pfd"]), md.fmt(b["raw"]),
                  (b["origin"] or "—") + (f" ({b['source']})" if b["source"] else "")
                  + ("; not verified" if b["weak"] else "")]
-                for b in p["barriers"] if b["side"] != "escalation control"][:_MAX_ROWS]
+                for b in p["barriers"] if b["side"] != "escalation control"][:md.MAX_ROWS]
         out += ["*RAW*: how many times more often the top event (prevention) or its consequences (mitigation) "
                 "would happen if the barrier always failed.", ""]
-        out += _table(["Barrier", "Side", "Failure probability", "RAW", "Where it came from"], rows)
+        out += md.table(["Barrier", "Side", "Failure probability", "RAW", "Where it came from"], rows)
     return out
 
 
@@ -238,10 +240,33 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="bowtie_analyse")
+    return make_analysis(kind="bowtie_analyse")
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'bt-analysis': ('analyse_bow_tie',
+        'Bow-tie: each prevention and mitigation line with its barriers, lines resting on one barrier or '
+        'none, shared barriers, uncontrolled escalation factors, and the top-event frequency from threat '
+        'frequencies and barrier failure probabilities. Recorded with a chart.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_bowtie_element', ('elements',),
+        'Make a factor the hazard, the top event, a threat, a consequence, a barrier or an escalation '
+        'factor.'),
+    ChatOp('set_bowtie_barrier', ('barriers',),
+        "A barrier's type, status, owner and probability of failure on demand, and its source."),
+    ChatOp('set_bowtie_frequency', ('frequencies',),
+        "A threat's frequency per year, with its source."),
+    ChatOp('set_bowtie_uncertainty', ('uncertainty',),
+        'An uncertainty on a frequency or failure probability; monte_carlo_bow_tie samples it.'),
+)
 
 register(Formalism(
     model_type="bow_tie",
@@ -266,13 +291,16 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback=("Give every threat a frequency and every barrier a failure probability to rank the "
                           "barriers by how much they buy."),
-    results=(ResultKind(kind="bt-analysis", title="Bow-tie: lines, barriers and frequencies", render=_render,
-                        analysis="bowtie_analyse", run=_run, definition=_definition),
+    results=(ResultKind(tool=ChatTool(*_TOOLS['bt-analysis']),
+                        kind="bt-analysis", title="Bow-tie: lines, barriers and frequencies", render=_render,
+                        analysis="bowtie_analyse", run=_run, definition=_definition,
+                        charts=lambda p: [("bt-lines", {})] if p.get("lines") else [], chart_kinds=("bt-lines",)),
              _risk_mc.result_kind("bow_tie")),
     spec_field="bowtie",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.bowtie_cmd", "bowtie"),
     routes="latris.server.routes.bowtie",

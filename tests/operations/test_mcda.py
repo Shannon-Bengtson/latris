@@ -183,7 +183,7 @@ def test_routes(built):
     assert c.get("/api/mcda/check").json()["ready"] is True
     r = c.post("/api/mcda/criterion", json={"node": "Travel time", "weight": 10})
     assert r.status_code == 200 and r.json()["result"]["direction"] == "lower"
-    assert c.post("/api/mcda/score", json={"option": "Cost", "criterion": "Cost", "value": 1}).status_code == 400
+    assert c.post("/api/mcda/score", json={"option": "Cost", "criterion": "Cost", "value": 1}).status_code == 422
     r = c.post("/api/mcda/analyse", json={"record": False}).json()
     assert r["commit_sha"] is None and r["result"]["ranking"]
 

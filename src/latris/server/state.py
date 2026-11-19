@@ -13,7 +13,7 @@ from latris.operations.references import load_library as load_ref_library
 from latris.perf import span
 from latris.repo import git
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import iter_jsonl, load_model
+from latris.repo.yaml_io import iter_jsonl, load_model, load_model_or_default
 from latris.schema import (
     AssumptionLog,
     ChallengeLog,
@@ -55,11 +55,11 @@ def _load_full_state(paths: ProjectPaths) -> dict[str, Any]:
     descriptions = load_model(DescriptionSet, paths.descriptions_yaml)
     confidence = load_model(ConfidenceSet, paths.confidence_yaml)
     polarity_path = paths.view_attribute_path("cld", "polarity")
-    polarity = load_model(PolaritySet, polarity_path) if polarity_path.exists() else PolaritySet()
+    polarity = load_model_or_default(PolaritySet, polarity_path)
     fcm_weight_path = paths.view_attribute_path("fcm", "weight")
-    fcm_weight = load_model(FloatSet, fcm_weight_path) if fcm_weight_path.exists() else FloatSet()
+    fcm_weight = load_model_or_default(FloatSet, fcm_weight_path)
     evidence = load_model(EvidenceLinkSet, paths.evidence_links_yaml)
-    data_links = load_model(DataLinkSet, paths.data_links_yaml) if paths.data_links_yaml.exists() else DataLinkSet()
+    data_links = load_model_or_default(DataLinkSet, paths.data_links_yaml)
 
     from latris.schema.provenance import ModelChoiceLog
 
@@ -86,7 +86,7 @@ def _load_full_state(paths: ProjectPaths) -> dict[str, Any]:
 
     # Datasets and versions.
     datasets = (
-        load_model(DatasetLibrary, paths.data_datasets_yaml) if paths.data_datasets_yaml.exists() else DatasetLibrary()
+        load_model_or_default(DatasetLibrary, paths.data_datasets_yaml)
     )
     versions = (
         load_model(DatasetVersionLibrary, paths.data_versions_yaml)
@@ -97,7 +97,7 @@ def _load_full_state(paths: ProjectPaths) -> dict[str, Any]:
     # Lineage: current version metadata only (full tree via /api/lineage/tree).
     lineage_node = load_model(LineageNode, paths.lineage_node_yaml) if paths.lineage_node_yaml.exists() else None
     milestone_log = (
-        load_model(MilestoneLog, paths.milestones_yaml) if paths.milestones_yaml.exists() else MilestoneLog()
+        load_model_or_default(MilestoneLog, paths.milestones_yaml)
     )
     try:
         current_branch = git.current_branch(paths.root)

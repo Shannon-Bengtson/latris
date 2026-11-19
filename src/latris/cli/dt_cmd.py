@@ -8,12 +8,12 @@ from rich.markup import escape
 from rich.table import Table
 
 from latris.cli._errors import handle_cli_errors
+from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit
 
 app = typer.Typer(help="Decision trees: the best choice under uncertainty, and what information is worth.",
                   no_args_is_help=True)
 console = Console()
-_ORIGINS = "human-direct | human-elicited | ai-proposed | data-derived | imported | mixed"
 
 
 def _sha(sha: str) -> str:
@@ -46,7 +46,7 @@ def branch(
     probability: float = typer.Option(None, "--probability", "-p", help="For a branch from a chance node."),
     value: float = typer.Option(None, "--value", help="Incurred along the branch (e.g. a cost, as a negative)."),
     source: str = typer.Option(None, "--source"),
-    origin: str = typer.Option(None, "--origin", help=_ORIGINS),
+    origin: str = typer.Option(None, "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(None, "--verified/--unverified", help="A person has checked the value."),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -57,7 +57,7 @@ def branch(
              "notes": notes}
     kwargs = {k: v for k, v in given.items() if v is not None}
     if verified is not None:
-        kwargs["verification"] = "human-verified" if verified else "unverified"
+        kwargs["verification"] = verification(verified)
     entry, sha = dt.set_branch(link, **kwargs)
     emit(entry, human=lambda: console.print(f"[green]set[/green] branch {escape(link)}: {', '.join(kwargs)} · "
                                             f"{_sha(sha)}"), commit_sha=sha)
@@ -69,7 +69,7 @@ def payoff(
     target: str = typer.Argument(..., help="A terminal node."),
     value: float = typer.Argument(..., help="Its value, in the tree's units."),
     source: str = typer.Option(None, "--source"),
-    origin: str = typer.Option("human-direct", "--origin", help=_ORIGINS),
+    origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
     verified: bool = typer.Option(False, "--verified"),
     notes: str = typer.Option(None, "--notes"),
 ) -> None:
@@ -77,7 +77,7 @@ def payoff(
     from latris.operations import decision_tree as dt
 
     entry, sha = dt.set_payoff(target, value, origin=origin, source_id=source, notes=notes,  # type: ignore[arg-type]
-                               verification="human-verified" if verified else "unverified")
+                               verification=verification(verified))
     emit(entry, human=lambda: console.print(f"[green]set[/green] payoff {escape(target)} = {value:g} · {_sha(sha)}"),
          commit_sha=sha)
 

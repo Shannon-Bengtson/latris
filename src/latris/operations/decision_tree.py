@@ -35,9 +35,9 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations._resolve import resolve_target
-from latris.operations.commit import auto_commit
+from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.decision_tree import (
@@ -57,43 +57,27 @@ _UNSET = object()
 _TOL = 1e-6
 
 
-def _path(paths, attr: str) -> Path:
-    return paths.view_attribute_path(MODEL_TYPE, attr)
-
-
-def _load(path: Path, cls):
-    return load_model(cls, path) if path.exists() else cls()
-
-
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
+_store = ViewStore(MODEL_TYPE, DT_ELEMENTS)
 
 
 def get_elements(*, root: Path | None = None) -> dict[str, str]:
-    from latris.schema.roles import RoleSet
-
-    paths = require_project(root)
-    p = paths.role_path(MODEL_TYPE)
-    if not p.exists():
-        return {}
-    return {e.target_id: e.value for e in load_model(RoleSet, p).entries if e.value in DT_ELEMENTS}
+    return _store.roles(root)
 
 
 def get_branches(*, root: Path | None = None) -> DTBranchSet:
-    return _load(_path(require_project(root), "branch"), DTBranchSet)
+    return _store.load(root, "branch", DTBranchSet)
 
 
 def get_payoffs(*, root: Path | None = None) -> DTPayoffSet:
-    return _load(_path(require_project(root), "payoff"), DTPayoffSet)
+    return _store.load(root, "payoff", DTPayoffSet)
 
 
 def get_chances(*, root: Path | None = None) -> DTChanceSet:
-    return _load(_path(require_project(root), "chance"), DTChanceSet)
+    return _store.load(root, "chance", DTChanceSet)
 
 
 def get_settings(*, root: Path | None = None) -> DTSettings:
-    return _load(_path(require_project(root), "settings"), DTSettings)
+    return _store.load(root, "settings", DTSettings)
 
 
 # ── writes ───────────────────────────────────────────────────────────
@@ -104,11 +88,7 @@ def _substrate(paths) -> Substrate:
 
 
 def _node(paths, target: str, element: str | None = None) -> tuple[str, str]:
-    sub = _substrate(paths)
-    tid = resolve_target(target, sub)
-    label = next((e.label for e in sub.entities if e.id == tid), None)
-    if label is None:
-        raise ValueError(f"{target!r} is a link, not a node")
+    tid, label = resolve_factor(paths, target, link_error=f"{target!r} is a link, not a node")
     if element:
         got = get_elements(root=paths.root).get(tid)
         if got != element:
@@ -157,13 +137,12 @@ def set_branch(
     if not changed:
         raise ValueError("nothing to set: give a label, probability, value, notes or source")
     entry = DTBranchEntry.model_validate({**(current.model_dump() if current else {"target_id": eid}), **changed})
-    store.entries = [b for b in store.entries if b.target_id != eid] + [entry]
-    p = _path(paths, "branch")
-    _dump(p, store)
+    replace_entry(store, entry)
     labels = {x.id: x.label for x in sub.entities}
-    sha = auto_commit(paths.root, subject=f"Set decision-tree branch {labels[e.from_id]} → {labels[e.to_id]}: "
-                                          f"{', '.join(changed)}",
-                      body=f"edge: {eid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()), paths=[p])
+    sha = _store.save(paths, "branch", store,
+        subject=f"Set decision-tree branch {labels[e.from_id]} → {labels[e.to_id]}: "
+            f"{', '.join(changed)}",
+        body=f"edge: {eid}\n" + "\n".join(f"{k}: {v}" for k, v in changed.items()))
     return entry, sha
 
 
@@ -182,11 +161,9 @@ def set_payoff(
     entry = DTPayoffEntry(target_id=tid, value=value, origin=origin, source_id=source_id, verification=verification,
                           notes=notes)
     store = get_payoffs(root=paths.root)
-    store.entries = [x for x in store.entries if x.target_id != tid] + [entry]
-    p = _path(paths, "payoff")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Set decision-tree payoff {label} = {value:g}",
-                      body=f"target: {tid}\nvalue: {value}\norigin: {origin}\nsource_id: {source_id}", paths=[p])
+    replace_entry(store, entry)
+    sha = _store.save(paths, "payoff", store, subject=f"Set decision-tree payoff {label} = {value:g}",
+        body=f"target: {tid}\nvalue: {value}\norigin: {origin}\nsource_id: {source_id}")
     return entry, sha
 
 
@@ -198,11 +175,9 @@ def set_uncertainty(target: str, name: str, *, root: Path | None = None) -> tupl
         raise ValueError("give the uncertainty a name")
     entry = DTChanceEntry(target_id=tid, uncertainty=name.strip())
     store = get_chances(root=paths.root)
-    store.entries = [x for x in store.entries if x.target_id != tid] + [entry]
-    p = _path(paths, "chance")
-    _dump(p, store)
-    sha = auto_commit(paths.root, subject=f"Decision-tree chance node {label} resolves {entry.uncertainty}",
-                      body=f"target: {tid}\nuncertainty: {entry.uncertainty}", paths=[p])
+    replace_entry(store, entry)
+    sha = _store.save(paths, "chance", store, subject=f"Decision-tree chance node {label} resolves {entry.uncertainty}",
+        body=f"target: {tid}\nuncertainty: {entry.uncertainty}")
     return entry, sha
 
 
@@ -216,10 +191,8 @@ def set_settings(*, objective: str | None = None, units: str | None = None,
     if units is not None:
         data["units"] = units or None
     s = DTSettings.model_validate(data)
-    p = _path(paths, "settings")
-    _dump(p, s)
-    sha = auto_commit(paths.root, subject=f"Decision-tree settings: {s.objective}"
-                                          + (f", {s.units}" if s.units else ""), body="", paths=[p])
+    sha = _store.save(paths, "settings", s, subject=f"Decision-tree settings: {s.objective}"
+            + (f", {s.units}" if s.units else ""), body="")
     return s, sha
 
 
@@ -474,8 +447,6 @@ def thresholds(t: Tree) -> list[dict[str, Any]]:
     return out
 
 
-def _weak(entry) -> bool:
-    return entry.verification != "human-verified" or entry.contested
 
 
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
@@ -506,7 +477,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         n = stack.pop()
         k = t.kind[n]
         if k == "terminal":
-            if _weak(t.payoffs[n]):
+            if t.payoffs[n].is_weak:
                 weak.append(f"payoff of {lab[n]}")
             continue
         kids = t.children[n]
@@ -518,7 +489,7 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         else:
             for e, c in kids:
                 b = t.branches[e]
-                if _weak(b):
+                if b.is_weak:
                     weak.append(f"P({t.uncertainty[n]} = {t.branch_label(e, c)})")
                 stack.append(c)
     payload["strategy"] = strategy

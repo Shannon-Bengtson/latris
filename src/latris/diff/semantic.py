@@ -8,17 +8,16 @@ makes `latris log/diff/status` readable.
 
 from __future__ import annotations
 
-import io
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
-from ruamel.yaml import YAML
 
 from latris.repo import git
-from latris.repo.yaml_io import load_model
+from latris.repo.layout import ProjectPaths
+from latris.repo.yaml_io import load_model, load_model_from_string
 from latris.schema import (
     AssumptionLog,
     ChallengeLog,
@@ -37,8 +36,6 @@ from latris.schema import (
     SignoffLog,
     Substrate,
 )
-
-_YAML_PARSER = YAML(typ="safe", pure=True)
 
 
 @dataclass
@@ -514,24 +511,29 @@ def _diff_references(
 
 # ---------- registry ----------
 
+def _rel(attr: str) -> str:
+    """A ``ProjectPaths`` path relative to the project root, posix (git's form)."""
+    return getattr(ProjectPaths(Path()), attr).as_posix()
+
+
 # Paths are stored as posix (forward-slash) to match git's output.
 DIFF_REGISTRY: list[tuple[str, type[BaseModel], Callable]] = [
-    ("project.yaml", ProjectFoundation, _diff_project),
-    ("substrate/conceptual.yaml", Substrate, _diff_substrate),
-    ("substrate/mappings.yaml", MappingRegistry, _diff_mappings),
-    ("substrate/attributes/descriptions.yaml", DescriptionSet, _diff_attribute_set),
-    ("substrate/attributes/confidence.yaml", ConfidenceSet, _diff_attribute_set),
-    ("substrate/attributes/polarity.yaml", PolaritySet, _diff_attribute_set),
-    ("substrate/attributes/evidence-links.yaml", EvidenceLinkSet, _diff_evidence),
-    ("ai/challenges.yaml", ChallengeLog, _diff_challenges),
-    ("research-base/references.yaml", ReferenceLibrary, _diff_references),
-    ("provenance/assumptions.yaml", AssumptionLog, _make_log_differ("assumption")),
-    ("provenance/decisions.yaml", DecisionLog, _make_log_differ("decision")),
-    ("provenance/signoffs.yaml", SignoffLog, _make_log_differ("signoff")),
-    ("provenance/sessions.yaml", SessionLog, _make_log_differ("session")),
-    ("provenance/questions.yaml", QuestionLog, _make_log_differ("question")),
-    ("provenance/exclusions.yaml", ExclusionLog, _make_log_differ("exclusion")),
-    ("provenance/predictions.yaml", PredictionLog, _make_log_differ("prediction")),
+    (_rel("project_yaml"), ProjectFoundation, _diff_project),
+    (_rel("conceptual_yaml"), Substrate, _diff_substrate),
+    (_rel("mappings_yaml"), MappingRegistry, _diff_mappings),
+    (_rel("descriptions_yaml"), DescriptionSet, _diff_attribute_set),
+    (_rel("confidence_yaml"), ConfidenceSet, _diff_attribute_set),
+    (_rel("polarity_yaml"), PolaritySet, _diff_attribute_set),
+    (_rel("evidence_links_yaml"), EvidenceLinkSet, _diff_evidence),
+    (_rel("challenges_yaml"), ChallengeLog, _diff_challenges),
+    (_rel("references_yaml"), ReferenceLibrary, _diff_references),
+    (_rel("assumptions_yaml"), AssumptionLog, _make_log_differ("assumption")),
+    (_rel("decisions_yaml"), DecisionLog, _make_log_differ("decision")),
+    (_rel("signoffs_yaml"), SignoffLog, _make_log_differ("signoff")),
+    (_rel("sessions_yaml"), SessionLog, _make_log_differ("session")),
+    (_rel("questions_yaml"), QuestionLog, _make_log_differ("question")),
+    (_rel("exclusions_yaml"), ExclusionLog, _make_log_differ("exclusion")),
+    (_rel("predictions_yaml"), PredictionLog, _make_log_differ("prediction")),
 ]
 
 
@@ -561,10 +563,7 @@ def _load_at(
     content = _file_at_commit(root, sha, relpath)
     if content is None:
         return None
-    data = _YAML_PARSER.load(io.StringIO(content))
-    if data is None:
-        data = {}
-    return model_cls.model_validate(data)
+    return load_model_from_string(model_cls, content)
 
 
 def _changed_files_between(root: Path, base: str, head: str) -> list[tuple[str, str]]:

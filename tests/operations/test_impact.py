@@ -160,10 +160,10 @@ def test_build_spec_report_share_link_cli_and_route(project):
     from latris.operations.interpret import extract_claims
     from latris.operations.share_link import export_spec
     from latris.repo.layout import ProjectPaths
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
     from latris.server.app import create_app
 
-    a = SpecAnalysis(kind="toc_impact", outcome="Attendance", dataset="monthly", time="month", at="2024-01-01",
+    a = make_analysis(kind="toc_impact", outcome="Attendance", dataset="monthly", time="month", at="2024-01-01",
                      columns={"Attendance": "attendance_rate"})
     assert for_analysis("toc_impact").run(a, project)
     md = render(ProjectPaths(project), model_type="theory_of_change", ai=False)
@@ -172,8 +172,9 @@ def test_build_spec_report_share_link_cli_and_route(project):
     answer = extract_claims("answer_to_question", "theory_of_change", root=project)
     assert any(c.startswith("Interrupted time series for Attendance") for c in answer)
     _, spec = export_spec(model_type="theory_of_change", root=project)
-    (again,) = [x for x in spec.analyses if x.kind == "toc_impact"]
-    assert (again.time, again.at, again.columns) == ("month", "2024-01-01", {"Attendance": "attendance_rate"})
+    assert not [x for x in spec.analyses if x.kind == "toc_impact"]  # reads a dataset: carried instead
+    (carried,) = [c for c in spec.carried_results if c.kind == "toc-impact"]
+    assert carried.datasets[0]["name"] == "monthly" and "Interrupted time series" in carried.summary
 
     r = CliRunner().invoke(app, ["toc", "impact", "Attendance", "--dataset", "diverging", "--time", "year",
                                  "--at", "2021", "--group", "arm", "--treated", "mentoring", "--no-record"])
@@ -183,7 +184,7 @@ def test_build_spec_report_share_link_cli_and_route(project):
     client = TestClient(create_app(project_root=project))
     r = client.post("/api/toc/impact", json={"outcome": "Attendance", "dataset": "panel", "time": "year",
                                              "at": 2021, "group": "arm", "record": False})
-    assert r.status_code == 400 and "--treated" in r.json()["detail"]
+    assert r.status_code == 422 and "--treated" in r.json()["detail"]
     r = client.post("/api/toc/impact", json={"outcome": "Attendance", "dataset": "panel", "time": "year",
                                              "at": 2021, "group": "arm", "treated": ["mentoring"]})
     assert r.status_code == 200 and r.json()["commit_sha"]

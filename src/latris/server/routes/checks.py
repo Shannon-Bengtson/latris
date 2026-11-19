@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from latris.operations import analysis as analysis_ops
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/checks", tags=["checks"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 @router.get("/coherence")

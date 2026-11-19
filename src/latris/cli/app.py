@@ -17,7 +17,6 @@ from latris.cli import (  # noqa: E402
     ai_cmd,
     analyse_cmd,
     attr_cmd,
-    bn_cmd,
     build_cmd,
     capabilities_cmd,
     challenge_cmd,
@@ -104,8 +103,7 @@ def _add_formalism_commands(app: typer.Typer) -> None:
             app.add_typer(importlib.import_module(module).app, name=name)
 
 
-app.add_typer(bn_cmd.app, name="bn")
-_add_formalism_commands(app)
+_add_formalism_commands(app)  # every formalism's own group (sd, bn, fcm, mcda, ft, …), from its plugin
 app.add_typer(results_cmd.app, name="results")
 app.add_typer(data_cmd.app, name="data")
 app.add_typer(lineage_cmd.app, name="version")
@@ -151,7 +149,8 @@ app.command("docs")(docs_cmd.docs)
 def doctor() -> None:
     """Check environment prerequisites (git binary, identity config)."""
     import shutil
-    import subprocess
+
+    from latris.repo import git as git_ops
 
     git = shutil.which("git")
     if not git:
@@ -160,19 +159,9 @@ def doctor() -> None:
     console.print(f"[green]git[/green]: {git}")
 
     try:
-        name = subprocess.run(
-            ["git", "config", "--global", "user.name"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
-        email = subprocess.run(
-            ["git", "config", "--global", "user.email"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
-    except OSError as exc:
+        name = git_ops.global_config("user.name")
+        email = git_ops.global_config("user.email")
+    except (OSError, git_ops.GitError) as exc:
         console.print(f"[red]could not run git: {exc}[/red]")
         raise typer.Exit(code=1) from exc
 

@@ -14,7 +14,7 @@ from pathlib import Path
 import latris.operations._activations  # noqa: F401
 from latris.operations.activation import ATTR_SET_MODELS
 from latris.repo.project import require_project
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import Substrate
 from latris.schema.model_types import (
     ModelTypeSpec,
@@ -154,7 +154,7 @@ def _check_state_space_defined(ctx: ValidationContext) -> list[ReadinessGap]:
     from latris.schema.bn import StateSpaceSet
 
     ss_path = ctx.paths.view_attribute_path(ctx.spec.id, "state_space")
-    store = load_model(StateSpaceSet, ss_path) if ss_path.exists() else StateSpaceSet()
+    store = load_model_or_default(StateSpaceSet, ss_path)
     have = {e.target_id for e in store.entries}
 
     nodes, _ = _bn_parent_map(ctx)
@@ -188,9 +188,9 @@ def _check_cpt_complete(ctx: ValidationContext) -> list[ReadinessGap]:
     ss_path = ctx.paths.view_attribute_path(ctx.spec.id, "state_space")
     cpt_path = ctx.paths.view_attribute_path(ctx.spec.id, "cpt")
     noisy_path = ctx.paths.view_attribute_path(ctx.spec.id, "noisy_or")
-    ss = load_model(StateSpaceSet, ss_path) if ss_path.exists() else StateSpaceSet()
-    cpts = load_model(CPTSet, cpt_path) if cpt_path.exists() else CPTSet()
-    noisy = load_model(NoisyOrSet, noisy_path) if noisy_path.exists() else NoisyOrSet()
+    ss = load_model_or_default(StateSpaceSet, ss_path)
+    cpts = load_model_or_default(CPTSet, cpt_path)
+    noisy = load_model_or_default(NoisyOrSet, noisy_path)
     ss_map = {e.target_id: e.states for e in ss.entries}
     cpt_map = {e.target_id: e for e in cpts.entries}
 
@@ -287,7 +287,7 @@ def _sd_problems(ctx: ValidationContext, categories: frozenset[str]) -> list[Rea
 
     def _load(cls, attribute: str):
         path = ctx.paths.view_attribute_path(ctx.spec.id, attribute)
-        return load_model(cls, path) if path.exists() else cls()
+        return load_model_or_default(cls, path)
 
     if "sd_problems" not in ctx.cache:
         ctx.cache["sd_problems"] = sd_inference.analyse(
@@ -562,7 +562,7 @@ def assess_readiness(
 
     # Load roles for this model type (empty if file doesn't exist yet).
     role_path = paths.role_path(spec.id)
-    roles = load_model(RoleSet, role_path) if role_path.exists() else RoleSet()
+    roles = load_model_or_default(RoleSet, role_path)
 
     ctx = ValidationContext(
         substrate=substrate,
@@ -952,7 +952,7 @@ def _assess_formalise_to_analyse(paths) -> TransitionStatus:
             continue
 
         roles_path = paths.role_path(spec.id)
-        roles = load_model(RoleSet, roles_path) if roles_path.exists() else RoleSet()
+        roles = load_model_or_default(RoleSet, roles_path)
         ctx = ValidationContext(
             substrate=substrate,
             view_entity_ids=list(entity_ids),

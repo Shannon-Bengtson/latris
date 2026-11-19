@@ -23,7 +23,7 @@ from latris.operations._resolve import resolve_target
 from latris.operations.bn_inference import BNInferenceResult, bn_infer
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import Substrate
 from latris.schema.bn import (
     CPTEntry,
@@ -57,17 +57,17 @@ def _noisy_or_path(paths):
 
 def _load_state_spaces(paths) -> StateSpaceSet:
     p = _state_space_path(paths)
-    return load_model(StateSpaceSet, p) if p.exists() else StateSpaceSet()
+    return load_model_or_default(StateSpaceSet, p)
 
 
 def _load_cpts(paths) -> CPTSet:
     p = _cpt_path(paths)
-    return load_model(CPTSet, p) if p.exists() else CPTSet()
+    return load_model_or_default(CPTSet, p)
 
 
 def _load_noisy_or(paths) -> NoisyOrSet:
     p = _noisy_or_path(paths)
-    return load_model(NoisyOrSet, p) if p.exists() else NoisyOrSet()
+    return load_model_or_default(NoisyOrSet, p)
 
 
 def bn_structure(substrate: Substrate) -> tuple[set[str], dict[str, list[str]]]:
@@ -97,10 +97,6 @@ def _effective_cpt_map(paths) -> dict[str, CPTEntry]:
     return effective_cpt_map(_load_cpts(paths), _load_noisy_or(paths), ss_map)
 
 
-def _dump(path: Path, store) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    dump_model(store, path)
-
 
 # ── mutations ────────────────────────────────────────────────────────
 
@@ -123,7 +119,7 @@ def set_state_space(
     store.entries.append(entry)
 
     path = _state_space_path(paths)
-    _dump(path, store)
+    dump_model(store, path)
     sha = auto_commit(
         paths.root,
         subject=f"Set BN state space on {node_id[:15]}…: {', '.join(states)}",
@@ -183,7 +179,7 @@ def set_cpt(
     store.entries.append(cpt)
 
     path = _cpt_path(paths)
-    _dump(path, store)
+    dump_model(store, path)
     sha = auto_commit(
         paths.root,
         subject=f"Set BN CPT on {node_id[:15]}… ({len(rows)} row(s))",
@@ -346,7 +342,7 @@ def set_noisy_or(
     store.entries.append(entry)
 
     path = _noisy_or_path(paths)
-    _dump(path, store)
+    dump_model(store, path)
     sha = auto_commit(
         paths.root,
         subject=f"Set BN Noisy-OR on {node_id[:15]}… ({len(links)} cause(s), leak {leak})",

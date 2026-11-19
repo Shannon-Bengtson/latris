@@ -15,6 +15,7 @@ from latris.operations.edges import add_edge
 from latris.operations.init import init_project
 from latris.operations.nodes import add_node
 from latris.repo.project import require_project
+from latris.repo.yaml_io import dump_model
 from latris.schema.bn import CPTEntry, CPTRow, CPTSet
 
 pytest.importorskip("pgmpy")
@@ -96,7 +97,7 @@ def test_merge_protects_expert_rows(project):
             ],
         )
     ])
-    bn_ops._dump(bn_ops._cpt_path(paths), store)
+    dump_model(store, bn_ops._cpt_path(paths))
 
     proposal = bn_learn.learn_cpts("obs", nodes=["B"], estimator="mle", root=root)
     bn_learn.apply_learned(proposal, root=root)

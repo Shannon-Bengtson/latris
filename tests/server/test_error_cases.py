@@ -142,3 +142,26 @@ def test_double_undo_restores_state(client: TestClient, project: Path) -> None:
 
     client.post("/api/history/undo")  # undo the undo
     assert len(client.get("/api/nodes").json()) == 1
+
+
+# ── Exception → status mapping (server/app.py) ──────────────────────
+
+
+def test_git_failure_is_git_error_not_llm_error(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from latris.repo.git import GitError
+
+    def boom(*_a, **_k):
+        raise GitError("git commit failed: /home/someone/project")
+
+    monkeypatch.setattr(node_ops, "add_node", boom)
+    resp = client.post("/api/nodes", json={"label": "X"})
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["error"] == "git_error"
+    assert "/home/someone" not in body["detail"]  # git output stays in the log
+
+
+def test_not_found_is_404(client: TestClient) -> None:
+    resp = client.get("/api/results/run_nonexistent")
+    assert resp.status_code == 404
+    assert resp.json()["error"] == "not_found"

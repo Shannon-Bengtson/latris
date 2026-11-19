@@ -5,7 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register, spec_verification
+from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
+    Formalism,
+    ResultKind,
+    default_origin,
+    register,
+    spec_verification,
+)
 
 
 def _units(p: dict[str, Any]) -> tuple[str | None, str]:
@@ -14,7 +22,7 @@ def _units(p: dict[str, Any]) -> tuple[str | None, str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.markov import _money, describe
 
     cu, ou = _units(p)
@@ -26,7 +34,7 @@ def _render(p: dict[str, Any]) -> list[str]:
             f"for outcomes; half-cycle correction {'on' if s['half_cycle_correction'] else 'off'}.", ""]
     rows = [[r["strategy"], _money(r["cost"], cu), f"{r['outcome']:.3f}", _money(r["cost_undiscounted"], cu),
              f"{r['outcome_undiscounted']:.3f}"] for r in p["results"]]
-    out += _table(["Strategy", "Cost (discounted)", f"{ou} (discounted)", "Cost (undiscounted)",
+    out += md.table(["Strategy", "Cost (discounted)", f"{ou} (discounted)", "Cost (undiscounted)",
                    f"{ou} (undiscounted)"], rows)
     if p.get("incremental"):
         rows = [[r["strategy"], _money(r["cost"], cu), f"{r['outcome']:.3f}", r["status"],
@@ -34,13 +42,13 @@ def _render(p: dict[str, Any]) -> list[str]:
                  else (f"by {r['versus']}" if r["status"] == "dominated" else "—")] for r in p["incremental"]]
         out += ["Incremental analysis, cheapest first. A strategy is *dominated* when another costs no more and "
                 "achieves at least as much; *extendedly dominated* when a mix of its neighbours would beat it.", ""]
-        out += _table(["Strategy", "Cost", ou, "Status", "ICER"], rows)
+        out += md.table(["Strategy", "Cost", ou, "Status", "ICER"], rows)
         if p.get("choice"):
             out += [f"At a willingness to pay of {_money(s['wtp'], cu)} per {ou}, {p['choice']} has the highest net "
                     "monetary benefit.", ""]
     rows = [[st, *(f"{r['time_in_state'][st]:.2f}" for r in p["results"])] for st in p["states"]]
     out += [f"Expected time in each state ({s['time_units']}, undiscounted):", ""]
-    out += _table(["State", *(r["strategy"] for r in p["results"])], rows)
+    out += md.table(["State", *(r["strategy"] for r in p["results"])], rows)
     gaps = []
     if p["missing_cost"]:
         gaps.append(f"no cost for {', '.join(p['missing_cost'])} (counted as 0)")
@@ -215,10 +223,35 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="markov_analyse")
+    return make_analysis(kind="markov_analyse")
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'markov-analysis': ('analyse_markov',
+        'Run the Markov cohort model: state occupancy per cycle, discounted costs and outcomes per '
+        'strategy, and the incremental analysis (ICERs, dominance, the strategy to choose at the '
+        'willingness to pay). Recorded with charts.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_markov_settings', ('settings',),
+        'Cycles, cycle length, discount rates, half-cycle correction, willingness to pay, and cost '
+        'and outcome units.'),
+    ChatOp('set_markov_element', ('elements',),
+        'Make a factor a health state (or other state) or a strategy.'),
+    ChatOp('set_markov_transition', ('transitions',),
+        "The probability per cycle of moving 'From -> To' (optionally for one strategy)."),
+    ChatOp('set_markov_reward', ('rewards',),
+        "A state's cost and utility per cycle (optionally for one strategy)."),
+    ChatOp('set_markov_start', ('start',),
+        'The share of the cohort starting in a state.'),
+)
 
 register(Formalism(
     model_type="markov",
@@ -235,13 +268,15 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the model to see the thresholds at which the choice changes.",
-    results=(ResultKind(kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
+    results=(ResultKind(tool=ChatTool(*_TOOLS['markov-analysis']),
+                        kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
                         render=_render, analysis="markov_analyse", run=_run, definition=_definition,
-                        charts=_charts),),
+                        charts=_charts, chart_kinds=("markov-trace", "markov-ce")),),
     spec_field="markov",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.markov_cmd", "markov"),
     routes="latris.server.routes.markov",

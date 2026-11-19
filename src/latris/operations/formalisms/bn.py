@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Formalism, ResultKind, default_origin, register
+from latris.operations.formalisms import ChatOp, ChatTool, Formalism, ResultKind, default_origin, register
 
 _REVIEWED = "human-verified"
 
@@ -56,23 +56,23 @@ def _subtitle_target(p: dict[str, Any]) -> str:
 
 
 def _render_query(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _table
+    from latris.exporters import md
 
     labels = p["labels"]
     given = _given(p)
     out = [f"Given {given}:" if given else "With no evidence (prior probabilities):", ""]
     rows = []
-    for node in sorted(p["posteriors"], key=lambda n: labels.get(n, n))[:_MAX_ROWS]:
+    for node in sorted(p["posteriors"], key=lambda n: labels.get(n, n))[:md.MAX_ROWS]:
         for state, prob in p["posteriors"][node].items():
             prior = p["priors"].get(node, {}).get(state)
             rows.append([labels.get(node, node), state, _pct(prior) if given else "", _pct(prob)])
     headers = ["Node", "State", "Prior", "Posterior"] if given else ["Node", "State", "", "Probability"]
-    out += _table(headers, rows)
+    out += md.table(headers, rows)
     return out
 
 
 def _render_explanation(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
 
     labels = p["labels"]
     given = _given(p) or "no evidence"
@@ -88,7 +88,7 @@ def _render_explanation(p: dict[str, Any]) -> list[str]:
         else:
             vs = "—"
         rows.append([labels.get(r["node"], r["node"]), r["state"], _pct(r["marginal"]), vs])
-    out += _table(["Factor", "Most likely", "Its own probability", "Against its runner-up"], rows)
+    out += md.table(["Factor", "Most likely", "Its own probability", "Against its runner-up"], rows)
     differs = [r for r in p["rows"] if r.get("differs_from_marginal")]
     for r in differs:
         out.append(
@@ -103,7 +103,7 @@ def _render_explanation(p: dict[str, Any]) -> list[str]:
 
 
 def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _grounding, _table
+    from latris.exporters import md
     from latris.operations.bn_montecarlo import describe
 
     out = [
@@ -125,7 +125,7 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
                 f"{_pct(b['p2.5'])}–{_pct(b['p97.5'])}",
             ]
         )
-    out += _table(["State", "Point estimate", "Median", "50% of draws", "95% of draws"], rows)
+    out += md.table(["State", "Point estimate", "Median", "50% of draws", "95% of draws"], rows)
     out.append("Tables sampled:")
     out.append("")
     for t in p["tables"]:
@@ -133,7 +133,7 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
             continue
         n = f"worth about {t['n']:g} observations" if t.get("n") else "some rows uncertain"
         why = f" — {t['reason']}" if t.get("reason") else ""
-        out.append(f"- {t['label']}: {n}{why} ({_grounding(t.get('origin'), t.get('verification'))})")
+        out.append(f"- {t['label']}: {n}{why} ({md.grounding(t.get('origin'), t.get('verification'))})")
     fixed = [t["label"] for t in p["tables"] if t["fixed"]]
     if fixed:
         out.append(f"- Held fixed: {', '.join(fixed)}")
@@ -146,7 +146,7 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
 
 
 def _render_options(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
 
     given = _given(p)
     draws = (f"Every option was asked on the same {p['runs']} draws of the uncertain tables "
@@ -180,7 +180,7 @@ def _render_options(p: dict[str, Any]) -> list[str]:
     headers = ["Option", "Probability"] + (["95% of draws"] if p["runs"] else []) + ["Compared with",
                "Difference (points" + (", 95%)" if p["runs"] else ")")]
     headers += (["Draws lower / higher"] if p["runs"] else []) + ["What it changes"]
-    out += _table(headers, rows)
+    out += md.table(headers, rows)
     for w in p.get("warnings", []):
         out += [f"> ⚠ {w}", ""]
     return out
@@ -217,13 +217,13 @@ def _claims_options(p: dict[str, Any], out: dict[str, list[str]]) -> None:
 
 
 def _render_sensitivity(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _grounding, _table
+    from latris.exporters import md
 
     labels = p.get("labels", {})  # baked in at record time; runs from before then show ids
     target = labels.get(p["target_id"], p["target_id"])
     out = [f"Which probabilities move P({target} = {p['target_state']}) (baseline {_pct(p['baseline'])}):", ""]
     rows = []
-    for f in p["findings"][:_MAX_ROWS]:
+    for f in p["findings"][:md.MAX_ROWS]:
         given = ", ".join(f"{labels.get(k, k)}={v}" for k, v in f["parent_states"].items())
         cell = f"P({labels.get(f['node_id'], f['node_id'])}={f['state']}{' | ' + given if given else ''})"
         rows.append(
@@ -233,10 +233,10 @@ def _render_sensitivity(p: dict[str, Any]) -> list[str]:
                 f"{_pct(f.get('low', 0.0))}–{_pct(f.get('high', 1.0))} "
                 f"({f.get('range_source', 'any value from 0 to 1')})",
                 f"{f['influence'] * 100:.1f} points",
-                _grounding(f.get("origin"), f.get("verification")),
+                md.grounding(f.get("origin"), f.get("verification")),
             ]
         )
-    out += _table(["Probability", "Value", "Range tried", "Target moves by up to", "Grounding"], rows)
+    out += md.table(["Probability", "Value", "Range tried", "Target moves by up to", "Grounding"], rows)
     return out
 
 
@@ -406,10 +406,10 @@ def _relabeled(p: dict[str, Any]) -> dict[str, str]:
 
 
 def _def_query(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_query",
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -421,10 +421,10 @@ def _def_query(p: dict[str, Any]):
 
 
 def _def_explanation(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_explain",
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -434,10 +434,10 @@ def _def_explanation(p: dict[str, Any]):
 
 
 def _def_monte_carlo(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_monte_carlo", target=labels.get(p["target"], p["target"]), state=p["focus_state"],
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -447,10 +447,10 @@ def _def_monte_carlo(p: dict[str, Any]):
 
 
 def _def_compare(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = p.get("labels", {})
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_compare", target=p["label"], state=p["focus_state"], scenarios=list(p["scenarios"]),
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
@@ -460,10 +460,10 @@ def _def_compare(p: dict[str, Any]):
 
 
 def _def_sensitivity(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
     labels = _relabeled(p)
-    return SpecAnalysis(
+    return make_analysis(
         kind="bn_sensitivity", target=labels.get(p["target_id"], p["target_id"]), state=p["target_state"],
         evidence={labels.get(k, k): v for k, v in (p.get("evidence") or {}).items()},
     )
@@ -502,19 +502,6 @@ def _claims(paths, section: str) -> list[str]:
         if unreviewed:
             return [f"{len(unreviewed)} of {len(rows)} probability row(s) not yet reviewed by a person."]
     return []
-
-
-# ── membership ───────────────────────────────────────────────────────
-
-
-def _computes_on(paths) -> set[str]:  # noqa: ANN001
-    """The factors with states or a probability table, and those tables' parents."""
-    from latris.operations import bn as bn_ops
-
-    nodes = {e.target_id for e in bn_ops._load_state_spaces(paths).entries}
-    for target, cpt in bn_ops._effective_cpt_map(paths).items():
-        nodes |= {target, *cpt.parents}
-    return nodes
 
 
 # ── build spec and share links ───────────────────────────────────────
@@ -696,11 +683,75 @@ def _mermaid(paths, entities, edges) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _parameterised_nodes(paths) -> set[str]:
+    """Factors with states, and every parent of a table."""
+    from latris.operations import bn as bn_ops
+
+    nodes = {e.target_id for e in bn_ops._load_state_spaces(paths).entries}
+    for target, cpt in bn_ops._effective_cpt_map(paths).items():
+        nodes |= {target, *cpt.parents}
+    return nodes
+
+
 def _problems(root: Path) -> list:
     from latris.operations import bn as bn_ops
 
     return bn_ops.structure_problems(root=root)
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'bn-explanation': ('explain_bn',
+        'The most likely explanation: the single likeliest combination of states given the evidence '
+        '(every unobserved factor, or just over), with its probability, how many times likelier each '
+        "state is than its runner-up, and where a factor's own favourite differs. Recorded with a chart."),
+    'bn-monte-carlo': ('monte_carlo_bn',
+        'How sure is a probability when the tables behind it are estimates? Re-asks P(target = state | '
+        "evidence) while sampling every table given an uncertainty ('worth n observations'); gives the "
+        'point estimate, median, the ranges 50% and 95% of draws fall in, and which tables drive the '
+        'spread. Seeded. scenario applies a saved BN scenario. Recorded with a chart.'),
+    'bn-options': ('compare_bn_options',
+        'Which Bayesian-network option is better, and how sure is that? Asks P(target = state) under the '
+        'baseline network (no scenario changes) and each saved BN scenario; evidence holds for every '
+        'option. When tables have an uncertainty, every option is asked on the same draws, so each '
+        'difference is paired, with the share of draws lower or higher; otherwise point probabilities. An '
+        'option saved with extends=<another> is measured against it; reference sets one arm for all. Read '
+        "'warnings' before writing a finding. Recorded with a chart."),
+    'bn-query': ('query_bn',
+        'Bayesian network inference: the probability of each state of the query factors (all if none '
+        "given) given evidence (factor → state). soft is for uncertain observations: {'Wet': {'yes': "
+        '0.8}} makes P(Wet = yes) 80% afterwards; likelihood gives relative weights. interventions SET '
+        'factors (an option or policy) instead of observing them. scenario applies a saved BN scenario '
+        'without changing the model. No evidence gives the prior. Recorded: the report shows the latest '
+        'query for each evidence set, against the prior.'),
+    'bn-sensitivity': ('bn_sensitivity',
+        'Which probability-table entries most move P(target = state), each with its origin and whether a '
+        'person has verified it: shows when a conclusion rests on weakly grounded numbers. Recorded with '
+        'a tornado chart.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_states', ('states',),
+        "Give a factor its discrete states (e.g. ['low', 'high']); ordered when they have a natural "
+        'order. It joins the Bayesian network.'),
+    ChatOp('set_probability_table', ('tables',),
+        "A factor's conditional probability table: probabilities run one block per combination of "
+        'parent states (first parent slowest), in state order, each block summing to 1.'),
+    ChatOp('set_noisy_or', ('noisy_or',),
+        'A Noisy-OR table for an effect with independent binary causes: one probability per cause '
+        '(the chance it alone produces the active state) plus a leak, instead of a full table.'),
+    ChatOp('set_table_uncertainty', ('uncertainty',),
+        'How well a probability table (or one row) is known, as worth about n observations; '
+        'monte_carlo_bn and compare_bn_options sample it.'),
+    ChatOp('set_bn_scenario', ('scenarios',),
+        'A named what-if over the network that never changes its tables: observe (factor → state), '
+        'soft or likelihood evidence, set (interventions), and table overrides '
+        "('Factor[Parent=state]=p1,p2'); extends builds on another scenario. Use it with "
+        'query_bn(scenario), monte_carlo_bn(scenario) and compare_bn_options.'),
+)
 
 register(Formalism(
     model_type="bn",
@@ -715,37 +766,46 @@ register(Formalism(
     },
     claims=_claims,
     results=(
-        ResultKind(kind="bn-query", title="Probabilities", render=_render_query, analysis="bn_query",
+        ResultKind(tool=ChatTool(*_TOOLS['bn-query']),
+                   kind="bn-query", title="Probabilities", render=_render_query, analysis="bn_query",
                    run=_run_query, definition=_def_query, claims=_claims_query, report_limit=6,
-                   charts=lambda p: [("posterior", {})], subtitle=_subtitle_given),
-        ResultKind(kind="bn-explanation", title="Most likely explanation", render=_render_explanation,
+                   charts=lambda p: [("posterior", {})], chart_kinds=("posterior",), subtitle=_subtitle_given),
+        ResultKind(tool=ChatTool(*_TOOLS['bn-explanation']),
+                   kind="bn-explanation", title="Most likely explanation", render=_render_explanation,
                    analysis="bn_explain", run=_run_explain, definition=_def_explanation,
-                   claims=_claims_explanation, subtitle=_subtitle_given),
-        ResultKind(kind="bn-monte-carlo", title="How sure the probability is (Monte Carlo)",
+                   claims=_claims_explanation, subtitle=_subtitle_given,
+                   charts=lambda p: [("bn-explanation", {})] if p.get("rows") else [],
+                   chart_kinds=("bn-explanation",)),
+        ResultKind(tool=ChatTool(*_TOOLS['bn-monte-carlo']),
+                   kind="bn-monte-carlo", title="How sure the probability is (Monte Carlo)",
                    render=_render_monte_carlo, analysis="bn_monte_carlo", run=_run_monte_carlo,
                    definition=_def_monte_carlo, claims=_claims_monte_carlo,
-                   charts=lambda p: [("bn-interval", {})], subtitle=_subtitle_target),
-        ResultKind(kind="bn-options", title="Options compared", render=_render_options,
+                   charts=lambda p: [("bn-interval", {})], chart_kinds=("bn-interval",), subtitle=_subtitle_target),
+        ResultKind(tool=ChatTool(*_TOOLS['bn-options']),
+                   kind="bn-options", title="Options compared", render=_render_options,
                    analysis="bn_compare", run=_run_compare, definition=_def_compare, claims=_claims_options,
+                   charts=lambda p: [("options-diff", {})] if len(p.get("options") or []) > 1 else [],
+                   chart_kinds=("options-diff",),
                    subtitle=lambda p: f"P({p['label']} = {p['focus_state']})"
                    + (f" given {_given(p)}" if _given(p) else "")),
-        ResultKind(kind="bn-sensitivity", title="Probability sensitivity", render=_render_sensitivity,
+        ResultKind(tool=ChatTool(*_TOOLS['bn-sensitivity']),
+                   kind="bn-sensitivity", title="Probability sensitivity", render=_render_sensitivity,
                    analysis="bn_sensitivity", run=_run_sensitivity, definition=_def_sensitivity,
-                   claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})], subtitle=_subtitle_target),
+                   claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})], chart_kinds=("bn-tornado",),
+                   subtitle=_subtitle_target),
     ),
+    scope_noun="network",
+    source_label="Network",
+    empty_scope_gap=("empty_network", "No factor is in the Bayesian network yet. A factor joins it when it gets "
+                     "states (set_states); the rest of the map stays in the loop map."),
+    parameterised_nodes=_parameterised_nodes,
+    scenario_store="latris.operations.bn_scenarios",
     spec_field="bn",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
-    computes_on=_computes_on,
-    empty_scope_gap=("empty_network", "No factor is in the Bayesian network yet. A factor joins it when it gets "
-                     "states (set_states); the rest of the map stays in the loop map."),
-    source_label="Network",
-    scope_noun="network",
-    handover_name="Bayesian network",
-    handover_command="latris bn check",
-    scenario_store="latris.operations.bn_scenarios",
     cli=("latris.cli.bn_cmd", "bn"),
     routes="latris.server.routes.bn",
 ))

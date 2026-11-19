@@ -9,34 +9,50 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import ResultKind, default_origin, spec_verification
+from latris.operations.formalisms import ChatTool, ResultKind, default_origin, spec_verification
 
 _ANALYSIS = {"fault_tree": "ft_monte_carlo", "bow_tie": "bowtie_monte_carlo", "event_tree": "et_monte_carlo"}
 _TITLE = {"fault_tree": "Fault tree: uncertainty (Monte Carlo)", "bow_tie": "Bow-tie: uncertainty (Monte Carlo)",
           "event_tree": "Event tree: uncertainty (Monte Carlo)"}
 
 
+_TOOLS = {
+    'ft-monte-carlo': ('monte_carlo_fault_tree',
+        'How sure is the top-event probability? Samples every probability given an uncertainty, then '
+        'gives percentiles, the mean against the point estimate, and which inputs drive the spread (runs, '
+        'seed, sampling; target: the output to headline). Recorded with a chart.'),
+    'bt-monte-carlo': ('monte_carlo_bow_tie',
+        "How sure are the bow-tie's frequencies? Samples every frequency and failure probability given an "
+        'uncertainty, then gives percentiles, the mean against the point estimate, and which inputs drive '
+        'the spread (runs, seed, sampling; target). Recorded with a chart.'),
+    'et-monte-carlo': ('monte_carlo_event_tree',
+        'How sure are the end-state frequencies? Samples every value given an uncertainty, then gives '
+        'percentiles, the mean against the point estimate, and which inputs drive the spread (runs, seed, '
+        'sampling; target: the end state to headline). Recorded with a chart.'),
+}
+
+
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _table
+    from latris.exporters import md
     from latris.operations.risk_uncertainty import describe
 
     def g(x):
         return "—" if x is None else f"{x:.3g}"
 
-    out = [_esc(describe(p)) + ".", ""]
+    out = [md.esc(describe(p)) + ".", ""]
     rows = [[o["output"], g(o["point"]), g(o["mean"]), g(o["p5"]), g(o["p50"]), g(o["p95"])]
-            for o in p["outputs"][:_MAX_ROWS]]
-    out += _table(["Result", "Point estimate", "Mean", "5th pct", "Median", "95th pct"], rows)
+            for o in p["outputs"][:md.MAX_ROWS]]
+    out += md.table(["Result", "Point estimate", "Mean", "5th pct", "Median", "95th pct"], rows)
     if p["drivers"]:
         rows = [[d["input"], f"{d['distribution']} (5th–95th: {g(d['p5'])} – {g(d['p95'])})",
                  "—" if d["spearman"] is None else f"{d['spearman']:+.2f}",
-                 _esc(d["reason"]) or "—", "unverified" if d["weak"] else "verified"]
-                for d in p["drivers"][:_MAX_ROWS]]
+                 md.esc(d["reason"]) or "—", "unverified" if d["weak"] else "verified"]
+                for d in p["drivers"][:md.MAX_ROWS]]
         out += [f"What drives the spread in {p['primary']}: each uncertain input's range and its rank correlation "
                 "with the result.", ""]
-        out += _table(["Input", "Range", "Rank correlation", "Why this range", "Range checked"], rows)
+        out += md.table(["Input", "Range", "Rank correlation", "Why this range", "Range checked"], rows)
     if p["fixed"]:
-        out += ["Held at their point value (no range given): " + _esc(", ".join(p["fixed"][:_MAX_ROWS * 2])) + ".",
+        out += ["Held at their point value (no range given): " + md.esc(", ".join(p["fixed"][:md.MAX_ROWS * 2])) + ".",
                 ""]
     out += [f"{p['runs']} runs, {'Latin hypercube' if p['sampling'] == 'lhs' else 'random'} sampling, seed "
             f"{p['seed']}. Inputs are sampled independently, each once per run.", ""]
@@ -80,14 +96,15 @@ def result_kind(model_type: str) -> ResultKind:
         return ru.record(payload, root=root)[1]
 
     def definition(p: dict[str, Any]):
-        from latris.schema.build_spec import SpecAnalysis
+        from latris.schema.build_spec import make_analysis
 
-        return SpecAnalysis(kind=_ANALYSIS[model_type], runs=p["runs"], seed=p["seed"],  # type: ignore[arg-type]
+        return make_analysis(kind=_ANALYSIS[model_type], runs=p["runs"], seed=p["seed"],  # type: ignore[arg-type]
                             sampling=p["sampling"], target=p["primary"])
 
-    return ResultKind(kind=KINDS[model_type], title=_TITLE[model_type], render=_render,
+    return ResultKind(tool=ChatTool(*_TOOLS[KINDS[model_type]]), kind=KINDS[model_type], title=_TITLE[model_type],
+                      render=_render,
                       analysis=_ANALYSIS[model_type], run=run, definition=definition, claims=_claims,
-                      charts=_charts)
+                      charts=_charts, chart_kinds=("mc-strip",))
 
 
 # ── build spec ───────────────────────────────────────────────────────

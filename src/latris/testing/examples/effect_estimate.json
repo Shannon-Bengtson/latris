@@ -1,0 +1,39 @@
+{
+ "model_type": "dag",
+ "factors": [
+  {
+   "label": "Age"
+  },
+  {
+   "label": "Exercise"
+  },
+  {
+   "label": "Heart health"
+  }
+ ],
+ "links": [
+  {
+   "from": "Age",
+   "to": "Exercise"
+  },
+  {
+   "from": "Age",
+   "to": "Heart health"
+  },
+  {
+   "from": "Exercise",
+   "to": "Heart health"
+  }
+ ],
+ "analyses": [
+  {
+   "kind": "dag_estimate",
+   "treatment": "Exercise",
+   "outcome": "Heart health",
+   "dataset": "survey",
+   "columns": {
+    "Exercise": "exercise_hours"
+   }
+  }
+ ]
+}

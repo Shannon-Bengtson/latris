@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
     Formalism,
     ResultKind,
     _risk_mc,
@@ -68,26 +70,26 @@ def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _MAX_ROWS, _esc, _f, _table  # noqa: F401
+    from latris.exporters import md
     from latris.operations.event_tree import describe
 
     out = [describe(p) + ".", ""]
     fr = p.get("frequency")
     if fr:
-        out += [f"Initiating event {p['initiator']}: {_f(fr['per_year'])} per year"
+        out += [f"Initiating event {p['initiator']}: {md.fmt(fr['per_year'])} per year"
                 + (f" ({fr['source']})" if fr.get("source") else "") + ".", ""]
     heads = p["headings"]
     rows = []
-    for r in p["sequences"][: _MAX_ROWS * 3]:
+    for r in p["sequences"][: md.MAX_ROWS * 3]:
         ans = {a["heading"]: a["answer"] for a in r["answers"]}
-        rows.append([str(r["n"])] + [ans.get(h, "·") for h in heads] + [r["end_state"], _f(r["probability"])]
-                    + ([_f(r["frequency"])] if fr else []))
+        rows.append([str(r["n"])] + [ans.get(h, "·") for h in heads] + [r["end_state"], md.fmt(r["probability"])]
+                    + ([md.fmt(r["frequency"])] if fr else []))
     if rows:
-        out += _table(["#", *heads, "End state", "Probability"] + (["Per year"] if fr else []), rows)
+        out += md.table(["#", *heads, "End state", "Probability"] + (["Per year"] if fr else []), rows)
     if p.get("quantified"):
-        rows = [[d["end_state"], _f(d["probability"])] + ([_f(d["frequency"])] if fr else [])
+        rows = [[d["end_state"], md.fmt(d["probability"])] + ([md.fmt(d["frequency"])] if fr else [])
                 + [f"#{d['dominant']['n']} ({d['dominant']['text']})"] for d in p["end_states"]]
-        out += _table(["End state", "Probability"] + (["Per year"] if fr else []) + ["Dominant sequence"], rows)
+        out += md.table(["End state", "Probability"] + (["Per year"] if fr else []) + ["Dominant sequence"], rows)
         weak = sorted({v["heading"] for v in p["values"] if v["weak"]})
         if weak:
             out += [f"Branch probabilities nobody has verified: {', '.join(weak)}.", ""]
@@ -234,10 +236,36 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="et_analyse")
+    return make_analysis(kind="et_analyse")
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'et-analysis': ('analyse_event_tree',
+        'Event tree: after a complete-tree check, every sequence from the initiating event to its end '
+        'state with sequence and end-state probabilities and frequencies. Recorded with a chart.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_et_element', ('elements',),
+        'Make a factor the initiating event, a heading (a yes/no question in sequence) or an end '
+        'state.'),
+    ChatOp('set_et_order', ('order',),
+        'The headings in the order they are asked.'),
+    ChatOp('set_et_sequence', ('sequences',),
+        'One path of answers to the headings and the end state it leads to.'),
+    ChatOp('set_et_probability', ('probabilities',),
+        "A heading's probability (optionally given earlier answers), with its source."),
+    ChatOp('set_et_frequency', ('frequency',),
+        "The initiating event's frequency per year, with its source."),
+    ChatOp('set_et_uncertainty', ('uncertainty',),
+        'An uncertainty on a probability or the frequency; monte_carlo_event_tree samples it.'),
+)
 
 register(Formalism(
     connected_structure=False,  # headings and sequences, not links
@@ -261,13 +289,16 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Give every heading its probability to see which values move the result.",
-    results=(ResultKind(kind="et-analysis", title="Event tree: sequences and end states", render=_render,
-                        analysis="et_analyse", run=_run, definition=_definition, charts=_charts),
+    results=(ResultKind(tool=ChatTool(*_TOOLS['et-analysis']),
+                        kind="et-analysis", title="Event tree: sequences and end states", render=_render,
+                        analysis="et_analyse", run=_run, definition=_definition, charts=_charts,
+                        chart_kinds=("et-endstates",)),
              _risk_mc.result_kind("event_tree")),
     spec_field="event_tree",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=lambda paths, entities, edges: _mermaid(paths),
     cli=("latris.cli.et_cmd", "et"),
     routes="latris.server.routes.et",

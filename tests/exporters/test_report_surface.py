@@ -103,9 +103,8 @@ def test_every_plugin_result_kind_with_charts_is_namespaced():
                                      # BN migrated with its chart kinds unchanged — they are the
                                      # app's existing renderer contract ("posterior" predates the
                                      # namespacing rule and stays so the app keeps working).
-                                     "bn-", "posterior",
-                                     # SD's results moved into the registry the same way: "series",
-                                     # "bands", "tornado" and "loops" are the app's existing contract.
+                                     "bn-", "posterior", "toc-", "options-",
+                                     # SD's likewise: its renderers predate the rule.
                                      "series", "bands", "tornado", "loops")), chart
 
 
@@ -161,20 +160,23 @@ def test_aggregate_diagrams_draw_what_each_formalism_computes_on(cld_bn_sd_root)
     assert "### Whole model" not in md
 
 
-def test_sd_results_are_registry_entries():
-    """SD's five result kinds render, chart and claim through the registry (latris#3, SD part)."""
-    from latris.exporters.results import chart_markers, result_heading
-    from latris.operations import formalisms
+@pytest.mark.parametrize("name", ["system", "bow_tie", "mcda"])
+def test_diagram_sections_match_the_reports_diagrams(name, tmp_path, git_identity):
+    """``diagram_sections`` is what apps draw a figure for: one per Mermaid block, same headings, same order."""
+    import re
 
-    kinds = [r.kind for r in formalisms.result_kinds()]
-    assert kinds[:5] == ["sd-simulation", "sd-options", "sd-monte-carlo", "sd-sensitivity", "sd-loops"]
-    for k in kinds[:5]:
-        assert formalisms.kind_model_types()[k] == "sd"
-    assert chart_markers("sd-sensitivity", {}) == [("tornado", {})]
-    assert chart_markers("sd-loops", {"loops": []}) == []
-    assert chart_markers("sd-simulation", {"roles": {"a": "stock", "b": "flow"}, "labels": {"a": "A", "b": "B"}}) == [
-        ("series", {"vars": ["a"]})
-    ]
-    sens = {"label": "Inflow", "scenario": None}
-    assert result_heading("sd-sensitivity", sens) == "Sensitivity of Inflow: baseline"
-    assert result_heading("not-a-kind", {}) == "not-a-kind"
+    from latris.exporters.markdown import WHOLE_MODEL, diagram_sections, render
+    from latris.repo.layout import ProjectPaths
+    from latris.testing import build_example
+
+    paths = ProjectPaths(build_example(name, tmp_path / name))
+    md = render(paths, ai=False)
+    diagram = md.split("## Diagram", 1)[1].split("\n## ", 1)[0]
+    sections = diagram_sections(paths)
+    assert len(sections) == diagram.count("```mermaid") >= 1
+    assert [s.heading for s in sections] == re.findall(r"^### (.+)$", diagram, re.M)
+    assert all(s.model_type for s in sections)
+    assert WHOLE_MODEL not in [s.model_type for s in sections[:-1]]  # the whole model, if drawn, comes last
+
+    scoped = diagram_sections(paths, model_type=sections[0].model_type)
+    assert [(s.model_type, s.heading) for s in scoped] == [(sections[0].model_type, None)]

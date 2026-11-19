@@ -19,8 +19,9 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from latris.diff.semantic import read_log
+from latris.operations import write_lock
 from latris.repo.layout import ProjectPaths
-from latris.repo.yaml_io import load_model
+from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import (
     AssumptionLog,
     ChallengeLog,
@@ -156,7 +157,7 @@ def _try_ai_narrative(
             (e.target_id, e.attribute): e for e in load_model(DescriptionSet, paths.descriptions_yaml).entries
         }
         pol_path = paths.view_attribute_path("cld", "polarity")
-        pol_set = load_model(PolaritySet, pol_path) if pol_path.exists() else PolaritySet()
+        pol_set = load_model_or_default(PolaritySet, pol_path)
         polarity = {(e.target_id, e.attribute): e for e in pol_set.entries}
 
         entity_lines = []
@@ -213,7 +214,7 @@ def _try_ai_narrative(
             "Write clear, professional prose. No bullet lists."
         )
 
-        with creds.key_in_env([provider]):
+        with creds.key_in_env([provider]), write_lock.released():
             result = adapter.chat(
                 model=model,
                 system=system,

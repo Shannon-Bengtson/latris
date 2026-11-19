@@ -27,7 +27,7 @@ from latris.operations.commit import auto_commit
 from latris.operations.sd_inference import SDModel, SDSimulationResult, simulate, with_values
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_model, load_model
+from latris.repo.yaml_io import dump_model, load_model_or_default
 from latris.schema.common import ProvenanceOrigin
 from latris.schema.sd import SDOverride, SDScenario, SDScenarioSet
 
@@ -45,7 +45,7 @@ def path(paths: ProjectPaths) -> Path:
 
 def load(paths: ProjectPaths) -> SDScenarioSet:
     p = path(paths)
-    return load_model(SDScenarioSet, p) if p.exists() else SDScenarioSet()
+    return load_model_or_default(SDScenarioSet, p)
 
 
 def list_scenarios(*, root: Path | None = None) -> list[SDScenario]:
@@ -206,7 +206,6 @@ def set_scenario(
     store.scenarios = [s for s in store.scenarios if s.name.lower() != scenario.name.lower()] + [scenario]
     chain(scenario.name, store.scenarios)  # refuses a loop (A extends B extends A)
     p = path(paths)
-    p.parent.mkdir(parents=True, exist_ok=True)
     dump_model(store, p)
     changes = "; ".join(f"{o.target_id}={o.value:g} {o.units}" for o in scenario.overrides)
     sha = auto_commit(

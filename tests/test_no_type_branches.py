@@ -1,7 +1,7 @@
 """Shared code asks a model type's registry entry; it doesn't test the type's id (latris#3).
 
 Each model type declares what differs about it in ``operations/formalisms/`` — its outcome, membership,
-wording, scenario store, handover check, diagram direction. A branch like ``model_type == "sd"`` in shared
+wording, scenario store, diagram direction, link attribute, readiness when empty. A branch like ``model_type == "sd"`` in shared
 code would bring back the per-type wiring the registry replaced, so this test fails on one.
 Data locations (``view_attribute_path("cld", "polarity")``) and defaults (``or "cld"``) are not branches.
 """
@@ -16,7 +16,7 @@ TYPES = r"(cld|dag|fcm|bn|sd|mcda|ach|decision_tree|markov|theory_of_change|faul
 BRANCH = re.compile(
     rf"""(model_type|spec\.id|view|kind)\s*(==|!=)\s*["']{TYPES}["']"""
     rf"""|(model_type|spec\.id)\s+(not\s+)?in\s+\(["']{TYPES}["']"""
-    rf"""|["']{TYPES}["']\s+(not\s+)?in\s+types\b"""
+    rf"""|["']{TYPES}["']\s+(not\s+)?in\s+(types\b|selected\b|set\(|[a-z_.]*selected_model_types)"""
 )
 # Modules that are one type's own code (its operations, CLI, routes, registry entry) may name it.
 OWN = ("operations/formalisms/", "cli/", "server/routes/", "operations/sd", "operations/bn", "operations/fcm",

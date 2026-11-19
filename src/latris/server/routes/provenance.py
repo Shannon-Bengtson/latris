@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import provenance as prov_ops
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/provenance", tags=["provenance"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 class AssumptionRequest(BaseModel):

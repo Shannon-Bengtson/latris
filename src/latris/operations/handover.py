@@ -207,10 +207,9 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             [r.run.output_summary[:120] for r in out_of_date[:5]],
         ))
 
-    from latris.operations import formalisms
+    from latris.operations.sd_scenarios import WHAT_IF
 
-    flags = {r.kind: r.unsaved_what_if for r in formalisms.result_kinds() if r.unsaved_what_if}
-    exploratory = [r for r in shown if r.run.result_kind in flags and flags[r.run.result_kind](r.run)]
+    exploratory = [r for r in shown if r.run.result_kind == "sd-simulation" and f'"{WHAT_IF}' in r.run.analysis_key]
     if exploratory:
         items.append(HandoverItem(
             "exploratory_results", len(exploratory),
@@ -221,26 +220,26 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             [r.run.output_summary[:120] for r in exploratory[:5]],
         ))
 
-    # Each quantified type that's in the handover reports its own structure problems.
-    labels = None
-    for t in types:
-        plugin = formalisms.get(t)
-        if not (plugin and plugin.handover_name and plugin.structure_problems):
-            continue
-        problems = plugin.structure_problems(paths.root)
-        if not problems:
-            continue
-        if labels is None:
-            from latris.schema import Substrate
+    from latris.operations import formalisms
+    from latris.schema import Substrate
+    from latris.schema.model_types import get_model_type
 
+    for mt in types:
+        plugin = formalisms.get(mt)
+        if not (plugin and plugin.spec_field and plugin.structure_problems):
+            continue  # the causal types' structure is the readiness check's
+        problems = plugin.structure_problems(paths.root)
+        if problems:
             labels = formalisms.problem_labels(load_model(Substrate, paths.conceptual_yaml))
-        n = len(problems)
-        items.append(HandoverItem(
-            "model_incomplete", n,
-            f"the {plugin.handover_name} doesn't pass its check ({n} gap{'s' if n != 1 else ''})",
-            f"`{plugin.handover_command}` lists each gap and how to fix it",
-            [f"{labels[p.target_id]}: {p.message}" if p.target_id in labels else p.message for p in problems[:5]],
-        ))
+            how = f"`latris {plugin.cli[1]} check` lists each gap and how to fix it" if plugin.cli else ""
+            items.append(HandoverItem(
+                "model_incomplete", len(problems),
+                f"the {get_model_type(mt).display_name} model doesn't pass its check ({len(problems)} gap"
+                f"{'s' if len(problems) != 1 else ''})",
+                how,
+                [f"{labels[p.target_id]}: {p.message}" if p.target_id in labels else p.message
+                 for p in problems[:5]],
+            ))
 
     from latris.operations.integrity import check_integrity
 

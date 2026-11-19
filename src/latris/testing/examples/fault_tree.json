@@ -1,0 +1,335 @@
+{
+ "model_type": "fault_tree",
+ "factors": [
+  {
+   "label": "Loss of cooling",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Both pumps fail",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Pump A fails",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Pump B fails",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Power lost",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Pump A mechanical failure",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Pump B mechanical failure",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Supply 1 fails",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Supply 2 fails",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Supply 3 fails",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Control fault",
+   "kind": "event",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "links": [
+  {
+   "from": "Both pumps fail",
+   "to": "Loss of cooling",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Control fault",
+   "to": "Loss of cooling",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Pump A fails",
+   "to": "Both pumps fail",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Pump B fails",
+   "to": "Both pumps fail",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Pump A mechanical failure",
+   "to": "Pump A fails",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Power lost",
+   "to": "Pump A fails",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Pump B mechanical failure",
+   "to": "Pump B fails",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Power lost",
+   "to": "Pump B fails",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Supply 1 fails",
+   "to": "Power lost",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Supply 2 fails",
+   "to": "Power lost",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Supply 3 fails",
+   "to": "Power lost",
+   "kind": "logical",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "sources": [
+  {
+   "key": "pumpdata",
+   "title": "Pump reliability data (illustrative)",
+   "authors": [],
+   "year": 2015,
+   "extract_kind": "abstract"
+  }
+ ],
+ "assumptions": [],
+ "questions": [],
+ "findings": [],
+ "challenges": [],
+ "decisions": [],
+ "interpretation": [],
+ "ft": {
+  "events": [
+   {
+    "node": "Loss of cooling",
+    "type": "top_event"
+   },
+   {
+    "node": "Both pumps fail",
+    "type": "intermediate_event"
+   },
+   {
+    "node": "Power lost",
+    "type": "intermediate_event"
+   },
+   {
+    "node": "Pump A fails",
+    "type": "intermediate_event"
+   },
+   {
+    "node": "Pump B fails",
+    "type": "intermediate_event"
+   },
+   {
+    "node": "Pump A mechanical failure",
+    "type": "basic_event"
+   },
+   {
+    "node": "Pump B mechanical failure",
+    "type": "basic_event"
+   },
+   {
+    "node": "Supply 1 fails",
+    "type": "basic_event"
+   },
+   {
+    "node": "Supply 2 fails",
+    "type": "basic_event"
+   },
+   {
+    "node": "Supply 3 fails",
+    "type": "basic_event"
+   },
+   {
+    "node": "Control fault",
+    "type": "undeveloped_event"
+   }
+  ],
+  "gates": [
+   {
+    "node": "Loss of cooling",
+    "gate": "or"
+   },
+   {
+    "node": "Both pumps fail",
+    "gate": "and"
+   },
+   {
+    "node": "Pump A fails",
+    "gate": "or"
+   },
+   {
+    "node": "Pump B fails",
+    "gate": "or"
+   },
+   {
+    "node": "Power lost",
+    "gate": "vote",
+    "k": 2
+   }
+  ],
+  "probabilities": [
+   {
+    "node": "Pump A mechanical failure",
+    "probability": 0.02,
+    "source": "pumpdata",
+    "origin": "data-derived",
+    "verified": true,
+    "notes": "per year of operation"
+   },
+   {
+    "node": "Pump B mechanical failure",
+    "probability": 0.02,
+    "source": "pumpdata",
+    "origin": "data-derived",
+    "verified": false
+   },
+   {
+    "node": "Supply 1 fails",
+    "probability": 0.01,
+    "origin": "human-elicited",
+    "verified": false,
+    "notes": "site engineer's estimate"
+   },
+   {
+    "node": "Supply 2 fails",
+    "probability": 0.01,
+    "origin": "human-elicited",
+    "verified": false,
+    "notes": "site engineer's estimate"
+   },
+   {
+    "node": "Supply 3 fails",
+    "probability": 0.01,
+    "origin": "human-elicited",
+    "verified": false,
+    "notes": "site engineer's estimate"
+   },
+   {
+    "node": "Control fault",
+    "probability": 0.0005,
+    "origin": "ai-proposed",
+    "verified": false
+   }
+  ],
+  "uncertainty": [
+   {
+    "origin": "human-direct",
+    "node": "Control fault",
+    "distribution": "lognormal",
+    "params": {
+     "mean": 0.0013319900488677737,
+     "sd": 0.0032889070293670515,
+     "max": 1.0
+    },
+    "given": {},
+    "reason": "median 0.0005, error factor 10; AI-proposed point value; no data yet",
+    "verified": false
+   },
+   {
+    "origin": "human-direct",
+    "source": "pumpdata",
+    "node": "Pump A mechanical failure",
+    "distribution": "lognormal",
+    "params": {
+     "mean": 0.024997689164663134,
+     "sd": 0.01874345268259127,
+     "max": 1.0
+    },
+    "given": {},
+    "reason": "median 0.02, error factor 3; generic pump data, site not specific",
+    "verified": false
+   },
+   {
+    "origin": "human-direct",
+    "source": "pumpdata",
+    "node": "Pump B mechanical failure",
+    "distribution": "lognormal",
+    "params": {
+     "mean": 0.024997689164663134,
+     "sd": 0.01874345268259127,
+     "max": 1.0
+    },
+    "given": {},
+    "reason": "median 0.02, error factor 3; generic pump data, site not specific",
+    "verified": false
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "ft_analyse"
+  },
+  {
+   "kind": "ft_monte_carlo",
+   "runs": 400,
+   "seed": 1234,
+   "sampling": "lhs",
+   "target": "Loss of cooling"
+  }
+ ]
+}

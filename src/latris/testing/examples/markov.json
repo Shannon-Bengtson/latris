@@ -1,0 +1,172 @@
+{
+ "model_type": "markov",
+ "factors": [
+  {
+   "label": "Healthy",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Sick",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Dead",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Standard care",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "New drug",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "links": [
+  {
+   "from": "Healthy",
+   "to": "Sick",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Healthy",
+   "to": "Dead",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Sick",
+   "to": "Dead",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "sources": [],
+ "assumptions": [],
+ "questions": [],
+ "findings": [],
+ "challenges": [],
+ "decisions": [],
+ "interpretation": [],
+ "markov": {
+  "elements": [
+   {
+    "node": "Dead",
+    "type": "state"
+   },
+   {
+    "node": "Healthy",
+    "type": "state"
+   },
+   {
+    "node": "Sick",
+    "type": "state"
+   },
+   {
+    "node": "New drug",
+    "type": "strategy"
+   },
+   {
+    "node": "Standard care",
+    "type": "strategy"
+   }
+  ],
+  "settings": {
+   "cycle_length": 1.0,
+   "num_cycles": 30,
+   "time_units": "years",
+   "discount_rate": 0.035,
+   "half_cycle_correction": true,
+   "wtp": 20000.0,
+   "cost_units": "£",
+   "outcome_units": "QALY"
+  },
+  "transitions": [
+   {
+    "link": "Healthy -> Sick",
+    "probability": 0.1,
+    "source": "disease-registry",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Healthy -> Sick",
+    "probability": 0.06,
+    "strategy": "New drug",
+    "source": "phase-3-trial",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Healthy -> Dead",
+    "probability": 0.01,
+    "source": "life-tables",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Sick -> Dead",
+    "probability": 0.2,
+    "source": "disease-registry",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ],
+  "rewards": [
+   {
+    "state": "Healthy",
+    "cost": 500.0,
+    "utility": 0.95,
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "state": "Healthy",
+    "strategy": "New drug",
+    "cost": 1500.0,
+    "source": "price-list",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "state": "Sick",
+    "cost": 3000.0,
+    "utility": 0.6,
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "state": "Dead",
+    "cost": 0.0,
+    "utility": 0.0,
+    "origin": "human-direct",
+    "verified": false
+   }
+  ],
+  "start": [
+   {
+    "state": "Healthy",
+    "proportion": 1.0
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "markov_analyse"
+  }
+ ]
+}

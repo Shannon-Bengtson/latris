@@ -10,11 +10,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from latris.operations.formalisms import Analysis, ResultKind, register_analysis
+from latris.operations.formalisms import Analysis, ChatTool, ResultKind, register_analysis
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _f, _table
+    from latris.exporters import md
     from latris.operations.estimation import describe
 
     e, u = p["effect"], p["unadjusted"]
@@ -25,13 +25,13 @@ def _render(p: dict[str, Any]) -> list[str]:
     out += [f"Adjusted for {adj} — {how}. Model: {p['model']} regression, {p['se_type']} standard errors; "
             f"{p['n']} complete rows from {p['dataset']['name']}.", ""]
     if logistic:
-        rows = [["Adjusted", _f(e["odds_ratio"]), f"{_f(e['or_ci_low'])} – {_f(e['or_ci_high'])}", _f(e["p"])],
-                ["Unadjusted", _f(u["odds_ratio"]), f"{_f(u['or_ci_low'])} – {_f(u['or_ci_high'])}", _f(u["p"])]]
-        out += _table(["", "Odds ratio", "95% CI", "p"], rows)
+        rows = [[name, md.fmt(r["odds_ratio"]), f"{md.fmt(r['or_ci_low'])} – {md.fmt(r['or_ci_high'])}", md.fmt(r["p"])]
+                for name, r in (("Adjusted", e), ("Unadjusted", u))]
+        out += md.table(["", "Odds ratio", "95% CI", "p"], rows)
     else:
-        rows = [["Adjusted", _f(e["estimate"]), f"{_f(e['ci_low'])} – {_f(e['ci_high'])}", _f(e["p"])],
-                ["Unadjusted", _f(u["estimate"]), f"{_f(u['ci_low'])} – {_f(u['ci_high'])}", _f(u["p"])]]
-        out += _table(["", f"Change in {p['outcome']} per unit of {p['treatment']}", "95% CI", "p"], rows)
+        rows = [[name, md.fmt(r["estimate"]), f"{md.fmt(r['ci_low'])} – {md.fmt(r['ci_high'])}", md.fmt(r["p"])]
+                for name, r in (("Adjusted", e), ("Unadjusted", u))]
+        out += md.table(["", f"Change in {p['outcome']} per unit of {p['treatment']}", "95% CI", "p"], rows)
     if p["coding"]:
         out += ["Coded as 0/1: " + "; ".join(f"{k}: {v['0']} = 0, {v['1']} = 1" for k, v in p["coding"].items())
                 + ".", ""]
@@ -80,9 +80,9 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(p: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(
+    return make_analysis(
         kind="dag_estimate", treatment=p["treatment"], outcome=p["outcome"], dataset=p["dataset"]["name"],
         adjust=p["adjustment"] if p["adjustment_how"] == "given" else [],
         columns={k: v for k, v in p["columns"].items() if v != k}, estimator=p["model"],
@@ -95,9 +95,20 @@ def _fingerprint(paths) -> list[Path]:
     return [paths.data_datasets_yaml, *files]
 
 
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'dag-estimate': ('estimate_effect',
+        'The effect of treatment on outcome from a registered dataset, adjusting for the smallest valid '
+        'set the DAG identifies (or adjust), with the unadjusted comparison beside it. Needs a dataset '
+        '(latris data add).'),
+}
+
 register_analysis(Analysis(
     model_type="dag",
-    result=ResultKind(kind="dag-estimate", title="Effect estimate", render=_render, analysis="dag_estimate",
-                      run=_run, definition=_definition, claims=_claims, charts=_charts),
+    result=ResultKind(tool=ChatTool(*_TOOLS['dag-estimate']),
+                      kind="dag-estimate", title="Effect estimate", render=_render, analysis="dag_estimate",
+                      run=_run, definition=_definition, claims=_claims, charts=_charts,
+                      chart_kinds=("estimate-forest",), needs_dataset=True),
     fingerprint_files=_fingerprint,
 ))

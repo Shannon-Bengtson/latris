@@ -67,7 +67,6 @@ def start_session(
         target_attributes=targets,
     )
 
-    session_file.parent.mkdir(parents=True, exist_ok=True)
     dump_model(session, session_file)
 
     # Update index

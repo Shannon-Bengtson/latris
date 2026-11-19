@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import (
+    ChatOp,
+    ChatTool,
     Formalism,
     ResultKind,
     default_origin,
@@ -36,20 +38,20 @@ def _reversal_lines(p: dict[str, Any]) -> list[str]:
 
 
 def _render(p: dict[str, Any]) -> list[str]:
-    from latris.exporters.results import _table
+    from latris.exporters import md
     from latris.operations.mcda import describe
 
     out = [describe(p) + ".", ""]
     crits = p["criteria"]
     rows = [[r["option"], f"{r['total']:.1f}", *(f"{r['contributions'][c]:.1f}" for c in crits)] for r in p["ranking"]]
-    out += _table(["Option", "Total (of 100)", *crits], rows)
+    out += md.table(["Option", "Total (of 100)", *crits], rows)
     rows = [[w["criterion"], f"{w['weight']:.0%}", f"{w['direction']} is better",
              f"{w['worst']:g} → {w['best']:g}" + (f" {w['units']}" if w["units"] else "")
              + (" (options' range)" if w["local_scale"] else ""),
              (w["source"] or "—") + ("; not verified" if w["weak"] else "")] for w in p["weights"]]
     out += ["Swing weights: how much moving from the worst to the best of each scale matters, relative to the "
             "other criteria's swings.", ""]
-    out += _table(["Criterion", "Weight", "Direction", "Scale (worst → best)", "Weight's source"], rows)
+    out += md.table(["Criterion", "Weight", "Direction", "Scale (worst → best)", "Weight's source"], rows)
     if p["rank_reversal"]:
         out += ["How far each weight would have to move, others keeping their proportions, before the top "
                 "choice changes:", ""]
@@ -215,10 +217,31 @@ def _run(a, root: Path) -> str:
 
 
 def _definition(payload: dict[str, Any]):
-    from latris.schema.build_spec import SpecAnalysis
+    from latris.schema.build_spec import make_analysis
 
-    return SpecAnalysis(kind="mcda_analyse")
+    return make_analysis(kind="mcda_analyse")
 
+
+
+# How a chat assistant runs each analysis (latris-app generates the tool from the manifest).
+_TOOLS = {
+    'mcda-analysis': ('analyse_mcda',
+        "Rank the options of a multi-criteria decision analysis: each option's weighted score with every "
+        "criterion's contribution, dominated options, and how far each weight would have to move before "
+        'the top choice changes, flagging unverified scores the margin rests on. Recorded with charts.'),
+}
+
+
+# How a chat assistant writes this type's build-spec block (latris-app generates each operation).
+_CHAT_OPS = (
+    ChatOp('set_mcda_element', ('elements',),
+        'Make a factor an option or a criterion of the decision.'),
+    ChatOp('set_mcda_criterion', ('criteria',),
+        "A criterion's weight (any positive number; weights are normalised), its direction (higher or "
+        'lower is better), its worst and best values and units, and the source of the weight.'),
+    ChatOp('set_mcda_score', ('scores',),
+        "One option's score on one criterion, with its source."),
+)
 
 register(Formalism(
     connected_structure=False,
@@ -237,12 +260,15 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the weights and scores to see how firm the choice is.",
-    results=(ResultKind(kind="mcda-analysis", title="Multi-criteria decision analysis", render=_render,
-                        analysis="mcda_analyse", run=_run, definition=_definition, charts=_charts),),
+    results=(ResultKind(tool=ChatTool(*_TOOLS['mcda-analysis']),
+                        kind="mcda-analysis", title="Multi-criteria decision analysis", render=_render,
+                        analysis="mcda_analyse", run=_run, definition=_definition, charts=_charts,
+                        chart_kinds=("mcda-contributions", "mcda-swing")),),
     spec_field="mcda",
     spec_check=_check,
     spec_apply=_apply,
     spec_export=_export,
+    chat_ops=_CHAT_OPS,
     mermaid=_mermaid,
     cli=("latris.cli.mcda_cmd", "mcda"),
     routes="latris.server.routes.mcda",

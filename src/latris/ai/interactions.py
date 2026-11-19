@@ -167,15 +167,9 @@ def set_adoption(
             break
 
     # Rewrite the whole file. Not ideal for huge logs; fine for the prototype.
-    tmp = paths.interactions_jsonl.with_suffix(paths.interactions_jsonl.suffix + ".tmp")
-    import json
+    from ..repo.yaml_io import rewrite_jsonl
 
-    from ..repo.yaml_io import atomic_replace
-
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        for r in all_records:
-            f.write(json.dumps(r.model_dump(mode="json"), ensure_ascii=False) + "\n")
-    atomic_replace(tmp, paths.interactions_jsonl)
+    rewrite_jsonl(all_records, paths.interactions_jsonl)
 
     sha = auto_commit(
         paths.root,

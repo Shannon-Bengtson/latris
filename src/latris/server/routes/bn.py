@@ -7,17 +7,15 @@ root explicitly.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from latris.operations import bn as bn_ops
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/bn", tags=["bn"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 # ── state spaces ─────────────────────────────────────────────────────
@@ -37,10 +35,7 @@ def list_state_spaces(root: Root) -> dict[str, Any]:
 
 @router.post("/state-space")
 def set_state_space(body: SetStateSpaceRequest, root: Root) -> dict[str, Any]:
-    try:
-        entry, sha = bn_ops.set_state_space(body.node, body.states, ordered=body.ordered, root=root)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    entry, sha = bn_ops.set_state_space(body.node, body.states, ordered=body.ordered, root=root)
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 
@@ -63,12 +58,9 @@ def list_cpts(root: Root) -> dict[str, Any]:
 
 @router.post("/cpt")
 def set_cpt(body: SetCPTRequest, root: Root) -> dict[str, Any]:
-    try:
-        cpt, sha = bn_ops.set_cpt(
-            body.node, body.parents, body.probs, origin=body.origin, source_id=body.source_id, root=root
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    cpt, sha = bn_ops.set_cpt(
+        body.node, body.parents, body.probs, origin=body.origin, source_id=body.source_id, root=root
+    )
     return {"result": cpt.model_dump(mode="json"), "commit_sha": sha}
 
 
@@ -98,12 +90,9 @@ def list_noisy_or(root: Root) -> dict[str, Any]:
 @router.post("/noisy-or")
 def set_noisy_or(body: SetNoisyOrRequest, root: Root) -> dict[str, Any]:
     causes = [(c.parent, c.active_state, c.prob) for c in body.causes]
-    try:
-        entry, sha = bn_ops.set_noisy_or(
-            body.node, body.leak, causes, origin=body.origin, source_id=body.source_id, root=root
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    entry, sha = bn_ops.set_noisy_or(
+        body.node, body.leak, causes, origin=body.origin, source_id=body.source_id, root=root
+    )
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 
@@ -194,12 +183,9 @@ class SensitivityRequest(BaseModel):
 def sensitivity(body: SensitivityRequest, root: Root) -> dict[str, Any]:
     from latris.operations import bn_sensitivity
 
-    try:
-        result = bn_sensitivity.sensitivity(
-            body.target, body.state, evidence=body.evidence, top=body.top, root=root
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = bn_sensitivity.sensitivity(
+        body.target, body.state, evidence=body.evidence, top=body.top, root=root
+    )
     out = result.model_dump(mode="json")
     if body.record:
         sha, run_id = bn_sensitivity.record_sensitivity(result, root=root)
@@ -223,11 +209,8 @@ class QueryRequest(BaseModel):
 
 @router.post("/query")
 def query(body: QueryRequest, root: Root) -> dict[str, Any]:
-    try:
-        result = bn_ops.infer(query=body.query, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
-                              interventions=body.interventions, scenario=body.scenario, root=root)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = bn_ops.infer(query=body.query, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
+                          interventions=body.interventions, scenario=body.scenario, root=root)
     out: dict[str, Any] = {"marginals": result.marginals, "evidence": result.evidence, "method": result.method,
                            "soft": result.soft, "likelihood": result.likelihood,
                            "interventions": result.interventions, "scenario": result.scenario,
@@ -268,11 +251,8 @@ class TableUncertaintyRequest(BaseModel):
 
 @router.post("/explain")
 def explain(body: ExplainRequest, root: Root) -> dict[str, Any]:
-    try:
-        out = bn_ops.explain(over=body.over, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
-                             root=root)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    out = bn_ops.explain(over=body.over, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
+                         root=root)
     resp: dict[str, Any] = {"result": out}
     if body.record:
         resp["commit_sha"], resp["run_id"] = bn_ops.record_explanation(out, root=root)
@@ -281,13 +261,10 @@ def explain(body: ExplainRequest, root: Root) -> dict[str, Any]:
 
 @router.post("/monte-carlo")
 def monte_carlo(body: MonteCarloRequest, root: Root) -> dict[str, Any]:
-    try:
-        out = bn_ops.run_monte_carlo(
-            body.target, state=body.state, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
-            runs=body.runs, seed=body.seed, max_seconds=body.max_seconds, scenario=body.scenario, root=root,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    out = bn_ops.run_monte_carlo(
+        body.target, state=body.state, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
+        runs=body.runs, seed=body.seed, max_seconds=body.max_seconds, scenario=body.scenario, root=root,
+    )
     resp: dict[str, Any] = {"result": out}
     if body.record:
         resp["commit_sha"], resp["run_id"] = bn_ops.record_monte_carlo(out, root=root)
@@ -323,14 +300,11 @@ def list_scenarios(root: Root) -> dict[str, Any]:
 def set_scenario(body: ScenarioRequest, root: Root) -> dict[str, Any]:
     from latris.operations import bn_scenarios
 
-    try:
-        scenario, sha = bn_scenarios.set_scenario(
-            body.name, observe=body.observe, soft=body.soft, likelihood=body.likelihood, set_=body.set,
-            tables=body.tables, extends=body.extends, description=body.description, reason=body.reason,
-            source_id=body.source_id, origin=body.origin, root=root,  # type: ignore[arg-type]
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    scenario, sha = bn_scenarios.set_scenario(
+        body.name, observe=body.observe, soft=body.soft, likelihood=body.likelihood, set_=body.set,
+        tables=body.tables, extends=body.extends, description=body.description, reason=body.reason,
+        source_id=body.source_id, origin=body.origin, root=root,  # type: ignore[arg-type]
+    )
     return {"result": scenario.model_dump(mode="json"), "commit_sha": sha}
 
 
@@ -338,10 +312,7 @@ def set_scenario(body: ScenarioRequest, root: Root) -> dict[str, Any]:
 def remove_scenario(name: str, root: Root) -> dict[str, Any]:
     from latris.operations import bn_scenarios
 
-    try:
-        sha = bn_scenarios.remove_scenario(name, root=root)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    sha = bn_scenarios.remove_scenario(name, root=root)
     return {"result": {"removed": name}, "commit_sha": sha}
 
 
@@ -357,14 +328,11 @@ class CompareRequest(EvidenceRequest):
 
 @router.post("/compare")
 def compare(body: CompareRequest, root: Root) -> dict[str, Any]:
-    try:
-        out = bn_ops.run_compare(
-            body.target, body.scenarios, state=body.state, evidence=body.evidence, soft=body.soft,
-            likelihood=body.likelihood, reference=body.reference, runs=body.runs, seed=body.seed,
-            max_seconds=body.max_seconds, root=root,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    out = bn_ops.run_compare(
+        body.target, body.scenarios, state=body.state, evidence=body.evidence, soft=body.soft,
+        likelihood=body.likelihood, reference=body.reference, runs=body.runs, seed=body.seed,
+        max_seconds=body.max_seconds, root=root,
+    )
     resp: dict[str, Any] = {"result": out}
     if body.record:
         resp["commit_sha"], resp["run_id"] = bn_ops.record_compare(out, root=root)
@@ -385,20 +353,14 @@ def list_uncertainty(root: Root) -> dict[str, Any]:
 def set_uncertainty(body: TableUncertaintyRequest, root: Root) -> dict[str, Any]:
     from latris.operations import uncertainty
 
-    try:
-        entry, sha = uncertainty.set_table_uncertainty(
-            body.node, body.n, row=body.row, reason=body.reason, source_id=body.source_id,
-            origin=body.origin, root=root,  # type: ignore[arg-type]
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    entry, sha = uncertainty.set_table_uncertainty(
+        body.node, body.n, row=body.row, reason=body.reason, source_id=body.source_id,
+        origin=body.origin, root=root,  # type: ignore[arg-type]
+    )
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 
 @router.get("/marginals")
 def marginals(root: Root) -> dict[str, Any]:
-    try:
-        result = bn_ops.infer(root=root)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = bn_ops.infer(root=root)
     return {"marginals": result.marginals, "evidence": result.evidence, "method": result.method}

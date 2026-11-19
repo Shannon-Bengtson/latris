@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from latris.operations import analysis as analysis_ops
-from latris.server.deps import get_project_root
+from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
-Root = Annotated[Path, Depends(get_project_root)]
 
 
 @router.get("/loops")
@@ -130,11 +128,8 @@ def estimate(body: EstimateRequest, root: Root) -> dict[str, Any]:
     """Effect of treatment on outcome from a dataset, adjusting as the DAG requires (and recorded)."""
     from latris.operations import estimation
 
-    try:
-        payload = estimation.estimate(body.treatment, body.outcome, body.dataset, adjust=body.adjust,
-                                      columns=body.columns, estimator=body.estimator, root=root)
-    except (ValueError, LookupError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    payload = estimation.estimate(body.treatment, body.outcome, body.dataset, adjust=body.adjust,
+                                  columns=body.columns, estimator=body.estimator, root=root)
     sha = None
     if body.record:
         sha, payload["run_id"] = estimation.record(payload, root=root)

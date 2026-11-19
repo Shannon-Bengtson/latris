@@ -15,10 +15,10 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from latris.schema.attributes import _Base, _EntryBase
+from latris.schema.attributes import EntryBase, _Base
 
 
-class PTPriorEntry(_EntryBase):
+class PTPriorEntry(EntryBase):
     """How confident you are that a link holds before the tests (``target_id`` is the edge)."""
 
     attribute: str = "pt_prior"
@@ -30,7 +30,7 @@ class PTPriorSet(_Base):
     entries: list[PTPriorEntry] = Field(default_factory=list)
 
 
-class PTTestEntry(_EntryBase):
+class PTTestEntry(EntryBase):
     """One evidence test on a link: what you'd expect to find, how telling it is, and whether it was found.
 
     Probabilities are open-interval: no evidence is certain, and a value of 0 or 1 would let one test settle
