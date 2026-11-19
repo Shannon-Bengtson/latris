@@ -65,8 +65,9 @@ def _heading(kind: str, title: str, p: dict[str, Any], plugin_kind: Any) -> str:
     return f"{title}: {sub}" if sub else title
 
 
-def _charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    """The ``latris-chart`` markers for one result: its result kind's ``charts`` hook."""
+def result_charts(kind: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """The ``latris-chart`` markers for one result: its result kind's ``charts`` hook. Public: a surface
+    drawing one result's charts (the app's results panel) draws the same ones the report marks."""
     from latris.operations import formalisms
 
     found = formalisms.result_kind(kind)
@@ -114,20 +115,23 @@ def result_heading(kind: str, p: dict[str, Any]) -> str:
 def render_result(run: Any, p: dict[str, Any], *, stale: bool = False, chart_markers: bool = False,
                   show_ids: bool = True) -> list[str]:
     """One result's section of the report: heading, date, notes, chart markers and its table."""
-    from latris.operations import formalisms
-
     kind = run.result_kind
-    found = formalisms.result_kind(kind)
-    plugin_kind = found[1] if found else None
     out = [f"### {result_heading(kind, p)}", "", f"_Run {_run_date(run.id)}._", ""]
     out += _stale_note(stale, run.id, show_ids)
     out += carried_note(run.hyperparameters)
     if chart_markers:
-        for chart, extra in _charts(kind, p):
+        for chart, extra in result_charts(kind, p):
             out += _marker(run.id, chart, **extra)
     try:
-        if plugin_kind:
-            out += plugin_kind.render(p)
+        out += result_body(kind, p)
     except (KeyError, TypeError, ValueError, IndexError):
         out += [f"_This result couldn't be shown ({run.output_summary})._", ""]
     return out
+
+
+def result_body(kind: str, p: dict[str, Any]) -> list[str]:
+    """One result's tables and notes as the report renders them (no heading, date or chart markers)."""
+    from latris.operations import formalisms
+
+    found = formalisms.result_kind(kind)
+    return found[1].render(p) if found else []
