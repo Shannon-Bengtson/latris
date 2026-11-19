@@ -72,59 +72,38 @@ def weights() -> None:
 @handle_cli_errors
 def infer(
     clamp: list[str] | None = typer.Option(None, "--clamp", "-c", help="Clamp entity=value (e.g. 'Price=1.0')."),
+    record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
 ) -> None:
-    """Run FCM inference to steady state."""
-    from latris.operations import nodes as node_ops
-    from latris.operations.analysis import infer_fcm
+    """Run FCM inference to steady state (recorded for reports, one result per clamp scenario)."""
+    from latris.operations.analysis import fcm_steady_state, record_fcm
 
-    entities = node_ops.list_nodes()
-    entity_ids = [e.id for e in entities]
-    labels = {e.id: e.label for e in entities}
-
-    # Parse clamps
     clamped: dict[str, float] = {}
-    if clamp:
-        from latris.operations._resolve import resolve_target
-        from latris.repo.project import require_project
-        from latris.repo.yaml_io import load_model
-        from latris.schema import Substrate
+    for c in clamp or []:
+        if "=" not in c:
+            raise typer.BadParameter(f"Clamp must be 'entity=value', got {c!r}")
+        name, val_str = c.rsplit("=", 1)
+        clamped[name.strip()] = float(val_str.strip())
 
-        paths = require_project(None)
-        substrate = load_model(Substrate, paths.conceptual_yaml)
-        for c in clamp:
-            if "=" not in c:
-                raise typer.BadParameter(f"Clamp must be 'entity=value', got {c!r}")
-            name, val_str = c.rsplit("=", 1)
-            eid = resolve_target(name.strip(), substrate)
-            clamped[eid] = float(val_str.strip())
-
-    result = infer_fcm(clamped=clamped or None)
+    payload = fcm_steady_state(clamp=clamped)
+    recorded = record_fcm(payload) if record else None
     if json_mode():
-        emit({"converged": result.converged, "iterations": result.iterations, "activations": [
-            {"variable": labels.get(eid, eid), "activation": round(result.activations.get(eid, 0.5), 4),
-             "clamped": eid in clamped}
-            for eid in entity_ids
-        ]}, human=lambda: None)
+        emit({"converged": payload["converged"], "iterations": payload["iterations"], "activations": [
+            {"variable": a["label"], "activation": a["activation"], "clamped": a["clamped"]}
+            for a in payload["activations"]
+        ], "run_id": recorded[1] if recorded else None}, human=lambda: None,
+            commit_sha=recorded[0] if recorded else None)
         return
 
-    # Display
-    status = "[green]converged[/green]" if result.converged else "[yellow]did not converge[/yellow]"
-    console.print(f"FCM inference: {status} in {result.iterations} iteration(s)\n")
-
+    status = "[green]converged[/green]" if payload["converged"] else "[yellow]did not converge[/yellow]"
+    console.print(f"FCM inference: {status} in {payload['iterations']} iteration(s)\n")
     table = Table(show_header=True, header_style="bold")
     table.add_column("Variable")
     table.add_column("Activation", justify="right")
     table.add_column("Status")
-    for eid in entity_ids:
-        label = labels.get(eid, eid[:12])
-        val = result.activations.get(eid, 0.5)
-        # Colour by activation level
-        if val > 0.7:
-            val_str = f"[green]{val:.3f}[/green]"
-        elif val < 0.3:
-            val_str = f"[red]{val:.3f}[/red]"
-        else:
-            val_str = f"{val:.3f}"
-        status_str = "[bold]clamped[/bold]" if eid in clamped else ""
-        table.add_row(label, val_str, status_str)
+    for a in payload["activations"]:
+        val = a["activation"]
+        val_str = f"[green]{val:.3f}[/green]" if val > 0.7 else f"[red]{val:.3f}[/red]" if val < 0.3 else f"{val:.3f}"
+        table.add_row(a["label"], val_str, "[bold]clamped[/bold]" if a["clamped"] else "")
     console.print(table)
+    if recorded:
+        console.print(f"\nrecorded · {recorded[0][:8]}")

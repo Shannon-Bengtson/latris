@@ -243,6 +243,29 @@ def _spec_schema(field: str | None) -> dict[str, Any] | None:
     return TypeAdapter(inner[0]).json_schema()
 
 
+def analysis_catalog(model_type: str | None = None) -> list[dict[str, Any]]:
+    """Every analysis that records a result (of ``model_type``, or all), in report order: the result kind
+    and its title, the analysis that runs it with the JSON schema of its options (each option described,
+    and marked with ``x-input`` saying what it is: a factor, a scenario…), its chart kinds, whether it needs
+    a dataset, and its chat tool. Surfaces generate their run controls from this — the chat connector's
+    tools, the editor's analysis forms — so an analysis a formalism declares reaches them with no code."""
+    from latris.operations import formalisms
+    from latris.operations.analysis_results import result_surfaces
+    from latris.schema.build_spec import analysis_model
+
+    tools = {r.kind: r.tool for r in formalisms.result_kinds() if r.tool}
+    return [
+        {
+            "model_type": r.model_type, "kind": r.kind, "title": r.title, "analysis": r.analysis,
+            "analysis_schema": analysis_model(r.analysis).model_json_schema(),
+            "chart_kinds": list(r.chart_kinds), "needs_dataset": r.needs_dataset,
+            "tool": {"name": tools[r.kind].name, "description": tools[r.kind].description} if r.kind in tools else None,
+        }
+        for r in result_surfaces()
+        if model_type is None or r.model_type == model_type
+    ]
+
+
 def build_surface_manifest() -> dict[str, Any]:
     """Everything a surface built on this library needs to present each stable model type.
 
@@ -256,19 +279,10 @@ def build_surface_manifest() -> dict[str, Any]:
     """
     from latris import __version__
     from latris.operations import formalisms
-    from latris.operations.analysis_results import result_surfaces
-    from latris.schema.build_spec import analysis_model
 
-
-    tools = {r.kind: r.tool for r in formalisms.result_kinds() if r.tool}
     results: dict[str, list[dict[str, Any]]] = {}
-    for r in result_surfaces():
-        results.setdefault(r.model_type, []).append({
-            "kind": r.kind, "title": r.title, "analysis": r.analysis,
-            "analysis_schema": analysis_model(r.analysis).model_json_schema(),
-            "chart_kinds": list(r.chart_kinds), "needs_dataset": r.needs_dataset,
-            "tool": {"name": tools[r.kind].name, "description": tools[r.kind].description} if r.kind in tools else None,
-        })
+    for entry in analysis_catalog():
+        results.setdefault(entry.pop("model_type"), []).append(entry)
     types = []
     for spec in list_model_types():
         f = formalisms.get(spec.id)

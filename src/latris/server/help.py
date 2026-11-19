@@ -1048,7 +1048,7 @@ FCM analysis depends on edge weights and, for simulation, node activation settin
 
 - **`latris fcm set-weight <edge> <weight>`** — a link's influence, from -1 (strongly opposes) to +1 (strongly drives).
 - **`latris fcm weights`** — every weight.
-- **`latris fcm infer`** — run the map to its steady state (which factors end up high or low).
+- **`latris fcm infer`** — run the map to its steady state (which factors end up high or low); `--clamp 'Factor=1.0'` holds a factor at a value as a scenario. Each run is recorded (one result per scenario) and shows in the report and under **Recorded results**; `--no-record` only shows it. In the editor, Analyse → **Steady state** runs it, with the factors to hold picked from the map.
 
 ## Practical caution
 

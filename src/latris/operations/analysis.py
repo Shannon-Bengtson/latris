@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from latris.operations import graph_analysis as ga
 from latris.operations.coherence_checks import (
@@ -132,6 +133,71 @@ def infer_fcm(
         clamped=clamped,
         settings=settings,
     )
+
+
+def fcm_steady_state(
+    *,
+    clamp: dict[str, float] | None = None,
+    initial: dict[str, float] | None = None,
+    settings: dict[str, Any] | None = None,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """FCM inference as a result: factors named by label (as a build spec names them), each factor's
+    activation at the end, ranked, whether it settled, and the scenario (``clamp``) it ran under."""
+    from latris.operations._resolve import resolve_target
+
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    label = {e.id: e.label for e in substrate.entities}
+    ids = lambda d: {resolve_target(k, substrate): float(v) for k, v in (d or {}).items()}  # noqa: E731
+    for name, values in (("clamp", clamp), ("initial", initial)):
+        for k, v in (values or {}).items():
+            if not 0.0 <= float(v) <= 1.0:
+                raise ValueError(f"{name} {k} = {v}: activations run from 0 to 1")
+    given = {k: v for k, v in (settings or {}).items() if v is not None}
+    result = infer_fcm(paths.root, initial_activations=ids(initial) or None, clamped=ids(clamp) or None,
+                       settings=FCMSettings(**given) if given else None)
+    clamped = ids(clamp)
+    ranked = sorted(result.activations.items(), key=lambda kv: -kv[1])
+    return {
+        "activations": [{"id": i, "label": label.get(i, i), "activation": round(a, 4), "clamped": i in clamped}
+                        for i, a in ranked],
+        "converged": result.converged,
+        "iterations": result.iterations,
+        "clamp": {label.get(i, i): v for i, v in clamped.items()},
+        "initial": {label.get(i, i): v for i, v in ids(initial).items()},
+        "settings": given,
+    }
+
+
+def describe_fcm(p: dict[str, Any]) -> str:
+    top = [a for a in p["activations"] if not a["clamped"]][:3]
+    under = f" with {', '.join(f'{k} held at {v:g}' for k, v in p['clamp'].items())}" if p["clamp"] else ""
+    head = ", ".join(f"{a['label']} {a['activation']:.2f}" for a in top) or "no free factors"
+    settled = f"{'settled' if p['converged'] else 'not settled'} after {p['iterations']} steps"
+    return f"Fuzzy cognitive map{under}: most active {head} ({settled})"
+
+
+def record_fcm(payload: dict[str, Any], *, root: Path | None = None) -> tuple[str, str]:
+    """Record a steady state for the report; one per scenario (its clamp)."""
+    import json
+
+    from latris.operations.analysis_results import record_result
+
+    sha, run = record_result(
+        kind="fcm-inference",
+        key="fcm-inference:" + json.dumps(payload["clamp"], sort_keys=True),
+        payload=payload,
+        purpose="simulation",
+        algorithm=f"FCM iteration to steady state ({payload['settings'].get('transfer_function', 'sigmoid')} "
+                  "transfer, Kosko update)",
+        library_version="latris",
+        summary=describe_fcm(payload),
+        model_type="fcm",
+        hyperparameters={"clamp": payload["clamp"], "initial": payload["initial"], **payload["settings"]},
+        root=root,
+    )
+    return sha, run.id
 
 
 # ── Coherence ───────────────────────────────────────────────────────────

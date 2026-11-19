@@ -457,6 +457,7 @@ _ANALYSIS_KIND_TO_ID = {
     "sd-sensitivity": "sd-sensitivity",
     "sd-loops": "sd-loop-dominance",
     "dag-estimate": "dag-estimation",
+    "fcm-inference": "fcm-steady-state",
     "toc-process-trace": "toc-process-tracing",
     "toc-impact": "toc-impact",
     "ft-monte-carlo": "risk-monte-carlo",

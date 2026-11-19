@@ -37,6 +37,7 @@ from latris.server.perf import PerfMiddleware
 from latris.server.routes import (
     activity,
     ai,
+    analyses,
     analysis,
     annotations,
     attributes,
@@ -258,6 +259,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     # ── Mutation route modules ────────────────────────────────────────
     app.include_router(activity.router)
     app.include_router(ai.router)
+    app.include_router(analyses.router)
     app.include_router(analysis.router)
     app.include_router(annotations.router)
     app.include_router(checks.router)

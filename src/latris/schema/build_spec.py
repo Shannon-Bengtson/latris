@@ -652,6 +652,49 @@ ANALYSIS_OPTION_DOCS: dict[str, str] = {
     "at": "The first period the intervention could affect.",
     "group": "Difference-in-differences: the column saying which group a row is in.",
     "treated": "Difference-in-differences: the group value(s) that received the intervention.",
+    "clamp": "Factors held at an activation (0-1) throughout, factor → value, e.g. {'Price': 1.0}: a scenario.",
+    "initial": "Starting activations (0-1), factor → value; the rest start at 0.",
+    "transfer_function": "sigmoid (default), tanh or step.",
+    "lambda_steepness": "Steepness of the transfer function (default 1).",
+    "max_iterations": "Stop after this many steps if it hasn't settled (default 100).",
+}
+
+
+# What each option *is*, so a surface can offer the right input without knowing the analysis: emitted
+# into every analysis's JSON schema as ``x-input``. Options are named the same across analyses (a
+# ``target`` is always a factor), so this is keyed by name, like ANALYSIS_OPTION_DOCS. Factors, states,
+# scenarios, datasets and columns are given by label/name, as everywhere in a build spec.
+ANALYSIS_OPTION_INPUTS: dict[str, str] = {
+    "settings": "clock",  # {initial_time, final_time, dt, saveper, method, time_units}
+    "apply_to_all": "assignments", "set": "assignments",  # ['Factor=value [units]', ...]
+    "scenarios": "scenarios", "scenario": "scenario",  # saved scenarios of this model type, by name
+    "reference": "arm",  # 'baseline' or one of the compared scenarios
+    "variables": "factors", "query": "factors", "over": "factors", "adjust": "factors",
+    "variable": "factor", "target": "factor", "treatment": "factor", "outcome": "factor",
+    "state": "state",  # a state of ``target``
+    "evidence": "factor-states", "interventions": "factor-states",  # {factor: state}
+    "soft": "factor-weights", "likelihood": "factor-weights",  # {factor: {state: number}}
+    "dataset": "dataset", "time": "column", "group": "column",  # a registered dataset; one of its columns
+    "treated": "values",  # values of ``group``
+    "columns": "column-map",  # {factor label: dataset column}
+    "metric": "metric",  # final | peak | peak-time | min | mean | total | at:T
+    "clamp": "factor-values", "initial": "factor-values",  # {factor: number}
+}
+
+
+# How a person reads each option's name (the schema's ``title``) where the field name alone doesn't say it.
+ANALYSIS_OPTION_TITLES: dict[str, str] = {
+    "settings": "Clock", "apply_to_all": "In every run", "set": "Try these values", "scenarios": "Scenarios",
+    "scenario": "Run on scenario", "reference": "Measured against", "runs": "Draws", "seed": "Seed",
+    "sampling": "Sampling", "variables": "Report these factors", "variable": "Factor measured",
+    "metric": "Measure", "pct": "Swing (%) where no range is set", "start": "Window from", "end": "Window to",
+    "evidence": "Observed", "soft": "Uncertain evidence", "likelihood": "Likelihood evidence",
+    "interventions": "Set (intervene)", "query": "Factors to report", "over": "Explain over",
+    "target": "Target", "state": "State", "max_order": "Largest cut set", "treatment": "Treatment",
+    "outcome": "Outcome", "dataset": "Dataset", "adjust": "Adjust for", "columns": "Dataset columns",
+    "estimator": "Estimator", "time": "Time column", "at": "Intervention starts", "group": "Group column",
+    "treated": "Treated groups", "clamp": "Hold at", "initial": "Start from",
+    "transfer_function": "Transfer function", "lambda_steepness": "Steepness", "max_iterations": "Most steps",
 }
 
 
@@ -659,6 +702,10 @@ def _describe_options(schema: dict[str, Any], cls: Any = None) -> None:
     for name, prop in (schema.get("properties") or {}).items():
         if name in ANALYSIS_OPTION_DOCS and "description" not in prop:
             prop["description"] = ANALYSIS_OPTION_DOCS[name]
+        if name in ANALYSIS_OPTION_INPUTS:
+            prop["x-input"] = ANALYSIS_OPTION_INPUTS[name]
+        if name in ANALYSIS_OPTION_TITLES:
+            prop["title"] = ANALYSIS_OPTION_TITLES[name]
 
 
 class _Analysis(_Spec):
@@ -855,6 +902,17 @@ class DagEstimateAnalysis(_Analysis):
     estimator: Literal["auto", "linear", "logistic"] | None = None
 
 
+class FcmInferAnalysis(_Analysis):
+    """Fuzzy cognitive map: each factor's activation at steady state, with ``clamp`` held (a scenario)."""
+
+    kind: Literal["fcm_infer"]
+    clamp: dict[str, float] = Field(default_factory=dict)
+    initial: dict[str, float] = Field(default_factory=dict)
+    transfer_function: Literal["sigmoid", "tanh", "step"] | None = None
+    lambda_steepness: float | None = Field(default=None, gt=0)
+    max_iterations: int | None = Field(default=None, ge=1)
+
+
 class McdaAnalyseAnalysis(_Analysis):
     """MCDA: ranking and weight sensitivity."""
 
@@ -883,16 +941,16 @@ ANALYSIS_MODELS: tuple[type[_Analysis], ...] = (
     SimulateAnalysis, MonteCarloAnalysis, CompareAnalysis, SensitivityAnalysis, LoopsAnalysis,
     BnQueryAnalysis, BnExplainAnalysis, BnMonteCarloAnalysis, BnCompareAnalysis, BnSensitivityAnalysis,
     TocCheckAnalysis, TocTraceAnalysis, TocImpactAnalysis, FtAnalyseAnalysis, BowtieAnalyseAnalysis,
-    EtAnalyseAnalysis, RiskMonteCarloAnalysis, DagEstimateAnalysis, McdaAnalyseAnalysis, AchAnalyseAnalysis,
-    DtAnalyseAnalysis, MarkovAnalyseAnalysis,
+    EtAnalyseAnalysis, RiskMonteCarloAnalysis, DagEstimateAnalysis, FcmInferAnalysis, McdaAnalyseAnalysis,
+    AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis,
 )
 
 SpecAnalysis = Annotated[
     SimulateAnalysis | MonteCarloAnalysis | CompareAnalysis | SensitivityAnalysis | LoopsAnalysis
     | BnQueryAnalysis | BnExplainAnalysis | BnMonteCarloAnalysis | BnCompareAnalysis | BnSensitivityAnalysis
     | TocCheckAnalysis | TocTraceAnalysis | TocImpactAnalysis | FtAnalyseAnalysis | BowtieAnalyseAnalysis
-    | EtAnalyseAnalysis | RiskMonteCarloAnalysis | DagEstimateAnalysis | McdaAnalyseAnalysis | AchAnalyseAnalysis
-    | DtAnalyseAnalysis | MarkovAnalyseAnalysis,
+    | EtAnalyseAnalysis | RiskMonteCarloAnalysis | DagEstimateAnalysis | FcmInferAnalysis | McdaAnalyseAnalysis
+    | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis,
     Field(discriminator="kind"),
 ]
 

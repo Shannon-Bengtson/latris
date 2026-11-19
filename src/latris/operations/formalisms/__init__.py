@@ -161,6 +161,9 @@ class Formalism:
     # (gap type, message): readiness when nothing has joined it yet, for a type sharing the map
     empty_scope_gap: tuple[str, str] | None = None
     source_label: str | None = None  # how a claim pooled from several types names this one ("Network")
+    # paths → factor id → its states, for a type whose factors have named states (a BN): what a surface
+    # offers for an analysis option that is a state (``state``, ``evidence``)
+    factor_states: Callable[[Any], dict[str, list[str]]] | None = None
 
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""
@@ -303,7 +306,7 @@ def default_origin(verified_by: str) -> str:
 _MODULES = (
     "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov", "toc_impact", "causal",
+    "markov", "toc_impact", "causal", "fcm_steady_state",
 )
 
 
