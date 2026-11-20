@@ -87,6 +87,13 @@ Cross-formalism coherence is maintained by an explicit **mapping registry**
 cardinalities: one-to-many, many-to-one, and one-to-none are normal.
 AI proposes mappings; human approves/edits.
 
+Membership default: every factor and link is in every chosen model type
+(`views.auto_project` maps what isn't mapped yet when a type is opened)
+unless a person leaves it out. Leaving out is recorded in the registry
+(`MappingRegistry.left_out`, with an optional reason) so auto-projection
+never undoes it; mapping the element again clears it. A view holds a link
+only with both its ends.
+
 ### Continuity, not portability
 
 The right frame is **continuity**, not portability. What carries forward:
