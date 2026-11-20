@@ -86,3 +86,12 @@ def test_fix_removes_leftover_rows(client: TestClient, tmp_path: Path) -> None:
     assert "integrity" in {i.kind for i in handover_check(root=paths.root).items}
     r = client.post("/api/checks/integrity/fix").json()
     assert r["removed"] >= 1 and r["commit_sha"] and r["remaining"] == []
+
+
+def test_refreshing_sync_state_of_an_unshared_project_is_quiet(client: TestClient, monkeypatch) -> None:
+    """The app refreshes sync state on load; a project with no remote (or signed out) isn't an error."""
+    from latris.sync import credentials
+
+    monkeypatch.setattr(credentials, "get_gitea_token", lambda: None)
+    r = client.post("/api/lineage/sync/refresh")
+    assert r.status_code == 200, r.text
