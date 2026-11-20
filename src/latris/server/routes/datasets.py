@@ -10,6 +10,7 @@ from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel
 
 from latris.operations import datasets as ds_ops
+from latris.schema.data_actions import DataActionLog
 from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
@@ -165,7 +166,7 @@ def column_stats(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{dataset_id}/actions")
+@router.get("/{dataset_id}/actions", response_model=DataActionLog)
 def get_actions(dataset_id: str, root: Root) -> dict[str, Any]:
     log = ds_ops.get_action_log(dataset_id, root=root)
     return log.model_dump(mode="json")
