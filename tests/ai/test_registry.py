@@ -76,9 +76,7 @@ def test_reregistering_replaces_mode(cleanup):
 
 def test_built_in_prompt_cannot_be_replaced():
     with pytest.raises(ValueError, match="built in"):
-        registry.register_prompt(
-            _spec("ExplainThisElement"), response_model=_Result, context_builder=_builder
-        )
+        registry.register_prompt(_spec("ExplainThisElement"), response_model=_Result, context_builder=_builder)
 
 
 def test_project_context_opens_with_the_question(tmp_path, git_identity):
