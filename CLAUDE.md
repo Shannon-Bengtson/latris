@@ -75,7 +75,15 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
 `pytest-xdist`). For serial debugging — clean tracebacks, breakpoints,
 deterministic output ordering — pass `-n0`. Targeted runs
 (`pytest tests/ai/test_context.py`) are the inner-loop optimum.
-See [docs/engineering/TESTING.md](./docs/engineering/TESTING.md).
+[docs/engineering/TESTING.md](./docs/engineering/TESTING.md) has the layers, the guards (every route
+tested, every command in the worked example — their gap lists only shrink), the coverage floor, and
+**what "done" means** for a change. Follow it.
+
+## Keep the notes current
+
+This file, `src/latris/CLAUDE.md`, [`AGENTS.md`](./AGENTS.md) (for other agents, e.g. Kimi — it points
+here rather than repeating this) and `docs/engineering/TESTING.md` are how the next agent learns this
+repo. When a change makes one of them wrong, fix it in the same commit.
 
 ## Worked example is the acceptance test
 

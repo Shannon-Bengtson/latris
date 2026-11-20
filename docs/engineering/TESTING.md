@@ -1,92 +1,88 @@
-# Testing Strategy
+# Testing
 
-## Current counts (2026-07, post repo-split)
+How latris is tested, what the guards enforce, and what "done" means for a change. Keep this file
+current: when you add a guard, change a floor or a layer, update it in the same commit (see
+[Keeping this current](#keeping-this-current)).
 
-- **~1,850 Python tests** collected by `python -m pytest --collect-only -q`
-- CI matrix: `{ubuntu, macos, windows} × {3.11, 3.12}` on manual
-  `workflow_dispatch`; slim single-job matrix on push/PR
-- The Latris app (React, in the browser) is developed in the separate
-  private app repo and carries its own test suites there.
+The Latris app (React, in the browser) is tested in the private app repo; its own guide is
+`docs/engineering/TESTING.md` there. The two meet at the API: the app's types are generated from
+latris's OpenAPI, so a schema change here shows up there as a type error.
 
-## Four test layers
+## Layers
 
-| Layer | Tool | What it tests | Where |
-|-------|------|---------------|-------|
-| **Unit** | pytest | Individual functions, helpers | `tests/` |
-| **Integration** | FastAPI TestClient | Server routes + operations together | `tests/server/`, `tests/integration/` |
-| **CLI smoke** | typer.testing.CliRunner | CLI error paths, flags, outside-project guards | `tests/cli/` |
-| **Acceptance** | Worked example script | Full CLI workflow end-to-end | `worked_example/` |
+| Layer | Tool | What it proves | Where |
+|-------|------|----------------|-------|
+| **Schema** | pytest | Models round-trip through YAML; validation refuses what it should | `tests/schema/` |
+| **Operations** | pytest | Each operation does the thing and commits it | `tests/operations/` |
+| **Routes** | FastAPI TestClient | Each route, its request shape and its errors | `tests/server/` |
+| **CLI** | typer CliRunner | Parsing, flags, error paths | `tests/cli/` |
+| **Acceptance** | the worked example | The whole CLI, end to end, as a person would use it | `worked_example/`, `tests/test_worked_example.py --slow` |
+| **Guards** | pytest | The rules below hold across the codebase | named `*guard*`, `test_routes_are_tested.py`, `test_worked_example_coverage.py`, `test_formalisms.py`, `test_no_type_branches.py` |
 
-## Hermetic test contract
+## Hermetic
 
-All tests run without network access, real API keys, or global state:
+Every test runs without a network, real keys or global state: `git_identity` sets git's identity from
+environment variables; `LATRIS_AI_MOCK=1` swaps the LLM for a mock; each test builds its project in
+`tmp_path`; the suite runs in parallel (`pytest-xdist`). The worked example writes its transcript outside
+`tmp_path`, so it is `@pytest.mark.slow` and serialised.
 
-- **Git identity**: `conftest.py` injects `GIT_AUTHOR_*` / `GIT_COMMITTER_*`
-  env vars via the `git_identity` fixture. Tests never touch `~/.gitconfig`.
-- **AI mocking**: `LATRIS_AI_MOCK=1` activates `MockAdapter`, which
-  returns canned responses. No LLM API calls leave the machine.
-- **Filesystem isolation**: Every test uses `tmp_path` for its project
-  directory. No shared state between tests.
-- **Parallel-safe**: Full-suite invocation runs under `pytest-xdist`
-  (`-n auto`). Each worker is a separate process, so env-var injection
-  and `tmp_path` survive cleanly. The one non-hermetic test
-  (`tests/test_worked_example.py`, gated by `@pytest.mark.slow` and
-  writing the transcript outside `tmp_path`) carries
-  `@pytest.mark.xdist_group("serial")` to prevent races.
+## Guards
 
-## Coverage
+Guards are tests that check a rule across the codebase rather than one behaviour. When one fails it says
+what to do.
 
-- **Python**: `pytest-cov` configured in `pyproject.toml`. Run explicitly
-  with `python -m pytest --cov --cov-report=term-missing`.
-- **CI**: The suite runs in `.github/workflows/ci.yml`. Coverage is
-  collected on Ubuntu + Python 3.12 only.
-- **Targets**: Track from day one. Do not enforce `fail_under` until
-  baselines are established.
+| Guard | Rule |
+|-------|------|
+| `tests/server/test_routes_are_tested.py` | Every server route is named by some test. |
+| `tests/test_worked_example_coverage.py` | Every CLI command appears in the worked example. |
+| `tests/operations/test_formalisms.py` | Every model type is complete: its plugin, spec field, analyses, foundations entry, help topic. |
+| `tests/operations/test_no_type_branches.py` | Shared code doesn't branch on a model type's name. |
+| `tests/operations/test_methods_register.py` | Every analysis names the method it stands on. |
+| `tests/schema/test_model_types.py` | Model-type text is about the method, never the GUI's status. |
 
-## What NOT to test
+### Ratchets
 
-- Pure display components that just render children (cover with E2E later)
-- External library behavior (pydantic validation, git internals)
-- Code that is purely generated or configuration
-- One-line re-exports or `__init__.py` barrel files
+Two guards started with existing gaps. Rather than fail from day one, each lists today's gaps in a file
+that **only shrinks**:
 
-## Adding tests for a new feature
+- `tests/server/untested_routes.txt` — routes with no test yet.
+- `worked_example/not_in_worked_example.txt` — commands not in the worked example yet (some can't be:
+  they need real keys or a network).
 
-Follow the six-step trace in `src/latris/CLAUDE.md`:
+A new route or command can't join the list: write its test or add it to the worked example. A listed one
+that gets a test (or is removed) must come off — the guard fails until it does, so the list stays true.
 
-1. **Schema model** → round-trip test in `tests/schema/`
-2. **Operation** → unit test in `tests/operations/` with `project` fixture
-3. **CLI command** → covered by worked example (add step to
-   `worked_example/worked_example.py`)
-4. **Server route** → test in `tests/server/` with `client` fixture
-5. **Worked example** → run `pytest tests/test_worked_example.py --slow` and
-   commit the updated transcript
+The coverage floor works the same way: `fail_under` in `pyproject.toml` sits a point under measured
+coverage and only goes up. When coverage rises, raise it.
 
-## Running tests
+## Done means
+
+A change to latris is done when:
+
+1. **Schema** changes have a round-trip test; **operations** a test in `tests/operations/`; **routes** a
+   test in `tests/server/` (the route guard checks); **CLI commands** a step in the worked example (the
+   coverage guard checks), with the transcript regenerated and committed.
+2. A user-facing change updates its **help topic** (`src/latris/server/help.py`).
+3. `python -m ruff check src tests` is clean and the full suite passes (`python -m pytest`).
+4. If the API changed, the app's types are regenerated there (`scripts/gen-api-types.sh` in the app repo)
+   and the app typechecks.
+5. This file and `CLAUDE.md` still describe how things work.
+
+## Running
 
 ```bash
-# Python quick/default (parallel via pytest-xdist)
-python -m pytest
-
-# Serial run (cleaner tracebacks for debugging)
-python -m pytest -n0
-
-# Python coverage
-python -m pytest -n auto --cov --cov-report=term-missing
-
-# Worked-example acceptance test (regenerates the transcript)
-python -m pytest tests/test_worked_example.py --slow
-
-# Single Python test file
-python -m pytest tests/ai/test_context.py -v
+python -m pytest                                    # everything, in parallel
+python -m pytest -n0                                # serial: clean tracebacks, breakpoints
+python -m pytest tests/server/test_build_routes.py  # one file (the inner loop)
+python -m pytest --cov --cov-report=term-missing    # with coverage (CI enforces the floor)
+python -m pytest tests/test_worked_example.py --slow  # regenerate the worked-example transcript
+python -m ruff check src tests                      # lint, as CI does
 ```
 
-## Known test/CI debt
+CI (`.github/workflows/ci.yml`) runs lint, the suite with coverage, and the worked example.
 
-- **Python coverage threshold remains at 74.** The Story test debt is paid
-  (`server/routes/story.py` is fully covered), but real total coverage is ~76%;
-  the historical **78** was aspirational and never actually enforced (the CI
-  coverage gate had not run). Climbing to a real 78 needs broad tests across
-  thin server routes (`interpret`, `sync`, `references`, `findings`, `watch`)
-  and is tracked as a separate push. See `pyproject.toml`
-  `[tool.coverage.report]`.
+## Keeping this current
+
+This file is read by every agent that works here (Claude via `CLAUDE.md`, others via `AGENTS.md`). When
+you add a guard or a test layer, change a floor, or change what "done" means, update this file in the
+same commit. If you find it wrong, fix it — a stale testing guide is worse than none.
