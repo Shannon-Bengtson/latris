@@ -26,8 +26,10 @@ class ApplyOperationRequest(BaseModel):
 
 
 class UpdateColumnRequest(BaseModel):
-    role: str | None = ...  # type: ignore[assignment]
-    description: str | None = ...  # type: ignore[assignment]
+    """Either or both: a field left out is left as it is (null clears it)."""
+
+    role: str | None = None
+    description: str | None = None
 
 
 class CreateVersionRequest(BaseModel):
@@ -123,11 +125,7 @@ def update_column(
     body: UpdateColumnRequest,
     root: Root,
 ) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {}
-    if body.role is not ...:
-        kwargs["role"] = body.role
-    if body.description is not ...:
-        kwargs["description"] = body.description
+    kwargs: dict[str, Any] = {k: getattr(body, k) for k in body.model_fields_set}
 
     dataset, sha = ds_ops.update_column_metadata(
         dataset_id,
