@@ -173,7 +173,7 @@ Turn analysis outputs and project evidence into structured interpretation sectio
 
 ## Communicate
 
-Communicate is per-formalism: pick a model from the Communicate dropdown, then use the left-hand strip to switch between Report, Diagram, Review and Story for that formalism. Assemble report sections, export diagrams, create Word or Markdown reports, draft a public-facing Story, and send Review Packs to outside reviewers — each scoped to the chosen formalism.
+Use the left-hand strip to switch between Report, Diagram, Review and Story. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type.
 
 ## Readiness gates
 
@@ -556,28 +556,33 @@ In client and publication reports the answer, implications and confidence come f
         id="communicate-story",
         title="Story (public-facing)",
         category="communicate",
-        summary="Turn a model into a self-contained, scrollable HTML story for non-technical and public audiences.",
+        summary="Tell the model's answer to its question to one audience, as a scrolling page anyone can read.",
         body="""## What a Story is
 
-A Story is a self-contained, scrollable HTML page that walks a non-technical reader through a model: the question it set out to answer, what it answered, what it can't, and what that means for them. It is the public-facing counterpart to the formal Report and the audit-facing Review Pack.
+A Story is a scrolling web page that answers the project's question for one audience: what the model found, how it works, what it can't tell them yet, and what it means for them. As the reader scrolls, the model's diagram highlights what each part is about. It sits alongside the formal Report and the audit-facing Review Pack.
+
+A project can have **several stories**: a council briefing, a community explainer, a board summary. Each has its own audience, purpose and voice. All of them answer the same question from the same model. They can differ in what they emphasise and how they say it, but not in what they claim.
 
 ## How it works
 
-- A Story is generated **downstream of the Report** — it starts from the same sections you chose to include there.
-- The steps follow a plain-language arc (hook, how the system works, what we found, what's uncertain, what it means, next steps).
-- Each step's prose is AI-drafted in a public register and then editable by you. The AI only changes the wording — never the substance — so every claim still traces to the evidence in the model.
-- As the reader scrolls, the model diagram highlights the nodes and loops each step is about.
+1. **Start a story** with who it's for, what it should achieve, a voice (conversational, formal, executive or technical) and a depth.
+2. **Plan the outline.** The AI proposes a one-sentence answer to the question (the *short answer*) and the beats that tell it. Each beat has a purpose and draws on things the model has recorded: its interpretation, findings, feedback loops and analysis results. You can add a steer ("lead with the cost to tourism"). A steer changes the framing, not the facts.
+3. **Correct the outline.** Reorder, retitle, change what a beat draws on, choose its picture, add or remove beats, rewrite the short answer. A beat you change is kept when you re-plan.
+4. **Approve the outline**, then **write the story**. The AI writes each beat from what it draws on, with the whole story in view. You can rewrite any beat in your own words; the AI never replaces them.
+5. **Preview** the page as a reader will see it, and **export** it as one self-contained HTML file.
 
-## Workflow
+## Staying honest
 
-1. Draft the story skeleton for a model type.
-2. Generate plain-language prose for each step, then edit as needed.
-3. Set which parts of the diagram each step emphasises (nodes or detected loops).
-4. Export a single self-contained HTML file to share or host.
+- The story says only what the model says. A number that isn't in a beat's sources is flagged.
+- Every story includes what the model **can't** tell the reader yet.
+- If you change a beat's plan after it was written, its prose is marked out of date.
+- Stories are versioned with the rest of the project, so you can always see what was told, from which version of the model.
 
 ## What it is not
 
-A Story is curated and audience-framed; it may deliberately leave out detail (for IP, confidentiality, or audience fit). The fully open, click-through-the-evidence experience is a separate (future) interactive model view.
+A Story is curated for its audience and may leave out detail, for confidentiality or to fit the reader. The Report and Review Pack carry the full evidence.
+
+Stories are made in the Latris app.
 """,
     ),
     HelpTopic(
