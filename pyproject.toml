@@ -146,10 +146,7 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-# Real current coverage is ~76%. The historical 78 was aspirational and never
-# actually enforced (the CI coverage gate had never run). The Story test debt is
-# now paid (routes/story.py is fully covered); the remaining gap to 78 is broad,
-# general coverage (thin server routes: interpret, sync, references, findings,
-# watch) and is tracked as a separate push. See docs/engineering/TESTING.md.
-fail_under = 74
+# A floor a point under measured coverage (86% on 2026-11-20). It only goes up: when coverage rises,
+# raise it. See docs/engineering/TESTING.md ("Ratchets").
+fail_under = 85
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
