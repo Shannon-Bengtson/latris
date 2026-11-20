@@ -2529,25 +2529,6 @@ def _build_completeness_gate(paths: ProjectPaths, inputs: dict[str, Any]) -> Con
     return ContextPack(system=SYSTEM_PREAMBLE, user=user_message)
 
 
-def _build_story_beat_prose(paths: ProjectPaths, inputs: dict[str, Any]) -> ContextPack:
-    """Context for StoryBeatProse — rewrite grounded content into one
-    public-register story beat. Register transform only; no new substance.
-    """
-    from latris.ai import prompts as prompt_mod
-
-    beat_kind = inputs.get("beat_kind", "freeform")
-    source_text = inputs.get("source_text", "")
-    foundation = _load_foundation(paths)
-    template = prompt_mod.get("StoryBeatProse").template.format(beat_kind=beat_kind)
-    user = (
-        _foundation_summary(foundation)
-        + template
-        + "\n\nSource content to rewrite (do NOT add facts beyond this):\n"
-        + (source_text or "(no source content — write a brief connective passage)")
-    )
-    return ContextPack(system=SYSTEM_PREAMBLE, user=user)
-
-
 def _build_recommend_approach(paths: ProjectPaths, inputs: dict[str, Any]) -> ContextPack:
     """Context for RecommendApproach — rank candidate formalisms against this
     project's question, evidence, AND the structure already built. Whether the
@@ -2650,7 +2631,6 @@ _BUILDERS = {
     "InterpretImplications": _build_interpret_section,
     "InterpretConfidence": _build_interpret_section,
     "InterpretOpenQuestions": _build_interpret_section,
-    "StoryBeatProse": _build_story_beat_prose,
     # Inline per-field AI
     "FillProvenanceField": _build_fill_provenance_field,
     # Reference workflow — foundational mode

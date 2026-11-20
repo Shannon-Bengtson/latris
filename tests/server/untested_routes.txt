@@ -8,17 +8,11 @@ GET /api/ach/matrix
 GET /api/bn/cpts
 GET /api/bowtie/uncertainty
 GET /api/compose/suggest-nodes
-GET /api/export/review
-GET /api/export/word
 GET /api/mcda/model
-GET /api/present/figure
-GET /api/present/results/{run_id}/charts
 GET /api/references/search
-GET /api/story/export
 GET /api/sync/members
 GET /api/sync/projects
 GET /api/sync/report-link
-PATCH /api/story/{model_type}/beats/{beat_id}/prose
 PATCH /api/sync/members/{account_id}
 PATCH /api/sync/profile
 POST /api/ach/element
@@ -52,8 +46,6 @@ POST /api/references/import-bibtex
 POST /api/references/import-doi
 POST /api/references/{bibkey}/fetch
 POST /api/results/{run_id}/unhide
-POST /api/review/import
-POST /api/story/{model_type}/beats/{beat_id}/generate-prose
 POST /api/sync/abort
 POST /api/sync/clone
 POST /api/sync/login/verify
@@ -66,4 +58,3 @@ POST /api/sync/resolve
 POST /api/sync/share
 POST /api/sync/validate
 POST /api/toc/prior
-PUT /api/story/{model_type}/beats/{beat_id}/emphasis

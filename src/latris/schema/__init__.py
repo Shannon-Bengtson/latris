@@ -138,17 +138,6 @@ from latris.schema.sd import (
     SDTableSet,
     TablePoint,
 )
-from latris.schema.story import (
-    StoryBeat,
-    StoryBeatKind,
-    StoryBrand,
-    StoryDoc,
-    StoryEmphasis,
-    StoryGenerationRequest,
-    StoryGenerationState,
-    StoryImage,
-    StoryStore,
-)
 from latris.schema.substrate import (
     Edge,
     EdgeKind,
@@ -277,15 +266,6 @@ __all__ = [
     "ReportConfig",
     "ReportConfigStore",
     "ReportPreset",
-    "StoryBeat",
-    "StoryBeatKind",
-    "StoryBrand",
-    "StoryDoc",
-    "StoryEmphasis",
-    "StoryGenerationRequest",
-    "StoryGenerationState",
-    "StoryImage",
-    "StoryStore",
     "Question",
     "QuestionLog",
     "Reference",

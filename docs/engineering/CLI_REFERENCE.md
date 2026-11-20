@@ -541,20 +541,6 @@ latris interpret show <section|type>   # a section's claims and prose (e.g. answ
 latris interpret set-prose <section|type> "..." [--by human|ai]   # write the prose yourself
 ```
 
-## Story (Communicate)
-
-A versioned `Story` object: a plain-language walk through the model. The
-Latris app publishes it as scrollytelling HTML.
-
-```bash
-latris story draft                 # scaffold a Story from the current model
-latris story list
-latris story show <story-id>
-latris story generate-prose <beat> # AI prose for one beat (StoryBeatProse)
-latris story generate-all          # AI prose for all beats
-latris story set-prose <beat> ...  # set beat prose manually
-```
-
 ## Sync (collaboration)
 
 Turn-based git push/pull through the Latris-native control plane +

@@ -42,9 +42,6 @@ sd constants
 sd remove-scenario
 sd scenarios
 sd stocks
-story generate-prose
-story list
-story set-prose
 sync fetch
 sync link
 sync login

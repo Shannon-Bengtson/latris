@@ -211,12 +211,6 @@ class InterpretSectionInputs(_In):
     claims: list[str] = Field(default_factory=list, description="Template-generated claims for context.")
 
 
-class StoryBeatProseInputs(_In):
-    beat_kind: str = Field(..., description="The beat's narrative role (hook, system_tour, answer, etc.).")
-    source_text: str = Field("", description="Grounded content to rewrite into public register.")
-    model_type: str = Field("", description="Model type being narrated.")
-
-
 class ExtractVariablesFromEvidenceInputs(_In):
     reference_bibkeys: list[str] = Field(
         default_factory=list,
@@ -1190,25 +1184,6 @@ _RAW_LIBRARY: dict[str, PromptSpec] = {
         scope=PromptScope.model,
         intent=PromptIntent.insight,
     ),
-    # ── Story (Communicate phase) ─────────────────────────────────────
-    "StoryBeatProse": PromptSpec(
-        name="StoryBeatProse",
-        title="Write a story beat",
-        description="Rewrite grounded interpretation content into a single plain-language story beat for a public audience.",  # noqa: E501
-        inputs=StoryBeatProseInputs,
-        template=(
-            "You are writing one beat of a public-facing story that explains a "
-            "model to a general, non-technical audience. This beat's role is "
-            "'{beat_kind}'. Rewrite the source content in plain language: short "
-            "sentences, no jargon, assume no prior knowledge. Keep it to 1–3 "
-            "short paragraphs. CRITICAL: do not introduce any facts, numbers, or "
-            "claims that are not present in the source content — you are changing "
-            "the register, not the substance."
-        ),
-        output_hint="An InterpretProseResult with public-register prose.",
-        scope=PromptScope.model,
-        intent=PromptIntent.insight,
-    ),
     # ── Compose extraction prompts ────────────────────────────────────
     "ExtractVariablesFromEvidence": PromptSpec(
         name="ExtractVariablesFromEvidence",
@@ -1788,8 +1763,6 @@ _RESPONSE_MODELS: dict[str, type[BaseModel]] = {
     "InterpretImplications": _proposals.InterpretProseResult,
     "InterpretConfidence": _proposals.InterpretProseResult,
     "InterpretOpenQuestions": _proposals.InterpretProseResult,
-    # Story (Communicate phase) — public-register beat prose
-    "StoryBeatProse": _proposals.InterpretProseResult,
     # AI interrogation Phase 2c — completeness gate
     "CompletenessGate": _proposals.CompletenessGateResult,
     # AI interrogation Phase 3a — adversarial edge reclassification
@@ -1883,8 +1856,6 @@ _READ_ONLY = {
     "InterpretImplications",
     "InterpretConfidence",
     "InterpretOpenQuestions",
-    # Story beat prose — register transform, no mutation
-    "StoryBeatProse",
 }
 
 
