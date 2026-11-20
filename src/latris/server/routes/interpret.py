@@ -30,9 +30,16 @@ class InterpretationView(BaseModel):
     sections: list[InterpretSectionView]
 
 
+class SkippedModelType(BaseModel):
+    """A chosen model type that got no sections: it isn't ready (a CLD with no loops, a DAG with a cycle)."""
+
+    model_type: str
+    reason: str
+
+
 class InitialisedView(InterpretationView):
     commit_sha: str
-    skipped: list[dict[str, str]]
+    skipped: list[SkippedModelType]
 
 
 def _decorate_with_hedge_signals(sections: list, root: Path) -> list[InterpretSectionView]:
