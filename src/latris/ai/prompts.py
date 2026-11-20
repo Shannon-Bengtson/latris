@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from latris.ai import proposals as _proposals
+from latris.schema.interpretation import INTERPRET_SECTION_IDS
 from latris.schema.model_types import get_model_type
 
 PromptMode = Literal["mutating", "read_only", "hybrid", "server_transformed"]
@@ -1455,9 +1456,7 @@ _RAW_LIBRARY: dict[str, PromptSpec] = {
         inputs=ScanEvidenceGapsInputs,
         template=(
             "You are auditing a {model_type} model for evidence completeness. "
-            "Across all interpretation sections (key_findings, sensitivity, "
-            "assumptions, evidence_gaps, evidence_coverage, answer, "
-            "implications, confidence, open_questions), identify specific "
+            "Across all interpretation sections (" + ", ".join(INTERPRET_SECTION_IDS) + "), identify specific "
             "claims that lack evidence, references that are stale or weakly "
             "linked, and assumptions that have not been challenged.\n\n"
             "Return an EvidenceGapsScanResult with:\n"

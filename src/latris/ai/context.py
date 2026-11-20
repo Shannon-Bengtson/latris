@@ -43,6 +43,7 @@ from latris.schema import (
     Substrate,
 )
 from latris.schema.ids import id_timestamp
+from latris.schema.interpretation import INTERPRET_SECTION_IDS
 
 REJECTED_TAG = "[REJECTED BY HUMAN]"
 APPROVED_TAG = "[APPROVED BY HUMAN]"
@@ -2081,9 +2082,7 @@ def _build_scan_evidence_gaps(paths: ProjectPaths, inputs: dict[str, Any]) -> Co
         + _format_block("Exclusions", asex["exclusions"])
         + "# Task\n"
         + "Audit the model for evidence gaps across these Interpret "
-        "sections: structural_summary, key_findings, sensitivity, "
-        "assumptions, evidence_gaps, evidence_coverage, answer, "
-        "implications, confidence, open_questions. For each gap, "
+        "sections: " + ", ".join(INTERPRET_SECTION_IDS) + ". For each gap, "
         "specify section_type, the claim or element it concerns, a "
         "concrete gap_description, a suggested_action, and a severity "
         "(low/medium/high). Return an EvidenceGapsScanResult with the "

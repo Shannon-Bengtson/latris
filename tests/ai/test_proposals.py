@@ -1299,3 +1299,16 @@ class TestEdgeProposalDescriptions:
     def test_suggested_connection_description_defaults_to_empty(self) -> None:
         conn = SuggestedConnection(from_label="A", to_label="B")
         assert conn.description == ""
+
+
+def test_evidence_gap_names_a_real_interpret_section():
+    """A gap is filed under one of the Interpret sections the app shows, not a nickname for one."""
+    import pydantic
+    import pytest as _pytest
+
+    from latris.ai.proposals import EvidenceGap
+
+    gap = {"claim": "c", "gap_description": "d"}
+    assert EvidenceGap(section_type="answer_to_question", **gap).section_type == "answer_to_question"
+    with _pytest.raises(pydantic.ValidationError):
+        EvidenceGap(section_type="answer", **gap)
