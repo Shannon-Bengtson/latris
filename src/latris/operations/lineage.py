@@ -7,8 +7,9 @@ checkpoints within a version's save history.
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from latris.operations._actor import author as _author
 from latris.operations._resolve import ResolveError
@@ -17,6 +18,10 @@ from latris.repo import git
 from latris.repo.lineage_index import build_lineage_index
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model, load_model_from_string, load_model_or_default
+
+if TYPE_CHECKING:
+    from latris.diff.semantic import SemanticEvent
+
 from latris.schema import (
     AssumptionLog,
     ChallengeLog,
@@ -497,29 +502,33 @@ def compare_versions(
     version_b: str,
     *,
     root: Path | None = None,
-) -> list[dict[str, Any]]:
-    """Semantic diff between two versions.
+) -> list[SemanticEvent]:
+    """What changed from ``version_a`` to ``version_b``: the semantic diff, each event naming the factor or
+    link it's about and whether it was added, removed or changed.
 
-    Returns a list of ``SemanticEvent`` dicts.
+    Each side is a version (its latest save) or a model checkpoint (by id or name: the model as it was
+    when the checkpoint was made).
     """
     from latris.diff.semantic import diff_commits
 
     paths = require_project(root)
-    root = paths.root
+    tree = get_lineage_tree(paths.root)
+    return diff_commits(paths.root, _commit_for(version_a, tree, paths.root), _commit_for(version_b, tree, paths.root))
 
-    tree = get_lineage_tree(root)
-    node_a = _resolve_version(version_a, tree["nodes"])
-    node_b = _resolve_version(version_b, tree["nodes"])
 
-    branch_a = _branch_for_version(node_a, tree)
-    branch_b = _branch_for_version(node_b, tree)
-
-    # Get HEAD SHAs for each branch.
-    sha_a = git.run_git(["rev-parse", branch_a], cwd=root).stdout.strip()
-    sha_b = git.run_git(["rev-parse", branch_b], cwd=root).stdout.strip()
-
-    events = diff_commits(root, sha_a, sha_b)
-    return [e.__dict__ if hasattr(e, "__dict__") else e for e in events]
+def _commit_for(query: str, tree: dict[str, Any], root: Path) -> str:
+    """The commit a version (its branch's head) or a checkpoint (on any version) stands for."""
+    rel = require_project(root).milestones_yaml.relative_to(root).as_posix()
+    for node in tree["nodes"]:
+        try:
+            log = load_model_from_string(MilestoneLog, git.show_file(root, _branch_for_version(node, tree), rel))
+        except git.GitError:
+            continue
+        for m in log.entries:
+            if query in (m.id, m.name):
+                return m.commit_sha
+    node = _resolve_version(query, tree["nodes"])
+    return git.run_git(["rev-parse", _branch_for_version(node, tree)], cwd=root).stdout.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -548,8 +557,7 @@ def reconcile_preview(
     branch = _branch_for_version(node, tree)
     local_sha = git.run_git(["rev-parse", branch], cwd=root).stdout.strip()
     remote_sha = git.run_git(["rev-parse", f"{remote}/{branch}"], cwd=root).stdout.strip()
-    events = diff_commits(root, local_sha, remote_sha)
-    return [e.__dict__ if hasattr(e, "__dict__") else e for e in events]
+    return [asdict(e) for e in diff_commits(root, local_sha, remote_sha)]
 
 
 def reconcile(

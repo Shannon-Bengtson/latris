@@ -456,13 +456,26 @@ _ANALYSIS_KIND_TO_ID = {
     "sd-options": "sd-uncertainty",
     "sd-sensitivity": "sd-sensitivity",
     "sd-loops": "sd-loop-dominance",
+    "bn-monte-carlo": "bn-psa",
+    "bn-options": "bn-psa",
     "dag-estimate": "dag-estimation",
+    "fcm-inference": "fcm-steady-state",
     "toc-process-trace": "toc-process-tracing",
     "toc-impact": "toc-impact",
     "ft-monte-carlo": "risk-monte-carlo",
     "bt-monte-carlo": "risk-monte-carlo",
     "et-monte-carlo": "risk-monte-carlo",
 }
+
+
+def foundation_for_result(result_kind: str, model_type: str) -> Foundation | None:
+    """The method a result kind stands on: its own analysis entry where it has one, else its model type's
+    core entry — what a surface shows beside the analysis (method, citation, limits)."""
+    fid = _ANALYSIS_KIND_TO_ID.get(result_kind)
+    if fid:
+        return next(f for f in FOUNDATIONS if f.id == fid)
+    analysis_ids = set(_ANALYSIS_KIND_TO_ID.values())
+    return next((f for f in FOUNDATIONS if f.applies_to == (model_type,) and f.id not in analysis_ids), None)
 
 
 class _EntriesFile(BaseModel):

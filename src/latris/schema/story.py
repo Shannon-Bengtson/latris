@@ -14,8 +14,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import now_utc
 from latris.schema.interpretation import (
     InterpretSectionId,
@@ -35,8 +36,8 @@ StoryBeatKind = Literal[
 StoryGenerationState = Literal["empty", "drafted", "edited"]
 
 
-class _Base(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, protected_namespaces=())
+class _Base(SchemaModel):
+    """Shared base for this module's models (strict; see ``schema._base``)."""
 
 
 class StoryEmphasis(_Base):

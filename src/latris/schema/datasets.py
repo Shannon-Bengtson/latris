@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import AIActor, HumanActor
 
 
-class _Base(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class _Base(SchemaModel):
+    """Shared base for this module's models (strict; see ``schema._base``)."""
 
 
 class ColumnSpec(_Base):

@@ -335,3 +335,34 @@ def loops(body: LoopsRequest, root: Root) -> dict[str, Any]:
     if body.record:
         out["commit_sha"], out["run_id"] = sd_ops.record_loops(payload, root=root)
     return out
+
+
+class SettingsRequest(BaseModel):
+    """The model's clock (only the fields sent change)."""
+
+    time_units: str | None = None
+    initial_time: float | None = None
+    final_time: float | None = None
+    dt: float | None = None
+    saveper: float | None = None
+    method: str | None = None
+
+
+@router.get("/settings")
+def get_settings(root: Root) -> dict[str, Any]:
+    """The clock and run settings stored with the model (used when a run doesn't override them)."""
+    return sd_ops.get_settings(root=root).model_dump(mode="json")
+
+
+@router.post("/settings")
+def set_settings(body: SettingsRequest, root: Root) -> dict[str, Any]:
+    """Store the model's clock; validated as a simulation would use it."""
+    updated, sha = sd_ops.set_settings(**body.model_dump(), root=root)
+    return {"result": updated.model_dump(mode="json"), "commit_sha": sha}
+
+
+@router.delete("/role/{target}")
+def unset_role(target: str, root: Root) -> dict[str, Any]:
+    """Take a factor out of the simulation: its SD role and values go; the factor stays in the loop map."""
+    entity_id, removed, sha = sd_ops.unset_role(target, root=root)
+    return {"result": {"target_id": entity_id, "removed": removed}, "commit_sha": sha}

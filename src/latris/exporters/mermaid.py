@@ -47,10 +47,16 @@ def _scoped(paths: ProjectPaths, model_type: str | None):
         e for e in substrate.edges
         if (members is None or e.id in members) and e.from_id in node_ids and e.to_id in node_ids
     ]
-    pol_path = paths.view_attribute_path("cld", "polarity")
-    pol_set = load_model_or_default(PolaritySet, pol_path)
-    polarity = {e.target_id: e.value for e in pol_set.entries if e.attribute == "polarity"}
-    return entities, edges, polarity
+    return entities, edges, polarities(paths)
+
+
+def polarities(paths: ProjectPaths) -> dict[str, str]:
+    """Each link's polarity (+/−), from the model type whose links carry it (the loop map)."""
+    from latris.operations import formalisms
+
+    home = formalisms.attribute_home("polarity")
+    pol_set = load_model_or_default(PolaritySet, paths.view_attribute_path(home, "polarity")) if home else PolaritySet()
+    return {e.target_id: e.value for e in pol_set.entries if e.attribute == "polarity"}
 
 
 def render(paths: ProjectPaths, *, model_type: str | None = None) -> str:

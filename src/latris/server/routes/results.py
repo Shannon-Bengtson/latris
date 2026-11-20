@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from latris.exporters.results import result_heading
 from latris.operations import analysis_results as ar
 from latris.server.deps import Root
 
@@ -18,13 +19,21 @@ router = APIRouter(prefix="/api/results", tags=["results"])
 
 @router.get("")
 def list_results(root: Root, all: bool = False) -> dict[str, Any]:  # noqa: A002 - query parameter name
+    """Recorded results — those reports show, or every one with ``all``. Each row carries its model type and
+    the heading reports give it (the report's heading needs the payload, so only shown rows have one)."""
     shown = {r.run.id: r for r in ar.report_results(root=root)}
     rows = []
     for run, hidden, stale in ar.list_results(root=root):
         if not all and run.id not in shown:
             continue
+        res = shown.get(run.id)
+        try:
+            heading = result_heading(run.result_kind, res.payload) if res else run.output_summary
+        except (KeyError, TypeError, ValueError, IndexError):
+            heading = run.output_summary
         rows.append({
             "run": run.model_dump(mode="json"), "in_reports": run.id in shown, "hidden": hidden, "out_of_date": stale,
+            "model_type": ar.KIND_MODEL_TYPE.get(run.result_kind, run.target_view or ""), "heading": heading,
         })
     return {"results": rows, "count": len(rows)}
 

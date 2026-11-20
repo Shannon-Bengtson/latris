@@ -1,0 +1,18 @@
+{
+ "model_type": "fcm",
+ "factors": [
+  {"label": "Fuel price"},
+  {"label": "Car use"},
+  {"label": "Congestion"},
+  {"label": "Bus use"}
+ ],
+ "links": [
+  {"from": "Fuel price", "to": "Car use", "weight": -0.6},
+  {"from": "Car use", "to": "Congestion", "weight": 0.8},
+  {"from": "Congestion", "to": "Bus use", "weight": 0.4},
+  {"from": "Bus use", "to": "Car use", "weight": -0.5}
+ ],
+ "analyses": [
+  {"kind": "fcm_infer", "clamp": {"Fuel price": 1.0}}
+ ]
+}

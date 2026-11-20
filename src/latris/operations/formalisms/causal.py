@@ -71,10 +71,13 @@ def _causal(model_type: str, **declared: Any) -> Formalism:
         outcome_ids=_outcome_ids(model_type),
         set_outcome=_set_outcome(model_type),
         structure_problems=_problems(model_type),
+        whole_map=True,  # made of the substrate itself
         **declared,
     )
 
 
-register(_causal("cld", loop_claims=True, polarity_labels=True))
-register(_causal("dag", acyclicity_claims=True, diagram_direction="TB"))
-register(_causal("fcm", loop_claims=True, cli=("latris.cli.fcm_cmd", "fcm"), routes="latris.server.routes.fcm"))
+register(_causal("cld", loop_claims=True, polarity_labels=True, source_label="Loop map",
+                 link_attribute=("polarity", "polarity (+/-)")))
+register(_causal("dag", acyclicity_claims=True, diagram_direction="TB", source_label="Causal DAG"))
+register(_causal("fcm", loop_claims=True, source_label="FCM", link_attribute=("weight", "weight (float in [-1, +1])"),
+                 cli=("latris.cli.fcm_cmd", "fcm")))

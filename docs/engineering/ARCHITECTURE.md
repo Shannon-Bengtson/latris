@@ -87,6 +87,13 @@ Cross-formalism coherence is maintained by an explicit **mapping registry**
 cardinalities: one-to-many, many-to-one, and one-to-none are normal.
 AI proposes mappings; human approves/edits.
 
+Membership default: every factor and link is in every chosen model type
+(`views.auto_project` maps what isn't mapped yet when a type is opened)
+unless a person leaves it out. Leaving out is recorded in the registry
+(`MappingRegistry.left_out`, with an optional reason) so auto-projection
+never undoes it; mapping the element again clears it. A view holds a link
+only with both its ends.
+
 ### Continuity, not portability
 
 The right frame is **continuity**, not portability. What carries forward:
@@ -235,7 +242,7 @@ src/latris/
 │   ├── graph_analysis.py # pure CLD loop / DAG structural analysis algorithms
 │   ├── activation.py  # registry-driven model type dispatch
 │   ├── _activations.py # model type registrations (CLD, DAG)
-│   ├── formalisms/    # one plugin module per newer model type (ToC, FT, bow-tie, ET) — see "Adding a formalism"
+│   ├── formalisms/    # one plugin module per model type (every stable type) — see "Adding a formalism"
 │   ├── view_roles.py  # formalism-specific entity role operations
 │   ├── _data_engine.py # pandas engine: 39 operations, stats, preview
 │   ├── _resolve.py, batch.py
@@ -275,8 +282,8 @@ src/latris/
 
 ## Adding a formalism
 
-Each newer model type (Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH, decision tree, Markov)
-plugs in through **one module** in `src/latris/operations/formalisms/`. It
+Every model type (the causal types, SD, BN, Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH,
+decision tree, Markov) plugs in through **one module** in `src/latris/operations/formalisms/`. It
 declares a `Formalism` with the hooks the shared code calls:
 
 | Hook | Used by |
@@ -291,6 +298,15 @@ declares a `Formalism` with the hooks the shared code calls:
 | `spec_info` | what applying the values tells the author (`build`'s `info`, e.g. which factors an SD equation reads), shown in chat after the operation |
 | `mermaid` (full diagram) or `mermaid_groups` (columns) | the report's diagram |
 | `cli` (module, command), `routes` (module) | `cli/app.py`, `server/app.py` |
+| `whole_map`, `parameterised_nodes`, `connected_structure`, `empty_scope_gap` | `membership` (the whole map, or the factors a quantified type computes on), Build's connectivity gate, readiness |
+| `source_label`, `scope_noun`, `loop_claims`, `acyclicity_claims`, `feedback_via_stocks`, `findings_priority` | interpretation wording and claims |
+| `link_attribute` (the value its links carry: CLD polarity, FCM weight) | the AI context; `formalisms.attribute_home("polarity")` tells exporters where polarity is stored |
+| `diagram_direction`, `polarity_labels` | the generic Mermaid and DOT sketches |
+| `scenario_store` | result staleness when a run used saved scenarios |
+| `ResultKind.superseded_by_wider` | which runs reports show (a newer run over a wider scope replaces an older one) |
+
+Shared code never tests a model type's id: `tests/test_no_type_branches.py` fails on a branch such as
+`model_type == "sd"` outside the type's own modules — add a field here instead.
 
 Four things stay central on purpose, because each is a single registry or a
 static schema:

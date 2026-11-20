@@ -183,3 +183,37 @@ def test_record_listings_speak_json(project: Path) -> None:
     assert challenges[0]["argument"] == "It may follow intent to leave."
     shown = json.loads(CliRunner().invoke(app, ["--json", "project", "show"]).output)["result"]
     assert shown["statement"] == "Why do volunteers leave?"
+
+
+def test_items_say_what_to_do_where_and_to_what(project: Path) -> None:
+    from latris.operations.nodes import list_nodes
+
+    items = {i.kind: i for i in handover_check(root=project).items}
+    unsourced = items["unsourced_links"]
+    assert unsourced.area == "links" and "`" not in unsourced.fix and "latris evidence add" in unsourced.command
+    labels = {n.id: n.label for n in list_nodes(root=project)}
+    assert len(unsourced.target_ids) == 1 and unsourced.target_ids[0] not in labels  # a link, not a factor
+    assert items["unchecked_citations"].area == "links" and items["unchecked_citations"].target_ids
+    assert items["unapproved_findings"].area == "findings"
+    assert items["missing_prose"].area == "interpretation"
+    assert all("`" not in i.fix for i in items.values())
+
+
+def test_handover_route(project: Path) -> None:
+    from fastapi.testclient import TestClient
+
+    from latris.server.app import create_app
+
+    client = TestClient(create_app(project_root=project))
+    body = client.get("/api/checks/handover").json()
+    assert body["ready"] is False
+    item = next(i for i in body["items"] if i["kind"] == "unsourced_links")
+    assert set(item) >= {"fix", "command", "area", "target_ids", "examples", "model_type"}
+
+
+def test_choosing_a_model_type_with_a_reason_clears_its_item(project: Path) -> None:
+    item = next(i for i in handover_check(root=project).items if i.kind == "missing_rationale")
+    assert item.area == "approach" and "latris project choose" in item.command
+    out = CliRunner().invoke(app, ["project", "choose", "cld", "--why", "Feedback between workload and departures."])
+    assert out.exit_code == 0, out.output
+    assert "missing_rationale" not in _kinds(project)

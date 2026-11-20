@@ -239,6 +239,66 @@ class TestBuildToFormalise:
         assert gate.light == "red"
         assert any("Lonely" in d for d in gate.details)
 
+    def test_green_unlinked_for_matrix_types(self, tmp_path: Path, git_identity, monkeypatch):
+        """MCDA/ACH factors have no links: when only such types are selected, no network is required."""
+        root = tmp_path / "proj"
+        init_project(root, statement="Which site?")
+        monkeypatch.chdir(root)
+        for label in ("North", "South", "Cost"):
+            node_ops.add_node(label, kind="variable", root=root)
+        add_model_choice("mcda", "", root=root)
+        add_model_choice("ach", "", root=root)
+        add_model_choice("event_tree", "", root=root)
+        gate = assess_transition_readiness(root=root).transitions[1]
+        assert gate.light == "green"
+        # …but a type that lives on the network brings the gate back.
+        add_model_choice("cld", "", root=root)
+        gate = assess_transition_readiness(root=root).transitions[1]
+        assert gate.light == "red"
+
+    def test_link_free_elements_are_not_orphans_in_a_mixed_project(self, tmp_path: Path, git_identity, monkeypatch):
+        """A loop map plus MCDA: the options are unlinked by nature, so only the loop map must be connected."""
+        from latris.operations import mcda
+
+        root = tmp_path / "proj"
+        init_project(root, statement="Which site?")
+        monkeypatch.chdir(root)
+        a, _ = node_ops.add_node("Cost", kind="variable", root=root)
+        b, _ = node_ops.add_node("Demand", kind="variable", root=root)
+        c, _ = node_ops.add_node("Price", kind="variable", root=root)
+        edge_ops.add_edge(a.id, c.id, kind="causal", root=root)
+        edge_ops.add_edge(c.id, b.id, kind="causal", root=root)
+        node_ops.add_node("North site", kind="variable", root=root)
+        add_model_choice("cld", "", root=root)
+        add_model_choice("mcda", "", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "red"  # North site: an orphan
+        mcda.set_element("North site", "option", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "green"
+
+        from fastapi.testclient import TestClient
+
+        from latris.server.app import create_app
+
+        body = TestClient(create_app(project_root=root)).get("/api/model-types/mcda/elements").json()
+        assert list(body["elements"].values()) == ["option"] and body["connected_structure"] is False
+
+    def test_a_factor_being_formalised_is_not_an_orphan(self, sd_bathtub_root, monkeypatch):
+        """A stock just added in Formalise has no links yet: SD's check reports that, not Build's gate."""
+        from latris.operations import sd as sd_ops
+        from latris.operations.project import add_model_choice
+
+        root = sd_bathtub_root
+        monkeypatch.chdir(root)
+        add_model_choice("cld", "", root=root)
+        add_model_choice("sd", "", root=root)
+        node_ops.add_node("Rain", kind="variable", root=root)
+        node_ops.add_node("Snow", kind="variable", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "red"  # two unconnected factors
+        sd_ops.set_role("Rain", "auxiliary", root=root)
+        sd_ops.set_role("Snow", "auxiliary", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "green"
+        assert any(g.element_label == "Rain" for g in sd_ops.check(root=root))  # SD still flags it
+
     def test_green_connected(self, project):
         """Fixture is Price→Demand→Quantity — ≥3 nodes, single network."""
         root, _, _, _ = project
@@ -366,7 +426,10 @@ class TestInterpretToCommunicate:
         gate = t.transitions[4]
         assert gate.light == "yellow"
 
-    def test_green_with_stakeholder(self, project):
+    def test_green_only_when_nothing_is_left_to_hand_over(self, project, monkeypatch):
+        """Past the structural summary the light is the handover check, so the two never disagree."""
+        from latris.operations import handover
+
         root, _, _, _ = project
         self._pass_earlier_gates(root)
         store = InterpretationStore(
@@ -376,13 +439,16 @@ class TestInterpretToCommunicate:
             ]
         )
         save_interpretation(store, root=root)
-        t = assess_transition_readiness(root=root)
-        gate = t.transitions[4]
-        assert gate.light == "green"
+        left = handover.handover_check(root=root)
+        gate = assess_transition_readiness(root=root).transitions[4]
+        assert not left.ready and gate.light == "yellow"
+        assert gate.details == [i.message for i in left.items]
+        monkeypatch.setattr(handover, "handover_check", lambda **_: handover.HandoverReport("dag", True, []))
+        assert assess_transition_readiness(root=root).transitions[4].light == "green"
 
     def test_yellow_when_model_rationale_missing(self, project):
-        """A formalism selected without a recorded rationale yellows the gate —
-        the report's Modelling Approach section needs it. Never red."""
+        """A formalism selected without a recorded rationale is on the handover list, so it yellows the
+        gate — the report's Modelling Approach section needs it. Never red."""
         root, _, _, _ = project
         update_selected_models(["dag"], root=root)  # selected, but no ModelChoice logged
         store = InterpretationStore(
@@ -395,7 +461,7 @@ class TestInterpretToCommunicate:
         t = assess_transition_readiness(root=root)
         gate = t.transitions[4]
         assert gate.light == "yellow"
-        assert any("rationale" in d.lower() for d in gate.details)
+        assert any("no reason recorded for choosing" in d for d in gate.details)
 
 
 # ---------------------------------------------------------------------------

@@ -68,6 +68,16 @@ def _entry_for(attribute: AttributeName, target_id: str, value):
             return ConfidenceEntry(target_id=target_id, value=value, origin=default_origin())
 
 
+def get_attribute(target_id: str, attribute: AttributeName, *, root: Path | None = None):
+    """An element's ``attribute`` value (its description, its confidence), or None if it has none."""
+    paths = require_project(root)
+    path = _file_for(attribute, paths)
+    if not path.exists():
+        return None
+    store = load_model(_set_model_for(attribute), path)
+    return next((e.value for e in store.entries if e.target_id == target_id), None)
+
+
 def set_attribute(
     target: str,
     attribute: AttributeName,

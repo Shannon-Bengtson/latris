@@ -48,6 +48,7 @@ EXAMPLES: dict[str, Example] = {e.name: e for e in (
             datasets={"registers": "registers.csv", "schools": "schools.csv"}),
     Example("effect_estimate", ("dag",), "How much does exercise improve heart health?",
             datasets={"survey": "survey.csv"}),
+    Example("fcm", ("fcm",), "What happens to congestion when fuel gets dearer?"),
 )}
 
 

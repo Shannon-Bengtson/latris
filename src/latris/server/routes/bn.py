@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from latris.operations import bn as bn_ops
+from latris.schema.common import ProvenanceOrigin
 from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/bn", tags=["bn"])
@@ -364,3 +365,31 @@ def set_uncertainty(body: TableUncertaintyRequest, root: Root) -> dict[str, Any]
 def marginals(root: Root) -> dict[str, Any]:
     result = bn_ops.infer(root=root)
     return {"marginals": result.marginals, "evidence": result.evidence, "method": result.method}
+
+
+class WeightedTableRequest(BaseModel):
+    """A table from a base distribution and weights per parent state (``weighted_table``)."""
+
+    node: str
+    base: list[float]
+    weights: dict[str, dict[str, float]]  # parent (label or id) → {state: weight}; states left out weigh 0
+    toward: str | None = None  # the state positive weights push toward: the node's first or last
+    origin: ProvenanceOrigin = "human-elicited"
+    source_id: str | None = None
+
+
+@router.post("/weighted")
+def set_weighted(body: WeightedTableRequest, root: Root) -> dict[str, Any]:
+    """Set a factor's table from a base distribution and parent weights — for many-state parents, where
+    filling every row by hand is impractical."""
+    entry, sha = bn_ops.set_weighted_table(body.node, body.base, body.weights, toward=body.toward,
+                                           origin=body.origin, source_id=body.source_id, root=root)
+    return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
+
+
+@router.delete("/state-space/{node}")
+def remove_states(node: str, root: Root) -> dict[str, Any]:
+    """Take a factor out of the network: its states, table and the table's uncertainty go; it stays in the
+    loop map. Refused while another table uses it as a parent."""
+    entity_id, removed, sha = bn_ops.remove_states(node, root=root)
+    return {"result": {"target_id": entity_id, "removed": removed}, "commit_sha": sha}

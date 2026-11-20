@@ -1,0 +1,55 @@
+# CLI commands not (yet) in the worked example, as of the coverage guard (tests/test_worked_example_coverage.py).
+# Only shrinks. Some can't run there (real keys, a network); the rest are owed.
+ach check
+ai call find-counter-pathway
+ai config set
+ai config show
+ai interactions show
+ai key list
+ai key set
+ai key unset
+ai prompts list
+ai prompts show
+bn clear-uncertainty
+bn remove-scenario
+bn uncertainty
+challenge show
+check coherence
+completeness dismiss
+completeness mark-added
+data list
+diff
+doctor
+edge remove
+et remove-sequence
+et show
+fcm set-weight
+finding check-stale
+finding list
+finding show
+interpret generate-all
+mapping approve
+mature propose
+node rename
+project set-question
+ref fetch
+ref import
+results hide
+results show
+results unhide
+sd clear-uncertainty
+sd constants
+sd remove-scenario
+sd scenarios
+sd stocks
+story generate-prose
+story list
+story set-prose
+sync fetch
+sync link
+sync login
+sync pull
+sync share
+version add
+version restore
+view project

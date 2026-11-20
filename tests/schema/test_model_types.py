@@ -143,3 +143,32 @@ def test_planned_descriptions_carry_no_version_promises():
 
     for spec in MODEL_TYPE_REGISTRY.values():
         assert not re.search(r"\(v\d\+?\)", spec.description), spec.id
+
+
+def test_every_model_type_carries_what_a_picker_shows():
+    """Surfaces (the app's model picker, help) present a type from the registry alone, never a copy of their own."""
+    from latris.schema.model_types import list_model_types
+
+    for s in list_model_types(include_planned=True):
+        assert s.summary and s.answers and s.best_for, f"{s.id}: give it summary, answers and best_for"
+        assert s.answers.endswith("?"), f"{s.id}: answers is the question the type answers"
+        if s.availability == "stable":
+            assert len(s.key_features) >= 2, f"{s.id}: list what it offers in key_features"
+
+
+def test_every_model_type_is_in_a_family():
+    from latris.schema.model_types import MODEL_FAMILIES, list_model_types
+
+    families = {f.id for f in MODEL_FAMILIES}
+    assert all(s.family in families for s in list_model_types(include_planned=True))
+
+
+def test_picker_text_describes_the_method_not_a_surfaces_status():
+    """The registry is read by every surface; what one surface has built doesn't belong in it."""
+    import re
+
+    from latris.schema.model_types import list_model_types
+
+    for s in list_model_types(include_planned=True):
+        text = " ".join((s.summary, s.answers, s.best_for, *s.key_features))
+        assert not re.search(r"\bGUI\b|\blatris \d|roadmap|shipped", text, re.I), s.id

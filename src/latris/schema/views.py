@@ -13,11 +13,13 @@ not on the view itself.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
+
+from latris.schema._base import SchemaModel
 
 
-class _Base(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class _Base(SchemaModel):
+    """Shared base for this module's models (strict; see ``schema._base``)."""
 
 
 class _ViewBase(_Base):

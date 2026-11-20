@@ -12,14 +12,14 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from latris.schema._base import SchemaModel
 
 Maturity = Literal["proposed", "reviewed", "approved"]
 
 MATURITY_ORDER: tuple[Maturity, ...] = ("proposed", "reviewed", "approved")
 
 
-class MaturityBadges(BaseModel):
+class MaturityBadges(SchemaModel):
     """Derived facts about an artifact, computed at fetch time.
 
     Never persisted. The canonical source for each badge is the
@@ -27,8 +27,6 @@ class MaturityBadges(BaseModel):
     field, Prediction). Surfaced in the GUI as small icons next to
     the maturity chip — passive signal, not a workflow click.
     """
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     has_evidence: bool = False
     has_challenges: bool = False

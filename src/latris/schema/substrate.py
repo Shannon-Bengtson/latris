@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.maturity import Maturity
 
@@ -110,8 +111,8 @@ def coerce_edge_kind(value: str | None) -> tuple[EdgeKind, bool]:
     return "causal", True
 
 
-class _Base(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class _Base(SchemaModel):
+    """Shared base for this module's models (strict; see ``schema._base``)."""
 
 
 class Entity(_Base):
@@ -167,5 +168,23 @@ class Mapping(_Base):
         return value
 
 
+class LeftOut(_Base):
+    """A factor or link a person has left out of one model type's view. Kept so that adding every factor to
+    a type (as the app does when the type is opened) doesn't put it back; mapping it again clears it."""
+
+    l2_id: str
+    l3_view: str
+    reason: str | None = None
+
+    @field_validator("l3_view")
+    @classmethod
+    def _l3_view_must_be_registered(cls, value: str) -> str:
+        return Mapping._l3_view_must_be_registered(value)
+
+
 class MappingRegistry(_Base):
     entries: list[Mapping] = Field(default_factory=list)
+    left_out: list[LeftOut] = Field(default_factory=list)
+
+    def is_left_out(self, l2_id: str, view_kind: str) -> bool:
+        return any(x.l2_id == l2_id and x.l3_view == view_kind for x in self.left_out)

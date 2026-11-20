@@ -585,13 +585,13 @@ def assess_readiness(
         if validator_gaps:
             structural_ok = False
             gaps.extend(validator_gaps)
-    if scope is not None and spec.id == "bn" and not scope.entity_ids:
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(spec.id)
+    if scope is not None and plugin and plugin.empty_scope_gap and not scope.entity_ids:
         structural_ok = False
-        gaps.append(ReadinessGap(
-            "", "(model)", "empty_network",
-            "No factor is in the Bayesian network yet. A factor joins it when it gets states (set_states); "
-            "the rest of the map stays in the loop map.",
-        ))
+        gap_type, message = plugin.empty_scope_gap
+        gaps.append(ReadinessGap("", "(model)", gap_type, message))
 
     # 2. Model-specific attributes
     attr_met, attr_total, attr_gaps = _check_model_attributes(
@@ -833,7 +833,9 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
     """Build → Formalise: a minimal, fully-connected structure.
 
     Requires at least ``_MIN_NODES_FOR_FORMALISE`` nodes and a single
-    weakly-connected network — no orphan nodes and no disjoint sub-graphs.
+    weakly-connected network — no orphan nodes and no disjoint sub-graphs —
+    unless every selected model type is one without links (MCDA, ACH, event tree). Factors
+    with a role in a selected formal type are left out of the network check.
     """
     from latris.operations.graph_analysis import weakly_connected_components
 
@@ -850,6 +852,37 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
             summary="Build a minimal causal structure before formalising.",
             details=[f"Add at least {_MIN_NODES_FOR_FORMALISE} nodes (currently {n_nodes})."],
         )
+
+    # Link-free types (MCDA, ACH, event trees): when every selected type is one, there's no network to connect.
+    from latris.operations import formalisms
+    from latris.schema import ProjectFoundation
+
+    selected = load_model(ProjectFoundation, paths.project_yaml).selected_model_types
+    link_free = [t for t in selected if (f := formalisms.get(t)) is not None and not f.connected_structure]
+    if selected and len(link_free) == len(selected):
+        return TransitionStatus(
+            from_phase="build",
+            to_phase="formalise",
+            light="green",
+            summary="Ready to formalise (these model types don't need links between factors).",
+        )
+    # A factor with a role in a selected formal type isn't an orphan of the Build network: a link-free
+    # type's elements (an MCDA option, an event tree's heading) are unlinked by nature, and a factor
+    # being formalised (an SD stock just added in Formalise) has its missing links reported by that
+    # type's own readiness. Only the causal maps' roles ("outcome") leave a factor in the network check.
+    claimed = [t for t in selected if not ((f := formalisms.get(t)) and f.whole_map)]
+    if claimed:
+        from latris.schema.roles import RoleSet
+
+        elements = {
+            r.target_id
+            for t in claimed
+            if paths.role_path(t).exists()
+            for r in load_model(RoleSet, paths.role_path(t)).entries
+        }
+        entities = [e for e in entities if e.id not in elements]
+        edges = [e for e in edges if e.from_id not in elements and e.to_id not in elements]
+        n_nodes = len(entities)
 
     node_ids = [e.id for e in entities]
     label_by_id = {e.id: e.label for e in entities}
@@ -1039,48 +1072,25 @@ def _assess_interpret_to_communicate(paths) -> TransitionStatus:
             details=["No structural summary with claims found."],
         )
 
-    # Check stakeholder sections
-    stakeholder_types = {"answer_to_question", "implications"}
-    stakeholder_done = any(s.section_type in stakeholder_types and s.generation_state in populated_states for s in sections)  # noqa: E501
+    # Past that, the light is the handover check: green when nothing is left before the model is ready to
+    # share, yellow with what's left otherwise — the same list Communicate shows, so they can't disagree.
+    from latris.operations.handover import handover_check
 
-    if not stakeholder_done:
-        missing = []
-        if not any(s.section_type == "answer_to_question" and s.generation_state in populated_states for s in sections):
-            missing.append("Answer to Modelling Question")
-        if not any(s.section_type == "implications" and s.generation_state in populated_states for s in sections):
-            missing.append("Implications & Interventions")
+    report = handover_check(root=paths.root)
+    if not report.ready:
+        n = sum(1 for _ in report.items)
         return TransitionStatus(
             from_phase="interpret",
             to_phase="communicate",
             light="yellow",
-            summary="Structural summary done; consider stakeholder sections.",
-            details=[f"Not yet populated: {', '.join(missing)}."],
+            summary=f"Not ready to share yet: {n} thing{'s' if n != 1 else ''} to do.",
+            details=[i.message for i in report.items],
         )
-
-    # Soft nudge: each selected formalism should carry a recorded selection
-    # rationale — it feeds the report's "Modelling Approach" section. Never a
-    # red block; auditability is enforced at the published artefact, not here.
-    from latris.operations.project import current_model_choices
-    from latris.schema import ProjectFoundation
-
-    foundation = load_model(ProjectFoundation, paths.project_yaml)
-    selected = foundation.selected_model_types or []
-    choices = current_model_choices(root=paths.root)
-    missing_rationale = [m for m in selected if not (choices.get(m) and choices[m].rationale.strip())]
-    if missing_rationale:
-        return TransitionStatus(
-            from_phase="interpret",
-            to_phase="communicate",
-            light="yellow",
-            summary="Ready to communicate; record why each formalism was chosen.",
-            details=[f"No selection rationale recorded for: {', '.join(missing_rationale)}."],
-        )
-
     return TransitionStatus(
         from_phase="interpret",
         to_phase="communicate",
         light="green",
-        summary="Ready to communicate.",
+        summary="Ready to share.",
     )
 
 

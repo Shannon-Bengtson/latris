@@ -13,7 +13,6 @@ from latris.operations.commit import auto_commit
 from latris.operations.interpret_registry import (
     MODEL_WIDE,
     MODEL_WIDE_SECTIONS,
-    SOURCE_LABEL,
     get_sections_for_model_types,
 )
 from latris.repo import git
@@ -190,7 +189,7 @@ def _model_wide_claims(section_type: InterpretSectionId, paths) -> list[str]:
             if claim.startswith("  - "):
                 out.append(claim)  # an item of the claim before it
             else:
-                out.append(f"{SOURCE_LABEL.get(mt, mt.upper())}: {claim}")
+                out.append(f"{formalisms.label(mt)}: {claim}")
     return out
 
 

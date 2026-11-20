@@ -54,6 +54,18 @@ class SettingsRequest(BaseModel):
 
 
 
+@router.get("/tree")
+def tree(root: Root) -> dict[str, Any]:
+    """Everything the tree is made of: node elements, branches (by edge id), payoffs, chance names, settings."""
+    return {
+        "elements": dt.get_elements(root=root),
+        "branches": dt.get_branches(root=root).model_dump(mode="json")["entries"],
+        "payoffs": dt.get_payoffs(root=root).model_dump(mode="json")["entries"],
+        "chances": dt.get_chances(root=root).model_dump(mode="json")["entries"],
+        "settings": dt.get_settings(root=root).model_dump(mode="json"),
+    }
+
+
 @router.post("/element")
 def set_element(body: ElementRequest, root: Root) -> dict[str, Any]:
     target_id, sha = dt.set_element(body.node, body.element, root=root)

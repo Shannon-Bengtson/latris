@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from latris.schema.interpretation import InterpretSection
 from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/interpret", tags=["interpret"])
@@ -17,34 +18,49 @@ class ProseUpdateBody(BaseModel):
     prose: str
 
 
-def _decorate_with_hedge_signals(sections: list, root: Path) -> list[dict[str, Any]]:
-    """Attach hedge_active + coverage_ratio per section response.
+class InterpretSectionView(InterpretSection):
+    """A section as the app reads it: the stored section plus its hedge signals, worked out when fetched
+    (they follow the evidence coverage and accepted findings, so they aren't stored)."""
 
-    Computed at fetch time rather than persisted because hedge
-    state is a function of current evidence coverage and accepted
-    findings — it changes whenever the user adds an evidence link
-    or accepts a finding.
-    """
+    hedge_active: bool  # coverage below half and no accepted findings: prose is held to hedged language
+    coverage_ratio: float
+
+
+class InterpretationView(BaseModel):
+    sections: list[InterpretSectionView]
+
+
+class SkippedModelType(BaseModel):
+    """A chosen model type that got no sections: it isn't ready (a CLD with no loops, a DAG with a cycle)."""
+
+    model_type: str
+    reason: str
+
+
+class InitialisedView(InterpretationView):
+    commit_sha: str
+    skipped: list[SkippedModelType]
+
+
+def _decorate_with_hedge_signals(sections: list, root: Path) -> list[InterpretSectionView]:
+    """Each section with its hedge signals."""
     from latris.operations.interpret import coverage_ratio, hedge_mode_active
     from latris.repo.layout import ProjectPaths
 
     paths = ProjectPaths(root)
     cache: dict[str, tuple[bool, float]] = {}
-    decorated: list[dict[str, Any]] = []
+    decorated: list[InterpretSectionView] = []
     for section in sections:
-        dumped = section.model_dump(mode="json")
         mt = section.model_type
         if mt and mt not in cache:
             _cited, _total, ratio = coverage_ratio(mt, paths)
             cache[mt] = (hedge_mode_active(mt, paths), ratio)
         active, ratio = cache.get(mt, (False, 1.0))
-        dumped["hedge_active"] = active
-        dumped["coverage_ratio"] = ratio
-        decorated.append(dumped)
+        decorated.append(InterpretSectionView(**section.model_dump(), hedge_active=active, coverage_ratio=ratio))
     return decorated
 
 
-@router.get("")
+@router.get("", response_model=InterpretationView)
 def get_interpretation(root: Root) -> dict[str, Any]:
     """Load the full interpretation store."""
     from latris.operations.interpret import load_interpretation
@@ -53,7 +69,7 @@ def get_interpretation(root: Root) -> dict[str, Any]:
     return {"sections": _decorate_with_hedge_signals(store.sections, root)}
 
 
-@router.post("/initialise")
+@router.post("/initialise", response_model=InitialisedView)
 def initialise(root: Root) -> dict[str, Any]:
     """Create interpretation sections for all applicable model types."""
     from latris.operations.interpret import initialise_sections

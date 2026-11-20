@@ -29,7 +29,6 @@ from latris.repo.project import NotAProjectError
 from latris.repo.yaml_io import load_model
 from latris.schema import (
     ProjectFoundation,
-    Substrate,
 )
 from latris.server.access import AccessTokenMiddleware, configured_token
 from latris.server.deps import Root, log_unhandled, serialise_writes
@@ -37,6 +36,7 @@ from latris.server.perf import PerfMiddleware
 from latris.server.routes import (
     activity,
     ai,
+    analyses,
     analysis,
     annotations,
     attributes,
@@ -55,6 +55,7 @@ from latris.server.routes import (
     interpret,
     layout,
     lineage,
+    maturity,
     model_choices,
     model_types,
     nodes,
@@ -71,7 +72,7 @@ from latris.server.routes import (
 from latris.server.routes import (
     help as help_routes,
 )
-from latris.server.state import load_full_state
+from latris.server.state import ProjectState, load_project_state
 from latris.server.watch import manager, watch_project
 
 
@@ -258,6 +259,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     # ── Mutation route modules ────────────────────────────────────────
     app.include_router(activity.router)
     app.include_router(ai.router)
+    app.include_router(analyses.router)
     app.include_router(analysis.router)
     app.include_router(annotations.router)
     app.include_router(checks.router)
@@ -282,6 +284,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(history.router)
     app.include_router(layout.router)
     app.include_router(lineage.router)
+    app.include_router(maturity.router)
     app.include_router(datasets.router)
     app.include_router(findings.router)
     app.include_router(build.router)
@@ -325,18 +328,11 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
         )
         return {"commit_sha": sha}
 
-    @app.get("/api/substrate")
-    def get_substrate(root: Root) -> dict[str, Any]:
-        paths = ProjectPaths(root)
-        sub = load_model(Substrate, paths.conceptual_yaml)
-        return sub.model_dump(mode="json")
-
     # /api/references and /api/challenges are handled by their route modules.
 
-    @app.get("/api/state")
-    def full_state(root: Root) -> dict[str, Any]:
-        paths = ProjectPaths(root)
-        return load_full_state(paths)
+    @app.get("/api/state", response_model=ProjectState)
+    def full_state(root: Root) -> ProjectState:
+        return load_project_state(ProjectPaths(root))
 
     # ── WebSocket ─────────────────────────────────────────────────────
     @app.websocket("/ws")

@@ -218,10 +218,12 @@ Formalise turns your conceptual structure into a complete formal model. Choose t
 
 ## Per-model workspaces
 
-Each selected model type appears in the Formalise dropdown. With a model open you can switch its representation:
+Each selected model type appears in the Formalise dropdown. With a model open you work in the representation(s) that type offers:
 
-- **Table** — a parameter grid for setting model-specific attributes (e.g. CLD polarity, FCM weights).
-- **Canvas** — a read-only reference view of the structure.
+- **Table** — a parameter grid for setting model-specific attributes (CLD polarity, FCM weights).
+- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector: Bayesian networks (states and probability tables), system dynamics (roles, equations and values), decision trees (decision, chance and payoff nodes; each branch's option or state, probability and value), Markov models (states, moves per cycle, costs, utilities, the starting cohort and the clock) and theories of change (each factor's level; process-tracing priors and evidence tests on links).
+  Fault trees (event types, gates — AND, OR, k of n — and basic-event probabilities) and bow-ties (threats and their frequencies, barriers with type, status, owner and failure probability, the top event and consequences) are set here too, with a median and error factor for any value whose uncertainty you know.
+- **Matrix** — MCDA (options, criteria, swing weights and the score grid), ACH (hypotheses, evidence, credibility, relevance and the consistency grid) and event trees (the initiating frequency, the headings in order with their probabilities — conditional ones too — and each sequence's end state). These have no links: Build doesn't ask for their elements to be connected, and the other types' canvases leave them out.
 
 ## Moving on
 
@@ -336,9 +338,19 @@ Visualise mode is the main graph canvas for the conceptual model and selected fo
 
 The conceptual substrate is the shared model. Formal views such as CLD, DAG, and FCM add model-specific requirements. If an element is not ready for a selected view, use Analyse and Configure to complete the required attributes.
 
+## Links
+
+- To link two factors, drag from the dot on one factor's edge and let go anywhere on the other factor.
+- Links meet each factor's border on the line between the two, so they stay attached sensibly when you move a factor.
+- Causal maps draw curved links that bow outward around each feedback loop, as the report's figure does. Trees (fault tree, decision tree, theory of change, bow-tie) draw right-angle connectors.
+- Select a curved link to show its bend handle. Drag it to reshape the curve; double-click it to go back to the automatic bow.
+- Arrange → Links switches between Auto, Curved and Right-angle. The choice is remembered for this project on this device.
+
 ## Layout
 
 Canvas positions are saved separately from semantic model data. Moving a node changes the layout, not the underlying claim.
+
+Arrange → Re-layout All lays the whole map out again: maps with feedback loops are spread so each loop reads as a ring, and maps without loops are laid out top-down. Re-layout clears hand-made link bends.
 """,
     ),
     HelpTopic(
@@ -379,6 +391,21 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **DAG:** acyclicity checks, paths, d-separation, Markov blankets, and adjustment-set support.
 - **FCM:** weighted influence structure and simulation-oriented attributes.
 - **BN:** observe evidence on nodes and read posterior beliefs, shown as bars inside each node (see the Bayesian Networks topic).
+- **SD:** run the simulation (with saved scenarios to compare), Monte Carlo, sensitivity and loop dominance from the analysis pane; each factor shows its end-of-run value on the canvas (see the System Dynamics topic).
+- **BN, beyond evidence:** *set* a factor (a policy, not an observation), apply a saved scenario, record the query, find the most likely explanation, run sensitivity, Monte Carlo over the tables (after saying how well each table is known) and compare scenarios.
+- **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane.
+- **MCDA, ACH:** run the analysis from the matrix page; its charts, tables and the report's figure show there.
+- **Fault tree, bow-tie, event tree:** analyse (cut sets and importance; consequence frequencies through the barriers; end-state frequencies), then Monte Carlo over the ranges you set.
+
+Nodes take the shapes the report figure gives them — stocks as boxes, flows with a valve, sources and sinks as dashed clouds, BN nodes as belief-bar monitors — so the editor and the report read the same.
+
+## Recorded results
+
+Runs that are recorded (simulations, Monte Carlo, sensitivity, loop dominance, recorded BN queries and every other model type's analyses) are listed under **Recorded results** in the pane on the right. Click one to read it at full width over the canvas or table, with the same charts and tables the report shows; **Close** or Escape returns. Each says if the model has changed since it ran ("Out of date"), and **Hide from report** leaves it out of reports (the same as `latris results hide`).
+
+Under **Analyses** (or **More analyses**), the pane offers every other analysis Latris has for the model type as a form — DAG effect estimates, theory-of-change impact, fuzzy-cognitive-map steady states, Bayesian-network queries with uncertain evidence or interventions, system-dynamics option comparisons under uncertainty, and any added later. Each option is labelled and explained; factors, states, scenarios, datasets and columns are picked from the model. **Run** records the result and opens it.
+
+MCDA, analysis of competing hypotheses and event trees are edited as grids in the centre; their readiness, **Run the analysis** and recorded results are in the pane on the right, as for every other model type. Click a factor's name in a grid to show its details there.
 
 ## Workflow
 
@@ -578,7 +605,15 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 
 ## Export formats
 
-Use Markdown for transparent text output and Word for stakeholder-ready documents. The Markdown report opens with a Mermaid sketch of the model, which GitHub and most chat tools draw as a diagram.
+Use Markdown for transparent text output and Word for stakeholder-ready documents. The Markdown report opens with a Mermaid sketch of the model, which GitHub and most chat tools draw as a diagram. **Build spec (.json)** exports the model itself — factors, links, sources, the model type's values and its analyses — as `latris export spec` does; `latris build --spec` (or a chat with the Latris connector) rebuilds it elsewhere.
+
+## Ready to share?
+
+With no report section selected, Communicate's inspector shows **Ready to share?** — what's left before the model goes to a board: links with no source, citations nobody has checked, sources with nothing on file showing they were read, findings waiting for approval, report sections unwritten or out of date, results computed before the model last changed, model types with no recorded reason, a type's own check, and broken references between files. Each item says what to do; its link takes you to the place to do it, with the factors and links concerned selected (or, for a source, References with that source open). Check a citation under the link's **Citations** with **Check…** — what the source says, a passage copied from it, and whether it supports the claim, argues against it, is off topic or too short to tell — or remove it there. Save the passage you read of a source with **Save what you read…** in References; a check's quote is looked up in it. Broken references between files have a **Remove leftover rows** button. Once nothing is left, record a **sign-off** (your role, and what you're signing off). A factor's or link's **Maturity** (proposed, reviewed, approved) is set in its inspector; approving asks for your role and records a sign-off too. The arrow into Communicate is the same check: green once the list is empty, amber while anything is left. From the command line: `latris check handover`.
+
+## Importing a build spec
+
+**Import a build spec** (command palette, or the link in the Export dialog) builds a spec — YAML or JSON — into the open project. Factors, links and sources the project already has are used as they are; the spec only fills what they lack (an empty description, a missing polarity or weight). Before anything changes you see what it would add, what it found already there, what it would change and which analyses it would run and record — or why it can't be built. Import makes it one commit. From the command line: `latris build --spec FILE --reuse`, with `--dry-run` for the same preview.
 
 ## Practical advice
 
@@ -792,6 +827,10 @@ When an AI agent (such as Claude Code) runs `latris` commands, Latris recognises
 - **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
 - **Markov model:** best for what happens to a group over time — moving between states such as well, ill and dead — and what each strategy costs and achieves, with cost-effectiveness (ICERs, net benefit). See the dedicated Markov Cohort Models topic.
 
+## Which factors are in which model type
+
+A model can be several types at once. Every factor and link is in every chosen type unless you leave it out: select a factor or link on the Build canvas and untick a type under **In these model types** (with a reason, if it helps the reader). It stays out — opening the type doesn't put it back — and a factor's links leave with it. Tick it again to put it back. Each type's report covers what's in it. From the command line: `latris mapping leave-out <factor> <type> --reason "..."` and `latris mapping add <factor> <type>`.
+
 ## Planned model types
 
 On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Causal identification is being folded into the DAG view rather than offered as a separate model type.
@@ -865,7 +904,9 @@ Every CPT row carries its own provenance — `origin` (human-direct, human-elici
 - **`latris bn set-noisy-or <node> -c "<parent>=<state>:<prob>" --leak …`** — a *canonical model* for high-fan-in binary nodes: each cause contributes independently, so k causes need k probabilities + a leak instead of 2^k rows.
 - **`latris bn set-weighted <node> --base 0.02,0.98 -w "Bloom=severe:3" -w "Barrier=failed:2.5"`** — a full table from a base distribution and a weight per parent state (logits; ±1 moderate, ±3 strong), for many-state parents where Noisy-OR doesn't fit. Every weight 0 gives the base in every row; a two-state node is logistic regression; `--toward` picks which end positive weights push to.
 - **`latris bn remove-states <node>`** — take a factor out of the network (its states and table go; it stays in the loop map).
-- **`latris bn learn <dataset>`** — fit CPTs from data. Rows you elicited or verified are **protected**; data fills only the gaps. Learned rows are stamped data-derived and the run is logged.
+
+In the editor, a selected factor's pane has **Weighted table (many-state parents)** — the base distribution and a weight per parent state — and **Take out of the network**.
+- **`latris bn learn <dataset>`** — fit CPTs from data. Rows you elicited or verified are **protected**; data fills only the gaps. Learned rows are stamped data-derived and the run is logged. In the editor: Formalise → **Learn the tables from data** previews what each table would become, then **Apply to the tables**.
 - **`latris bn check`** — readiness: state spaces defined, CPTs complete + normalised, acyclic.
 - **`latris bn marginals` / `latris bn query --evidence … --query …`** — exact inference. Each query is recorded (`--no-record` to skip); reports show the latest one per evidence set, posterior against prior, with a chart.
 - **`latris bn sensitivity <target> --state …`** — rank the parameters that move a conclusion, flagging the ones that aren't human-verified.
@@ -903,6 +944,9 @@ Equations reference variables by slugified label (`Birth Rate` → `birth_rate`)
 
 ## Working with SD (the `sd` commands)
 
+Each is `latris sd …` on the command line (e.g. `latris sd check`, `latris sd simulate --scenario NAME`); the chat connector and the editor call the same operations.
+
+
 - **`sd set-role <node> <role>`** — stock, flow, auxiliary, constant, or source_sink.
 - **`sd set-settings --time-units month --final-time 36`** — the model's clock and run settings, stored with it (every run, and anyone opening a link, uses them; options on a run override). If the flows are per month but the clock runs in years, every run and `sd check` warn. **`latris view role sd <node> outcome`** marks what the model explains.
 - **`sd set-initial-value <stock> <value> --units …`** — a stock's starting value (`--non-negative` warns if a run drives it below zero).
@@ -919,6 +963,10 @@ Equations reference variables by slugified label (`Birth Rate` → `birth_rate`)
 - **`sd loops`** — which feedback loop drives the behaviour, and when (Loops That Matter, with the 2023 flow-to-stock revision): loops through the stocks and equations are scored at each step, and a loop (or the fewest loops) holding half the score dominates. Dominant loops built on unsourced or contested links are flagged. Scores are zero when the stocks stop changing — the method explains change, not equilibrium.
 - **`sd roles` / `sd equations` / `sd stocks` / `sd constants` / `sd tables`** — listings (`sd roles` gives each variable's name in equations).
 
+## In the editor
+
+In **Formalise**, double-click the canvas for a new factor (name and role, placed where you clicked) and drag from one factor to another to link them — a flow when it joins a flow to a stock or cloud, otherwise an information link — or use **Add to the model**, and select a factor to give it a role and its equation, value or graphical function; the canvas draws it as the report does (stock box, flow valve with its equation, constant with its value, source/sink cloud), and the readiness panel lists what's missing. In **Analyse**, the pane with nothing selected runs the simulation (clock overrides and saved scenarios to compare), saves scenarios (a scenario can build on another: its values, then the new ones), and runs Monte Carlo, sensitivity and loop dominance; **Options compared under uncertainty** (under More analyses) compares scenarios on the same draws, with values that hold in every run; selecting a constant or stock sets its uncertainty, and selecting any factor shows it over the last run. Every run is recorded and appears under **Recorded results** with the report's charts. **Model clock** (Formalise, nothing selected) stores the time unit, start, end, step and method with the model (`sd set-settings`); a selected factor's **Take out of the simulation** drops its role and values, keeping it in the map (`sd unset-role`).
+
 ## Results in reports
 
 Simulations, Monte Carlo runs, sensitivity and loop analyses (and BN queries) are recorded. Reports show the latest run of each analysis in a **Results** section — with charts in the hosted report and Word — and the interpretation's claims include what they found. Each heading says what the run was of (its scenarios, evidence or interventions) and when it ran. A result computed before the model last changed is marked out of date — and only a change to what that model type is made of counts, so editing the loop map doesn't age a simulation sharing its map. `latris results list` shows what reports use; `latris results hide <run>` leaves one out. A `latris link` carries the parameters and the analyses, and opening it recomputes the same results. An analysis that read a dataset (effect or impact estimation) can't be re-run without the data, which links don't carry, so its result travels as the sender's, and the report says it was computed by the sender and from which dataset.
@@ -929,7 +977,7 @@ Once a model passes its unit check it runs on a compiled float path (identical r
 
 ## Not yet
 
-Calibration to data, arrays (subscripts), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, the GUI stock-and-flow canvas, and XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
+Calibration to data, arrays (subscripts), table or mid-run changes in scenarios, correlated uncertainty, strongest-path loop search for very large models (over 500 loops), AI-drafted equations, XMILE/Vensim import/export (which would strip provenance) are out of scope for now. A simulation is a scenario conditional on its assumed structure and parameters, not a forecast.
 """,
     ),
     HelpTopic(
@@ -983,7 +1031,7 @@ DAG views require directionality and acyclicity. Feedback loops that are valid i
 
 ## Analysis outputs
 
-DAG analysis supports path enumeration, d-separation, Markov blankets, and adjustment-set reasoning.
+DAG analysis supports path enumeration, d-separation, Markov blankets, and adjustment-set reasoning. In the editor's Analyse pane, **Identification** takes a treatment and an outcome and lists every valid adjustment set; click one to see it on the canvas. **Effect estimate** (under Analyses) estimates the effect from a dataset.
 
 ## Estimating the effect
 
@@ -1011,6 +1059,12 @@ A Fuzzy Cognitive Map is a weighted directed graph. Each edge has a causal stren
 ## Required attributes
 
 FCM analysis depends on edge weights and, for simulation, node activation settings. Missing weights reduce readiness. `latris fcm weights` lists the weights set so far.
+
+## Commands
+
+- **`latris fcm set-weight <edge> <weight>`** — a link's influence, from -1 (strongly opposes) to +1 (strongly drives).
+- **`latris fcm weights`** — every weight.
+- **`latris fcm infer`** — run the map to its steady state (which factors end up high or low); `--clamp 'Factor=1.0'` holds a factor at a value as a scenario. Each run is recorded (one result per scenario) and shows in the report and under **Recorded results**; `--no-record` only shows it. In the editor, Analyse → **Steady state** runs it, with the factors to hold picked from the map.
 
 ## Practical caution
 
@@ -1289,6 +1343,10 @@ Lineage tracks named versions, milestones, and alternatives in a Git-backed proj
 - **Milestone:** a named checkpoint on the current branch.
 - **Alternative:** a new version branch from a milestone or current state.
 - **Current version:** the branch or lineage node currently being edited.
+
+## Comparing versions
+
+**Compare with…** in the versions panel lists what changed between the version you're on and another version or a model checkpoint — factors and links added, changed and removed, and the rest of the record (sources, assumptions, decisions) — naming each factor and link. **Show on the canvas** marks what was added and changed on the model; what was removed is listed, since it isn't there to mark. From the command line: `latris version compare <from> <to>`, where either side is a version or a checkpoint.
 
 ## When to branch — and when to use a scenario instead
 

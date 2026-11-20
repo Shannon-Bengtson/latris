@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from latris.schema._base import SchemaModel
 
 SCHEMA_VERSION = 6
 
 
-class ProjectFoundation(BaseModel):
+class ProjectFoundation(SchemaModel):
     """Anchors the project with a modelling question.
 
     The modelling question drives AI behaviour and default report packs
     downstream. Creation and last-update timestamps are read from git
     history (first commit, HEAD commit) rather than persisted here.
     """
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     name: str = ""
     statement: str

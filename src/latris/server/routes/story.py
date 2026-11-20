@@ -7,7 +7,9 @@ from typing import Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
+from latris.schema.story import StoryBeat, StoryDoc
 from latris.server.deps import Root
+from latris.server.routes._envelope import Result
 
 router = APIRouter(prefix="/api/story", tags=["story"])
 
@@ -35,7 +37,7 @@ class ReorderBody(BaseModel):
     ordered_beat_ids: list[str]
 
 
-@router.get("")
+@router.get("", response_model=Result[StoryDoc | None])
 def get_story(root: Root, model_type: str = Query(...)) -> dict[str, Any]:
     """Return the story for a model type (null if none drafted yet)."""
     from latris.operations.story import load_story
@@ -45,7 +47,7 @@ def get_story(root: Root, model_type: str = Query(...)) -> dict[str, Any]:
     return {"result": doc.model_dump(mode="json") if doc else None}
 
 
-@router.post("/draft")
+@router.post("/draft", response_model=Result[StoryDoc])
 def draft(body: DraftBody, root: Root) -> dict[str, Any]:
     """Build (or rebuild) the beat skeleton, seeded from the Report selection."""
     from latris.operations.story import draft_story
@@ -60,7 +62,7 @@ def draft(body: DraftBody, root: Root) -> dict[str, Any]:
     return {"result": doc.model_dump(mode="json"), "commit_sha": sha}
 
 
-@router.post("/{model_type}/beats/{beat_id}/generate-prose")
+@router.post("/{model_type}/beats/{beat_id}/generate-prose", response_model=Result[StoryBeat])
 def generate_prose(model_type: str, beat_id: str, root: Root) -> dict[str, Any]:
     """Generate public-register prose for a beat (the op handles cwd for the AI call)."""
     from latris.operations.story import generate_beat_prose
@@ -69,7 +71,7 @@ def generate_prose(model_type: str, beat_id: str, root: Root) -> dict[str, Any]:
     return {"result": beat.model_dump(mode="json"), "commit_sha": sha}
 
 
-@router.patch("/{model_type}/beats/{beat_id}/prose")
+@router.patch("/{model_type}/beats/{beat_id}/prose", response_model=Result[StoryBeat])
 def set_prose(model_type: str, beat_id: str, body: ProseBody, root: Root) -> dict[str, Any]:
     """Save a human edit to a beat's prose."""
     from latris.operations.story import set_beat_prose
@@ -78,7 +80,7 @@ def set_prose(model_type: str, beat_id: str, body: ProseBody, root: Root) -> dic
     return {"result": beat.model_dump(mode="json"), "commit_sha": sha}
 
 
-@router.put("/{model_type}/beats/{beat_id}/emphasis")
+@router.put("/{model_type}/beats/{beat_id}/emphasis", response_model=Result[StoryBeat])
 def set_emphasis(model_type: str, beat_id: str, body: EmphasisBody, root: Root) -> dict[str, Any]:
     """Set a beat's emphasis (loop IDs expand into member node/edge IDs)."""
     from latris.operations.story import set_emphasis as _set_emphasis
@@ -94,7 +96,7 @@ def set_emphasis(model_type: str, beat_id: str, body: EmphasisBody, root: Root) 
     return {"result": beat.model_dump(mode="json"), "commit_sha": sha}
 
 
-@router.post("/{model_type}/reorder")
+@router.post("/{model_type}/reorder", response_model=Result[StoryDoc])
 def reorder(model_type: str, body: ReorderBody, root: Root) -> dict[str, Any]:
     """Reorder a story's beats."""
     from latris.operations.story import reorder_beats

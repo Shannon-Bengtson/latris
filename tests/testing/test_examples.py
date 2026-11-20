@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from latris.exporters.results import _charts
+from latris.exporters.results import result_charts
 from latris.operations.analysis_results import result_surfaces
 from latris.testing import EXAMPLES, build_example, example_payloads
 
@@ -40,12 +40,12 @@ def test_every_result_kind_has_an_example(payloads):
 
 @pytest.mark.parametrize("surface", result_surfaces(), ids=lambda r: r.kind)
 def test_charts_emitted_are_declared(surface, payloads):
-    emitted = {kind for p in payloads[surface.kind] for kind, _ in _charts(surface.kind, p)}
+    emitted = {kind for p in payloads[surface.kind] for kind, _ in result_charts(surface.kind, p)}
     assert emitted <= set(surface.chart_kinds), f"declare {sorted(emitted - set(surface.chart_kinds))} in chart_kinds"
 
 
 def test_every_declared_chart_is_emitted_by_an_example(payloads):
-    emitted = {(r.kind, kind) for r in result_surfaces() for p in payloads[r.kind] for kind, _ in _charts(r.kind, p)}
+    emitted = {(r.kind, kind) for r in result_surfaces() for p in payloads[r.kind] for kind, _ in result_charts(r.kind, p)}
     declared = {(r.kind, kind) for r in result_surfaces() for kind in r.chart_kinds}
     assert declared <= emitted, f"no example draws {sorted(declared - emitted)}"
 

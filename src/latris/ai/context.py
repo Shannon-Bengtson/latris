@@ -43,6 +43,7 @@ from latris.schema import (
     Substrate,
 )
 from latris.schema.ids import id_timestamp
+from latris.schema.interpretation import INTERPRET_SECTION_IDS
 
 REJECTED_TAG = "[REJECTED BY HUMAN]"
 APPROVED_TAG = "[APPROVED BY HUMAN]"
@@ -165,7 +166,10 @@ def _cld_loop_guidance(
     candidate loop-closure pairs (A,B) where A reaches B but B has no path
     back to A — i.e. an edge B→A would close a loop.
     """
-    if "cld" not in foundation.selected_model_types:
+    from latris.operations import formalisms
+
+    home = formalisms.attribute_home("polarity")  # the loop map: loops are classified by its polarity
+    if home not in foundation.selected_model_types:
         return ""
 
     from latris.operations.graph_analysis import causal_edges, classify_loop, find_all_loops
@@ -175,7 +179,7 @@ def _cld_loop_guidance(
     # suggest spurious closure candidates to the AI.
     causal = causal_edges(substrate.edges)
     loops = find_all_loops(causal)
-    polarity_path = paths.view_attribute_path("cld", "polarity")
+    polarity_path = paths.view_attribute_path(home, "polarity")
     polarity_map: dict[str, str] = {}
     if polarity_path.exists():
         polarity_set = load_model(PolaritySet, polarity_path)
@@ -1817,7 +1821,11 @@ def _build_suggest_edge_polarities(paths: ProjectPaths, inputs: dict[str, Any]) 
     source_hint = inputs.get("source_hint", "ai")
 
     # Existing polarity/weight assignments — let the LLM see what's already set.
-    attr_name = "polarity" if model_type == "cld" else "weight"
+    from latris.operations import formalisms
+
+    plugin = formalisms.get(model_type)
+    attr_name, attr_label = (plugin.link_attribute if plugin and plugin.link_attribute
+                             else ("weight", "weight (float in [-1, +1])"))
     attr_path = paths.view_attribute_path(model_type, attr_name)
     existing_attrs = load_model_or_default(PolaritySet, attr_path)
     existing_lines = [f"  - {e.target_id}: {e.value}" for e in existing_attrs.entries]
@@ -1898,7 +1906,6 @@ def _build_suggest_edge_polarities(paths: ProjectPaths, inputs: dict[str, Any]) 
         if ev_lines:
             evidence_block = _format_block("Evidence attached to these edges", ev_lines)
 
-    attr_label = "polarity (+/-)" if model_type == "cld" else "weight (float in [-1, +1])"
     user_message = (
         f"# Project foundation\n"
         f"{_foundation_summary(foundation)}"
@@ -2075,9 +2082,7 @@ def _build_scan_evidence_gaps(paths: ProjectPaths, inputs: dict[str, Any]) -> Co
         + _format_block("Exclusions", asex["exclusions"])
         + "# Task\n"
         + "Audit the model for evidence gaps across these Interpret "
-        "sections: structural_summary, key_findings, sensitivity, "
-        "assumptions, evidence_gaps, evidence_coverage, answer, "
-        "implications, confidence, open_questions. For each gap, "
+        "sections: " + ", ".join(INTERPRET_SECTION_IDS) + ". For each gap, "
         "specify section_type, the claim or element it concerns, a "
         "concrete gap_description, a suggested_action, and a severity "
         "(low/medium/high). Return an EvidenceGapsScanResult with the "

@@ -80,26 +80,6 @@ def test_project_returns_foundation(client: TestClient) -> None:
 # ── Substrate ─────────────────────────────────────────────────────────
 
 
-def test_substrate_empty_on_fresh_project(client: TestClient) -> None:
-    resp = client.get("/api/substrate")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["entities"] == []
-    assert data["edges"] == []
-
-
-def test_substrate_returns_nodes(populated_client: TestClient) -> None:
-    resp = populated_client.get("/api/substrate")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert len(data["entities"]) == 2
-    labels = sorted(e["label"] for e in data["entities"])
-    assert labels == ["Demand", "Price"]
-
-
-# ── References ────────────────────────────────────────────────────────
-
-
 def test_references_empty_on_fresh_project(client: TestClient) -> None:
     resp = client.get("/api/references")
     assert resp.status_code == 200

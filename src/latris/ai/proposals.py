@@ -39,6 +39,7 @@ from latris.operations.view_attributes import set_view_attribute
 from latris.repo.layout import ProjectPaths
 from latris.schema.ai import ChallengeState
 from latris.schema.attributes import Confidence
+from latris.schema.interpretation import InterpretSectionId
 from latris.schema.substrate import (
     EntityKind,
     coerce_edge_kind,
@@ -100,15 +101,16 @@ def _grouped_commit(paths: ProjectPaths, subject: str):
 
 
 def _cld_selected(paths: ProjectPaths) -> bool:
-    """True when the project has the CLD model type selected — the gate for
-    persisting co-authored edge polarity (a CLD view attribute)."""
+    """True when the model type whose links carry polarity (the loop map) is selected — the gate for
+    persisting co-authored edge polarity (that type's view attribute)."""
+    from latris.operations import formalisms
     from latris.operations.project import load_foundation
 
     try:
         _, foundation = load_foundation(paths.root)
     except Exception:
         return False
-    return "cld" in set(foundation.selected_model_types or [])
+    return formalisms.attribute_home("polarity") in set(foundation.selected_model_types or [])
 
 
 def _bind_entity_provenance(
@@ -1373,14 +1375,8 @@ class FillFieldProposal(_Base):
 class EvidenceGap(_Base):
     """A single evidence gap detected by ScanEvidenceGaps."""
 
-    section_type: str = Field(
-        ...,
-        description=(
-            "Interpret section the gap belongs to (key_findings, "
-            "sensitivity, assumptions, evidence_gaps, evidence_coverage, "
-            "answer, implications, confidence, open_questions, "
-            "structural_summary)."
-        ),
+    section_type: InterpretSectionId = Field(
+        ..., description="Interpret section the gap belongs to.",
     )
     claim: str = Field(
         "",

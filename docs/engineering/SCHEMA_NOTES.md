@@ -130,7 +130,7 @@ findings about a removed node or link. These are history and are kept.
 | Attribute: confidence | `ConfidenceSet` | `substrate/attributes/confidence.yaml` |
 | Attribute: polarity | `PolaritySet` | `substrate/attributes/polarity.yaml` |
 | Evidence links | `EvidenceLinkSet` | `substrate/attributes/evidence-links.yaml` |
-| Layer 2 ↔ 3 mapping | `MappingRegistry` | `substrate/mappings.yaml` |
+| Layer 2 ↔ 3 mapping (and what's left out of a type) | `MappingRegistry` (`entries`, `left_out`) | `substrate/mappings.yaml` |
 | Any formal view (CLD, DAG, FCM, …) | `View` (single class; `kind` validated against `MODEL_TYPE_REGISTRY`) | `views/{kind}.yaml` |
 | Assumptions | `AssumptionLog` | `provenance/assumptions.yaml` |
 | Decisions | `DecisionLog` | `provenance/decisions.yaml` |

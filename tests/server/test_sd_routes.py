@@ -101,6 +101,9 @@ def test_scenarios_and_results(client):
 
     listed = client.get("/api/results").json()
     assert [r["run"]["id"] for r in listed["results"]] == [run_id]
+    row = listed["results"][0]
+    assert row["model_type"] == "sd"
+    assert row["heading"] == "Simulation: baseline vs Faster drain"  # the report's own heading
     assert client.get(f"/api/results/{run_id}").json()["result"]["scenarios"][1]["name"] == "Faster drain"
     assert client.post(f"/api/results/{run_id}/hide").json()["result"]["hidden"] is True
     assert client.get("/api/results").json()["count"] == 0

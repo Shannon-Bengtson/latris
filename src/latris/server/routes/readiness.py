@@ -7,6 +7,9 @@ from typing import Any
 from fastapi import APIRouter
 
 from latris.operations.readiness import (
+    BuildPhaseReadiness,
+    InterpretReadiness,
+    TransitionReadiness,
     assess_all_readiness,
     assess_build_readiness,
     assess_interpret_readiness,
@@ -87,33 +90,19 @@ def readiness(root: Root) -> dict[str, Any]:
     }
 
 
-@router.get("/build")
-def build_readiness(root: Root) -> dict[str, Any]:
+@router.get("/build", response_model=BuildPhaseReadiness)
+def build_readiness(root: Root) -> BuildPhaseReadiness:
     """Build-phase readiness: per-selected-model-type scores."""
-    from dataclasses import asdict
-
-    result = assess_build_readiness(root=root)
-    return {
-        "selected_model_types": result.selected_model_types,
-        "model_scores": {k: asdict(v) for k, v in result.model_scores.items()},
-        "composite_score": result.composite_score,
-        "summary": result.summary,
-    }
+    return assess_build_readiness(root=root)
 
 
-@router.get("/interpret")
-def interpret_readiness(root: Root) -> dict[str, Any]:
+@router.get("/interpret", response_model=InterpretReadiness)
+def interpret_readiness(root: Root) -> InterpretReadiness:
     """Model→Interpret readiness: requires analysis runs + findings."""
-    from dataclasses import asdict
-
-    result = assess_interpret_readiness(root=root)
-    return asdict(result)
+    return assess_interpret_readiness(root=root)
 
 
-@router.get("/transitions")
-def transition_readiness(root: Root) -> dict[str, Any]:
-    """All four phase-transition traffic-light states."""
-    from dataclasses import asdict
-
-    result = assess_transition_readiness(root=root)
-    return {"transitions": [asdict(t) for t in result.transitions]}
+@router.get("/transitions", response_model=TransitionReadiness)
+def transition_readiness(root: Root) -> TransitionReadiness:
+    """The traffic light on each step between phases (the last is the handover check)."""
+    return assess_transition_readiness(root=root)

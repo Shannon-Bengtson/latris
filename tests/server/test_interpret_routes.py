@@ -329,3 +329,22 @@ def test_generate_prose_blocking_mode_passes_when_no_required_gaps(
     resp = client.post(f"/api/interpret/generate-prose/{section_id}")
     assert resp.status_code == 200
     assert resp.json()["section"]["prose"] == "Prose despite recommended gap."
+
+
+def test_initialise_says_why_a_model_type_got_no_sections(tmp_path: Path, git_identity) -> None:
+    """A CLD with no loops isn't ready: initialise names it and why, rather than returning nothing."""
+    root = tmp_path / "noloop"
+    init_project(root, statement="What drives runoff?")
+    paths = ProjectPaths(root)
+    foundation = load_model(ProjectFoundation, paths.project_yaml)
+    foundation.selected_model_types = ["cld"]
+    dump_model(foundation, paths.project_yaml)
+    auto_commit(root, subject="Select CLD", paths=[paths.project_yaml])
+    add_node("Rainfall", root=root)
+    add_node("Runoff", root=root)
+    add_edge("Rainfall", "Runoff", root=root)
+
+    body = TestClient(create_app(project_root=root)).post("/api/interpret/initialise").json()
+    assert body["sections"] == []
+    assert [s["model_type"] for s in body["skipped"]] == ["cld"]
+    assert body["skipped"][0]["reason"]

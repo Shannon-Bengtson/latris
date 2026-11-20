@@ -26,6 +26,14 @@ def build(
         "agent runs this).",
     ),
     confirmed_by_person: bool = CONFIRMED_BY_PERSON,
+    reuse: bool = typer.Option(
+        False, "--reuse",
+        help="Use factors, links and sources the project already has as they are (the spec fills only what "
+        "they lack) instead of refusing the spec.",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Say what the build would add, reuse and change, or why it can't; change nothing.",
+    ),
 ) -> None:
     """Add a whole model from one spec, as one commit.
 
@@ -97,19 +105,29 @@ def build(
     Targets are factor labels or links written "From -> To". Quote YAML
     values that contain a colon.
     """
+    existing = "reuse" if reuse else "refuse"
+    if dry_run:
+        text = sys.stdin.read() if spec == "-" else Path(spec).read_text(encoding="utf-8")
+        preview = build_ops.preview_build(build_ops.load_spec(text), existing=existing)
+        emit(asdict(preview), human=lambda: console.print(_describe_preview(preview)))
+        if not preview.ok:
+            raise typer.Exit(code=1)
+        return
     verified_by = default_by(verified_by)
     if verified_by not in {"human", "ai"}:
         raise ValueError("--verified-by must be 'human' or 'ai'.")
     if verified_by == "human":
         require_person(confirmed_by_person, "--verified-by human")
     text = sys.stdin.read() if spec == "-" else Path(spec).read_text(encoding="utf-8")
-    result = build_ops.build_from_spec(build_ops.load_spec(text), verified_by=verified_by)
+    result = build_ops.build_from_spec(build_ops.load_spec(text), verified_by=verified_by, existing=existing)
     emit(
         asdict(result),
         commit_sha=result.commit_sha,
         human=lambda: console.print(
             f"[green]built[/green] {result.factors} factors, {len(result.links)} links, "
-            f"{result.sources} sources, {result.citations} citations, {result.assumptions} assumptions, "
+            + (f"(reused {result.reused_factors} factors, {result.reused_links} links, {result.reused_sources} "
+               "sources already here), " if reuse else "")
+            + f"{result.sources} sources, {result.citations} citations, {result.assumptions} assumptions, "
             f"{result.questions} questions"
             + (f", {result.parameters} parameters" if result.parameters else "")
             + (f", {len(result.analyses)} analyses run" if result.analyses else "")
@@ -122,3 +140,15 @@ def build(
     if result.missing_extras:
         # The model is built, but analyses it asked for didn't run: that must not look like success.
         raise typer.Exit(code=1)
+
+
+def _describe_preview(p) -> str:  # noqa: ANN001 — a BuildPreview
+    if not p.ok:
+        return "[red]can't build:[/red]\n" + "\n".join(f"- {escape(x)}" for x in p.problems)
+    r = p.result
+    head = (f"[green]would build[/green] {r.factors} factors, {len(r.links)} links, {r.sources} sources, "
+            f"{r.citations} citations; reuse {r.reused_factors} factors, {r.reused_links} links, "
+            f"{r.reused_sources} sources")
+    runs = f"\nwould run: {', '.join(p.analyses)}" if p.analyses else ""
+    changes = "".join(f"\n  {escape(c['summary'])}" for c in p.changes) or "\nnothing in the model would change"
+    return head + runs + changes

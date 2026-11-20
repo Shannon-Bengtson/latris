@@ -579,6 +579,43 @@ _CHAT_OPS = (
         'then measures it against it).'),
 )
 
+# ── diagram ──────────────────────────────────────────────────────────
+
+_SHAPES = {
+    "stock": ('["', '"]'),  # a box
+    "flow": ('{{"', '"}}'),  # a hexagon (a valve doesn't exist in Mermaid)
+    "auxiliary": ('("', '")'),
+    "constant": ('("', '")'),
+    "source_sink": ('(("', '"))'),  # a cloud, as a circle
+}
+
+
+def _mermaid(paths, entities, edges) -> str:  # noqa: ANN001
+    """Stocks as boxes, flows as hexagons, sources and sinks as circles; flows thick, links with polarity."""
+    from latris.exporters.mermaid import _mermaid_text, polarities
+    from latris.operations import sd as sd_ops
+
+    roles = {r.target_id: r.value for r in sd_ops.get_roles(root=paths.root).entries}
+    if not roles:
+        return ""
+    polarity = polarities(paths)
+    alias = {e.id: f"n{i}" for i, e in enumerate(entities)}
+    lines = ["flowchart LR"]
+    for e in entities:
+        left, right = _SHAPES.get(roles.get(e.id, ""), ('["', '"]'))
+        lines.append(f"    {alias[e.id]}{left}{_mermaid_text(e.label)}{right}")
+    for e in edges:
+        if e.from_id not in alias or e.to_id not in alias:
+            continue
+        if e.kind == "flow":
+            lines.append(f"    {alias[e.from_id]} ==> {alias[e.to_id]}")
+        elif polarity.get(e.id):
+            lines.append(f'    {alias[e.from_id]} -->|"{_mermaid_text(polarity[e.id])}"| {alias[e.to_id]}')
+        else:
+            lines.append(f"    {alias[e.from_id]} --> {alias[e.to_id]}")
+    return "\n".join(lines) + "\n"
+
+
 register(Formalism(
     model_type="sd",
     # SD roles are one per factor (stock, flow, ...), so the outcome is kept with the SD settings.
@@ -590,6 +627,7 @@ register(Formalism(
     results=(
         ResultKind(tool=ChatTool(*_TOOLS['sd-simulation']),
                    kind="sd-simulation", title="Simulation", render=_simulation, analysis="simulate",
+                   superseded_by_wider=True,
                    run=_run_simulate, definition=_def_simulate, definition_reads_run=True,
                    claims=_claims("_simulation"), charts=_charts_simulation, chart_kinds=("series",),
                    subtitle=_subtitle("sd-simulation")),
@@ -614,6 +652,7 @@ register(Formalism(
                    charts=_charts_loops, chart_kinds=("loops",), subtitle=_subtitle("sd-loops")),
     ),
     scope_noun="simulation",
+    source_label="Simulation",
     findings_priority=("dynamics", "inference", "sensitivity", "structure"),
     feedback_via_stocks=True,
     parameterised_nodes=_parameterised_nodes,
@@ -624,6 +663,7 @@ register(Formalism(
     spec_export=_export,
     spec_info=_info,
     chat_ops=_CHAT_OPS,
+    mermaid=_mermaid,
     cli=("latris.cli.sd_cmd", "sd"),
     routes="latris.server.routes.sd",
 ))

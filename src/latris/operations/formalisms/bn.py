@@ -504,6 +504,15 @@ def _claims(paths, section: str) -> list[str]:
     return []
 
 
+# ── states ───────────────────────────────────────────────────────────
+
+
+def _factor_states(paths) -> dict[str, list[str]]:  # noqa: ANN001
+    from latris.operations import bn as bn_ops
+
+    return {e.target_id: list(e.states) for e in bn_ops._load_state_spaces(paths).entries}
+
+
 # ── build spec and share links ───────────────────────────────────────
 
 
@@ -795,6 +804,10 @@ register(Formalism(
                    subtitle=_subtitle_target),
     ),
     scope_noun="network",
+    source_label="Network",
+    factor_states=_factor_states,
+    empty_scope_gap=("empty_network", "No factor is in the Bayesian network yet. A factor joins it when it gets "
+                     "states (set_states); the rest of the map stays in the loop map."),
     parameterised_nodes=_parameterised_nodes,
     scenario_store="latris.operations.bn_scenarios",
     spec_field="bn",

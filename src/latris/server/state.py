@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel
+
 from latris.operations.references import load_library as load_ref_library
 from latris.perf import span
 from latris.repo import git
@@ -37,15 +39,83 @@ from latris.schema import (
     SignoffLog,
     Substrate,
 )
+from latris.schema.findings import Finding
+from latris.schema.interpretation import InterpretationStore
+from latris.schema.provenance import ModelChoiceLog
+from latris.schema.references import ReferenceLibrary
+from latris.schema.review import ReviewSessionLog
+
+# ── The state's shape: typed, so the API types the app is built against carry every entity ─────────────
+
+
+class AttributeState(BaseModel):
+    descriptions: DescriptionSet
+    confidence: ConfidenceSet
+    evidence: EvidenceLinkSet
+    data_links: DataLinkSet
+
+
+class CldAttributes(BaseModel):
+    polarity: PolaritySet
+
+
+class FcmAttributes(BaseModel):
+    weight: FloatSet
+
+
+class ViewAttributeState(BaseModel):
+    cld: CldAttributes
+    fcm: FcmAttributes
+
+
+class ProvenanceState(BaseModel):
+    assumptions: AssumptionLog
+    decisions: DecisionLog
+    model_choices: ModelChoiceLog
+    signoffs: SignoffLog
+    sessions: SessionLog
+    questions: QuestionLog
+    exclusions: ExclusionLog
+    predictions: PredictionLog
+    review_sessions: ReviewSessionLog
+
+
+class LineageState(BaseModel):
+    current_node: LineageNode | None
+    milestones: MilestoneLog
+    current_branch: str
+
+
+class ProjectState(BaseModel):
+    """Everything the app hydrates from, in one read (``GET /api/state``)."""
+
+    project: ProjectFoundation
+    substrate: Substrate
+    references: ReferenceLibrary
+    challenges: ChallengeLog
+    mappings: MappingRegistry
+    attributes: AttributeState
+    view_attributes: ViewAttributeState
+    provenance: ProvenanceState
+    findings: list[Finding]
+    interpretation: InterpretationStore
+    datasets: DatasetLibrary
+    versions: DatasetVersionLibrary
+    lineage: LineageState
 
 
 def load_full_state(paths: ProjectPaths) -> dict[str, Any]:
     """Return the entire project state as a JSON-serialisable dict."""
+    return load_project_state(paths).model_dump(mode="json")
+
+
+def load_project_state(paths: ProjectPaths) -> ProjectState:
+    """The entire project state, typed."""
     with span("load_full_state"):
         return _load_full_state(paths)
 
 
-def _load_full_state(paths: ProjectPaths) -> dict[str, Any]:
+def _load_full_state(paths: ProjectPaths) -> ProjectState:
     foundation = load_model(ProjectFoundation, paths.project_yaml)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     ref_library, _ = load_ref_library(paths)
@@ -61,8 +131,6 @@ def _load_full_state(paths: ProjectPaths) -> dict[str, Any]:
     evidence = load_model(EvidenceLinkSet, paths.evidence_links_yaml)
     data_links = load_model_or_default(DataLinkSet, paths.data_links_yaml)
 
-    from latris.schema.provenance import ModelChoiceLog
-
     assumptions = load_model(AssumptionLog, paths.assumptions_yaml)
     decisions = load_model(DecisionLog, paths.decisions_yaml)
     model_choices = (
@@ -75,8 +143,6 @@ def _load_full_state(paths: ProjectPaths) -> dict[str, Any]:
     questions = load_model(QuestionLog, paths.questions_yaml)
     exclusions = load_model(ExclusionLog, paths.exclusions_yaml)
     predictions = load_model(PredictionLog, paths.predictions_yaml)
-
-    from latris.schema.review import ReviewSessionLog
 
     review_sessions = (
         load_model(ReviewSessionLog, paths.review_sessions_yaml)
@@ -105,56 +171,34 @@ def _load_full_state(paths: ProjectPaths) -> dict[str, Any]:
         current_branch = "main"
 
     # Findings
-    from latris.schema.findings import Finding
-
-    findings = [f.model_dump(mode="json") for f in iter_jsonl(Finding, paths.findings_jsonl)]
+    findings = list(iter_jsonl(Finding, paths.findings_jsonl))
 
     # Interpretation
-    from latris.schema.interpretation import InterpretationStore
+    interpretation = (
+        load_model(InterpretationStore, paths.interpretation_yaml)
+        if paths.interpretation_yaml.exists() else InterpretationStore()
+    )
 
-    if paths.interpretation_yaml.exists():
-        interpretation = load_model(InterpretationStore, paths.interpretation_yaml).model_dump(mode="json")
-    else:
-        interpretation = {"sections": []}
-
-    return {
-        "project": foundation.model_dump(mode="json"),
-        "substrate": substrate.model_dump(mode="json"),
-        "references": ref_library.model_dump(mode="json"),
-        "challenges": challenges.model_dump(mode="json"),
-        "mappings": mappings.model_dump(mode="json"),
-        "attributes": {
-            "descriptions": descriptions.model_dump(mode="json"),
-            "confidence": confidence.model_dump(mode="json"),
-            "evidence": evidence.model_dump(mode="json"),
-            "data_links": data_links.model_dump(mode="json"),
-        },
-        "view_attributes": {
-            "cld": {
-                "polarity": polarity.model_dump(mode="json"),
-            },
-            "fcm": {
-                "weight": fcm_weight.model_dump(mode="json"),
-            },
-        },
-        "provenance": {
-            "assumptions": assumptions.model_dump(mode="json"),
-            "decisions": decisions.model_dump(mode="json"),
-            "model_choices": model_choices.model_dump(mode="json"),
-            "signoffs": signoffs.model_dump(mode="json"),
-            "sessions": sessions.model_dump(mode="json"),
-            "questions": questions.model_dump(mode="json"),
-            "exclusions": exclusions.model_dump(mode="json"),
-            "predictions": predictions.model_dump(mode="json"),
-            "review_sessions": review_sessions.model_dump(mode="json"),
-        },
-        "findings": findings,
-        "interpretation": interpretation,
-        "datasets": datasets.model_dump(mode="json"),
-        "versions": versions.model_dump(mode="json"),
-        "lineage": {
-            "current_node": lineage_node.model_dump(mode="json") if lineage_node else None,
-            "milestones": milestone_log.model_dump(mode="json"),
-            "current_branch": current_branch,
-        },
-    }
+    return ProjectState(
+        project=foundation,
+        substrate=substrate,
+        references=ref_library,
+        challenges=challenges,
+        mappings=mappings,
+        attributes=AttributeState(
+            descriptions=descriptions, confidence=confidence, evidence=evidence, data_links=data_links,
+        ),
+        view_attributes=ViewAttributeState(
+            cld=CldAttributes(polarity=polarity), fcm=FcmAttributes(weight=fcm_weight),
+        ),
+        provenance=ProvenanceState(
+            assumptions=assumptions, decisions=decisions, model_choices=model_choices, signoffs=signoffs,
+            sessions=sessions, questions=questions, exclusions=exclusions, predictions=predictions,
+            review_sessions=review_sessions,
+        ),
+        findings=findings,
+        interpretation=interpretation,
+        datasets=datasets,
+        versions=versions,
+        lineage=LineageState(current_node=lineage_node, milestones=milestone_log, current_branch=current_branch),
+    )

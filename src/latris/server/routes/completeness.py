@@ -16,7 +16,9 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from latris.schema.completeness import CompletenessReport
 from latris.server.deps import Root
+from latris.server.routes._envelope import Result
 
 router = APIRouter(prefix="/api/completeness", tags=["completeness"])
 
@@ -33,7 +35,7 @@ class MarkAddedBody(BaseModel):
     entity_id: str
 
 
-@router.get("/{model_type}")
+@router.get("/{model_type}", response_model=Result[CompletenessReport])
 def get_report(model_type: str, root: Root) -> dict[str, Any]:
     from latris.operations.completeness import load_report
 

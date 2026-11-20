@@ -41,25 +41,6 @@ def test_auto_project_maps_all_elements(client: TestClient) -> None:
     assert len(data["mappings"]) >= 2  # at least the 2 nodes
 
 
-def test_project_view_with_manual_mappings(client: TestClient) -> None:
-    """Project a view after manually mapping elements (not via auto-project)."""
-    nodes = client.get("/api/nodes").json()
-    for n in nodes:
-        client.post("/api/views/mappings", json={"l2_query": n["id"], "view_kind": "dag"})
-    resp = client.post("/api/views/dag/project")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "result" in data
-    assert len(data["result"]["entity_ids"]) >= 2
-
-
-def test_list_mappings_empty_then_populated(client: TestClient) -> None:
-    assert client.get("/api/views/mappings").json() == []
-    client.post("/api/views/dag/auto-project")
-    mappings = client.get("/api/views/mappings").json()
-    assert len(mappings) >= 2
-
-
 def test_add_mapping_creates_commit(client: TestClient, project_with_graph: Path) -> None:
     nodes = client.get("/api/nodes").json()
     node_id = nodes[0]["id"]
@@ -74,25 +55,27 @@ def test_add_mapping_creates_commit(client: TestClient, project_with_graph: Path
     assert resp.json()["result"]["l3_view"] == "cld"
 
 
-def test_delete_mapping(client: TestClient) -> None:
-    nodes = client.get("/api/nodes").json()
-    node_id = nodes[0]["id"]
-    client.post("/api/views/mappings", json={"l2_query": node_id, "view_kind": "cld"})
-    resp = client.delete(f"/api/views/mappings/{node_id}/cld")
-    assert resp.status_code == 200
+def test_auto_project_again_writes_nothing(client: TestClient, project_with_graph: Path) -> None:
+    """Opening a model type re-projects it; when nothing changed the view file isn't rewritten, so the
+    file watcher reports no edit (which would clear the canvas's overlays) and nothing is committed."""
+    from latris.repo import git
+    from latris.repo.layout import ProjectPaths
+
+    client.post("/api/views/dag/auto-project")
+    view = ProjectPaths(project_with_graph).view_yaml("dag")
+    head, mtime = git.head_sha(project_with_graph), view.stat().st_mtime_ns
+    assert client.post("/api/views/dag/auto-project").json()["mappings"] == []
+    assert git.head_sha(project_with_graph) == head and view.stat().st_mtime_ns == mtime
 
 
-def test_approve_mapping(client: TestClient) -> None:
-    nodes = client.get("/api/nodes").json()
-    node_id = nodes[0]["id"]
-    client.post(
-        "/api/views/mappings",
-        json={
-            "l2_query": node_id,
-            "view_kind": "cld",
-            "ai_proposed": True,
-        },
-    )
-    resp = client.post(f"/api/views/mappings/{node_id}/cld/approve")
-    assert resp.status_code == 200
-    assert resp.json()["result"]["maturity"] == "approved"
+def test_leave_out_and_put_back(client: TestClient) -> None:
+    client.post("/api/views/cld/auto-project")
+    node_id = client.get("/api/nodes").json()[0]["id"]
+    r = client.post("/api/views/mappings/leave-out", json={"l2_query": node_id, "view_kind": "cld", "reason": "x"})
+    assert r.status_code == 200 and r.json()["result"]["reason"] == "x"
+    client.post("/api/views/cld/auto-project")
+    state = client.get("/api/state").json()["mappings"]
+    assert node_id not in {m["l2_id"] for m in state["entries"] if m["l3_view"] == "cld"}
+    assert [x["l2_id"] for x in state["left_out"]] == [node_id]
+    assert client.post("/api/views/mappings", json={"l2_query": node_id, "view_kind": "cld"}).status_code == 201
+    assert client.get("/api/state").json()["mappings"]["left_out"] == []

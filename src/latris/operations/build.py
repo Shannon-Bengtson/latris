@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from latris.operations import formalisms
 from latris.operations.batch import batch
@@ -29,6 +30,10 @@ from latris.schema.references import SNAPSHOT_EXTRACT_MAX
 @dataclass
 class BuildResult:
     factors: int = 0
+    # With existing="reuse": what was already in the project and used as it is (not added again)
+    reused_factors: int = 0
+    reused_links: int = 0
+    reused_sources: int = 0
     links: list[dict[str, str]] = field(default_factory=list)
     sources: int = 0
     citations: int = 0
@@ -70,8 +75,9 @@ def split_link(name: str) -> tuple[str, str] | None:
     return None
 
 
-def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type: str) -> None:
-    """Raise ValueError listing every reference the spec can't resolve."""
+def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type: str, *, reuse: bool = False) -> None:
+    """Raise ValueError listing every reference the spec can't resolve. With ``reuse``, a factor, link or
+    source already in the project is fine (it is used as it is); otherwise it is refused."""
     from latris.operations.interpret_registry import INTERPRET_SECTION_REGISTRY
 
     existing = {e.label.casefold() for e in substrate.entities} | {e.id for e in substrate.entities}
@@ -103,8 +109,11 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
     if dupes:
         problems.append(f"factor listed twice: {', '.join(dupes)}")
     clash = sorted(label for label in spec_labels if label.casefold() in existing)
-    if clash:
+    if clash and not reuse:
         problems.append(f"factor already in the project: {', '.join(clash)}")
+    have = sorted(s.key for s in spec.sources if s.key in ref_keys)
+    if have and not reuse:
+        problems.append(f"source already in the project: {', '.join(have)}")
 
     def _known(name: str) -> bool:
         return name.casefold() in known or name in known
@@ -125,7 +134,8 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
                 problems.append(f"link {i}: no factor named {end!r}")
         if link.from_.casefold() == link.to.casefold():
             problems.append(f"link {i}: a factor can't link to itself")
-    seen_links = {(labels.get(e.from_id), labels.get(e.to_id), e.kind) for e in substrate.edges}
+    # Reusing, a link already in the project is fine; only one listed twice in the spec is a problem.
+    seen_links = set() if reuse else {(labels.get(e.from_id), labels.get(e.to_id), e.kind) for e in substrate.edges}
     for i, link in enumerate(spec.links, 1):
         key = (link.from_.casefold(), link.to.casefold(), link.kind)
         if key in seen_links:
@@ -173,9 +183,46 @@ def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type
         raise ValueError("the spec has problems, nothing was changed:\n- " + "\n- ".join(problems))
 
 
-def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path | None = None) -> BuildResult:
-    """Apply ``spec`` to the project as one commit."""
-    from latris.operations.attributes import set_attribute
+def _existing_citations(paths) -> set[tuple[str, str, str]]:
+    """(target, attribute, source key) of every citation already in the project."""
+    from latris.schema import EvidenceLinkSet
+
+    if not paths.evidence_links_yaml.exists():
+        return set()
+    store = load_model(EvidenceLinkSet, paths.evidence_links_yaml)
+    return {(e.target_id, e.attribute, e.bibkey) for e in store.entries}
+
+
+def _link_values(edge_id: str, paths) -> set[str]:
+    """Which of a link's values (polarity, weight, description, confidence) it already has."""
+    from latris.operations.attributes import get_attribute
+    from latris.schema import FloatSet, PolaritySet
+
+    has = {a for a in ("description", "confidence") if get_attribute(edge_id, a, root=paths.root)}
+    for model_type, attribute, set_model in (("cld", "polarity", PolaritySet), ("fcm", "weight", FloatSet)):
+        path = paths.view_attribute_path(model_type, attribute)
+        if path.exists() and any(e.target_id == edge_id for e in load_model(set_model, path).entries):
+            has.add(attribute)
+    return has
+
+
+def build_from_spec(
+    spec: BuildSpec,
+    *,
+    verified_by: str = "human",
+    existing: Literal["refuse", "reuse"] = "refuse",
+    run_analyses: bool = True,
+    root: Path | None = None,
+) -> BuildResult:
+    """Apply ``spec`` to the project as one commit.
+
+    ``existing``: what to do with a factor, link or source the project already has. "refuse" (the default)
+    refuses the spec; "reuse" uses it as it is — its description, kind and link values are kept, the spec
+    fills only what it lacks, and the spec's citations on it are added (once). Values in a model type's
+    block (roles, equations, tables) are applied as the block gives them; ``preview_build`` shows which.
+    ``run_analyses`` false leaves the spec's analyses unrun (a preview).
+    """
+    from latris.operations.attributes import get_attribute, set_attribute
     from latris.operations.challenges import open_challenge
     from latris.operations.edges import add_edge
     from latris.operations.evidence import add_evidence
@@ -193,9 +240,11 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     )
     foundation = load_model(ProjectFoundation, paths.project_yaml)
     model_type = spec.model_type or next(iter(foundation.selected_model_types), "cld")
-    _check(spec, substrate, {r.bibkey for r in library.entries}, model_type)
+    reuse = existing == "reuse"
+    ref_keys = {r.bibkey for r in library.entries}
+    _check(spec, substrate, ref_keys, model_type, reuse=reuse)
     result = BuildResult()
-    subject = f"Built model from spec: {len(spec.factors)} factors, {len(spec.links)} links"
+    subject = _subject(spec, substrate, reuse)
 
     node_ids = {e.label.casefold(): e.id for e in substrate.entities}
     edge_ids = {
@@ -203,6 +252,10 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
          next(n.label for n in substrate.entities if n.id == e.to_id).casefold()): e.id
         for e in substrate.edges
     }
+    edge_by_kind = {
+        (e.from_id, e.to_id, e.kind): e.id for e in substrate.edges
+    }  # an existing link a reusing spec names (same ends, same kind)
+    cited = _existing_citations(paths) if reuse else set()
 
     def _target_id(name: str | None) -> str | None:
         if name is None:
@@ -223,6 +276,9 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
                     set_foundation_field(field, value.strip(), root=paths.root)
         # A source read in another goes in after it.
         for s in sorted(spec.sources, key=lambda s: s.cited_via is not None):
+            if reuse and s.key in ref_keys:
+                result.reused_sources += 1  # the project's own record of it stands
+                continue
             add_reference(
                 s.key, s.title, authors=s.authors or None, year=s.year, container=s.container,
                 doi=s.doi, url=s.url, notes=s.notes, cited_via=s.cited_via, root=paths.root,
@@ -238,6 +294,9 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
 
         def _cite(target: str, attribute: str, items: list[str | SpecCitation], *, against: bool = False) -> None:
             for c in _citations(items):
+                if (target, attribute, c.key) in cited:
+                    continue  # already cites it
+                cited.add((target, attribute, c.key))
                 add_evidence(
                     target, attribute, c.key, verified_by=verified_by, notes=c.notes,  # type: ignore[arg-type]
                     contradicts=against, root=paths.root,
@@ -245,29 +304,39 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
                 result.citations += 1
 
         for f in spec.factors:
-            node, _ = add_node(f.label, kind=f.kind, root=paths.root)
-            node_ids[f.label.casefold()] = node.id
-            if f.description:
-                set_attribute(node.id, "description", f.description, root=paths.root)
-            _cite(node.id, "description", f.sources)
-            _cite(node.id, "description", f.contradicts, against=True)
-            result.factors += 1
+            reused = node_ids.get(f.label.casefold()) if reuse else None
+            node_id = reused or add_node(f.label, kind=f.kind, root=paths.root)[0].id
+            node_ids[f.label.casefold()] = node_id
+            if f.description and not (reused and get_attribute(node_id, "description", root=paths.root)):
+                set_attribute(node_id, "description", f.description, root=paths.root)
+            _cite(node_id, "description", f.sources)
+            _cite(node_id, "description", f.contradicts, against=True)
+            if reused:
+                result.reused_factors += 1
+            else:
+                result.factors += 1
 
         for link in spec.links:
-            edge, _ = add_edge(link.from_, link.to, kind=link.kind, root=paths.root)
-            edge_ids[(link.from_.casefold(), link.to.casefold())] = edge.id
-            if link.polarity:
-                set_view_attribute(edge.id, "cld", "polarity", link.polarity, rationale=link.reason, root=paths.root)
-            if link.weight is not None:
-                set_view_attribute(edge.id, "fcm", "weight", str(link.weight), root=paths.root)
-            if link.description:
-                set_attribute(edge.id, "description", link.description, root=paths.root)
-            if link.confidence:
-                set_attribute(edge.id, "confidence", link.confidence, root=paths.root)
+            ends = (node_ids[link.from_.casefold()], node_ids[link.to.casefold()]) if reuse else None
+            reused = edge_by_kind.get((*ends, link.kind)) if ends else None
+            edge_id = reused or add_edge(link.from_, link.to, kind=link.kind, root=paths.root)[0].id
+            edge_ids[(link.from_.casefold(), link.to.casefold())] = edge_id
+            has = _link_values(edge_id, paths) if reused else set()
+            if link.polarity and "polarity" not in has:
+                set_view_attribute(edge_id, "cld", "polarity", link.polarity, rationale=link.reason, root=paths.root)
+            if link.weight is not None and "weight" not in has:
+                set_view_attribute(edge_id, "fcm", "weight", str(link.weight), root=paths.root)
+            if link.description and "description" not in has:
+                set_attribute(edge_id, "description", link.description, root=paths.root)
+            if link.confidence and "confidence" not in has:
+                set_attribute(edge_id, "confidence", link.confidence, root=paths.root)
             claim = "polarity" if link.polarity else "description"
-            _cite(edge.id, claim, link.sources)
-            _cite(edge.id, claim, link.contradicts, against=True)
-            result.links.append({"id": edge.id, "from": link.from_, "to": link.to})
+            _cite(edge_id, claim, link.sources)
+            _cite(edge_id, claim, link.contradicts, against=True)
+            if reused:
+                result.reused_links += 1
+            else:
+                result.links.append({"id": edge_id, "from": link.from_, "to": link.to})
 
         plugin = formalisms.get(model_type)
         if spec.outcome and plugin and plugin.set_outcome:
@@ -307,7 +376,7 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
     # Analyses run after the model is built; each is recorded (its own commit) for the report.
     from latris.operations.analysis_replay import run_analysis
 
-    for a in spec.analyses:
+    for a in spec.analyses if run_analyses else []:
         try:
             result.analyses.append(run_analysis(a, root=paths.root))
         except RuntimeError as exc:  # an optional dependency (pgmpy, scipy) isn't installed
@@ -317,13 +386,27 @@ def build_from_spec(spec: BuildSpec, *, verified_by: str = "human", root: Path |
             result.notes.append(f"analysis {a.kind!r} not run: {exc} — install with: {INSTALL}")
         except ValueError as exc:
             result.notes.append(f"analysis {a.kind!r} not run: {exc}")
-    if spec.carried_results:
+    if spec.carried_results and run_analyses:
         from latris.operations.carried_results import import_carried
 
         result.carried = import_carried(spec.carried_results, root=paths.root)
     if result.analyses or result.carried:
         result.commit_sha = git.head_sha(paths.root)
     return result
+
+
+def _subject(spec: BuildSpec, substrate: Substrate, reuse: bool) -> str:
+    """The build's commit subject: how many factors and links it adds, and, reusing, how many it found."""
+    if not reuse:
+        return f"Built model from spec: {len(spec.factors)} factors, {len(spec.links)} links"
+    labels = {e.label.casefold(): e.id for e in substrate.entities}
+    links = {(e.from_id, e.to_id, e.kind) for e in substrate.edges}
+    old_f = sum(f.label.casefold() in labels for f in spec.factors)
+    old_l = sum((labels.get(lk.from_.casefold()), labels.get(lk.to.casefold()), lk.kind) in links for lk in spec.links)
+    return (
+        f"Built model from spec: {len(spec.factors) - old_f} new factors, {len(spec.links) - old_l} new links"
+        f" ({old_f} factors and {old_l} links already there)"
+    )
 
 
 def _parents_first(scenarios: list) -> list:
@@ -365,3 +448,47 @@ def _apply_interpretation(spec: BuildSpec, model_type: str, root: Path, result: 
         by_ai = item.by == "ai"
         update_prose(section.id, item.prose, source="ai" if by_ai else "human-edit", written_by_agent=by_ai, root=root)
         result.interpretation += 1
+
+
+@dataclass
+class BuildPreview:
+    """What building a spec would do, from a build into a scratch copy of the project (nothing here changes)."""
+
+    ok: bool
+    problems: list[str] = field(default_factory=list)  # why it can't be built, when it can't
+    result: BuildResult | None = None  # what was added and reused
+    changes: list[dict] = field(default_factory=list)  # the semantic diff: {kind, summary, path, details}
+    analyses: list[str] = field(default_factory=list)  # the analyses it would run and record, by title
+
+
+def preview_build(
+    spec: BuildSpec,
+    *,
+    existing: Literal["refuse", "reuse"] = "refuse",
+    root: Path | None = None,
+) -> BuildPreview:
+    """Dry run of ``build_from_spec``: build into a throwaway copy of the project and report what changed
+    (latris's semantic diff of the two commits), or the problems that refuse it. The same build, so the
+    preview can't disagree with the real thing; the spec's analyses are listed, not run."""
+    import shutil
+    import tempfile
+    from dataclasses import asdict
+
+    from latris.diff.semantic import diff_commits
+    from latris.operations.analysis_results import result_surfaces
+
+    paths = require_project(root)
+    titles = {r.analysis: r.title for r in result_surfaces()}
+    analyses = [titles.get(a.kind, a.kind) for a in spec.analyses]
+    with tempfile.TemporaryDirectory(prefix="latris-preview-") as tmp:
+        copy = Path(tmp) / "project"
+        shutil.copytree(paths.root, copy, symlinks=True)
+        before = git.head_sha(copy)
+        try:
+            result = build_from_spec(spec, verified_by="human", existing=existing, run_analyses=False, root=copy)
+        except ValueError as exc:
+            lines = [ln[2:] if ln.startswith("- ") else ln for ln in str(exc).splitlines()[1:]] or [str(exc)]
+            return BuildPreview(ok=False, problems=lines, analyses=analyses)
+        changes = [asdict(e) for e in diff_commits(copy, before, git.head_sha(copy))]
+    result.commit_sha = ""  # nothing was committed to the project
+    return BuildPreview(ok=True, result=result, changes=changes, analyses=analyses)

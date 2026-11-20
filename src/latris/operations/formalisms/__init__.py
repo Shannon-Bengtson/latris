@@ -87,6 +87,9 @@ class ResultKind:
     title_for: Callable[[dict[str, Any]], str] | None = None
     # The chat tool that runs it (every result kind declares one; the app leaves out those needing a dataset).
     tool: ChatTool | None = None
+    # A newer run over the same or a wider scope replaces it in reports (a simulation of the whole model
+    # supersedes an older one of part of it); otherwise reports keep the latest run per analysis key.
+    superseded_by_wider: bool = False
 
 
 @dataclass(frozen=True)
@@ -151,6 +154,16 @@ class Formalism:
     scenario_store: str | None = None  # module holding its saved scenarios (load(paths).scenarios)
     diagram_direction: str = "LR"  # the generic diagram's layout: "LR" or "TB"
     polarity_labels: bool = False  # its links are labelled with their polarity (+/−) in diagrams
+    whole_map: bool = False  # it is the project's whole map (the causal types), not factors given a role in it
+    connected_structure: bool = True  # it lives on links; False for MCDA, ACH, event trees (elements, no links)
+    # (attribute, how the AI is told to fill it): the value each link carries in this type, e.g. polarity
+    link_attribute: tuple[str, str] | None = None
+    # (gap type, message): readiness when nothing has joined it yet, for a type sharing the map
+    empty_scope_gap: tuple[str, str] | None = None
+    source_label: str | None = None  # how a claim pooled from several types names this one ("Network")
+    # paths → factor id → its states, for a type whose factors have named states (a BN): what a surface
+    # offers for an analysis option that is a state (``state``, ``evidence``)
+    factor_states: Callable[[Any], dict[str, list[str]]] | None = None
 
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""
@@ -226,6 +239,28 @@ def kind_model_types() -> dict[str, str]:
     return {r.kind: mt for mt, r in _owned()}
 
 
+def label(model_type: str) -> str:
+    """How a claim pooled from several model types names this one."""
+    f = get(model_type)
+    return f.source_label if f and f.source_label else model_type.upper()
+
+
+def quantified(model_type: str | None) -> bool:
+    """A type that computes on its own factors (parameters given to part of the map), e.g. SD, BN."""
+    f = get(model_type)
+    return bool(f and f.parameterised_nodes)
+
+
+def whole_map_types() -> tuple[str, ...]:
+    return tuple(f.model_type for f in FORMALISMS.values() if f.whole_map)
+
+
+def attribute_home(attribute: str) -> str | None:
+    """The model type whose links carry ``attribute`` (where its values are stored), e.g. polarity → cld."""
+    return next((f.model_type for f in FORMALISMS.values() if f.link_attribute and f.link_attribute[0] == attribute),
+                None)
+
+
 def fingerprint_files(model_type: str, paths: Any) -> list[Path]:
     """Inputs beyond structure, roles and parameters that this model type's results read."""
     out: list[Path] = []
@@ -271,7 +306,7 @@ def default_origin(verified_by: str) -> str:
 _MODULES = (
     "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov", "toc_impact", "causal",
+    "markov", "toc_impact", "causal", "fcm_steady_state",
 )
 
 

@@ -302,11 +302,15 @@ def report_results(
         latest[(run.result_kind, run.analysis_key)] = run  # file order is chronological
 
     runs = list(latest.values())
-    sims = [r for r in runs if r.result_kind == "sd-simulation"]
+    # A newer run of a kind that a wider run supersedes (a simulation of the whole model) replaces it.
+    from latris.operations import formalisms
+
+    wider = {r.kind for r in formalisms.result_kinds() if r.superseded_by_wider}
     runs = [
         r for r in runs
-        if r.result_kind != "sd-simulation"
-        or not any(o is not r and o.id > r.id and _scope(r) <= _scope(o) for o in sims)
+        if r.result_kind not in wider
+        or not any(o is not r and o.result_kind == r.result_kind and o.id > r.id and _scope(r) <= _scope(o)
+                   for o in runs)
     ]
     out: list[ReportResult] = []
     for kind in KIND_ORDER:

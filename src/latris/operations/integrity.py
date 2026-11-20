@@ -218,8 +218,10 @@ def check_integrity(*, root: Path | None = None) -> IntegrityReport:
 
     # ── Mappings and views ─────────────────────────────────────────────
     if paths.mappings_yaml.exists():
-        dangling = sorted({str(r["l2_id"]) for r in _entries(paths.mappings_yaml)
-                           if r.get("l2_id") and r["l2_id"] not in element_ids})
+        raw = load_raw(paths.mappings_yaml)
+        left_out = raw.get("left_out") if isinstance(raw, dict) else None
+        rows = [*_entries(paths.mappings_yaml), *(r for r in (left_out or []) if isinstance(r, dict))]
+        dangling = sorted({str(r["l2_id"]) for r in rows if r.get("l2_id") and r["l2_id"] not in element_ids})
         if dangling:
             add("error", "dangling_target",
                 f"{len(dangling)} mapping(s) map a node or link that isn't there", paths.mappings_yaml, dangling)

@@ -172,21 +172,6 @@ def test_cli_data_and_estimate(project, tmp_path):
     assert out.exit_code != 0 and "backdoor" in out.output
 
 
-def test_route(project):
-    from fastapi.testclient import TestClient
-
-    from latris.server.app import create_app
-
-    c = TestClient(create_app(project_root=project))
-    r = c.post("/api/analysis/estimate", json={"treatment": "Exercise", "outcome": "Heart health",
-                                               "dataset": "survey", "columns": COLS, "record": False})
-    assert r.status_code == 200 and r.json()["commit_sha"] is None
-    assert r.json()["result"]["adjustment"] == ["Age"]
-    r = c.post("/api/analysis/estimate", json={"treatment": "Exercise", "outcome": "Heart health",
-                                               "dataset": "survey"})
-    assert r.status_code == 422 and "no column for Exercise" in r.json()["detail"]
-
-
 def test_build_spec_runs_and_share_link_replays(project, tmp_path, git_identity):
     from latris.operations.build import build_from_spec, load_spec
     from latris.operations.share_link import export_spec

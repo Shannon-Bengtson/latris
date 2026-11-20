@@ -918,6 +918,9 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["check", "integrity"])
     ex.note("Before handing the model to a board: what's left, and how to fix each (exits 1 until clear).")
     ex.run(["check", "handover"], expect_fail=True)
+    ex.note("One item is the reason for the model type — the report's Modelling Approach says it. Record it "
+            "(this also chooses the type if it isn't one yet), and that item leaves the list:")
+    ex.run(["project", "choose", "cld", "--why", "Volunteer departures feed back on the workload of those who stay."])
     ex.note("The context opens the report — who it's for, the situation, and the person's own expectation "
             "to compare with the answer:")
     ex.run(["--json", "project", "show"])
@@ -1574,6 +1577,15 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["view", "auto-project", "cld"])
     ex.run(["view", "auto-project", "dag"])
     ex.run(["mapping", "list", "--view", "cld"])
+    ex.note("Every factor and link is in every chosen model type unless a person leaves it out. Leaving one "
+            "out is recorded, so adding everything again (as the app does when a type is opened) keeps it out, "
+            "and its links leave the view with it; `mapping add` puts it back.")
+    ex.run(["mapping", "leave-out", "Industrial Emissions", "dag",
+            "--reason", "Trying the DAG without point sources."])
+    ex.run(["view", "auto-project", "dag"])
+    ex.run(["mapping", "list", "--view", "dag"])
+    ex.run(["mapping", "add", "Industrial Emissions", "dag"])
+    ex.run(["view", "auto-project", "dag"])
 
     # ── 10. Graph Analysis ────────────────────────────────────────────
     ex.section("Graph Analysis",
@@ -1987,7 +1999,13 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
     ex.note("The whole model as a build spec — what `latris link` carries and `latris build --spec` reads back "
             "(apps and chat connectors write a model type's values through the same blocks).")
-    ex.run(["export", "spec"])
+    exported = ex.run(["export", "spec"])
+    ex.note("Importing a spec into a project that already has some of it. By default an overlap is refused; "
+            "`--dry-run` says so without changing anything. `--reuse` uses what's already there as it is — "
+            "the spec fills only what it lacks — and the dry run lists what would be added, reused and changed.")
+    ex.run(["build", "--spec", "-", "--dry-run"], input=exported, expect_fail=True)
+    ex.run(["build", "--spec", "-", "--dry-run", "--reuse"], input=exported)
+    ex.run(["build", "--spec", "-", "--reuse"], input=exported)
     os.chdir(ex.root)
 
     # ── 11h. Analysis of competing hypotheses ─────────────────────────
@@ -2317,6 +2335,11 @@ def build_example(ex: WorkedExample) -> None:
 
     ex.note("Show the full tree — root with two alternative branches.")
     ex.run(["version", "tree"])
+
+    ex.note("Compare versions: what the meteorology alternative changed since the baseline checkpoint, "
+            "factors and links named, grouped into added, changed and removed. Either side is a version or "
+            "a model checkpoint.")
+    ex.run(["version", "compare", "Baseline CLD", "What-if: add meteorology"])
 
     ex.note("Switch back to the original and update the version metadata.")
     ex.run(["version", "switch", "main"])

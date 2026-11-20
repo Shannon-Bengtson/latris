@@ -650,7 +650,17 @@ def add_to_workspace(
 
 
 def authed_refresh_sync(*, remote: str = "origin", root: Path | None = None) -> dict:
-    return refresh_sync(remote=remote, env=_authed_env(), root=root)
+    """Refresh each version's sync state. A quiet background read: with no remote (a project not shared)
+    there's nothing to fetch, and signed out it can't fetch — either way, return what's known locally
+    rather than fail."""
+    paths = require_project(root)
+    if not git.has_remote(paths.root, remote):
+        return version_sync_states(remote=remote, root=root)
+    try:
+        env = _authed_env()
+    except SyncError:
+        return version_sync_states(remote=remote, root=root)
+    return refresh_sync(remote=remote, env=env, root=root)
 
 
 def authed_publish_version(version_query: str, *, remote: str = "origin", root: Path | None = None) -> dict:

@@ -50,6 +50,18 @@ class StartRequest(BaseModel):
 
 
 
+@router.get("/model")
+def model(root: Root) -> dict[str, Any]:
+    """Everything the model is made of: states and strategies, transitions (by edge id), costs and utilities,
+    the starting cohort."""
+    return {
+        "elements": markov.get_elements(root=root),
+        "transitions": markov.get_transitions(root=root).model_dump(mode="json")["entries"],
+        "rewards": markov.get_rewards(root=root).model_dump(mode="json")["entries"],
+        "start": markov.get_start(root=root).model_dump(mode="json")["entries"],
+    }
+
+
 @router.get("/settings")
 def get_settings(root: Root) -> dict[str, Any]:
     return markov.get_settings(root=root).model_dump(mode="json")

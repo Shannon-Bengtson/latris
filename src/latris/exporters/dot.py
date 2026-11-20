@@ -29,8 +29,10 @@ def _dot_escape(text: str) -> str:
 
 def render(paths: ProjectPaths, view: ViewKind = "system_map") -> str:
     substrate = load_model(Substrate, paths.conceptual_yaml)
-    pol_path = paths.view_attribute_path("cld", "polarity")
-    pol_set = load_model_or_default(PolaritySet, pol_path)
+    from latris.operations import formalisms
+
+    home = formalisms.attribute_home("polarity")  # the type whose links carry polarity (the loop map)
+    pol_set = load_model_or_default(PolaritySet, paths.view_attribute_path(home, "polarity")) if home else PolaritySet()
     polarity = {(e.target_id, e.attribute): e for e in pol_set.entries}
 
     # Filter by mappings if any exist for this view.

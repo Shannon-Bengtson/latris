@@ -193,6 +193,16 @@ def test_update_column_metadata(client: TestClient, uploaded_dataset: dict) -> N
     assert "commit_sha" in data
 
 
+def test_update_one_column_field_leaves_the_other(client: TestClient, uploaded_dataset: dict) -> None:
+    """The app changes one thing at a time (just the role); the description stays."""
+    ds_id = uploaded_dataset["id"]
+    client.patch(f"/api/datasets/{ds_id}/columns/price", json={"role": "feature", "description": "Unit price"})
+    resp = client.patch(f"/api/datasets/{ds_id}/columns/price", json={"role": "target"})
+    assert resp.status_code == 200, resp.text
+    col = next(c for c in resp.json()["result"]["columns"] if c["name"] == "price")
+    assert col["role"] == "target" and col["description"] == "Unit price"
+
+
 # ── Actions ───────────────────────────────────────────────────────────
 
 

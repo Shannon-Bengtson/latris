@@ -10,6 +10,7 @@ from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel
 
 from latris.operations import datasets as ds_ops
+from latris.schema.data_actions import DataActionLog
 from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
@@ -26,8 +27,10 @@ class ApplyOperationRequest(BaseModel):
 
 
 class UpdateColumnRequest(BaseModel):
-    role: str | None = ...  # type: ignore[assignment]
-    description: str | None = ...  # type: ignore[assignment]
+    """Either or both: a field left out is left as it is (null clears it)."""
+
+    role: str | None = None
+    description: str | None = None
 
 
 class CreateVersionRequest(BaseModel):
@@ -123,11 +126,7 @@ def update_column(
     body: UpdateColumnRequest,
     root: Root,
 ) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {}
-    if body.role is not ...:
-        kwargs["role"] = body.role
-    if body.description is not ...:
-        kwargs["description"] = body.description
+    kwargs: dict[str, Any] = {k: getattr(body, k) for k in body.model_fields_set}
 
     dataset, sha = ds_ops.update_column_metadata(
         dataset_id,
@@ -167,7 +166,7 @@ def column_stats(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{dataset_id}/actions")
+@router.get("/{dataset_id}/actions", response_model=DataActionLog)
 def get_actions(dataset_id: str, root: Root) -> dict[str, Any]:
     log = ds_ops.get_action_log(dataset_id, root=root)
     return log.model_dump(mode="json")

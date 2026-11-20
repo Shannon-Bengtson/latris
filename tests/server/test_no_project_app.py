@@ -43,3 +43,17 @@ def test_project_bound_route_404s_without_project(client: TestClient, monkeypatc
     monkeypatch.setattr("latris.server.deps.find_project_root", lambda: None)
     resp = client.get("/api/sync/status")
     assert resp.status_code == 404
+
+
+def test_every_route_is_registered_once():
+    """No router is included twice (BN's was, once explicitly and once through its Formalism): a duplicate
+    shows as a duplicate operation id when the OpenAPI document is built."""
+    import warnings
+
+    from latris.server.app import create_app
+
+    app = create_app(project_root=None)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # FastAPI warns "Duplicate Operation ID"
+        spec = app.openapi()
+    assert any(p.startswith("/api/sd/") for p in spec["paths"]) and any(p.startswith("/api/bn/") for p in spec["paths"])

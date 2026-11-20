@@ -195,5 +195,4 @@ MODEL_WIDE = "model"
 MODEL_WIDE_SECTIONS: tuple[str, ...] = (
     "answer_to_question", "implications", "confidence_assessment", "open_questions",
 )
-# How a pooled claim names the model type it came from.
-SOURCE_LABEL = {"cld": "Loop map", "dag": "Causal DAG", "fcm": "FCM", "bn": "Network", "sd": "Simulation"}
+# How a pooled claim names the model type it came from: ``formalisms.label`` (each type's source_label).

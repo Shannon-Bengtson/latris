@@ -109,7 +109,8 @@ def test_cli_and_routes_load(f):
         return
     module, name = f.cli
     assert isinstance(importlib.import_module(module).app, typer.Typer)
-    assert isinstance(importlib.import_module(f.routes).router, APIRouter)
+    if f.routes:  # a type's own routes; FCM runs through the generic analysis and attribute routes
+        assert isinstance(importlib.import_module(f.routes).router, APIRouter)
     with_cli = [p for p in PLUGINS if p.cli]
     assert len({p.cli[1] for p in with_cli}) == len(with_cli)
 
