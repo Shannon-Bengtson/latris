@@ -78,8 +78,6 @@ EXPECTED_PROMPTS = {
     "EvidenceDemote",
     # AI interrogation Phase 4a — source verification
     "VerifyClaimAgainstSource",
-    # Story (Communicate phase)
-    "StoryBeatProse",
 }
 
 
@@ -159,8 +157,6 @@ def test_scope_and_intent_coverage() -> None:
             "RecommendApproach",
             # Evidence-gap scan (model-level insight)
             "ScanEvidenceGaps",
-            # Story beat prose (model-level insight)
-            "StoryBeatProse",
         }, f"{spec.name} has default scope/intent — was it deliberately set?"
 
 

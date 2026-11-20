@@ -348,7 +348,7 @@ record and its approval.
 
 ## What's been built since M10
 
-All 46 prompts are now wired with response models and callable
+All 45 built-in prompts are now wired with response models and callable
 end-to-end, organised into categories:
 
 **Core prompts (original M8–M15 + GUI):**
@@ -411,13 +411,20 @@ foundational citations for the model's subject area.
 **Evidence-gap prompt** (1): `ScanEvidenceGaps` — scan the model for
 attributes lacking adequate evidence coverage.
 
-**Story prompt** (1): `StoryBeatProse` — generate scrollytelling beat
-prose for the Communicate-phase Story artifact.
+**Prompts from plugins.** A server plugin (`latris.server_plugins`) can
+bring its own prompts with `latris.ai.registry.register_prompt` (spec,
+response model, context builder, optional renderer, mode). A registered
+prompt goes through the same call path as a built-in one: provider and
+credentials, `LATRIS_AI_MOCK`, the `ai/interactions.jsonl` record (prompt
+name and inputs, not the template) and the human-attributed commit. It
+can't replace a built-in prompt. `registry.project_context(paths)` gives a
+plugin's context builder the same project block the built-in prompts open
+with. The Latris app's Story feature registers its prompts this way.
 
 **Note:** `ScopeCheck` checks both the modelling question *and* the
 model boundary. The context builder feeds both into the prompt.
 
-**GUI integration:** All 46 prompts are accessible through the AI panel
+**GUI integration:** All 45 built-in prompts are accessible through the AI panel
 in the inspector. Mutation prompts use the two-step preview/approve
 workflow (`AIProposalOverlay`). Read-only prompts display results in
 `AIResultDisplay`. An `AIActivityLog` in the bottom third of the right

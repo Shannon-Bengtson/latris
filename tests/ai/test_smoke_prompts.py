@@ -255,7 +255,6 @@ def _synthesise_inputs(prompt_name: str, ids: dict[str, str]) -> dict[str, Any]:
         "FindFoundationalReferences": {},
         "EdgeReclassify": {"model_type": "cld"},
         "CompletenessGate": {"model_type": "cld"},
-        "StoryBeatProse": {"beat_kind": "answer", "source_text": "Sample grounded content.", "model_type": "cld"},
         # Model-scope with required fields.
         "DraftConceptualModel": {"focus": "smoke-test focus"},
         "ProjectToFormalView": {"view": "cld"},

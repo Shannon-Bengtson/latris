@@ -33,7 +33,7 @@ what to do.
 
 | Guard | Rule |
 |-------|------|
-| `tests/server/test_routes_are_tested.py` | Every server route is named by some test. |
+| `tests/server/test_routes_are_tested.py` | Every server route is named by some test. Only latris's own routes count: routes a plugin adds (`latris.server_plugins`) are tested where the plugin lives. |
 | `tests/test_worked_example_coverage.py` | Every CLI command appears in the worked example. |
 | `tests/operations/test_formalisms.py` | Every model type is complete: its plugin, spec field, analyses, foundations entry, help topic. |
 | `tests/operations/test_no_type_branches.py` | Shared code doesn't branch on a model type's name. |

@@ -2229,8 +2229,8 @@ def build_example(ex: WorkedExample) -> None:
         "scoped to a single formalism with --model-type (substrate, findings, and "
         "interpretation are filtered to that formalism's view). The Markdown report "
         "opens with a Mermaid sketch of the model, which renders on GitHub and in "
-        "most chat UIs. Word, review-pack and story HTML exports are part of "
-        "the Latris app.",
+        "most chat UIs. Word, review-pack and the scrollytelling story are part "
+        "of the Latris app.",
     )
 
     ex.run(["export", "md", "--output", "reports/report.md"])
@@ -2239,19 +2239,6 @@ def build_example(ex: WorkedExample) -> None:
             "(hosted report, full figure, save to an account). It works offline: the model is inside the link.")
     ex.run(["--json", "link", "--model-type", "cld"])
     ex.run(["export", "dot", "--view", "cld", "--output", "reports/cld-view.dot"])
-
-    # ── 11b. Story (public-facing) ─────────────────────────────────────
-    ex.section(
-        "Story (public-facing)",
-        "Draft a story that walks a non-technical reader through the model: "
-        "a plain-language beat skeleton with AI-drafted prose, produced "
-        "downstream of the report. The Latris app publishes it as a "
-        "scrollable HTML page.",
-    )
-
-    ex.run(["story", "draft", "--model", "cld"])
-    ex.run(["story", "generate-all", "--model", "cld"])
-    ex.run(["story", "show", "--model", "cld"])
 
     # ── 11c. Methods and foundations ─────────────────────────────────────
     ex.section(

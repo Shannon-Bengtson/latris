@@ -345,8 +345,6 @@ RENDERERS: dict[str, callable] = {
     "InterpretImplications": lambda parsed: parsed.prose,
     "InterpretConfidence": lambda parsed: parsed.prose,
     "InterpretOpenQuestions": lambda parsed: parsed.prose,
-    # Story (Communicate phase) — prose is the rendered output
-    "StoryBeatProse": lambda parsed: parsed.prose,
     # Inline per-field AI — value is the deliverable; rationale shown as tooltip
     "FillProvenanceField": lambda parsed: parsed.value,
     # Foundational references — search plan (same shape as ExpandBibliography intermediate)
