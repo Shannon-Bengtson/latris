@@ -19,8 +19,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import now_utc
 from latris.schema.ids import new_id
 
@@ -29,15 +30,13 @@ MissingVariableConfidence = Literal["high", "medium", "low"]
 MissingVariableDisposition = Literal["open", "added_to_model", "excluded", "dismissed"]
 
 
-class MissingVariable(BaseModel):
+class MissingVariable(SchemaModel):
     """A variable the completeness gate flagged as missing from the model.
 
     Uses ``disposition`` rather than ``status`` so the word ``status``
     stays reserved for the unified Maturity ladder. See
     docs/design/MATURITY_LADDER.md.
     """
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: str = Field(default_factory=lambda: new_id("missing-var"))
     name: str
@@ -51,8 +50,7 @@ class MissingVariable(BaseModel):
     added_entity_id: str | None = None
 
 
-class CompletenessReport(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class CompletenessReport(SchemaModel):
 
     model_type: str
     generated_at: datetime = Field(default_factory=now_utc)

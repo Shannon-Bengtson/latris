@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import now_utc
 from latris.schema.ids import new_id
 
@@ -53,8 +54,7 @@ before the limit was enforced still load.
 """
 
 
-class SourceSnapshot(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class SourceSnapshot(SchemaModel):
 
     retrieval_url: str
     fetched_at: datetime = Field(default_factory=now_utc)
@@ -63,10 +63,8 @@ class SourceSnapshot(BaseModel):
     kind: SourceSnapshotKind = "abstract"
 
 
-class Reference(BaseModel):
+class Reference(SchemaModel):
     """A single citation in the reference library."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: str = Field(default_factory=lambda: new_id("reference"))
     bibkey: str
@@ -85,7 +83,6 @@ class Reference(BaseModel):
     cited_via: str | None = None
 
 
-class ReferenceLibrary(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class ReferenceLibrary(SchemaModel):
 
     entries: list[Reference] = Field(default_factory=list)

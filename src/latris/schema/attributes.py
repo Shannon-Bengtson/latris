@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import (
     Informants,
     ProvenanceOrigin,
@@ -23,8 +24,8 @@ Confidence = Literal["low", "medium", "high", "quantitative-pending", "by-defini
 Polarity = Literal["+", "-", "~"]
 
 
-class _Base(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class _Base(SchemaModel):
+    """Shared base for this module's models (strict; see ``schema._base``)."""
 
 
 class EntryBase(_Base):

@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.maturity import Maturity
 
@@ -110,8 +111,8 @@ def coerce_edge_kind(value: str | None) -> tuple[EdgeKind, bool]:
     return "causal", True
 
 
-class _Base(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class _Base(SchemaModel):
+    """Shared base for this module's models (strict; see ``schema._base``)."""
 
 
 class Entity(_Base):

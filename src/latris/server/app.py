@@ -72,7 +72,7 @@ from latris.server.routes import (
 from latris.server.routes import (
     help as help_routes,
 )
-from latris.server.state import load_full_state
+from latris.server.state import ProjectState, load_project_state
 from latris.server.watch import manager, watch_project
 
 
@@ -330,10 +330,9 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
 
     # /api/references and /api/challenges are handled by their route modules.
 
-    @app.get("/api/state")
-    def full_state(root: Root) -> dict[str, Any]:
-        paths = ProjectPaths(root)
-        return load_full_state(paths)
+    @app.get("/api/state", response_model=ProjectState)
+    def full_state(root: Root) -> ProjectState:
+        return load_project_state(ProjectPaths(root))
 
     # ── WebSocket ─────────────────────────────────────────────────────
     @app.websocket("/ws")

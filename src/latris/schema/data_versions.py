@@ -8,13 +8,14 @@ back as a new commit.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from latris.schema._base import SchemaModel
 from latris.schema.common import HumanActor
 
 
-class _Base(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class _Base(SchemaModel):
+    """Shared base for this module's models (strict; see ``schema._base``)."""
 
 
 class DatasetVersion(_Base):

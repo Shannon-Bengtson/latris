@@ -35,16 +35,17 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
+from latris.schema._base import SchemaModel
 from latris.schema.attributes import Confidence
 from latris.schema.common import ProvenanceOrigin
 from latris.schema.references import SourceSnapshotKind
 from latris.schema.substrate import EdgeKind, EntityKind
 
 
-class _Spec(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+class _Spec(SchemaModel):
+    """Shared base for build-spec models (strict; see ``schema._base``)."""
 
 
 class SpecCitation(_Spec):
