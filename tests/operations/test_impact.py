@@ -151,7 +151,6 @@ def test_record(project):
 
 
 def test_build_spec_report_share_link_cli_and_route(project):
-    from fastapi.testclient import TestClient
     from typer.testing import CliRunner
 
     from latris.cli.app import app
@@ -161,7 +160,6 @@ def test_build_spec_report_share_link_cli_and_route(project):
     from latris.operations.share_link import export_spec
     from latris.repo.layout import ProjectPaths
     from latris.schema.build_spec import make_analysis
-    from latris.server.app import create_app
 
     a = make_analysis(kind="toc_impact", outcome="Attendance", dataset="monthly", time="month", at="2024-01-01",
                      columns={"Attendance": "attendance_rate"})
@@ -181,10 +179,3 @@ def test_build_spec_report_share_link_cli_and_route(project):
     assert r.exit_code == 0, r.output
     assert "Difference-in-differences" in r.output and "caution" in r.output
 
-    client = TestClient(create_app(project_root=project))
-    r = client.post("/api/toc/impact", json={"outcome": "Attendance", "dataset": "panel", "time": "year",
-                                             "at": 2021, "group": "arm", "record": False})
-    assert r.status_code == 422 and "--treated" in r.json()["detail"]
-    r = client.post("/api/toc/impact", json={"outcome": "Attendance", "dataset": "panel", "time": "year",
-                                             "at": 2021, "group": "arm", "treated": ["mentoring"]})
-    assert r.status_code == 200 and r.json()["commit_sha"]

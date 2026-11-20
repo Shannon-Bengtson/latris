@@ -1,4 +1,4 @@
-"""CLI tests for the `mapping` command group: add, remove, list, approve."""
+"""CLI tests for the `mapping` command group: add, leave-out, list, approve."""
 
 from __future__ import annotations
 
@@ -52,20 +52,16 @@ def test_mapping_list_shows_rows_and_filters(two_node_project_root: Path, monkey
     assert "cld" not in r2.output
 
 
-def test_mapping_remove_happy(two_node_project_root: Path, monkeypatch):
+def test_mapping_leave_out_and_back(two_node_project_root: Path, monkeypatch):
     monkeypatch.chdir(two_node_project_root)
     runner.invoke(app, ["mapping", "add", "Price", "cld"])
-    r = runner.invoke(app, ["mapping", "remove", "Price", "cld"])
+    r = runner.invoke(app, ["mapping", "leave-out", "Price", "cld", "--reason", "Out of scope"])
     assert r.exit_code == 0, r.output
-    assert "Unmapped" in r.output
-    assert mapping_ops.list_mappings(root=two_node_project_root) == []
-
-
-def test_mapping_remove_not_mapped_errors(two_node_project_root: Path, monkeypatch):
-    monkeypatch.chdir(two_node_project_root)
-    r = runner.invoke(app, ["mapping", "remove", "Price", "cld"])
-    assert r.exit_code == 2
-    assert "not mapped" in r.output
+    assert "Left" in r.output and mapping_ops.list_mappings(root=two_node_project_root) == []
+    listed = runner.invoke(app, ["mapping", "list"])
+    assert "left out of cld" in listed.output and "Out of scope" in listed.output
+    assert runner.invoke(app, ["mapping", "add", "Price", "cld"]).exit_code == 0
+    assert mapping_ops.list_left_out(root=two_node_project_root) == []
 
 
 def test_mapping_approve_happy(two_node_project_root: Path, monkeypatch):

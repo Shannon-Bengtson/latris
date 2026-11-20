@@ -66,18 +66,6 @@ def list_findings_route(
 
 
 # Static paths before dynamic /{finding_id} to avoid route conflicts.
-@router.get("/check/stale")
-def check_stale_route(root: Root) -> dict[str, Any]:
-    """Check all active (proposed or reviewed) findings for staleness."""
-    active = list_findings(maturity="proposed", root=root) + list_findings(maturity="reviewed", root=root)
-    stale_findings = [f for f in active if check_staleness(f, root=root)]
-    return {
-        "stale_findings": [f.model_dump(mode="json") for f in stale_findings],
-        "total_active": len(active),
-        "stale_count": len(stale_findings),
-    }
-
-
 @router.get("/{finding_id}")
 def get_finding_route(finding_id: str, root: Root) -> dict[str, Any]:
     """Retrieve a single finding by ID or prefix."""

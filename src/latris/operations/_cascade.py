@@ -65,14 +65,18 @@ def cascade_removed_ids(paths: ProjectPaths, removed_ids: Collection[str]) -> tu
 
     if paths.mappings_yaml.exists():
         data = load_raw(paths.mappings_yaml)
-        entries = data.get("entries") if isinstance(data, dict) else None
-        if isinstance(entries, list):
-            kept = [row for row in entries if not (isinstance(row, dict) and row.get("l2_id") in doomed)]
-            if len(kept) != len(entries):
-                removed += len(entries) - len(kept)
-                data["entries"] = kept
-                dump_raw(data, paths.mappings_yaml)
-                changed.append(paths.mappings_yaml)
+        touched = False
+        for key in ("entries", "left_out"):  # mappings, and what was left out of a view
+            rows = data.get(key) if isinstance(data, dict) else None
+            if isinstance(rows, list):
+                kept = [row for row in rows if not (isinstance(row, dict) and row.get("l2_id") in doomed)]
+                if len(kept) != len(rows):
+                    removed += len(rows) - len(kept)
+                    data[key] = kept
+                    touched = True
+        if touched:
+            dump_raw(data, paths.mappings_yaml)
+            changed.append(paths.mappings_yaml)
 
     for path in _view_files(paths):
         data = load_raw(path)

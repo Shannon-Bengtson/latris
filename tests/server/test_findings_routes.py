@@ -153,19 +153,3 @@ def test_update_maturity_unknown_finding_422(client: TestClient) -> None:
 
 
 # ── staleness ────────────────────────────────────────────────────────
-
-
-def test_check_stale_no_active(client: TestClient) -> None:
-    data = client.get("/api/findings/check/stale").json()
-    assert data["total_active"] == 0
-    assert data["stale_count"] == 0
-    assert data["stale_findings"] == []
-
-
-def test_check_stale_counts_active(client: TestClient) -> None:
-    # Two proposed findings, no model change since → active but not stale.
-    _record(client)
-    _record(client, statement="Second")
-    data = client.get("/api/findings/check/stale").json()
-    assert data["total_active"] == 2
-    assert data["stale_count"] == 0

@@ -16,23 +16,24 @@ console = Console()
 @handle_cli_errors
 def mapping_add(
     l2_id: str = typer.Argument(..., help="Substrate entity/edge (ID / prefix / label)."),
-    view: str = typer.Argument(..., help="Target view: cld | dag."),
+    view: str = typer.Argument(..., help="Model type (e.g. cld, sd)."),
     ai_proposed: bool = typer.Option(False, "--ai-proposed", help="Mark as AI-proposed."),
 ) -> None:
-    """Map a substrate element to a view."""
+    """Put a factor or link in a model type's view (back in, if it was left out)."""
     mapping, sha = mapping_ops.map_to_view(l2_id, view, ai_proposed=ai_proposed)
     console.print(f"Mapped [cyan]{mapping.l2_id[:20]}…[/cyan] → {view}")
 
 
-@app.command("remove")
+@app.command("leave-out")
 @handle_cli_errors
-def mapping_remove(
+def mapping_leave_out(
     l2_id: str = typer.Argument(..., help="Substrate entity/edge (ID / prefix / label)."),
-    view: str = typer.Argument(..., help="View to unmap from: cld | dag."),
+    view: str = typer.Argument(..., help="Model type to leave it out of (e.g. cld, sd)."),
+    reason: str = typer.Option(None, "--reason", "-r", help="Why it doesn't belong in this model type."),
 ) -> None:
-    """Remove a mapping from a view."""
-    removed, sha = mapping_ops.unmap_from_view(l2_id, view)
-    console.print(f"Unmapped [cyan]{removed.l2_id[:20]}…[/cyan] from {view}")
+    """Leave a factor or link out of a model type, and keep it out (`mapping add` puts it back)."""
+    entry, sha = mapping_ops.leave_out(l2_id, view, reason=reason)
+    console.print(f"Left [cyan]{l2_id}[/cyan] out of {view} ([cyan]{sha[:10]}[/cyan])", highlight=False)
 
 
 @app.command("list")
@@ -40,8 +41,12 @@ def mapping_remove(
 def mapping_list(
     view: str = typer.Option(None, "--view", "-v", help="Filter by view kind."),
 ) -> None:
-    """List mappings, optionally filtered by view."""
+    """List mappings, and what's been left out, optionally filtered by view."""
     mappings = mapping_ops.list_mappings(view_kind=view)
+    left_out = mapping_ops.list_left_out(view_kind=view)
+    for x in left_out:
+        why = f" — {x.reason}" if x.reason else ""
+        console.print(f"left out of {x.l3_view}: [cyan]{x.l2_id}[/cyan]{why}", highlight=False)
     if not mappings:
         console.print("[dim](no mappings)[/dim]")
         return

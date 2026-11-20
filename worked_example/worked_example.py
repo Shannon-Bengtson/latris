@@ -1577,6 +1577,15 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["view", "auto-project", "cld"])
     ex.run(["view", "auto-project", "dag"])
     ex.run(["mapping", "list", "--view", "cld"])
+    ex.note("Every factor and link is in every chosen model type unless a person leaves it out. Leaving one "
+            "out is recorded, so adding everything again (as the app does when a type is opened) keeps it out, "
+            "and its links leave the view with it; `mapping add` puts it back.")
+    ex.run(["mapping", "leave-out", "Industrial Emissions", "dag",
+            "--reason", "Trying the DAG without point sources."])
+    ex.run(["view", "auto-project", "dag"])
+    ex.run(["mapping", "list", "--view", "dag"])
+    ex.run(["mapping", "add", "Industrial Emissions", "dag"])
+    ex.run(["view", "auto-project", "dag"])
 
     # ── 10. Graph Analysis ────────────────────────────────────────────
     ex.section("Graph Analysis",

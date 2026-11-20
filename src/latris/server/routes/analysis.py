@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel
 
 from latris.operations import analysis as analysis_ops
 from latris.server.deps import Root
@@ -111,26 +110,3 @@ def adjustment_sets_route(
         "adjustment_sets": [sorted(s) for s in sets],
         "count": len(sets),
     }
-
-
-class EstimateRequest(BaseModel):
-    treatment: str
-    outcome: str
-    dataset: str
-    adjust: list[str] | None = None  # None: the smallest valid set of measured factors; []: adjust for nothing
-    columns: dict[str, str] | None = None  # factor label → dataset column, where names differ
-    estimator: Literal["auto", "linear", "logistic"] = "auto"
-    record: bool = True
-
-
-@router.post("/estimate")
-def estimate(body: EstimateRequest, root: Root) -> dict[str, Any]:
-    """Effect of treatment on outcome from a dataset, adjusting as the DAG requires (and recorded)."""
-    from latris.operations import estimation
-
-    payload = estimation.estimate(body.treatment, body.outcome, body.dataset, adjust=body.adjust,
-                                  columns=body.columns, estimator=body.estimator, root=root)
-    sha = None
-    if body.record:
-        sha, payload["run_id"] = estimation.record(payload, root=root)
-    return {"result": payload, "commit_sha": sha}

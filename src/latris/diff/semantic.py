@@ -421,6 +421,18 @@ def _diff_mappings(
                 target_id=m.l2_id,
             )
         )
+    gone, back, _ = _keyed_diff(
+        old.left_out if old else [], new.left_out if new else [], key=lambda x: (x.l2_id, x.l3_view),
+    )
+    for x in gone:
+        why = f": {_truncate(x.reason, 50)}" if x.reason else ""
+        events.append(SemanticEvent(
+            "left_out_of_view", f"Left {_name(x.l2_id)} out of the {x.l3_view} view{why}", path, target_id=x.l2_id,
+        ))
+    for x in back:
+        events.append(SemanticEvent(
+            "put_back_in_view", f"Put {_name(x.l2_id)} back in the {x.l3_view} view", path, target_id=x.l2_id,
+        ))
     return events
 
 

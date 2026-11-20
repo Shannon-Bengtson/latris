@@ -80,7 +80,10 @@ def project_view(
 
     mapped = [m for m in registry.entries if m.l3_view == view_kind]
     entity_ids = [m.l2_id for m in mapped if m.l2_id in entity_id_set]
-    edge_ids = [m.l2_id for m in mapped if m.l2_id in edge_id_set]
+    # A link is in the view only with both its ends (leaving a factor out takes its links with it).
+    ends = {e.id: (e.from_id, e.to_id) for e in substrate.edges}
+    members = set(entity_ids)
+    edge_ids = [m.l2_id for m in mapped if m.l2_id in edge_id_set and set(ends[m.l2_id]) <= members]
 
     # Registry-driven structural validators
     for validator_name in spec.structural_validators:
@@ -112,7 +115,8 @@ def auto_project(
     *,
     root: Path | None = None,
 ) -> list[Mapping]:
-    """Map all substrate elements to the given view, then project. Returns created mappings."""
+    """Map every substrate element not yet in the view — except what a person left out — then project.
+    Returns the mappings created."""
     spec = get_model_type(view_kind)
     if spec.availability != "stable":
         raise ValueError(
@@ -122,7 +126,7 @@ def auto_project(
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     registry = load_model(MappingRegistry, paths.mappings_yaml)
-    existing = {(m.l2_id, m.l3_view) for m in registry.entries}
+    existing = {(m.l2_id, m.l3_view) for m in registry.entries} | {(x.l2_id, x.l3_view) for x in registry.left_out}
 
     created: list[Mapping] = []
     for entity in substrate.entities:

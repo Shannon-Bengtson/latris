@@ -827,6 +827,10 @@ When an AI agent (such as Claude Code) runs `latris` commands, Latris recognises
 - **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
 - **Markov model:** best for what happens to a group over time — moving between states such as well, ill and dead — and what each strategy costs and achieves, with cost-effectiveness (ICERs, net benefit). See the dedicated Markov Cohort Models topic.
 
+## Which factors are in which model type
+
+A model can be several types at once. Every factor and link is in every chosen type unless you leave it out: select a factor or link on the Build canvas and untick a type under **In these model types** (with a reason, if it helps the reader). It stays out — opening the type doesn't put it back — and a factor's links leave with it. Tick it again to put it back. Each type's report covers what's in it. From the command line: `latris mapping leave-out <factor> <type> --reason "..."` and `latris mapping add <factor> <type>`.
+
 ## Planned model types
 
 On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Causal identification is being folded into the DAG view rather than offered as a separate model type.

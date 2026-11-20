@@ -109,26 +109,3 @@ def trace(root: Root, body: CheckRequest | None = None) -> dict[str, Any]:
 
     payload, sha = pt.trace(record=body.record if body else True, root=root)
     return {"result": payload, "commit_sha": sha}
-
-
-class ImpactRequest(BaseModel):
-    outcome: str
-    dataset: str
-    time: str
-    at: str | float
-    group: str | None = None
-    treated: list[str] = []
-    column: str | None = None
-    record: bool = True
-
-
-@router.post("/impact")
-def impact(body: ImpactRequest, root: Root) -> dict[str, Any]:
-    from latris.operations import impact as ops
-
-    payload = ops.estimate(body.outcome, body.dataset, time=body.time, at=body.at, group=body.group,
-                           treated=body.treated or None, column=body.column, root=root)
-    sha = None
-    if body.record:
-        sha, payload["run_id"] = ops.record(payload, root=root)
-    return {"result": payload, "commit_sha": sha}

@@ -80,4 +80,4 @@ register(_causal("cld", loop_claims=True, polarity_labels=True, source_label="Lo
                  link_attribute=("polarity", "polarity (+/-)")))
 register(_causal("dag", acyclicity_claims=True, diagram_direction="TB", source_label="Causal DAG"))
 register(_causal("fcm", loop_claims=True, source_label="FCM", link_attribute=("weight", "weight (float in [-1, +1])"),
-                 cli=("latris.cli.fcm_cmd", "fcm"), routes="latris.server.routes.fcm"))
+                 cli=("latris.cli.fcm_cmd", "fcm")))

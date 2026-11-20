@@ -29,7 +29,6 @@ from latris.repo.project import NotAProjectError
 from latris.repo.yaml_io import load_model
 from latris.schema import (
     ProjectFoundation,
-    Substrate,
 )
 from latris.server.access import AccessTokenMiddleware, configured_token
 from latris.server.deps import Root, log_unhandled, serialise_writes
@@ -326,12 +325,6 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
             fields, statement=body.statement, selected_model_types=body.selected_model_types, root=root
         )
         return {"commit_sha": sha}
-
-    @app.get("/api/substrate")
-    def get_substrate(root: Root) -> dict[str, Any]:
-        paths = ProjectPaths(root)
-        sub = load_model(Substrate, paths.conceptual_yaml)
-        return sub.model_dump(mode="json")
 
     # /api/references and /api/challenges are handled by their route modules.
 

@@ -8,7 +8,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from latris.operations import view_attributes as view_attr_ops
-from latris.operations import view_roles as view_role_ops
 from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/views", tags=["view-attributes"])
@@ -33,16 +32,6 @@ def set_view_attribute(
         body.value,
         root=root,
     )
-    return {"target_id": target_id, "commit_sha": sha}
-
-
-class SetRoleRequest(BaseModel):
-    role: str
-
-
-@router.put("/{view_kind}/roles/{target}")
-def set_view_role(view_kind: str, target: str, body: SetRoleRequest, root: Root) -> dict[str, Any]:
-    target_id, sha = view_role_ops.set_role(target, view_kind, body.role, root=root)
     return {"target_id": target_id, "commit_sha": sha}
 
 

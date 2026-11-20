@@ -59,10 +59,6 @@ class ProfileBody(BaseModel):
     industry: str | None = None
 
 
-class RemoteBody(BaseModel):
-    url: str
-
-
 class ShareBody(BaseModel):
     name: str
 
@@ -157,12 +153,6 @@ def logout() -> dict[str, bool]:
 @router.get("/projects")
 def projects() -> dict[str, Any]:
     return {"projects": _guard(ops.list_remote_projects)}
-
-
-@router.post("/remote")
-def set_remote(body: RemoteBody, root: Root) -> dict[str, bool]:
-    _guard(lambda: ops.set_remote(body.url, root=root))
-    return {"ok": True}
 
 
 @router.post("/share")

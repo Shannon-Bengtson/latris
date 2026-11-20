@@ -50,6 +50,7 @@ latris init <name> [--question "..."]
 latris project show
 latris project set-question "..."
 latris project select-models <model-types>
+latris project choose <model-type> --why "..."   # choose one and record why (the report's Modelling Approach)
 latris build --spec model.yaml [--verified-by human|ai]   # '-' reads stdin
 ```
 
@@ -160,13 +161,13 @@ latris challenge show <challenge-id>
 ## Views, Mappings, Lineage
 
 ```bash
-latris mapping add <conceptual-id> <view-id> --view cld|dag|conceptual
-latris mapping remove <mapping-id>
-latris mapping list
-latris mapping approve <mapping-id>
+latris mapping add <factor-or-link> <model-type>          # put it in (back in, if left out)
+latris mapping leave-out <factor-or-link> <model-type> [--reason "..."]   # and keep it out
+latris mapping list [--view <model-type>]                 # mappings, and what's left out
+latris mapping approve <factor-or-link> <model-type>      # an AI-proposed mapping
 
-latris view project cld|dag|conceptual
-latris view auto-project cld|dag|conceptual
+latris view project <model-type>
+latris view auto-project <model-type>   # every factor and link not left out
 latris view set <model-type> <target> <attribute> <value> [--rationale "..."]
 latris view set fcm <edge> weight -- -0.7   # `--` before a negative number
 latris view role <model-type> <node> <role>  # e.g. cld "Volunteer departures" outcome
@@ -176,6 +177,7 @@ latris version alternative "..."
 latris version restore <milestone-id>
 latris version switch <version-id>
 latris version tree
+latris version compare <from> <to>   # a version or a checkpoint on either side
 latris version preferred <version-id>
 latris version update <version-id>
 ```
