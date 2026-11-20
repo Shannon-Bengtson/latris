@@ -16,8 +16,10 @@ from latris.operations.references import (
     list_references,
     remove_reference,
     search_references,
+    set_source_snapshot,
     update_reference,
 )
+from latris.schema.references import SourceSnapshotKind
 from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/references", tags=["references"])
@@ -147,4 +149,18 @@ def fetch_source(bibkey: str, body: FetchSourceRequest, root: Root) -> dict[str,
     time — the user explicitly triggers it.
     """
     ref, sha = fetch_reference_source(bibkey, url=body.url, root=root)
+    return {"result": ref.model_dump(mode="json"), "commit_sha": sha}
+
+
+class SnapshotRequest(BaseModel):
+    url: str  # where the passage was read
+    extract: str  # the passage, as read (checks' quotes are looked up in it)
+    kind: SourceSnapshotKind = "abstract"
+
+
+@router.post("/{bibkey}/snapshot")
+def save_snapshot(bibkey: str, body: SnapshotRequest, root: Root) -> dict[str, Any]:
+    """Save what was read of a source — the passage and where — so the report can say a citation was read
+    and a check's quote can be found in it."""
+    ref, sha = set_source_snapshot(bibkey, retrieval_url=body.url, extract=body.extract, kind=body.kind, root=root)
     return {"result": ref.model_dump(mode="json"), "commit_sha": sha}

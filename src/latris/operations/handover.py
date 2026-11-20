@@ -40,6 +40,7 @@ class HandoverItem:
     examples: list[str] = field(default_factory=list)
     target_ids: list[str] = field(default_factory=list)  # the factors and links concerned, every one
     model_type: str | None = None  # the type whose check it is (model_incomplete)
+    bibkeys: list[str] = field(default_factory=list)  # the sources concerned, every one
 
 
 @dataclass
@@ -97,9 +98,10 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             "checked against their source",
             fix="read each source and say whether it supports the link, argues against it, or is off topic",
             command="`latris evidence check <link> polarity <key> supports|against|off-topic --rationale \"...\"`",
-            area="sources",
+            area="links",  # checked where it's cited: on the link's citations
             examples=[f"{e.bibkey} on {names.get(e.target_id, 'the model')}" for e in unchecked[:5]],
             target_ids=_unique(e.target_id for e in unchecked if e.target_id),
+            bibkeys=_unique(e.bibkey for e in unchecked),
         ))
 
     from latris.operations._quotes import has_stored_text
@@ -121,6 +123,7 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             area="sources",
             examples=[_cite_name(refs[k]) for k in unread[:5]],
             target_ids=_unique(e.target_id for e in evidence.entries if e.bibkey in unread and e.target_id),
+            bibkeys=unread,
         ))
 
     unfound = [e for e in evidence.entries if e.quote and e.quote_verified is not True]
@@ -135,6 +138,7 @@ def handover_check(*, model_type: str | None = None, root: Path | None = None) -
             area="sources",
             examples=[f"{e.bibkey}: \"{e.quote[:60]}\"" for e in unfound[:5]],
             target_ids=_unique(e.target_id for e in unfound if e.target_id),
+            bibkeys=_unique(e.bibkey for e in unfound),
         ))
 
     waiting = [

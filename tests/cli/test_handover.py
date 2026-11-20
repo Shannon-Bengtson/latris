@@ -193,7 +193,7 @@ def test_items_say_what_to_do_where_and_to_what(project: Path) -> None:
     assert unsourced.area == "links" and "`" not in unsourced.fix and "latris evidence add" in unsourced.command
     labels = {n.id: n.label for n in list_nodes(root=project)}
     assert len(unsourced.target_ids) == 1 and unsourced.target_ids[0] not in labels  # a link, not a factor
-    assert items["unchecked_citations"].area == "sources" and items["unchecked_citations"].target_ids
+    assert items["unchecked_citations"].area == "links" and items["unchecked_citations"].target_ids
     assert items["unapproved_findings"].area == "findings"
     assert items["missing_prose"].area == "interpretation"
     assert all("`" not in i.fix for i in items.values())
