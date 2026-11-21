@@ -52,7 +52,7 @@ def _run_list_keys() -> None:
 
     try:
         providers = list_providers()
-        # Extract provider prefix from the default model (e.g. "gemini/gemini-2.5-flash" → "gemini")
+        # Extract provider prefix from the default model (e.g. "gemini/gemini-3.8-flash" → "gemini")
         default_provider = DEFAULT_MODEL.split("/")[0] if "/" in DEFAULT_MODEL else DEFAULT_MODEL
         json.dump(
             {"ok": True, "providers": providers, "default_provider": default_provider},

@@ -20,7 +20,7 @@ from latris.repo.yaml_io import dump_model, load_model
 
 CONFIG_FILENAME = "ai_config.yaml"
 
-DEFAULT_MODEL = "gemini/gemini-2.5-flash"
+DEFAULT_MODEL = "gemini/gemini-3.8-flash"
 DEFAULT_TEMPERATURE = 0.3
 DEFAULT_MAX_TOKENS = 16384
 MODEL_ENV_VAR = "LATRIS_AI_MODEL"

@@ -168,7 +168,7 @@ Precedence (first match wins):
 1. `--model <name>` flag on `ai call`
 2. `LATRIS_AI_MODEL` env var
 3. `.graph-tooling/ai_config.yaml` → `default_model`
-4. Hardcoded default (`gemini/gemini-2.5-flash`)
+4. Hardcoded default (`gemini/gemini-3.8-flash`; 2.5-flash is closed to new API keys)
 
 The provider → credential-name mapping is inferred from the model string
 (`claude*` → anthropic, `gpt*` → openai, …) and is overridable via
@@ -334,7 +334,7 @@ latris ai key set anthropic
 # prompts for key on stdin — never in argv
 
 latris ai config show
-latris ai config set default_model gemini/gemini-2.5-flash
+latris ai config set default_model gemini/gemini-3.8-flash
 
 latris ai call explain Price
 latris ai call challenge <edge-id> --attribute polarity
