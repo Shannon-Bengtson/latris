@@ -202,6 +202,9 @@ class LiteLLMAdapter:
             # higher budget helps with transient hiccups before we burn the
             # one repair attempt below on actual JSON-parse failures.
             "max_retries": 3,
+            # Drop sampling params a model doesn't accept instead of failing the call
+            # (gemini-3.8-flash rejects `temperature` outright).
+            "drop_params": True,
         }
         if max_tokens is not None:
             kwargs["max_tokens"] = max_tokens
