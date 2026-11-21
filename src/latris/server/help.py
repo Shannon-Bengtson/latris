@@ -572,6 +572,7 @@ A project can have **several stories**: a council briefing, a community explaine
    Each beat has one picture, drawn from what it cites: the whole model with the beat's factors highlighted; just those factors on their own; a causal path or feedback loop drawn link by link as the reader scrolls; or a chart of an analysis result (a simulation over time, how sure the model is, which option is better), drawn as the reader scrolls. A picture needs its source: a path picture needs a cited path or loop, a chart needs a cited result.
 4. **Approve the outline**, then **write the story**. The AI writes each beat from what it draws on, with the whole story in view. You can rewrite any beat in your own words; the AI never replaces them.
 5. **Preview** the page as a reader will see it, and **export** it as one self-contained HTML file.
+6. **Share it by link.** In the story's settings, *Share by link* gives a link anyone can open, with no account needed. Turn it off and the link stops working; turn it on again and you get a new one. Sharing needs the project saved to your Latris account, and only its owner can share.
 
 ## Staying honest
 
