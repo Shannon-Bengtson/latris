@@ -568,6 +568,8 @@ A project can have **several stories**: a council briefing, a community explaine
 1. **Start a story** with who it's for, what it should achieve, a voice (conversational, formal, executive or technical) and a depth.
 2. **Plan the outline.** The AI proposes a one-sentence answer to the question (the *short answer*) and the beats that tell it. Each beat has a purpose and draws on things the model has recorded: its interpretation, findings, feedback loops and analysis results. You can add a steer ("lead with the cost to tourism"). A steer changes the framing, not the facts.
 3. **Correct the outline.** Reorder, retitle, change what a beat draws on, choose its picture, add or remove beats, rewrite the short answer. A beat you change is kept when you re-plan.
+
+   Each beat has one picture, drawn from what it cites: the whole model with the beat's factors highlighted; just those factors on their own; a causal path or feedback loop drawn link by link as the reader scrolls; or a chart of an analysis result (a simulation over time, how sure the model is, which option is better), drawn as the reader scrolls. A picture needs its source: a path picture needs a cited path or loop, a chart needs a cited result.
 4. **Approve the outline**, then **write the story**. The AI writes each beat from what it draws on, with the whole story in view. You can rewrite any beat in your own words; the AI never replaces them.
 5. **Preview** the page as a reader will see it, and **export** it as one self-contained HTML file.
 
