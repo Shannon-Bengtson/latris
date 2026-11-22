@@ -685,6 +685,53 @@ def _section_sessions(rep: _Report) -> None:
         rep.out.append("")
 
 
+_CHECKPOINT_NAMES = {
+    "framing": "Framing — the decision, the reader, the expected answer",
+    "structure": "Structure — what's in the map, and what can be changed",
+    "values": "Values — the estimates the answer depends on most",
+    "surprise": "Surprise — the result against what was expected",
+    "audience": "Audience — who the report is written for",
+}
+
+
+def _section_person_input(rep: _Report) -> None:
+    """What the person said at each checkpoint of an AI-built model — answered, skipped, or never asked.
+
+    Says nothing for a model a person built (no checkpoint applied and none was recorded)."""
+    if not rep.include("person_input"):
+        return
+    from latris.operations.checkpoints import checkpoint_report
+
+    report = checkpoint_report(root=rep.paths.root)
+    if all(s.state == "not_needed" for s in report.checkpoints) and not any(s.entry for s in report.checkpoints):
+        return
+    rep.out.append("## What the person reviewed")
+    rep.out.append("")
+    rep.out.append(
+        "_An AI built this model, stopping at each phase to check with the person who asked for it. This is "
+        "what they said — their words as relayed, not a sign-off — and where the AI carried on without them._"
+    )
+    rep.out.append("")
+    for s in report.checkpoints:
+        name = _CHECKPOINT_NAMES[s.id]
+        e = s.entry
+        if s.state == "answered" and e is not None:
+            via = f" via {e.relayed_by}" if e.relayed_by else ""
+            rep.out.append(f"- **{name}:** “{_md_escape(e.answers or '')}”  "
+                           f"_{_actor_name(e.authored_by)}{via}, {e.recorded_at.date().isoformat()}_")
+        elif s.state == "skipped" and e is not None:
+            rep.out.append(f"- **{name}:** not asked — {_md_escape(e.reason or '')}")
+        elif s.state == "not_asked":
+            rep.out.append(f"- **{name}:** not asked — the person asked the AI to just build.")
+        elif s.state == "open":
+            rep.out.append(f"- **{name}:** not asked yet.")
+        elif s.state == "not_needed" and s.id == "framing":
+            rep.out.append(f"- **{name}:** on record (above).")
+        else:
+            rep.out.append(f"- **{name}:** not reached.")
+    rep.out.append("")
+
+
 def _section_questions(rep: _Report) -> None:
     if rep.include("questions"):
         rep.out.append("## Open questions")
@@ -992,6 +1039,7 @@ _SECTIONS: tuple[tuple[str, Callable[[_Report], None]], ...] = (
     ("decisions", _section_decisions),
     ("signoffs", _section_signoffs),
     ("sessions", _section_sessions),
+    ("person_input", _section_person_input),
     ("questions", _section_questions),
     ("exclusions", _section_exclusions),
     ("predictions", _section_predictions),

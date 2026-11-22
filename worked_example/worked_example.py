@@ -2288,6 +2288,56 @@ def build_example(ex: WorkedExample) -> None:
     finally:
         _clear_agent_env()
 
+    # ── 12c. Checkpoints: when the AI asks the person ────────────────
+    ex.section(
+        "Checkpoints: When the AI Asks the Person",
+        "An AI building a model knows the sources, not the person's situation. At each phase it stops at a "
+        "checkpoint — framing, structure, values, surprise, audience — and asks a few questions built from "
+        "the model so far. Nothing is refused: it can carry on without the person, but only by recording a "
+        "skip, which the report shows. Checkpoints apply to AI-built models only, and are printed for an "
+        "agent driving the CLI (not for a person at a terminal). Shown on a small model an agent builds.",
+    )
+    ask_root = ex.root.parent / "food-bank"
+    os.environ["LATRIS_AGENT"] = "demo-agent"
+    try:
+        ex.run(["init", str(ask_root), "--question", "Why are food bank volunteers leaving?"])
+        os.chdir(ask_root)
+        ask_spec = textwrap.dedent("""\
+            outcome: Volunteers
+            factors: [{label: Shift length}, {label: Burnout}, {label: Volunteers}, {label: Recognition}]
+            links:
+              - {from: Shift length, to: Burnout, polarity: "+", reason: Long shifts exhaust people.}
+              - {from: Burnout, to: Volunteers, polarity: "-", reason: Exhausted volunteers leave.}
+              - {from: Volunteers, to: Shift length, polarity: "-", reason: Fewer people cover the same hours.}
+              - {from: Recognition, to: Volunteers, polarity: "+", reason: Thanked volunteers stay longer.}
+            """)
+        ex.transcript.append("```yaml" + chr(10) + ask_spec + "```" + chr(10))
+        ex.note("The agent builds straight from the request; the build output ends with the checkpoint it "
+                "skipped past — framing.")
+        ex.run(["build", "--spec", "-"], input=ask_spec)
+        ex.note("It asks, the person answers in chat; the agent records their words and puts them in the "
+                "project:")
+        ex.run(["checkpoint", "record", "framing", "--answers",
+                "We're deciding whether to shorten shifts. It's for the volunteer committee. I think it's burnout."])
+        ex.run(["project", "set", "background", "Deciding whether to shorten shifts."])
+        ex.run(["project", "set", "audience", "The volunteer committee"])
+        ex.run(["project", "set", "predictions", "Burnout from long shifts."])
+        ex.note("With the map connected, the structure checkpoint opens — its questions name the factors, "
+                "the outcome's drivers and the link with least support:")
+        ex.run(["checkpoint", "show"])
+        ex.run(["checkpoint", "record", "structure", "--answers",
+                "Add travel time — people come from far. We can change shift length, not recognition budgets."])
+        ex.note("If the person says to carry on alone, the agent records it — for one checkpoint, or for the "
+                "rest of the model:")
+        ex.run(["checkpoint", "skip", "audience", "--reason", "The person said the committee knows the context."])
+        ex.run(["checkpoint", "pace", "just-build"])
+        ex.run(["--json", "checkpoint", "show"])
+        ex.note("The report says what the person reviewed, what was skipped and why, and what was never asked:")
+        ex.run(["export", "md", "--pack", "workshop", "--no-ai", "--no-link"])
+    finally:
+        _clear_agent_env()
+        os.chdir(ex.root)
+
     # ── 13. Versioning & Lineage ─────────────────────────────────────
     ex.section("Versioning and Lineage",
                "Create milestones, explore alternatives, switch between "

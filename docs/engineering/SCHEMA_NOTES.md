@@ -139,6 +139,7 @@ findings about a removed node or link. These are history and are kept.
 | Questions | `QuestionLog` | `provenance/questions.yaml` |
 | Exclusions | `ExclusionLog` | `provenance/exclusions.yaml` |
 | Predictions | `PredictionLog` | `provenance/predictions.yaml` |
+| Person input at checkpoints (and the pace) | `PersonInputLog` | `provenance/person-input.yaml` |
 | Challenges | `ChallengeLog` | `ai/challenges.yaml` |
 | AI interactions | `AIInteraction` (one per line) | `ai/interactions.jsonl` |
 | AI project context | *(Markdown, free-form)* | `ai/project-context.md` |

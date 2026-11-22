@@ -97,7 +97,17 @@ def handover(
             console.print(f"   [dim]fix: {item.fix} — {item.command}[/dim]\n" if item.command
                           else f"   [dim]fix: {item.fix}[/dim]\n", highlight=False)
 
-    emit(asdict(report), human=human)
+    from latris.cli.checkpoint_cmd import checkpoint_text, open_checkpoint_for_agent
+
+    checkpoint = open_checkpoint_for_agent()  # an agent is checking: the person may still have a say
+
+    def human_and_checkpoint() -> None:
+        human()
+        if checkpoint:
+            console.print("\n" + checkpoint_text(checkpoint), highlight=False)
+
+    emit({**asdict(report), "checkpoint": asdict(checkpoint)} if checkpoint else asdict(report),
+         human=human_and_checkpoint)
     if not report.ready:
         raise typer.Exit(code=1)
 

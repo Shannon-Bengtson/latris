@@ -166,6 +166,7 @@ project-name/
 │   ├── questions.yaml
 │   ├── exclusions.yaml
 │   ├── predictions.yaml
+│   ├── person-input.yaml          # what the person said at each checkpoint
 │   ├── review-sessions.yaml       # ReviewSession lifecycle records
 │   └── elicitations/              # per-session files
 ├── ai/
