@@ -620,6 +620,17 @@ When the model is a Bayesian network and the page carries *Everything*, a reader
 - See **the most likely explanation**: the single most likely state of everything at once.
 
 The numbers are calculated in the page from the model's own probability tables, and give the same answers as Latris itself. The page opens where the model's latest recorded query stands.
+
+## Trying values on a simulation
+
+When the model is a system-dynamics model and the page carries *Everything*, a reader can run it themselves:
+
+- **Move a value.** Every constant has a slider, over the range you gave it as its uncertainty (or half to one and a half times its value if you gave none). So does each stock's starting value. The graph redraws as they drag.
+- **Read the graph.** Any stock, flow or variable over time, with the model as you built it as a dashed line behind it, and where it ends up compared with that. It opens on the model's outcome.
+- Switch between the model's saved **scenarios**, and carry on from one.
+- **Put it back**, one value or all of them.
+
+The page simulates from the model's own equations and gives the same runs as Latris itself.
 - **Copy a link to what they are looking at**, so a colleague opens the same view.
 
 ## Making one
