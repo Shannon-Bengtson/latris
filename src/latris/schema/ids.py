@@ -42,6 +42,7 @@ IDKind = Literal[
     "story",
     "story-beat",
     "story-asset",
+    "person-input",
 ]
 
 # Derived from the Literal so a new IDKind can never be added to the type

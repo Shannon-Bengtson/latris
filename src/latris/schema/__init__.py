@@ -94,6 +94,7 @@ from latris.schema.model_types import (
     list_model_types,
     register_model_type,
 )
+from latris.schema.person_input import CHECKPOINT_ORDER, CheckpointId, PersonInput, PersonInputLog
 from latris.schema.project import ProjectFoundation
 from latris.schema.provenance import (
     Assumption,
@@ -255,6 +256,10 @@ __all__ = [
     "Polarity",
     "PolarityEntry",
     "PolaritySet",
+    "PersonInput",
+    "PersonInputLog",
+    "CheckpointId",
+    "CHECKPOINT_ORDER",
     "Prediction",
     "ProvenanceOrigin",
     "ProvenanceVerification",

@@ -120,8 +120,11 @@ def build(
         require_person(confirmed_by_person, "--verified-by human")
     text = sys.stdin.read() if spec == "-" else Path(spec).read_text(encoding="utf-8")
     result = build_ops.build_from_spec(build_ops.load_spec(text), verified_by=verified_by, existing=existing)
+    from latris.cli.checkpoint_cmd import checkpoint_text, open_checkpoint_for_agent
+
+    checkpoint = open_checkpoint_for_agent()  # an agent built this: what to ask the person next
     emit(
-        asdict(result),
+        {**asdict(result), "checkpoint": asdict(checkpoint)} if checkpoint else asdict(result),
         commit_sha=result.commit_sha,
         human=lambda: console.print(
             f"[green]built[/green] {result.factors} factors, {len(result.links)} links, "
@@ -135,6 +138,7 @@ def build(
             + f" · commit [cyan]{result.commit_sha[:10]}[/cyan]"
             + "".join(f"\n{escape(n)}" for n in result.info)
             + "".join(f"\n[yellow]note:[/yellow] {escape(n)}" for n in result.notes)
+            + (f"\n\n{checkpoint_text(checkpoint)}" if checkpoint else "")
         ),
     )
     if result.missing_extras:

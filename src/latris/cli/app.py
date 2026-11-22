@@ -21,6 +21,7 @@ from latris.cli import (  # noqa: E402
     capabilities_cmd,
     challenge_cmd,
     check_cmd,
+    checkpoint_cmd,
     completeness_cmd,
     data_cmd,
     docs_cmd,
@@ -86,6 +87,7 @@ app.add_typer(sync_cmd.app, name="sync")
 app.add_typer(ai_cmd.app, name="ai")
 app.add_typer(analyse_cmd.app, name="analyse")
 app.add_typer(check_cmd.app, name="check")
+app.add_typer(checkpoint_cmd.app, name="checkpoint")
 app.add_typer(findings_cmd.app, name="finding")
 app.add_typer(interpret_cmd.app, name="interpret")
 app.add_typer(completeness_cmd.app, name="completeness")

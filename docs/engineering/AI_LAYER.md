@@ -286,6 +286,35 @@ identity check the agent can't pass: approving in the app while signed in
 with a key that needs the person present. That is the attestation work
 in the schema review backlog, not something a local CLI can provide.
 
+## Checkpoints: asking the person
+
+An agent that knows the sources but not the person's situation builds
+confidently and asks nothing. `operations/checkpoints.py` gives it five
+places to stop, one per phase — **framing** (decision, reader, expected
+answer), **structure** (once the map is connected: what's missing, which
+factors the person can change, the least-supported link), **values**
+(once values are set: the estimates a recorded sensitivity result ranks
+highest that nobody has checked), **surprise** (a result next to the
+person's expectation) and **audience** (the reader, before the report is
+written). Questions are built from the model — named factors, links and
+values — because an agent skips generic questions it thinks it can guess.
+
+- **Never a refusal.** An open checkpoint is advice. The agent closes it
+  with the person's words (`checkpoint record`), an explicit skip with a
+  reason (`checkpoint skip`), or `checkpoint pace just-build`. Reads never
+  write.
+- **AI-built models only.** None opens when most factors are a person's.
+  The CLI prints the open one after `build` and `check handover` only when
+  an agent is driving (`cli/_agent.py`); the hosted chat connector returns
+  it with every write (latris-app `docs/design/CHAT_CHECKPOINTS.md`).
+- **Recorded, not approved.** `provenance/person-input.yaml`
+  (`schema/person_input.py`) keeps the questions, the answers as relayed,
+  the relaying agent and the responsible person. It is not a sign-off and
+  adds nothing to the handover check; the report's "What the person
+  reviewed" section shows each checkpoint answered, skipped or never asked.
+- **Staleness.** An answered structure review records the factors it
+  covered and reopens once the AI has added half as many again (and ≥3).
+
 ## Proposal layer
 
 Three proposal kinds for the first cut:
