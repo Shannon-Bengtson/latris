@@ -175,6 +175,8 @@ Turn analysis outputs and project evidence into structured interpretation sectio
 
 Use the left-hand strip to switch between Report, Diagram, Review, Story and Explorer. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type. An Explorer is one model as an interactive page a reader can click through.
 
+**Everything here is shared the same way.** Each of the five has *Share by link*: turn it on and you get a link anyone can open, with no account needed. Turn it off and the link stops working; turn it on again and you get a new one. Sharing by link needs the project saved to your Latris account, and only its owner can share. A link always shows the current version of the model. Each also has a download, for a file you can send or keep.
+
 ## Readiness gates
 
 The stepper shows traffic-light readiness between phases. A red transition blocks progression because required project material is missing. Yellow means work can continue but the output is not yet strong. Green means the project has the expected inputs for that transition.
@@ -572,7 +574,7 @@ A project can have **several stories**: a council briefing, a community explaine
    Each beat has one picture, drawn from what it cites: the whole model with the beat's factors highlighted; just those factors on their own; a causal path or feedback loop drawn link by link as the reader scrolls; or a chart of an analysis result (a simulation over time, how sure the model is, which option is better), drawn as the reader scrolls. A picture needs its source: a path picture needs a cited path or loop, a chart needs a cited result.
 4. **Approve the outline**, then **write the story**. The AI writes each beat from what it draws on, with the whole story in view. You can rewrite any beat in your own words; the AI never replaces them.
 5. **Preview** the page as a reader will see it, and **export** it as one self-contained HTML file.
-6. **Share it by link.** In the story's settings, *Share by link* gives a link anyone can open, with no account needed. Turn it off and the link stops working; turn it on again and you get a new one. Sharing needs the project saved to your Latris account, and only its owner can share.
+6. **Share it by link.** In the story's settings, *Share by link* gives a link anyone can open, with no account needed. It works the same for everything in Communicate (see *Communicate* in the workflow help).
 
 ## Staying honest
 
@@ -612,7 +614,7 @@ On the page a reader can:
 1. In Communicate, choose **Explorer** and **New explorer**. It is made for the model you have open.
 2. Try it in the preview: it is exactly the page your readers get.
 3. Give it a heading and a line or two on what to look for.
-4. **Download the page.** It is one file that works offline. Send it to colleagues or put it on your own website.
+4. **Share it by link**, or **download the page**. The link opens the explorer for anyone who has it, with no account needed, and always shows the current model. The download is one file that works offline: send it to colleagues or put it on your own website.
 
 ## What leaves the building
 
@@ -626,7 +628,7 @@ You decide what the page carries:
 
 ## A snapshot
 
-The page is stamped with the date it was made and the version of the model it came from. It does not change when the model does: download it again after you update the model.
+The page is stamped with the date it was made and the version of the model it came from. A downloaded file does not change when the model does: download it again after you update the model. A shared link redraws itself from the current model.
 
 Explorers are made in the Latris app.
 """,
@@ -687,6 +689,10 @@ Diagrams represent the model structure and selected view semantics where availab
 ## When to use it
 
 Use diagrams when stakeholders need to inspect structure visually. Use reports when they need the surrounding reasoning, evidence, and provenance.
+
+## Sharing a diagram by link
+
+On the Diagram tab, *Share by link* gives a link to a page showing the model's diagram as the report draws it, under the project's name and question. Anyone with the link can open it, with no account needed. Each model type has its own link.
 """,
     ),
     HelpTopic(
@@ -701,6 +707,10 @@ A Review Pack is a self-contained HTML file for domain experts, clients, auditor
 ## Exporting
 
 In the Communicate phase, choose the Review view and export a Review Pack. The pack is scoped to the formalism chosen in the process stepper: its diagram, findings, and interpretation cover only that formalism's view. The pack contains model summary material, diagram content, and review controls.
+
+## Sending a link instead of a file
+
+On the Review tab, *Share by link* gives a link to the same pack as a web page. Your reviewer opens it, adds their feedback, saves their copy from the page and sends you that file to import. Anyone with the link can open the pack, with no account needed, so send it only to the people you want reviewing. Each model type's pack has its own link.
 
 ## Per-formalism scope
 
