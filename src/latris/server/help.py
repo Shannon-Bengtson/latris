@@ -613,7 +613,7 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 
 ## Reports for readers
 
-The **client** and **publication** packs are written for people outside the modelling work, and are grouped into parts in reading order: **Summary** (the answer, the model's size and approved findings), **The model** (the diagrams), **What the analysis shows** (current results and the findings written up from them), **How confident we are** (confidence, contested links, assumptions and exclusions) and a **Technical appendix** (links, factors, evidence, methods and references). They show only what's ready for a reader: interpretation sections that have been written up (one section per heading, with a paragraph per model type), results computed on the model as it is now — with one line saying how many earlier ones there are — and approved findings. They leave out internal IDs, who recorded each assumption and when, and the change log. The review, workshop and audit packs keep everything.
+The **client** and **publication** packs are written for people outside the modelling work, and are grouped into parts in reading order: **Summary** (the answer, the model's size and approved findings), **The model** (the diagrams), **What the analysis shows** (current results and the findings written up from them), **How confident we are** (confidence, contested links, what the person reviewed at each checkpoint of an AI-built model, assumptions and exclusions) and a **Technical appendix** (links, factors, evidence, methods and references). They show only what's ready for a reader: interpretation sections that have been written up (one section per heading, with a paragraph per model type), results computed on the model as it is now — with one line saying how many earlier ones there are — and approved findings. They leave out internal IDs, who recorded each assumption and when, and the change log. The review, workshop and audit packs keep everything.
 
 ## Export formats
 
@@ -813,6 +813,34 @@ The modeller remains responsible for accepting, editing, or rejecting proposals.
 ## AI agents using the command line
 
 When an AI agent (such as Claude Code) runs `latris` commands, Latris recognises it and records what it adds as AI-proposed. Each change it saves notes the agent. Approvals, reviews, sign-offs and resolved challenges are a person's judgement: the agent records one only when you have reviewed the item yourself and asked it to, and the change history says it was recorded on your instruction. This catches the ordinary case; it can't stop an agent that sets out to hide itself. Approve in the Latris app when you need an approval that only you could have made.
+""",
+    ),
+    HelpTopic(
+        id="ai-checkpoints",
+        title="When the AI asks you",
+        category="ai",
+        summary="Five checkpoints where an AI building a model stops and asks the person, and how skips show in the report.",
+        body="""## Why it asks
+
+An AI building a model for you — in a chat with the Latris connector, or running `latris` commands — knows the sources but not your situation. So at each phase of the workflow it stops at a **checkpoint** and asks you a few specific questions, built from the model it has so far:
+
+1. **Framing** (before building) — what's happening and the decision the model informs, who will read it, and what you expect the answer to be.
+2. **Structure** (Build → Formalise) — the factors it has mapped: is anything missing, which of them can you change, and is its least-supported link right?
+3. **Values** (Formalise → Analyse) — the few estimates the answer depends on most (found by sensitivity analysis): are they right?
+4. **Surprise** (Analyse → Interpret) — the result next to what you expected: does it match what you see?
+5. **Audience** (Interpret → Communicate) — the reader the report is for, and what they'll push back on.
+
+At most three questions at a time. Nothing is blocked: the AI can carry on without you, but only by saying so.
+
+## What gets recorded
+
+Your answers are recorded in your words, with the agent that relayed them (`latris checkpoint record`). If you tell the AI to carry on alone, it records the skip and why (`latris checkpoint skip`), or — if you say "just build" — stops asking for the rest of the model (`latris checkpoint pace just-build`). Answers are not a sign-off; approving the model is a separate step.
+
+The report's **What the person reviewed** section lists each checkpoint: what you said, what was skipped and why, and what was never asked. A reader can tell a model you shaped from one the AI built alone.
+
+## When it applies
+
+Only to models an AI built: when most factors were added by a person, no checkpoint opens. A person at a terminal isn't prompted; `latris checkpoint show` lists the checkpoints and the one open now. A reviewed structure opens again if the AI later grows the map a lot.
 """,
     ),
     HelpTopic(

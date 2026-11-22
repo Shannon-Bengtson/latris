@@ -200,6 +200,11 @@ class ProjectPaths:
         return self.provenance_dir / "questions.yaml"
 
     @property
+    def person_input_yaml(self) -> Path:
+        """What the person said at each checkpoint (schema/person_input.py)."""
+        return self.provenance_dir / "person-input.yaml"
+
+    @property
     def exclusions_yaml(self) -> Path:
         return self.provenance_dir / "exclusions.yaml"
 

@@ -60,6 +60,8 @@ from latris.schema import (
     MilestoneLog,
     ParameterUncertainty,
     ParameterUncertaintySet,
+    PersonInput,
+    PersonInputLog,
     PolarityEntry,
     PolaritySet,
     Prediction,
@@ -291,6 +293,30 @@ def _fixtures() -> dict[str, BaseModel]:
                     authored_by=ALICE,
                 ),
             ]
+        ),
+        "person_input": PersonInputLog(
+            pace="just_build",
+            entries=[
+                PersonInput(
+                    id=new_id("person-input"),
+                    checkpoint="structure",
+                    outcome="answered",
+                    questions=["Missing anything?", "Which of these can you change?"],
+                    answers="Add transport costs. We control shift length.",
+                    covers=[node_a.id, node_b.id],
+                    relayed_by="latris-mcp",
+                    authored_by=ALICE,
+                    recorded_at=datetime(2026, 11, 22, 9, 30, tzinfo=UTC),
+                ),
+                PersonInput(
+                    id=new_id("person-input"),
+                    checkpoint="values",
+                    outcome="skipped",
+                    reason="The person asked to just build.",
+                    authored_by=ALICE,
+                    recorded_at=datetime(2026, 11, 22, 9, 40, tzinfo=UTC),
+                ),
+            ],
         ),
         "decisions": DecisionLog(
             entries=[

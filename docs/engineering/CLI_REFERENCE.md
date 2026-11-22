@@ -148,6 +148,18 @@ latris exclusion add "..."
 latris prediction add "..." --horizon ...
 ```
 
+## Checkpoints (asking the person)
+
+```bash
+latris checkpoint show                     # each checkpoint's state, and the one to ask now (questions built from the model)
+latris checkpoint record structure --answers "..."   # the person's words; --question what you asked, --via chat
+latris checkpoint skip values --reason "..."         # carry on without them; the report says so
+latris checkpoint pace just-build          # the person said carry on alone: stop asking (`ask` turns it back on)
+```
+
+Checkpoints: framing, structure, values, surprise, audience. An agent
+driving the CLI also sees the open one after `build` and `check handover`.
+
 ## Challenges
 
 ```bash

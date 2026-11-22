@@ -218,14 +218,20 @@ Setup (one shot):
 pip install "latris[server,data]"
 ```
 
-**Ask before you build.** Latris records the situation a model is built
-in and puts it at the top of the report, but only if someone asks for it.
-Unless the request already says, ask the person, in one message of at most
-three short questions: the background (what's happening, and what decision
-this informs), who will read it, and what they expect the answer to be. Add
-anything they share as sources. If they'd rather you just build, do, and
-record each unanswered point with `latris question add` or `latris
-assumption add`, so the gap shows in the report instead of disappearing.
+**Ask before you build — and at each phase.** Latris records the situation a
+model is built in and puts it at the top of the report, but only if someone
+asks for it. Unless the request already says, ask the person, in one message
+of at most three short questions: the background (what's happening, and what
+decision this informs), who will read it, and what they expect the answer to
+be. Add anything they share as sources. Then, as you build, `latris checkpoint
+show` (also printed after `build` and `check handover`) gives the next
+checkpoint — the structure once the map is connected, the values that matter
+most, whether the result surprises them, the report's reader — with questions
+built from the model. Ask, end your turn, and record their words with `latris
+checkpoint record`. If they'd rather you just build, do: `latris checkpoint
+skip <checkpoint> --reason "..."` or `latris checkpoint pace just-build`, and
+record each unanswered point with `latris question add` or `latris assumption
+add`, so the gap shows in the report instead of disappearing.
 
 **Choosing a model type.** People rarely know which formalism fits their
 question — guide the choice by the kind of answer needed, and record the
@@ -340,7 +346,7 @@ Choosing a report — pick the pack for whoever will read it
 
 | Pack | For | What's in it |
 |---|---|---|
-| `client` | a client, board or funder | **answer first**, in parts: Summary (answer, size, approved findings), The model (diagrams), What the analysis shows (current results, written-up findings), How confident we are (confidence, contested links, assumptions, exclusions), then a Technical appendix (links, factors, evidence, methods, sources) — only written-up interpretation and current results; no internal IDs, bylines or change log |
+| `client` | a client, board or funder | **answer first**, in parts: Summary (answer, size, approved findings), The model (diagrams), What the analysis shows (current results, written-up findings), How confident we are (confidence, contested links, what the person reviewed, assumptions, exclusions), then a Technical appendix (links, factors, evidence, methods, sources) — only written-up interpretation and current results; no internal IDs, bylines or change log |
 | `publication` | a paper or public write-up | as `client`, with full references |
 | `review` | a reviewer checking the model | evidence, open challenges and questions, findings |
 | `workshop` | a stakeholder session | structure, assumptions, open questions, session notes |
