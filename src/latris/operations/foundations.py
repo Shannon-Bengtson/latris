@@ -423,8 +423,8 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         method="Probabilistic sensitivity analysis by Monte Carlo",
         citation="sampling practice after McKay, Beckman & Conover (1979), *Technometrics* 21(2)",
         used_for=(
-            "propagating uncertainty in CPT rows to the target's posterior — "
-            "`bn set-uncertainty --n` marks uncertain rows, `bn monte-carlo` samples them"
+            "propagating uncertainty in CPT rows to the target's posterior — the uncertain rows are "
+            "marked with how well each is known, then sampled"
         ),
         limits="Monte Carlo over declared uncertain rows only; EVPI deferred.",
     ),

@@ -54,9 +54,12 @@ def test_results_go_out_of_date_and_can_be_hidden(sd_bathtub_root):
     sd_ops.record_simulation(sd_ops.simulate(**SETTINGS, root=root), root=root)
     sd_ops.set_constant("Inflow Rate", 7, "liter/year", root=root)
     md = markdown.render(require_project(root), pack="client", ai=False)
-    assert "**Out of date**" in md and "latris results hide" not in md  # no CLI hints in client packs
+    # A reader isn't shown results from an earlier version of the model, only told they exist.
+    assert "**Out of date**" not in md and "latris results hide" not in md  # no CLI hints in client packs
+    assert "### Simulation" not in md
+    assert "computed on an earlier version of the model and haven't been re-run yet" in md
     review = markdown.render(require_project(root), pack="review", ai=False)
-    assert "latris results hide" in review
+    assert "**Out of date**" in review and "latris results hide" in review
 
     kinds = {i.kind for i in handover_check(model_type="sd", root=root).items}
     assert "stale_results" in kinds and "model_incomplete" not in kinds
@@ -64,6 +67,34 @@ def test_results_go_out_of_date_and_can_be_hidden(sd_bathtub_root):
     ar.set_hidden(run.id, True, root=root)
     assert "## Results" not in markdown.render(require_project(root), pack="client", ai=False)
     assert "stale_results" not in {i.kind for i in handover_check(model_type="sd", root=root).items}
+
+
+def test_reader_packs_show_current_results_once_and_count_the_earlier_ones(sd_bathtub_root):
+    root = sd_bathtub_root
+    sd_ops.record_loops(sd_ops.run_loops(settings=SETTINGS, root=root), root=root)
+    sd_ops.set_constant("Inflow Rate", 7, "liter/year", root=root)  # the loop run is now out of date
+    sd_ops.record_simulation(sd_ops.simulate(**SETTINGS, root=root), root=root)
+    sd_ops.record_simulation(sd_ops.simulate(**{**SETTINGS, "dt": 0.5}, root=root), root=root)
+    md = markdown.render(require_project(root), pack="client", ai=False)
+    assert md.count("#### Simulation") == 1 and "Feedback loop dominance" not in md
+    assert "_1 result from an earlier version of this model isn't shown. They're kept in the project's " \
+        "analysis history._" in md
+    review = markdown.render(require_project(root), pack="review", ai=False)
+    assert "### Feedback loop dominance" in review and "**Out of date**" in review
+
+
+def test_reader_packs_show_a_repeated_question_once(sd_bathtub_root, monkeypatch):
+    from latris.exporters import results
+    from latris.operations import analysis_results as ar
+
+    root = sd_bathtub_root
+    sd_ops.record_simulation(sd_ops.simulate(**SETTINGS, root=root), root=root)
+    (only,) = ar.report_results(root=root)
+    # Two runs of the same question that the latest-run rule keeps apart (different analysis keys).
+    monkeypatch.setattr(ar, "report_results", lambda **_: [only, only])
+    current = results.render_results(require_project(root), current_only=True)
+    assert sum(line.startswith("### Simulation") for line in current) == 1
+    assert sum(line.startswith("### Simulation") for line in results.render_results(require_project(root))) == 2
 
 
 def test_sd_gets_interpretation_sections_with_claims_from_results(sd_bathtub_root):
