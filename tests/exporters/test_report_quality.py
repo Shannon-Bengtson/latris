@@ -98,12 +98,12 @@ def test_finding_add(project: Path, monkeypatch) -> None:
     assert result.exit_code == 0, result.output
     finding = json.loads(result.stdout.strip().splitlines()[-1])["result"]
     assert finding["category"] == "structure"
-    # Proposed findings show in the review pack; the client pack says they wait.
+    # Proposed findings show in the review pack; the client pack waits for approval, with no empty section.
     assert "Workload drives burnout in a reinforcing loop." in md_exporter.render(
         ProjectPaths(project), pack="review", ai=False
     )
     client = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
-    assert "1 draft finding is not shown here until a person approves it" in client
+    assert "Workload drives burnout" not in client and "Findings" not in client
     assert "latris mature" not in client
 
     bad = CliRunner().invoke(app, ["finding", "add", "x", "--category", "vibes"])
@@ -120,8 +120,8 @@ def test_history_names_things_instead_of_ids(project: Path) -> None:
 def test_client_pack_leads_with_the_answer_and_drops_the_change_log(project: Path) -> None:
     out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
     assert "## Model History" not in out
-    headings = [line for line in out.splitlines() if line.startswith("## ")]
-    assert headings.index("## Diagram") < headings.index("## Edges") < headings.index("## Evidence")
+    headings = [line for line in out.splitlines() if line.startswith("### ")]
+    assert headings.index("### Diagram") < headings.index("### Edges") < headings.index("### Evidence")
     # The audit pack keeps everything, change log included.
     assert "## Model History" in md_exporter.render(ProjectPaths(project), pack="audit", ai=False)
 
@@ -167,7 +167,7 @@ def test_identical_audit_tags_are_stated_once(project: Path) -> None:
     ref_ops.add_reference("lee2022", "Workload", year=2022, root=project)
     evidence_ops.add_evidence(edge.id, "polarity", "lee2022", root=project)
     out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
-    evidence = out.split("## Evidence", 1)[1].split("\n## ", 1)[0]
+    evidence = out.split("### Evidence", 1)[1].split("\n### ", 1)[0]
     assert evidence.count("not yet checked against the source") == 1
     assert (
         "_Every citation below: attached by a person · from the source's title · "
@@ -235,7 +235,7 @@ def test_no_contested_section_without_disagreement(project: Path) -> None:
 
 def test_tables_drop_columns_that_say_nothing(project: Path) -> None:
     out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
-    edges = out.split("### Causal substrate", 1)[1].split("\n## ", 1)[0]
+    edges = out.split("#### Causal substrate", 1)[1].split("\n### ", 1)[0]
     # Every link is causal (the heading says so) and none has a description.
     assert "| From → To | Polarity | Why |" in edges
     assert "Kind" not in edges and "Description" not in edges
@@ -258,10 +258,9 @@ def test_client_pack_puts_the_diagram_right_after_the_answer(project: Path) -> N
     answer = next(s for s in store.sections if s.section_type == "answer_to_question")
     interpret_ops.update_prose(answer.id, "Volunteers leave because of workload.", root=project)
     out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
-    answer = out.index("\n## Answer to Modelling Question")
-    diagram = out.index("## Diagram")
-    rest = out.index("## Interpretation")
-    assert answer < diagram < rest
+    answer = out.index("\n### Answer to Modelling Question")
+    diagram = out.index("\n### Diagram")
+    assert out.index("\n## Summary") < answer < out.index("\n## The model") < diagram
     assert "interpretation continues" not in out
     # Packs for the modelling team keep the interpretation in one piece.
     review = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
@@ -279,12 +278,12 @@ def test_reader_packs_drop_claims_where_prose_says_it(project: Path) -> None:
     interpret_ops.refresh_all_claims(root=project)
     interpret_ops.update_prose(answer.id, "Volunteers leave because of workload.", root=project)
     client = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
-    answer_part = client.split("\n## Answer to Modelling Question", 1)[1].split("\n## ", 1)[0]
-    assert "Claims (from analysis)" not in answer_part
-    # Sections without prose still show their claims.
-    assert "Claims (from analysis)" in client
+    assert "Volunteers leave because of workload." in client
+    # A reader sees what has been written up: no claims lists, and no section that has no prose yet.
+    assert "Claims (from analysis)" not in client and "Key Findings" not in client
+    assert "_State:" not in client
     review = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
-    assert review.count("Claims (from analysis)") > client.count("Claims (from analysis)")
+    assert "Claims (from analysis)" in review and "Key Findings" in review
 
 
 def test_report_links_to_the_model_as_it_is_now(project: Path) -> None:
@@ -299,3 +298,81 @@ def test_report_links_to_the_model_as_it_is_now(project: Path) -> None:
     assert "Recognition" in [f.label for f in decode_payload(fresh).spec.factors]
     # Off unless asked for (the hosted page mustn't link to itself).
     assert "open#" not in md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+
+
+# ── Reader packs: parts, and only what a reader needs ───────────────────
+
+
+def _headings(out: str, level: int) -> list[str]:
+    mark = "#" * level + " "
+    return [line[len(mark):] for line in out.splitlines() if line.startswith(mark)]
+
+
+def test_client_pack_groups_sections_into_parts_with_the_technical_record_last(project: Path) -> None:
+    from latris.operations.provenance import add_assumption
+
+    add_assumption("Volunteers are unpaid", root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    # Parts are the ## headings, in reading order; a part with nothing in it has no heading.
+    assert _headings(out, 2) == ["Summary", "The model", "How confident we are", "Technical appendix"]
+    sections = _headings(out, 3)
+    assert sections.index("Model Structure") < sections.index("Diagram") < sections.index("Assumptions")
+    assert sections.index("Assumptions") < sections.index("Edges") < sections.index("References")
+    appendix = out.split("\n## Technical appendix", 1)[1]
+    assert "### Edges" in appendix and "### Assumptions" not in appendix
+    # The title stays the only # heading, and fenced blocks are left alone.
+    assert _headings(out, 1) == ["Why do volunteers leave?"]
+    # Packs for the modelling team keep their flat sections.
+    review = md_exporter.render(ProjectPaths(project), pack="review", ai=False)
+    assert "Summary" not in _headings(review, 2) and "Edges" in _headings(review, 2)
+
+
+def test_reader_packs_merge_interpretation_across_model_types_and_skip_unwritten_sections(project: Path) -> None:
+    from latris.operations.interpret import save_interpretation
+    from latris.schema.interpretation import InterpretationStore, InterpretSection
+
+    def sec(i: int, kind: str, model: str, prose: str = "", state: str = "generated") -> InterpretSection:
+        return InterpretSection(id=f"s{i}", section_type=kind, model_type=model, prose=prose,
+                                claims=["Loop map: a claim"], generation_state=state if prose else "claims_only")
+
+    save_interpretation(InterpretationStore(sections=[
+        sec(0, "answer_to_question", "cld", "Workload drives leaving."),
+        sec(1, "key_findings", "cld", "Burnout feeds back."),
+        sec(2, "key_findings", "dag", "Workload causes burnout."),
+        sec(3, "confidence_assessment", "cld", "Moderate."),
+        sec(4, "sensitivity", "cld"),  # claims only: not written up
+    ]), root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert out.count("### Key Findings") == 1 and "(CLD)" not in out and "(DAG)" not in out
+    assert "**Causal Loop Diagram**" in out and "**Directed Acyclic Graph**" in out
+    assert "Sensitivity" not in out and "Claims (from analysis)" not in out and "Loop map:" not in out
+    assert "_State:" not in out and out.count("was drafted with AI and hasn't yet been edited by a person") == 1
+    # Findings sit with the analysis, confidence with how sure we are.
+    analysis = out.split("\n## What the analysis shows", 1)[1].split("\n## ", 1)[0]
+    confident = out.split("\n## How confident we are", 1)[1].split("\n## ", 1)[0]
+    assert "Burnout feeds back." in analysis and "Moderate." in confident
+    assert out.index("Workload drives leaving.") < out.index("\n## The model")
+
+
+def test_reader_packs_say_when_nothing_is_written_up(project: Path) -> None:
+    from latris.operations.interpret import save_interpretation
+    from latris.schema.interpretation import InterpretationStore, InterpretSection
+
+    save_interpretation(InterpretationStore(sections=[
+        InterpretSection(id="s0", section_type="key_findings", model_type="cld", claims=["A claim"],
+                         generation_state="claims_only"),
+    ]), root=project)
+    out = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert "_The interpretation hasn't been written up yet._" in out and "A claim" not in out
+    assert "A claim" in md_exporter.render(ProjectPaths(project), pack="review", ai=False)
+
+
+def test_reader_packs_drop_bylines_and_tool_names(project: Path) -> None:
+    from latris.operations.provenance import add_assumption
+
+    add_assumption("Hours are self-reported", "Surfaced by AttackThisModel: Rosters may differ.", root=project)
+    client = md_exporter.render(ProjectPaths(project), pack="client", ai=False)
+    assert "- **Hours are self-reported** — _Rosters may differ._" in client
+    assert "AttackThisModel" not in client and "_by " not in client
+    audit = md_exporter.render(ProjectPaths(project), pack="audit", ai=False)
+    assert "Surfaced by AttackThisModel" in audit and "_by " in audit

@@ -88,6 +88,7 @@ injects an explicit path via `Depends(get_project_root)`.
 
 Hermetic: `tmp_path` for filesystem isolation, `git_identity`
 fixture sets `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env vars,
+commit signing is off for every test (`tests/conftest.py`),
 `LATRIS_AI_MOCK=1` stubs all LLM calls. No network, no
 real API keys required. Test directory mirrors package layout.
 Coverage reporting via `pytest-cov` (configured in `pyproject.toml`).

@@ -612,6 +612,10 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 - Methods and foundations — the established methods the model relies on, each cited with its source and stated limits, generated from the foundations registry so it cites only methods the report actually used.
 - Interpret-generated prose sections.
 
+## Reports for readers
+
+The **client** and **publication** packs are written for people outside the modelling work, and are grouped into parts in reading order: **Summary** (the answer, the model's size and approved findings), **The model** (the diagrams), **What the analysis shows** (current results and the findings written up from them), **How confident we are** (confidence, contested links, what the person reviewed at each checkpoint of an AI-built model, assumptions and exclusions) and a **Technical appendix** (links, factors, evidence, methods and references). They show only what's ready for a reader: interpretation sections that have been written up (one section per heading, with a paragraph per model type), results computed on the model as it is now — with one line saying how many earlier ones there are — and approved findings. They leave out internal IDs, who recorded each assumption and when, and the change log. The review, workshop and audit packs keep everything.
+
 ## Export formats
 
 Use Markdown for transparent text output and Word for stakeholder-ready documents. The Markdown report opens with a Mermaid sketch of the model, which GitHub and most chat tools draw as a diagram. **Build spec (.json)** exports the model itself — factors, links, sources, the model type's values and its analyses — as `latris export spec` does; `latris build --spec` (or a chat with the Latris connector) rebuilds it elsewhere.
@@ -1728,7 +1732,7 @@ Invite someone by **email** from **People** in the Versions view. They get an ac
 
 ## Report link
 
-Under **People**, the owner can turn on a **report link**: a read-only web page of the project's report (with its diagram) that anyone with the link can open — no account needed, and it isn't indexed by search engines. Pick which report pack it shows. It's off by default. Turning it off and on again issues a new link, so an old one stops working.
+Under **People**, the owner can turn on a **report link**: a read-only web page of the project's report (with its diagram) that anyone with the link can open — no account needed, and it isn't indexed by search engines. Pick which report pack it shows; the page has a contents list beside it (at the top on a phone). It's off by default. Turning it off and on again issues a new link, so an old one stops working.
 
 ## Models made in a chat
 

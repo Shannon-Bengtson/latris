@@ -7,6 +7,7 @@ references. Hand-intended as the starting point for a written deliverable.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC
@@ -192,6 +193,10 @@ class _Report:
     show_ids: bool
     signoffs: list[Any]
     substrate: Substrate
+    # A pack for people outside the modelling work: no internal IDs, bylines or tracking notes.
+    reader: bool = False
+    # The pack groups its sections into parts (``PackConfig.parts``).
+    parted: bool = False
 
 
 def render(
@@ -314,12 +319,17 @@ def render(
         show_ids=show_ids,
         signoffs=signoffs,
         substrate=substrate,
+        reader=pack in _READER_PACKS,
+        parted=bool(pack and get_pack(pack).parts and not sections),
     )
     for name, section in _SECTIONS:
         _begin(name)
         section(rep)
 
-    out = _in_pack_order(out, starts, pack=pack, sections=sections)
+    if rep.parted:
+        out = _in_parts(out, starts, get_pack(pack).parts)
+    else:
+        out = _in_pack_order(out, starts, pack=pack, sections=sections)
 
     # ---------- Footer badge ----------
     out.append("---")
@@ -351,19 +361,6 @@ def _section_foundation(rep: _Report) -> None:
             rep.out.append("")
             rep.out.append(rep.narrative.boundary)
         rep.out.append("")
-        # Pre-modelling intuition (foundation.predictions) — surfaced near
-        # the top so readers can compare the person's own expectation with
-        # the model's answer.
-        if rep.foundation.predictions.strip():
-            rep.out.append("## Pre-modelling intuition")
-            rep.out.append("")
-            rep.out.append(
-                "_What the person who asked for this model expected the answer to be, in their own "
-                "words. Compare it with the answer in this report._"
-            )
-            rep.out.append("")
-            rep.out.append(rep.foundation.predictions.strip())
-            rep.out.append("")
         try:
             head_ts = git_repo.commit_timestamp(
                 git_repo.run_git(["rev-parse", "HEAD"], cwd=rep.paths.root).stdout.strip(),
@@ -374,6 +371,21 @@ def _section_foundation(rep: _Report) -> None:
         except git_repo.GitError:
             pass
         rep.out.append("")
+        # Pre-modelling intuition (foundation.predictions) — surfaced near
+        # the top so readers can compare the person's own expectation with
+        # the model's answer (a parted pack places it beside the answer).
+        if rep.parted:
+            rep.begin("intuition")
+        if rep.foundation.predictions.strip():
+            rep.out.append("## Pre-modelling intuition")
+            rep.out.append("")
+            rep.out.append(
+                "_What the person who asked for this model expected the answer to be, in their own "
+                "words. Compare it with the answer in this report._"
+            )
+            rep.out.append("")
+            rep.out.append(rep.foundation.predictions.strip())
+            rep.out.append("")
 
 
 def _section_structure(rep: _Report) -> None:
@@ -439,6 +451,7 @@ def _section_results(rep: _Report) -> None:
                 model_types=[rep.model_type] if rep.model_type else None,
                 chart_markers=rep.chart_markers,
                 show_ids=rep.show_ids,
+                current_only=rep.reader,
             )
         )
 
@@ -529,14 +542,15 @@ def _section_edges(rep: _Report) -> None:
             if policy_edges:
                 rep.out.append("### Policy regime")
                 rep.out.append("")
-                rep.out.append(
+                if not rep.reader:
+                    rep.out.append(
                     "_Decision-rule, governance, and definitional edges. "
                     "These describe how the firm responds to outcomes or "
                     "how variables are identity-related; they are "
                     "**excluded from loop and centrality analysis** "
                     "because they are not feedback-bearing mechanisms._"
-                )
-                rep.out.append("")
+                    )
+                    rep.out.append("")
                 _emit_edge_table(policy_edges)
                 rep.out.append("")
             if other_edges:
@@ -621,6 +635,21 @@ def _section_evidence(rep: _Report) -> None:
                 rep.out.append("")
 
 
+def _byline(rep: _Report, actor: Any, entry_id: str) -> str:
+    """Who recorded a log entry and when — tracking a reader pack leaves out."""
+    if rep.reader:
+        return ""
+    return f"  _by {_actor_name(actor)}, {id_timestamp(entry_id).date().isoformat()}_"
+
+
+# "Surfaced by AttackThisModel: …" — the name of the tool that raised it, which means nothing to a reader.
+_TOOL_PREFIX = re.compile(r"^Surfaced by [A-Z][A-Za-z]+:\s*")
+
+
+def _reader_text(text: str) -> str:
+    return _TOOL_PREFIX.sub("", text or "")
+
+
 def _section_assumptions(rep: _Report) -> None:
     if rep.include("assumptions"):
         rep.out.append("## Assumptions")
@@ -629,12 +658,9 @@ def _section_assumptions(rep: _Report) -> None:
             rep.out.append("_None._")
         else:
             for a in rep.assumptions:
-                rationale = f" — _{a.rationale}_" if a.rationale else ""
-                rep.out.append(
-                    f"- **{_md_escape(a.statement)}**{rationale}  "
-                    f"_by {_actor_name(a.authored_by)}, "
-                    f"{id_timestamp(a.id).date().isoformat()}_"
-                )
+                why = _reader_text(a.rationale) if rep.reader else a.rationale
+                rationale = f" — _{why}_" if why else ""
+                rep.out.append(f"- **{_md_escape(a.statement)}**{rationale}" + _byline(rep, a.authored_by, a.id))
         rep.out.append("")
 
 
@@ -646,11 +672,7 @@ def _section_decisions(rep: _Report) -> None:
             rep.out.append("_None._")
         else:
             for d in rep.decisions:
-                rep.out.append(
-                    f"- **{_md_escape(d.statement)}** — _{d.rationale}_  "
-                    f"_by {_actor_name(d.authored_by)}, "
-                    f"{id_timestamp(d.id).date().isoformat()}_"
-                )
+                rep.out.append(f"- **{_md_escape(d.statement)}** — _{d.rationale}_" + _byline(rep, d.authored_by, d.id))
         rep.out.append("")
 
 
@@ -762,11 +784,7 @@ def _section_exclusions(rep: _Report) -> None:
             rep.out.append("_None._")
         else:
             for e in rep.exclusions:
-                rep.out.append(
-                    f"- **{_md_escape(e.statement)}** — _{e.rationale}_  "
-                    f"_by {_actor_name(e.authored_by)}, "
-                    f"{id_timestamp(e.id).date().isoformat()}_"
-                )
+                rep.out.append(f"- **{_md_escape(e.statement)}** — _{e.rationale}_" + _byline(rep, e.authored_by, e.id))
         rep.out.append("")
 
 
@@ -954,6 +972,8 @@ def _section_findings(rep: _Report) -> None:
             visible_maturities = {"approved"}
 
         visible = [f for f in rep.all_findings if f.maturity in visible_maturities]
+        if rep.reader and not visible:
+            return  # a reader pack carries no empty section (drafts wait for approval)
 
         rep.out.append("## Findings")
         rep.out.append("")
@@ -987,6 +1007,13 @@ def _section_findings(rep: _Report) -> None:
 
 def _section_interpretation(rep: _Report) -> None:
     if rep.include("interpretation"):
+        if rep.parted:
+            chunks = _render_reader_interpretation(rep.paths, model_type=rep.model_type)
+            for i, name in enumerate(("interpretation", "interpretation_analysis", "interpretation_confidence")):
+                if i:
+                    rep.begin(name)
+                rep.out.extend(chunks.get(name, []))
+            return
         reader = rep.pack in _READER_PACKS
         lines = _render_interpretation(rep.paths, model_type=rep.model_type, answer_first=reader)
         if reader and _INTERPRETATION_REST in lines:
@@ -1128,6 +1155,46 @@ def _in_pack_order(
     head = out[: starts[0][1]] if starts else []
     ranked = [k for k in order if k in chunks] + [k for k, _ in starts if k not in order]
     return head + [line for k in ranked for line in chunks[k]]
+
+
+def _in_parts(
+    out: list[str], starts: list[tuple[str, int]], parts: tuple[tuple[str | None, tuple[str, ...]], ...]
+) -> list[str]:
+    """Regroup rendered sections into the pack's parts: a ``##`` per part, each section a level below.
+
+    A part with nothing in it gets no heading; the untitled opening part (``None``) keeps its levels.
+    """
+    bounds = [*(i for _, i in starts[1:]), len(out)]
+    chunks = {key: out[start:end] for (key, start), end in zip(starts, bounds, strict=True)}
+    result = out[: starts[0][1]] if starts else list(out)
+    placed: set[str] = set()
+    for heading, names in parts:
+        placed.update(names)
+        lines = [line for name in names for line in chunks.get(name, [])]
+        if heading is None:
+            result += lines
+        elif any(line.strip() for line in lines):
+            result += [f"## {heading}", "", *_demote(lines)]
+    # Anything a pack's parts don't name still reaches the report, at the end.
+    for name, _ in starts:
+        if name not in placed:
+            result += _demote(chunks[name])
+    return result
+
+
+_HEADING = re.compile(r"^(#{1,5}) ")
+
+
+def _demote(lines: list[str]) -> list[str]:
+    """Every Markdown heading one level down (``##`` → ``###``), leaving fenced blocks alone."""
+    out, fenced = [], False
+    for line in lines:
+        if line.startswith("```"):
+            fenced = not fenced
+        elif not fenced and _HEADING.match(line):
+            line = "#" + line
+        out.append(line)
+    return out
 
 
 def _used_model_types(paths: ProjectPaths) -> list[str]:
@@ -1395,6 +1462,95 @@ def _render_interpretation(
             out.append("")
 
     return out
+
+
+# Where a parted reader pack places each interpretation section (anything else: with the analysis).
+_INTERPRETATION_CHUNK = {
+    "answer_to_question": "interpretation",
+    "confidence_assessment": "interpretation_confidence",
+    "assumptions_limitations": "interpretation_confidence",
+    "evidence_gaps": "interpretation_confidence",
+    "evidence_coverage": "interpretation_confidence",
+    "open_questions": "interpretation_confidence",
+}
+
+
+def _render_reader_interpretation(paths: ProjectPaths, *, model_type: str | None = None) -> dict[str, list[str]]:
+    """The interpretation for a parted reader pack, as lines per chunk (see ``_INTERPRETATION_CHUNK``).
+
+    Only what has been written up is shown: a section with no prose yet (claims only, or empty) is left out,
+    and a section written for several model types is one section with a paragraph per type. Instead of a
+    state line under every section, one note says who wrote it and when.
+    """
+    interp_path = paths.interpretation_yaml
+    if not interp_path.exists():
+        return {}
+    from latris.operations.interpret_registry import INTERPRET_SECTION_REGISTRY, MODEL_WIDE, get_section_spec
+    from latris.schema.interpretation import InterpretationStore
+
+    store = load_model(InterpretationStore, interp_path)
+    scoped = [s for s in store.sections if model_type is None or s.model_type in (model_type, MODEL_WIDE)]
+    if not scoped:
+        return {}
+    written = [s for s in scoped if s.prose.strip()]
+    chunks: dict[str, list[str]] = {}
+    if not written:
+        chunks["interpretation"] = ["_The interpretation hasn't been written up yet._", ""]
+        return chunks
+
+    order = list(INTERPRET_SECTION_REGISTRY.keys())
+    lead = [t for t in _ANSWER_FIRST if t in order]
+    order = lead + [t for t in order if t not in lead]
+    by_type: dict[str, list] = {}
+    for s in written:
+        by_type.setdefault(s.section_type, []).append(s)
+
+    for section_type in [*order, *(t for t in by_type if t not in order)]:
+        sections = by_type.get(section_type)
+        if not sections:
+            continue
+        try:
+            title = get_section_spec(section_type).display_name
+        except ValueError:
+            title = section_type.replace("_", " ").title()
+        out = chunks.setdefault(_INTERPRETATION_CHUNK.get(section_type, "interpretation_analysis"), [])
+        out += [f"## {title}", ""]
+        for s in sections:
+            if len(sections) > 1:
+                out += [f"**{_model_type_name(s.model_type)}**", ""]
+            out += [s.prose.rstrip(), ""]
+            if _prose_is_stale(s, paths):
+                out += [
+                    "_Out of date: the model has changed since this was written, and what it rests on "
+                    "has changed with it._",
+                    "",
+                ]
+
+    drafted = any(s.generation_state == "generated" for s in written)
+    edited = any(s.generation_state == "edited" for s in written)
+    who = {
+        (True, False): " was drafted with AI and hasn't yet been edited by a person",
+        (True, True): " was drafted with AI; some of it has been edited by a person",
+        (False, True): " was written or edited by a person",
+    }.get((drafted, edited), "")
+    when = max(s.updated_at for s in written)
+    note = [f"_The interpretation in this report{who}. Last updated {when.day} {when:%b %Y}._", ""]
+    # After the answer when there is one, else ahead of the first section shown.
+    first = next(c for c in ("interpretation", "interpretation_analysis", "interpretation_confidence") if c in chunks)
+    chunks[first] = chunks[first] + note if first == "interpretation" else note + chunks[first]
+    return chunks
+
+
+def _model_type_name(model_type: str) -> str:
+    from latris.operations.interpret_registry import MODEL_WIDE
+    from latris.schema.model_types import get_model_type
+
+    if model_type == MODEL_WIDE:
+        return "The whole model"
+    try:
+        return get_model_type(model_type).display_name
+    except (KeyError, ValueError):
+        return model_type
 
 
 def write(

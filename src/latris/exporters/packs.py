@@ -13,6 +13,24 @@ class PackConfig:
     sections: list[str] = field(default_factory=list)
     audience: str = ""
     purpose: str = ""
+    # Reader packs group their sections into parts, in reading order: (part heading, chunks). The part
+    # heading is a ``##`` and each section under it drops a level. ``None`` heads the untitled opening
+    # (title and context). A chunk is a section name or one of ``PART_CHUNKS``. Empty: no parts — the
+    # report follows ``sections`` and every section is a ``##``.
+    parts: tuple[tuple[str | None, tuple[str, ...]], ...] = ()
+
+
+# Pieces of a section a part can place on its own (see ``PackConfig.parts``): the person's own expectation
+# (from "foundation"), and the interpretation after its answer, split into what it found and how sure it is.
+PART_CHUNKS = ("intuition", "interpretation_analysis", "interpretation_confidence")
+
+SUMMARY, THE_MODEL, ANALYSIS, CONFIDENCE, APPENDIX = (
+    "Summary",
+    "The model",
+    "What the analysis shows",
+    "How confident we are",
+    "Technical appendix",
+)
 
 
 # Section names match the heading keys used in markdown.py
@@ -58,6 +76,15 @@ PACKS: dict[str, PackConfig] = {
         ),
         # Order is the reading order: a board reads the answer before the tables.
         sections=["foundation", "interpretation", "diagram", "results", "structure", "findings", "contested", "edges", "nodes", "evidence", "assumptions", "exclusions", "decisions", "modelling_approach", "methods", "person_input", "references"],  # noqa: E501
+        # The answer and what it rests on first; the tables and the record last.
+        parts=(
+            (None, ("foundation",)),
+            (SUMMARY, ("interpretation", "intuition", "structure", "findings")),
+            (THE_MODEL, ("diagram",)),
+            (ANALYSIS, ("results", "interpretation_analysis")),
+            (CONFIDENCE, ("interpretation_confidence", "contested", "person_input", "assumptions", "exclusions")),
+            (APPENDIX, ("edges", "nodes", "evidence", "decisions", "modelling_approach", "methods", "references")),
+        ),
     ),
     "audit": PackConfig(
         name="audit",
@@ -82,6 +109,14 @@ PACKS: dict[str, PackConfig] = {
         audience="a paper or public write-up",
         purpose="the model, evidence, findings, interpretation and full references, without internal IDs",
         sections=["foundation", "interpretation", "diagram", "results", "structure", "findings", "contested", "modelling_approach", "methods", "person_input", "edges", "nodes", "evidence", "references"],  # noqa: E501
+        parts=(
+            (None, ("foundation",)),
+            (SUMMARY, ("interpretation", "intuition", "structure", "findings")),
+            (THE_MODEL, ("diagram",)),
+            (ANALYSIS, ("results", "interpretation_analysis")),
+            (CONFIDENCE, ("interpretation_confidence", "contested", "person_input")),
+            (APPENDIX, ("modelling_approach", "methods", "edges", "nodes", "evidence", "references")),
+        ),
     ),
 }
 

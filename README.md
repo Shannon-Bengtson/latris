@@ -346,7 +346,7 @@ Choosing a report — pick the pack for whoever will read it
 
 | Pack | For | What's in it |
 |---|---|---|
-| `client` | a client, board or funder | **answer first**: the interpretation (answer, implications, confidence, then the rest), the diagram with its loops, approved findings, then each link with its reason and evidence, and sources — no internal IDs, no change log |
+| `client` | a client, board or funder | **answer first**, in parts: Summary (answer, size, approved findings), The model (diagrams), What the analysis shows (current results, written-up findings), How confident we are (confidence, contested links, what the person reviewed, assumptions, exclusions), then a Technical appendix (links, factors, evidence, methods, sources) — only written-up interpretation and current results; no internal IDs, bylines or change log |
 | `publication` | a paper or public write-up | as `client`, with full references |
 | `review` | a reviewer checking the model | evidence, open challenges and questions, findings |
 | `workshop` | a stakeholder session | structure, assumptions, open questions, session notes |

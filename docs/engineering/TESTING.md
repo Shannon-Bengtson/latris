@@ -22,7 +22,10 @@ latris's OpenAPI, so a schema change here shows up there as a type error.
 ## Hermetic
 
 Every test runs without a network, real keys or global state: `git_identity` sets git's identity from
-environment variables; `LATRIS_AI_MOCK=1` swaps the LLM for a mock; each test builds its project in
+environment variables; commit signing is off for every test whatever the machine's git config says
+(`tests/conftest.py` sets it through `GIT_CONFIG_*`, which reaches child processes too — a suite makes
+thousands of throwaway commits, and a signing helper can run out of file handles under that load);
+`LATRIS_AI_MOCK=1` swaps the LLM for a mock; each test builds its project in
 `tmp_path`; the suite runs in parallel (`pytest-xdist`). The worked example writes its transcript outside
 `tmp_path`, so it is `@pytest.mark.slow` and serialised.
 
