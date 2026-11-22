@@ -120,8 +120,10 @@ class GlobalSensitivityRequest(BaseModel):
     n: int | None = None
     seed: int = 1234
     output: str | None = None
-    variable: str | None = None  # SD only
+    variable: str | None = None  # SD: the variable; BN: the factor asked about
     metric: str | None = None  # SD only
+    state: str | None = None  # BN only
+    evidence: dict[str, str] = {}  # BN only
     record: bool = True
 
 
@@ -131,7 +133,8 @@ def global_sensitivity(body: GlobalSensitivityRequest, root: Root) -> dict[str, 
     from latris.operations import global_sensitivity as gs
 
     payload = gs.analyse(body.model_type, method=body.method, n=body.n, seed=body.seed, output=body.output,
-                         variable=body.variable, metric=body.metric, root=root)
+                         variable=body.variable, metric=body.metric, state=body.state,
+                         evidence=body.evidence or None, root=root)
     sha = None
     if body.record:
         sha, payload["run_id"] = gs.record(payload, root=root)

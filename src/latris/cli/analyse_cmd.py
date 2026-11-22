@@ -338,7 +338,8 @@ def estimate_cmd(
 @app.command("global-sensitivity")
 @handle_cli_errors
 def global_sensitivity_cmd(
-    model_type: str = typer.Argument(..., help="fault_tree | bow_tie | event_tree | decision_tree | markov | sd"),
+    model_type: str = typer.Argument(...,
+                                     help="fault_tree | bow_tie | event_tree | decision_tree | markov | sd | bn"),
     method: str = typer.Option("sobol", "--method", help="sobol (variance shares) | morris (a cheaper screen)."),
     n: int | None = typer.Option(None, "-n", help="Sobol: base samples, a power of two (default 512; SD 128). "
                                                    "Morris: trajectories (default 20; SD 10)."),
@@ -346,7 +347,11 @@ def global_sensitivity_cmd(
     output: str | None = typer.Option(None, "--output", help="The result to headline (default: the model's main "
                                                              "one — the top event, the best option's advantage, "
                                                              "the net benefit at the willingness to pay)."),
-    variable: str | None = typer.Option(None, "--variable", help="SD: the variable (default: the first stock)."),
+    variable: str | None = typer.Option(None, "--variable", help="SD: the variable (default: the first stock). "
+                                                                  "BN: the factor whose probability to explain."),
+    state: str | None = typer.Option(None, "--state", help="BN: the state of --variable (default: its first)."),
+    evidence: list[str] = typer.Option([], "--evidence", "-e", help="BN: an observed state, 'Factor=state' "
+                                                                     "(repeatable)."),
     metric: str | None = typer.Option(None, "--metric",
                                       help="SD: final | peak | peak-time | min | mean | total | at:T."),
     no_record: bool = typer.Option(False, "--no-record", help="Show the result without recording it."),
@@ -354,7 +359,9 @@ def global_sensitivity_cmd(
     """Which uncertain inputs does the result depend on, alone and through interactions?
 
     Varies every input that has a range (`ft|bowtie|et uncertainty`, `dt|markov
-    range`, `sd set-uncertainty`) together over its distribution. Sobol
+    range`, `sd set-uncertainty`, `bn set-uncertainty`) together over its
+    distribution; a set of probabilities (a Bayesian-network table, a chance
+    node's branches) counts as one input. Sobol
     indices give the share of the result's variance each input explains on
     its own (S1) and with its interactions (ST); an input with ST near 0
     could be fixed anywhere in its range. Morris screening ranks inputs in
@@ -364,7 +371,14 @@ def global_sensitivity_cmd(
 
     from latris.operations import global_sensitivity as gs
 
-    payload = gs.analyse(model_type, method=method, n=n, seed=seed, output=output, variable=variable, metric=metric)
+    ev = {}
+    for e in evidence:
+        if "=" not in e:
+            raise typer.BadParameter(f"--evidence takes 'Factor=state', not {e!r}")
+        k, v = e.split("=", 1)
+        ev[k.strip()] = v.strip()
+    payload = gs.analyse(model_type, method=method, n=n, seed=seed, output=output, variable=variable, metric=metric,
+                         state=state, evidence=ev or None)
     sha = None
     if not no_record:
         sha, payload["run_id"] = gs.record(payload)

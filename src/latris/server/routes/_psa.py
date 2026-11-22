@@ -24,6 +24,21 @@ class RangeRequest(BaseModel):
     clear: bool = False
 
 
+class CorrelationRequest(BaseModel):
+    target: str
+    other: str
+    rho: float = 0.0
+    quantity: str | None = None
+    other_quantity: str | None = None
+    strategy: str | None = None  # Markov only
+    other_strategy: str | None = None  # Markov only
+    reason: str = ""
+    source_id: str | None = None
+    origin: ProvenanceOrigin = "human-direct"
+    verification: ProvenanceVerification = "unverified"
+    clear: bool = False
+
+
 class PsaRequest(BaseModel):
     runs: int | None = None
     seed: int = 1234
@@ -38,8 +53,13 @@ def add_routes(router: APIRouter, model_type: str) -> None:
         from latris.operations import psa
         from latris.repo.project import require_project
 
-        rows = [e.model_dump(mode="json") for e in psa.ranges(model_type, require_project(root))]
-        return {"ranges": rows, "count": len(rows)}
+        paths = require_project(root)
+        rows = [e.model_dump(mode="json") for e in psa.ranges(model_type, paths)]
+        from latris.operations import uncertainty as unc
+
+        tied = [c.model_dump(mode="json") for c in unc.load(paths).correlations
+                if f"|{model_type}:" in c.a]
+        return {"ranges": rows, "count": len(rows), "correlations": tied}
 
     @router.post("/range")
     def set_range(body: RangeRequest, root: Root) -> dict[str, Any]:
@@ -52,6 +72,21 @@ def add_routes(router: APIRouter, model_type: str) -> None:
         entry, sha = psa.set_range(model_type, body.target, body.distribution, body.params, quantity=body.quantity,
                                    strategy=body.strategy, reason=body.reason, source_id=body.source_id,
                                    origin=body.origin, verification=body.verification, root=root)
+        return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
+
+    @router.post("/correlation")
+    def set_correlation(body: CorrelationRequest, root: Root) -> dict[str, Any]:
+        """Two ranged values that move together (a rank correlation the PSA induces); ``clear`` removes it."""
+        from latris.operations import psa
+
+        names = {"quantity": body.quantity, "other_quantity": body.other_quantity, "strategy": body.strategy,
+                 "other_strategy": body.other_strategy}
+        if body.clear:
+            return {"result": {"cleared": [body.target, body.other]},
+                    "commit_sha": psa.clear_correlation(model_type, body.target, body.other, **names, root=root)}
+        entry, sha = psa.set_correlation(model_type, body.target, body.other, body.rho, **names, reason=body.reason,
+                                         source_id=body.source_id, origin=body.origin,
+                                         verification=body.verification, root=root)
         return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
     @router.post("/psa")

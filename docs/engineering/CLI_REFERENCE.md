@@ -256,10 +256,11 @@ latris analyse d-sep <x> <y> [--given <z1,z2,...>]
 latris analyse blanket <variable>
 latris analyse paths <from-variable> <to-variable>
 latris analyse adjustment-sets <treatment> <outcome>
-latris analyse global-sensitivity <fault_tree|bow_tie|event_tree|decision_tree|markov|sd>
-    [--method sobol|morris] [-n N] [--seed S] [--output R] [--variable V --metric M (SD)] [--no-record]
+latris analyse global-sensitivity <fault_tree|bow_tie|event_tree|decision_tree|markov|sd|bn>
+    [--method sobol|morris] [-n N] [--seed S] [--output R] [--variable V --metric M (SD)]
+    [--variable F --state S -e "Factor=state" ... (BN)] [--no-record]
     # Sobol S1/ST with bootstrap 95% (n base samples, a power of two) or Morris μ*/σ (n trajectories),
-    # over every input with a range; recorded (ft-gsa, bt-gsa, et-gsa, dt-gsa, markov-gsa, sd-gsa)
+    # over every input with a range; recorded (ft-gsa, bt-gsa, et-gsa, dt-gsa, markov-gsa, sd-gsa, bn-gsa)
 latris analyse estimate <treatment> <outcome> --dataset NAME [--adjust F ...] [--no-adjust]
                         [--column "Factor=column" ...] [--model auto|linear|logistic] [--no-record]
 ```
@@ -487,7 +488,10 @@ latris dt analyse [--no-record]                        # best strategy, EVPI, pr
 latris dt range <target> <distribution> [--quantity payoff|value|probability|probabilities] [--mean M --sd S]
                 [--min] [--mode] [--max] [--alpha] [--beta] [--shape] [--scale] [--n N] [--reason] [--source]
                 [--origin] [--verified] [--clear]   # a terminal, a branch "Parent -> Child", or a chance node (dirichlet)
-latris dt psa [--runs 2000] [--seed 1234] [--sampling lhs|random] [--no-record]   # spread, how often best, EVPI, drivers
+latris dt correlate <target> <other> <rho> [--quantity Q] [--other-quantity Q] [--reason] [--source] [--verified]
+                    [--clear]                    # two ranged values sampled together (rank correlation)
+latris dt psa [--runs 2000] [--seed 1234] [--sampling lhs|random] [--no-record]   # spread, how often best, EVPI,
+                                                 # partial EVPI per input, drivers
 ```
 
 ## Markov cohort model
@@ -508,7 +512,28 @@ latris markov show | check
 latris markov analyse [--no-record]            # costs, outcomes, ICERs, dominance, the choice at the WTP
 latris markov range <target> <distribution> [--quantity transition|cost|utility|leaving] [--strategy S]
                     [--mean M --sd S] [--n N] [...as dt range]   # a transition "From -> To", or a state
-latris markov psa [--runs 1000] [--seed 1234] [--sampling lhs|random] [--no-record]   # CEAC, EVPI, drivers
+latris markov correlate <target> <other> <rho> [--quantity Q] [--other-quantity Q] [--strategy S]
+                        [--other-strategy S] [--reason] [--source] [--verified] [--clear]
+latris markov psa [--runs 1000] [--seed 1234] [--sampling lhs|random] [--no-record]   # CEAC, EVPI, partial
+                                                 # EVPI per input, drivers
+```
+
+## Argument map
+
+The conclusion, claims and an optional question (view roles); a link from a
+premise to a claim is an ordinary link. Relations, reasons, warrants,
+qualifiers and assessments are stored with provenance; a claim's grounds are
+its citations, an open challenge on a link an objection to the inference.
+`argument analyse` is recorded (`argument-analysis`). Design:
+[ARGUMENT_MAP.md](ARGUMENT_MAP.md).
+
+```bash
+latris argument element <node> <conclusion|claim|question>
+latris argument link "Premise -> Claim" [--relation supports|attacks] [--reason NAME] [--warrant W]
+                     [--qualifier certainly|probably|possibly] [--notes] [--source] [--origin] [--verified]
+latris argument claim <claim> <accepted|rejected|none> [--rationale R] [--source] [--verified]
+latris argument show | check
+latris argument analyse [--no-record]          # stands / defeated / undecided, reasons, objections, linchpins
 ```
 
 ## Results

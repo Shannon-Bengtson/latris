@@ -284,7 +284,7 @@ src/latris/
 ## Adding a formalism
 
 Every model type (the causal types, SD, BN, Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH,
-decision tree, Markov) plugs in through **one module** in `src/latris/operations/formalisms/`. It
+decision tree, Markov, argument map) plugs in through **one module** in `src/latris/operations/formalisms/`. It
 declares a `Formalism` with the hooks the shared code calls:
 
 | Hook | Used by |
@@ -408,9 +408,10 @@ classifications** (stock, chance, goal, gate, barrier, etc.) live in a
 separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
-own semantic roles to substrate entities. 9 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 13 stable ones
-(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov); the
+own semantic roles to substrate entities. 8 planned model types are
+registered in the `ModelTypeSpec` registry alongside the 14 stable ones
+(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov,
+Argument Map); the
 Layer-3
 table above gives
 each one's

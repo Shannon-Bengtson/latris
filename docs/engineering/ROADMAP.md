@@ -7,7 +7,7 @@ work, including types that aren't registered yet.*
 
 ## Where we are
 
-Nine model types are usable today, in five families. The pattern that
+Fourteen model types are usable today, in six families (updated 2026-11-22). The pattern that
 works is a **ladder** within each family — qualitative → semi-quantitative
 → quantitative, all on one shared substrate — so a model climbs a rung
 without being redrawn.
@@ -15,18 +15,19 @@ without being redrawn.
 | Family | Built | Missing rung |
 |---|---|---|
 | Systems | CLD → FCM → SD | — |
-| Causal inference | DAG → BN | **estimation**: "how big is the effect?" |
+| Causal inference | DAG → effect estimation → BN | structural equation / path models (#11) |
 | Evaluation | Theory of Change → process tracing → impact (ITS / DiD) | — |
-| Risk and safety | Bow-tie → Fault tree / Event tree | live links between them (today: citations) |
-| Decisions | — | **the whole family** |
-| Arguments | evidence checks and challenges, no formalism | **argument / hypothesis structure** |
+| Risk and safety | Bow-tie → Fault tree / Event tree, with Monte Carlo | live links between them (today: citations); GSN |
+| Decisions | MCDA; decision tree → Markov, with PSA, acceptability curves and (partial) EVPI | influence diagram (#10) |
+| Arguments | ACH; argument map | GSN as a vocabulary over the argument map |
+| Across types | Monte Carlo / PSA with correlated ranges; global sensitivity (Sobol, Morris) | — |
 
 The last three types built (fault tree, bow-tie, event tree) came from the
 registered roadmap list, which was assembled to test the schema's
 extensibility rather than from user demand, and they serve the audience
 least likely to adopt Latris (safety engineers have entrenched tools). They
 are done and coherent; the safety track now pauses until a real safety user
-appears. GSN waits for that, and for the argument map below.
+appears. GSN waits for that; the argument map it builds on now exists.
 
 ## Principles for choosing
 
@@ -113,13 +114,14 @@ black-box predictors.
    the theory of change), #9 ITS / DiD (done: `latris toc impact`).
 5. **Analysis layers** — #7 Monte Carlo on the risk types (done: `latris ft|bowtie|et uncertainty`
    and `monte-carlo`), #8 global sensitivity (done: `latris analyse global-sensitivity`, Sobol and
-   Morris over the risk types, decision trees, Markov and SD). Built on numpy and scipy's Sobol
+   Morris over the risk types, decision trees, Markov, SD and BN; a set of probabilities — a BN
+   table, a chance node's branches — is one grouped input). Built on numpy and scipy's Sobol
    sequence rather than SALib: the estimators are a few dozen lines (checked against the Ishigami
-   function's analytic indices), and SALib would bring matplotlib, pandas and multiprocess. BN
-   tables (Dirichlet rows) aren't single inputs, so BN waits for a grouped design.
-6. **Argument map** (#12), then GSN on top of it — when a safety user appears.
+   function's analytic indices), and SALib would bring matplotlib, pandas and multiprocess.
+6. **Argument map** (#12) (done: `latris argument`; design in
+   [ARGUMENT_MAP.md](ARGUMENT_MAP.md)), then GSN on top of it — when a safety user appears.
 
-Registry statuses follow this plan: influence diagram and argument map are
-`roadmap`; GSN stays `roadmap` behind the argument map. MCDA, ACH, decision
-tree and Markov are built. Process tracing is an analysis on the theory of
+Registry statuses follow this plan: influence diagram is `roadmap`; GSN stays `roadmap`, now a
+vocabulary over the argument map (ARGUMENT_MAP.md → "GSN, later"). MCDA, ACH, decision tree,
+Markov and argument map are built. Process tracing is an analysis on the theory of
 change, not a type of its own, so it isn't registered separately.

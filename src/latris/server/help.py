@@ -396,7 +396,7 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane; for decision trees and Markov models, a probabilistic sensitivity analysis over the ranges you set.
 - **MCDA, ACH:** run the analysis from the matrix page; its charts, tables and the report's figure show there.
 - **Fault tree, bow-tie, event tree:** analyse (cut sets and importance; consequence frequencies through the barriers; end-state frequencies), then Monte Carlo over the ranges you set.
-- **Global sensitivity (fault trees, bow-ties, event trees, decision trees, Markov and SD models):** once two or more inputs have a range, see which the result's uncertainty comes from — `latris analyse global-sensitivity <model type>`. **Sobol indices** (the default) give each input's share of the result's variance on its own (S1) and with its interactions (ST), with 95% intervals; an input with ST near 0 could be fixed anywhere in its range without changing the spread, so narrowing its range buys nothing. **Morris screening** (`--method morris`) ranks the inputs in far fewer runs: μ* for influence, σ near or above μ* for interaction or a non-linear effect. The headline result is the model's main one — the top event, the best option's advantage over the runner-up, the net benefit at the willingness to pay — or `--output`; SD takes `--variable` and `--metric`. Recorded with a chart.
+- **Global sensitivity (fault trees, bow-ties, event trees, decision trees, Markov, SD and Bayesian-network models):** once two or more inputs have a range, see which the result's uncertainty comes from — `latris analyse global-sensitivity <model type>`. **Sobol indices** (the default) give each input's share of the result's variance on its own (S1) and with its interactions (ST), with 95% intervals; an input with ST near 0 could be fixed anywhere in its range without changing the spread, so narrowing its range buys nothing. **Morris screening** (`--method morris`) ranks the inputs in far fewer runs: μ* for influence, σ near or above μ* for interaction or a non-linear effect. The headline result is the model's main one — the top event, the best option's advantage over the runner-up, the net benefit at the willingness to pay — or `--output`; SD takes `--variable` and `--metric`; a Bayesian network takes `--variable`, `--state` and `--evidence`, and treats each probability table you've said how well is known as one input (as it does a chance node's branches or a state's transitions out). Recorded with a chart.
 
 Nodes take the shapes the report figure gives them — stocks as boxes, flows with a valve, sources and sinks as dashed clouds, BN nodes as belief-bar monitors — so the editor and the report read the same.
 
@@ -867,6 +867,7 @@ Only to models an AI built: when most factors were added by a person, no checkpo
 - **ACH:** best for choosing between competing explanations — which one the evidence fails to rule out, and which pieces of evidence the conclusion turns on. See the dedicated Analysis of Competing Hypotheses topic.
 - **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
 - **Markov model:** best for what happens to a group over time — moving between states such as well, ill and dead — and what each strategy costs and achieves, with cost-effectiveness (ICERs, net benefit). See the dedicated Markov Cohort Models topic.
+- **Argument map:** best for a case argued to a board, client or reviewer — whether the conclusion stands, the reasons it stands on, the objections still unanswered and the premises it turns on. See the dedicated Argument Maps topic.
 
 ## Which factors are in which model type
 
@@ -874,7 +875,7 @@ A model can be several types at once. Every factor and link is in every chosen t
 
 ## Planned model types
 
-On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: influence diagrams (for decisions), and Goal Structuring Notation (for safety cases) as a vocabulary over argument maps. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -916,6 +917,8 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "What does each option cost and achieve over years, and is the better one
   worth its price?" → **Markov model** — a cohort moving between states,
   with cost-effectiveness.
+- "Does the case hold up, and what does it rest on?" → **Argument map** —
+  a conclusion, the reasons for it and the objections to them.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1348,7 +1351,7 @@ The result is recorded for the report and goes out of date when the tree or a va
 
 Give uncertain inputs a range with `latris dt range`: a terminal's payoff (`latris dt range "Launched, high demand" normal --mean 500 --sd 100`), a branch's value (`--quantity value`), the probability of one branch of a two-branch chance node (`latris dt range "Demand if launched -> Launched, high demand" beta --mean 0.4 --sd 0.1` — the other branch takes the rest), or every branch probability of a chance node as a Dirichlet worth n observations (`latris dt range "Demand if launched" dirichlet --n 50`). A beta (probabilities) or gamma (costs) takes the mean and standard error a study reports; uniform, triangular, normal and lognormal take their own parameters. Each range keeps its reason, source and whether a person checked it, and must include the current value. Chance nodes named as one uncertainty take the same sampled probabilities.
 
-`latris dt psa` then samples every range together (seeded Latin hypercube) and rolls the tree back for each sample: each first choice's expected value across the runs (mean, 5th–95th percentile), **how often each option is best**, the **expected value of perfect information on the parameters** — the most it's worth to remove all of this uncertainty before choosing — and which inputs drive the advantage of the best option over the runner-up (rank correlation). Inputs without a range are held fixed and listed. It is recorded with a chart, and goes out of date when a value or range changes.
+`latris dt psa` then samples every range together (seeded Latin hypercube) and rolls the tree back for each sample: each first choice's expected value across the runs (mean, 5th–95th percentile), **how often each option is best**, the **expected value of perfect information on the parameters** — the most it's worth to remove all of this uncertainty before choosing — the **partial EVPI** of each input on its own (what one study of it could at most be worth), and which inputs drive the advantage of the best option over the runner-up (rank correlation). Inputs without a range are held fixed and listed. Two values from the same source can be sampled together: `latris dt correlate "Launched, high demand" "Launched, low demand" 0.6 --reason "one finance model"` (a rank correlation, -0.99 to 0.99; each keeps its own range). It is recorded with a chart, and goes out of date when a value or range changes.
 
 ## Practical caution
 
@@ -1376,11 +1379,43 @@ The result is recorded for the report and goes out of date when any value change
 
 Every probability, cost and utility is an estimate. Give one a range with `latris markov range`: a transition (`latris markov range "Healthy -> Sick" beta --mean 0.10 --sd 0.02`), a state's cost or utility (`latris markov range Sick gamma --quantity cost --mean 3000 --sd 600`), or all of a state's transitions out as a Dirichlet worth n observations (`--quantity leaving dirichlet --n 200`), so they can't sum past 1. `--strategy "New drug"` puts the range on that strategy's own value. The usual families are beta for probabilities and utilities and gamma for costs, each by the mean and standard error a study reports.
 
-`latris markov psa` samples every range together (seeded Latin hypercube) and reruns the cohort for each sample. It gives each strategy's cost and outcome across the runs (mean, 5th–95th percentile), the incremental analysis on the means (probabilistic ICERs), the **cost-effectiveness acceptability curve** — at each willingness to pay, the probability each strategy is the most cost-effective — and the **expected value of perfect information** per person (the most further research could be worth). With a willingness to pay set, it names the strategy to choose, how often it is cost-effective, and which inputs drive its net benefit over the runner-up. Recorded with a chart; it goes out of date when a value or range changes.
+`latris markov psa` samples every range together (seeded Latin hypercube) and reruns the cohort for each sample. It gives each strategy's cost and outcome across the runs (mean, 5th–95th percentile), the incremental analysis on the means (probabilistic ICERs), the **cost-effectiveness acceptability curve** — at each willingness to pay, the probability each strategy is the most cost-effective — and the **expected value of perfect information** per person (the most further research could be worth), with the **partial EVPI** of each input — which single study would be worth most. With a willingness to pay set, it names the strategy to choose, how often it is cost-effective, and which inputs drive its net benefit over the runner-up. Recorded with a chart; it goes out of date when a value or range changes.
 
 ## Practical caution
 
-The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently; separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). EVPI is for all the parameters together, not each one (no EVPPI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
+The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently unless you correlate two of them (`latris markov correlate "Healthy -> Sick" "Healthy -> Sick" 0.8 --other-strategy "New drug"` for two rates from one cohort; `--quantity` / `--other-quantity` for a state's cost or utility); separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). The partial EVPI is estimated from the same runs (slightly high with few runs); there is no value of sample information (EVSI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
+""",
+    ),
+    HelpTopic(
+        id="model-type-argument-map",
+        title="Argument Maps",
+        category="model-types",
+        summary="Lay out an argument and see whether its conclusion stands, and what it rests on.",
+        body="""## What an argument map represents
+
+A **conclusion** — what is being argued for — and the **claims** offered for and against it. Give each factor its element (`latris argument element <factor> conclusion|claim|question`; a question is the issue the conclusion answers). A link from a premise to the claim it bears on is an ordinary link (`latris edge add "Premise" "Claim"`); say how it bears with `latris argument link "Premise -> Claim"`:
+
+- `--relation supports` (the default) or `attacks` — an objection. An objection to an objection is an answer to it (a rebuttal): it attacks the objection.
+- `--reason NAME` — premises that only work together ("it works *and* we can afford it") share a reason name; a premise with no reason name is a reason on its own.
+- `--warrant` — why the premise bears on the claim; `--qualifier certainly|probably|possibly` — how strongly the arguer says it does.
+
+A claim's **grounds** are its ordinary sources: `latris evidence add <claim> description <key>`, then `latris evidence check` once read. To object to an **inference** rather than a premise ("even if that's true, it doesn't follow"), open a challenge on the link: `latris challenge open "Premise -> Claim" "…"` — the reason counts for nothing until the challenge is resolved. A person can accept or reject a premise the map doesn't argue further: `latris argument claim <claim> rejected --rationale "…"`.
+
+## What the analysis shows
+
+`latris argument analyse` labels every claim (grounded labelling, Dung 1995): it **stands** when every objection to it is defeated and a reason for it holds — or it is a premise taken as given (not argued further, not rejected, and its sources don't dispute it); it is **defeated** when an objection to it stands or every reason offered for it fails; otherwise it is **undecided** (a premise whose source disputes it, or two claims attacking each other). Then:
+
+- whether the **conclusion stands**, and the reasons it stands on;
+- **unanswered objections** — those still standing, anywhere under the conclusion;
+- **linchpins** — premises whose rejection alone would stop the conclusion standing, with whether their sources are checked;
+- what the premises rest on: checked sources, unchecked ones, a person's acceptance, or nothing — so "it stands" never hides "it stands on assertion";
+- reasons with no warrant, and inferences under challenge.
+
+The result is recorded for the report with a diagram, and goes out of date when the map, a source or a challenge changes.
+
+## Practical caution
+
+The evaluation is qualitative: qualifiers are reported, not weighed, and one strong reason counts as much as several weak ones. A premise you don't argue further stands by default — that is what the report's "no source" list is for. Methods: Toulmin (1958), Kunz & Rittel (1970), Dung (1995), Cayrol & Lagasquie-Schiex (2005), Pollock (1987).
 """,
     ),
     HelpTopic(

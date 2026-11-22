@@ -281,24 +281,29 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "Briggs, Claxton & Sculpher (2006), *Decision Modelling for Health Economic Evaluation*, ch. 4–7; "
             "Fenwick, Claxton & Sculpher (2001), \"Representing uncertainty: the role of cost-effectiveness "
             "acceptability curves\", *Health Economics* 10(8); Claxton (1999), \"The irrelevance of inference\", "
-            "*Journal of Health Economics* 18(3); McKay, Beckman & Conover (1979), *Technometrics* 21(2)"
+            "*Journal of Health Economics* 18(3); Strong & Oakley (2013), *Medical Decision Making* 33(6); "
+            "Strong, Oakley & Brennan (2014), *Medical Decision Making* 34(3); Iman & Conover (1982), "
+            "*Communications in Statistics — Simulation and Computation* 11(3); McKay, Beckman & Conover (1979), "
+            "*Technometrics* 21(2)"
         ),
         used_for=(
             "sampling every decision-tree payoff, branch value and probability, or Markov transition, cost and "
             "utility given a range (beta and gamma by mean and sd, Dirichlet sets of probabilities), seeded Latin "
             "hypercube; how often each choice is best; Markov acceptability curves and the expected value of "
-            "perfect information over a willingness-to-pay grid; Spearman rank correlation for what drives the "
-            "decision"
+            "perfect information over a willingness-to-pay grid; the partial EVPI of each input from the same runs "
+            "(sorted bins for one value, regression for a set); rank correlations between ranges induced by "
+            "Iman–Conover reordering; Spearman rank correlation for what drives the decision"
         ),
         limits=(
-            "Inputs are sampled independently (no correlation between ranges); EVPI is for all parameters "
-            "together — no partial EVPI (EVPPI) or sample information (EVSI); probabilities of leaving a Markov "
-            "state sampled separately are scaled down when they sum past 1 (the report counts the runs)."
+            "Correlations are rank correlations between single values (not within or with a Dirichlet set); "
+            "partial EVPI is estimated from the PSA runs (a little high with few runs per bin), one input at a "
+            "time — no sample information (EVSI); probabilities of leaving a Markov state sampled separately "
+            "are scaled down when they sum past 1 (the report counts the runs)."
         ),
     ),
     Foundation(
         id="global-sensitivity",
-        applies_to=("fault_tree", "bow_tie", "event_tree", "decision_tree", "markov", "sd"),
+        applies_to=("fault_tree", "bow_tie", "event_tree", "decision_tree", "markov", "sd", "bn"),
         method="Global sensitivity analysis: Sobol indices and Morris screening",
         citation=(
             "Saltelli et al. (2008), *Global Sensitivity Analysis: The Primer*; Sobol (2001), *Mathematics and "
@@ -312,10 +317,31 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "Sobol sequence, bootstrap intervals), or Morris elementary effects (μ*, σ) as a cheaper screen"
         ),
         limits=(
-            "Inputs are independent (no correlated ranges); Dirichlet sets of probabilities are held at their "
-            "point values; indices are estimates — with heavy-tailed inputs or few samples they can stray below "
-            "0 or above 1 (the intervals say how far to trust them); Morris effects are per unit of an input's "
-            "quantile, comparable within one result only."
+            "Inputs are independent (correlations between ranges are ignored here); a set of probabilities "
+            "(a Dirichlet: a chance node's branches, a state's transitions out, a Bayesian-network table) is "
+            "one input, indexed as a group; indices are estimates — with heavy-tailed inputs or few samples "
+            "they can stray below 0 or above 1 (the intervals say how far to trust them); Morris effects are "
+            "per unit of an input's quantile, comparable within one result only."
+        ),
+    ),
+    Foundation(
+        id="argument-map",
+        applies_to=("argument_map",),
+        method="Argument mapping evaluated by grounded labelling",
+        citation=(
+            "Toulmin (1958), *The Uses of Argument*; Kunz & Rittel (1970), \"Issues as Elements of Information "
+            "Systems\" (IBIS); Dung (1995), *Artificial Intelligence* 77(2); Cayrol & Lagasquie-Schiex (2005), "
+            "ECSQARU; Pollock (1987), *Cognitive Science* 11(4)"
+        ),
+        used_for=(
+            "a conclusion, the claims for and against it, linked and independent reasons, warrants and "
+            "qualifiers; each claim in, out or undecided by grounded labelling with support; open challenges on "
+            "links as undercutters; linchpins by leave-one-out; each premise's grounds from its citations"
+        ),
+        limits=(
+            "Qualitative: qualifiers are reported, not weighed — no numeric strengths or probabilities; a "
+            "premise not argued further stands unless rejected or contested by its sources, so the report "
+            "separates checked, unchecked and unsourced premises; one conclusion per map."
         ),
     ),
     Foundation(
@@ -512,7 +538,8 @@ _ANALYSIS_KIND_TO_ID = {
     "et-monte-carlo": "risk-monte-carlo",
     "dt-psa": "decision-psa",
     "markov-psa": "decision-psa",
-    **{k: "global-sensitivity" for k in ("ft-gsa", "bt-gsa", "et-gsa", "dt-gsa", "markov-gsa", "sd-gsa")},
+    **{k: "global-sensitivity" for k in ("ft-gsa", "bt-gsa", "et-gsa", "dt-gsa", "markov-gsa", "sd-gsa",
+                                         "bn-gsa")},
 }
 
 

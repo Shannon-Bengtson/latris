@@ -54,7 +54,7 @@ from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
 from latris.schema import Substrate
-from latris.schema.attributes import ParameterUncertainty
+from latris.schema.attributes import ParameterCorrelation, ParameterUncertainty
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 
 MODEL_TYPES = ("decision_tree", "markov")
@@ -280,9 +280,89 @@ def clear_range(model_type: str, target: str, *, quantity: str | None = None, st
     if len(kept) == len(s.entries):
         raise ValueError(f"{t['label']} has no range to clear")
     s.entries = kept
+    key = f"{t['id']}|{t['cell']}"
+    s.correlations = [c for c in s.correlations if key not in (c.a, c.b)]  # a correlation needs both ranges
     dump_model(s, paths.parameter_uncertainty_yaml)
     return auto_commit(paths.root, subject=f"Clear PSA range on {t['label']}",
                        paths=[paths.parameter_uncertainty_yaml])
+
+
+def _ranged(model_type: str, target: str, quantity: str | None, strategy: str | None, paths) -> dict[str, Any]:
+    t = _target(model_type, target, quantity, strategy, paths)
+    t["key"] = f"{t['id']}|{t['cell']}"
+    e = next((x for x in ranges(model_type, paths) if f"{x.target_id}|{x.parameter_cell_id}" == t["key"]), None)
+    if e is None:
+        raise ValueError(f"{t['label']} has no range yet; give it one (`latris "
+                         f"{'dt' if model_type == 'decision_tree' else model_type} range`) before correlating it")
+    if e.distribution == "dirichlet":
+        raise ValueError(f"{t['label']} is a set of probabilities (a Dirichlet); correlate single values")
+    return t
+
+
+def set_correlation(
+    model_type: str,
+    target: str,
+    other: str,
+    rho: float,
+    *,
+    quantity: str | None = None,
+    other_quantity: str | None = None,
+    strategy: str | None = None,
+    other_strategy: str | None = None,
+    reason: str = "",
+    source_id: str | None = None,
+    origin: ProvenanceOrigin = "human-direct",
+    verification: ProvenanceVerification = "unverified",
+    root: Path | None = None,
+) -> tuple[ParameterCorrelation, str]:
+    """Say two ranged values move together — rank correlation ``rho`` (e.g. two estimates from one study)."""
+    paths = require_project(root)
+    a = _ranged(model_type, target, quantity, strategy, paths)
+    b = _ranged(model_type, other, other_quantity, other_strategy, paths)
+    entry = ParameterCorrelation(target_id=a["id"], a=a["key"], b=b["key"], rho=rho, reason=reason,
+                                 source_id=source_id, origin=origin, verification=verification)
+    s = unc.load(paths)
+    s.correlations = [c for c in s.correlations if {c.a, c.b} != {a["key"], b["key"]}] + [entry]
+    mine = correlations(model_type, s)
+    smp.correlation_matrix(sorted({k for p in mine for k in p}), mine)  # refuses an impossible set
+    dump_model(s, paths.parameter_uncertainty_yaml)
+    sha = auto_commit(paths.root, subject=f"Correlate {a['label']} with {b['label']}: rank correlation {rho:g}",
+                      body=f"a: {a['key']}\nb: {b['key']}\nrho: {rho}\norigin: {origin}\nsource_id: {source_id}\n"
+                           f"reason: {reason}", paths=[paths.parameter_uncertainty_yaml])
+    return entry, sha
+
+
+def clear_correlation(model_type: str, target: str, other: str, *, quantity: str | None = None,
+                      other_quantity: str | None = None, strategy: str | None = None,
+                      other_strategy: str | None = None, root: Path | None = None) -> str:
+    paths = require_project(root)
+    a = _target(model_type, target, quantity, strategy, paths)
+    b = _target(model_type, other, other_quantity, other_strategy, paths)
+    keys = {f"{a['id']}|{a['cell']}", f"{b['id']}|{b['cell']}"}
+    s = unc.load(paths)
+    kept = [c for c in s.correlations if {c.a, c.b} != keys]
+    if len(kept) == len(s.correlations):
+        raise ValueError(f"{a['label']} and {b['label']} aren't correlated")
+    s.correlations = kept
+    dump_model(s, paths.parameter_uncertainty_yaml)
+    return auto_commit(paths.root, subject=f"Clear the correlation of {a['label']} with {b['label']}",
+                       paths=[paths.parameter_uncertainty_yaml])
+
+
+def correlations(model_type: str, store=None, paths=None) -> dict[tuple[str, str], float]:
+    """This type's correlations, by the keys of the two ranges they join."""
+    store = store if store is not None else unc.load(paths)
+    prefix = f"|{model_type}:"
+    return {(c.a, c.b): c.rho for c in store.correlations if prefix in c.a and prefix in c.b}
+
+
+def _correlation_rows(model_type: str, paths, labels: dict[str, str]) -> list[dict[str, Any]]:
+    """The correlations a run used, by input label (both ends must be inputs of this run)."""
+    store = unc.load(paths)
+    prefix = f"|{model_type}:"
+    return [{"a": labels[c.a], "b": labels[c.b], "rho": c.rho, "reason": c.reason,
+             "weak": c.verification != "human-verified"}
+            for c in store.correlations if prefix in c.a and c.a in labels and c.b in labels]
 
 
 def ranges(model_type: str, paths) -> list[ParameterUncertainty]:
@@ -301,9 +381,13 @@ def describe_cell(cell: str) -> tuple[str, str | None]:
 
 
 def _draws(scalar: dict[str, ParameterUncertainty], sets: dict[str, tuple[ParameterUncertainty, list[float]]],
-           runs: int, seed: int, sampling: str) -> list[dict[str, Any]]:
-    """``runs`` joint draws: a value for every scalar range, a probability vector for every Dirichlet one."""
-    base = smp.sample(scalar, runs, seed=seed, method=sampling) if scalar else [{} for _ in range(runs)]
+           runs: int, seed: int, sampling: str,
+           corr: dict[tuple[str, str], float] | None = None) -> list[dict[str, Any]]:
+    """``runs`` joint draws: a value for every scalar range (correlated where ``corr`` says), a probability
+    vector for every Dirichlet one."""
+    corr = {p: r for p, r in (corr or {}).items() if p[0] in scalar and p[1] in scalar}
+    base = (smp.sample(scalar, runs, seed=seed, method=sampling, correlations=corr or None) if scalar
+            else [{} for _ in range(runs)])
     rng = random.Random(seed + 7919)
     out = []
     for d in base:
@@ -337,6 +421,57 @@ def _driver(label: str, e: ParameterUncertainty, point: float | None, column: li
             "reason": e.reason, "origin": e.origin, "source": e.source_id,
             "weak": e.verification != "human-verified" or e.contested, "p5": lo, "p95": hi,
             "spearman": smp.spearman(column, target)}
+
+
+# ── partial value of information ─────────────────────────────────────
+
+
+def evppi(nb, x) -> float:
+    """The expected value of perfect information on one input (or one set of probabilities), from PSA runs.
+
+    ``nb``: runs × options, each option's net benefit (larger is better) in each run; ``x``: runs × columns,
+    the input's sampled value(s). EVPPI = E_x[max_d E(NB_d | x)] − max_d E(NB_d): what knowing x before
+    choosing is worth, with the rest still uncertain. E(NB_d | x) is estimated from the same runs — for one
+    value by sorting the runs on it and averaging within equal bins (Strong & Oakley 2013), for a set by a
+    quadratic regression on its components (after Strong, Oakley & Brennan 2014).
+    """
+    import numpy as np
+
+    nb = np.asarray(nb, dtype=float)
+    x = np.asarray(x, dtype=float).reshape(len(nb), -1)
+    runs = len(nb)
+    base = nb.mean(axis=0).max()
+    if x.shape[1] == 1:
+        order = np.argsort(x[:, 0], kind="stable")
+        bins = max(10, int(math.sqrt(runs)))
+        total = 0.0
+        for idx in np.array_split(order, bins):
+            if len(idx):
+                total += len(idx) * nb[idx].mean(axis=0).max()
+        value = total / runs - base
+    else:
+        x = x[:, x.std(axis=0) > 0]
+        design = np.column_stack([np.ones(runs), x, x ** 2])
+        coef, *_ = np.linalg.lstsq(design, nb, rcond=None)
+        value = (design @ coef).max(axis=1).mean() - base
+    return max(0.0, float(value))
+
+
+def _evppi_rows(draws: list[dict[str, Any]], keys: list[str], labels: dict[str, str], nb,
+                corr: dict[tuple[str, str], float] | None = None) -> list[dict[str, Any]]:
+    """Each input's partial EVPI, and each correlated pair's together: when two values move together, it is
+    often knowing both — their difference — that would change the choice, while either alone is worth little."""
+    import numpy as np
+
+    rows = []
+    for k in keys:
+        x = np.array([np.atleast_1d(d[k]) for d in draws], dtype=float)
+        rows.append({"input": labels[k], "evppi": evppi(nb, x)})
+    for a, b in sorted(corr or {}):
+        if a in keys and b in keys:
+            x = np.array([[d[a], d[b]] for d in draws], dtype=float)
+            rows.append({"input": f"{labels[a]} and {labels[b]} together", "evppi": evppi(nb, x), "pair": True})
+    return sorted(rows, key=lambda r: -r["evppi"])
 
 
 # ── decision tree ────────────────────────────────────────────────────
@@ -451,7 +586,7 @@ def dt_psa(*, runs: int = 2000, seed: int = 1234, sampling: str = "lhs",
                          "(e.g. `latris dt range 'Launched, high demand' normal --mean 500 --sd 100`)")
     sign = t.sign
     point = _dt_options(t, dt.rollback(t)[0])
-    draws = _draws(scalar, sets, runs, seed, sampling)
+    draws = _draws(scalar, sets, runs, seed, sampling, correlations("decision_tree", paths=paths))
     values: dict[str, list[float]] = {o: [] for o in point}
     best_count = dict.fromkeys(point, 0)
     for d in draws:
@@ -490,14 +625,22 @@ def dt_psa(*, runs: int = 2000, seed: int = 1234, sampling: str = "lhs",
             drivers.append(_driver(f"P({t.uncertainty[n]} = {t.branch_label(x, c)})", e, t.branches[x].probability,
                                    [d[key][i] for d in draws], target))
     drivers.sort(key=lambda r: -abs(r["spearman"] or 0))
+    evppi_rows: list[dict[str, Any]] = []
+    if len(order) > 1:
+        import numpy as np
+
+        nb = sign * np.array([values[o] for o in order], dtype=float).T
+        evppi_rows = _evppi_rows(draws, sorted([*scalar, *sets], key=lambda k: labels[k]), labels, nb,
+                                 correlations("decision_tree", paths=paths))
     return {
         "model_type": "decision_tree", "quantity": "expected value", "objective": t.settings.objective,
         "units": t.settings.units,
         "runs": runs, "seed": seed, "sampling": sampling, "decision": t.labels[t.root],
         "primary": best, "best": best, "point_best": point_best, "rival": rival,
-        "p_best": best_count[best] / runs, "evpi": evpi, "outputs": outputs,
+        "p_best": best_count[best] / runs, "evpi": evpi, "evppi": evppi_rows, "outputs": outputs,
         "driver_target": driver_target, "drivers": drivers,
         "fixed": _dt_fixed(t, set(scalar)),
+        "correlations": _correlation_rows("decision_tree", paths, labels),
     }
 
 
@@ -600,7 +743,7 @@ def markov_psa(*, runs: int = 1000, seed: int = 1234, sampling: str = "lhs",
     strategies = m.strategy_names()
     names = [m.labels[x] if x else markov.BASE_CASE for x in strategies]
     point = {n: markov.totals(m, x)[:2] for n, x in zip(names, strategies, strict=True)}
-    draws = _draws(scalar, sets, runs, seed, sampling)
+    draws = _draws(scalar, sets, runs, seed, sampling, correlations("markov", paths=paths))
     cost = np.zeros((runs, len(strategies)))
     out = np.zeros((runs, len(strategies)))
     rescaled = 0
@@ -644,7 +787,9 @@ def markov_psa(*, runs: int = 1000, seed: int = 1234, sampling: str = "lhs",
         a, b = int(order[0]), int(order[1])
         win = nmb.argmax(axis=1)
         payload.update(choice=names[a], rival=names[b], p_cost_effective=float((win == a).mean()),
-                       evpi=float(nmb.max(axis=1).mean() - means.max()))
+                       evpi=float(nmb.max(axis=1).mean() - means.max()),
+                       evppi=_evppi_rows(draws, sorted([*scalar, *sets], key=lambda k: labels[k]), labels, nmb,
+                                         correlations("markov", paths=paths)))
         target = nmb[:, a] - nmb[:, b]
         driver_target = f"net monetary benefit of {names[a]} over {names[b]}"
     elif len(names) > 1:
@@ -677,7 +822,8 @@ def markov_psa(*, runs: int = 1000, seed: int = 1234, sampling: str = "lhs",
     fixed += sorted(f"{m.labels[st]} {q}" + (f" under {m.labels[sid]}" if sid else "")
                     for (st, sid), r in m.rewards.items() for q in ("cost", "utility")
                     if getattr(r, q) is not None and f"{st}|{_cell('markov', q, sid)}" not in scalar)
-    payload.update(driver_target=driver_target, drivers=drivers, fixed=fixed)
+    payload.update(driver_target=driver_target, drivers=drivers, fixed=fixed,
+                   correlations=_correlation_rows("markov", paths, labels))
     return payload
 
 

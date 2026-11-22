@@ -41,6 +41,27 @@ def test_morris_gives_slopes_of_a_linear_model_and_flags_interaction():
     assert (r["sigma"][:, 0] > 0.3 * r["mu_star"][:, 0]).all()  # a product: each effect depends on the other
 
 
+def test_grouped_sobol_gives_a_group_its_share():
+    # y = x1 + x2 + x3, each uniform: the group {x1, x2} explains two thirds of the variance, x3 a third.
+    r = gs.sobol_indices(lambda u: u.sum(axis=1)[:, None], 2, 2048, seed=3, widths=[2, 1])
+    assert r["S1"][:, 0] == pytest.approx([2 / 3, 1 / 3], abs=0.03)
+    assert r["ST"][:, 0] == pytest.approx([2 / 3, 1 / 3], abs=0.03)
+    m = gs.morris_effects(lambda u: u.sum(axis=1)[:, None], 2, 20, seed=3, widths=[2, 1])
+    assert m["runs"] == 60 and m["mu_star"][1, 0] == pytest.approx(1)
+
+
+def test_a_group_decodes_to_a_dirichlet():
+    from scipy.stats import qmc
+
+    alpha = [8.0, 12.0, 0.0]
+    u = qmc.Sobol(d=3, scramble=True, seed=1).random_base2(12)
+    p = np.array([row[0] for row in gs._decode_group([alpha], u)])
+    assert p.sum(axis=1) == pytest.approx(np.ones(len(p))) and (p[:, 2] == 0).all()
+    # Dirichlet(8, 12): mean 0.4, variance 0.4·0.6/21.
+    assert p[:, 0].mean() == pytest.approx(0.4, abs=0.005)
+    assert p[:, 0].var() == pytest.approx(0.24 / 21, rel=0.05)
+
+
 def test_decision_tree_indices_match_the_closed_form(dt_project):
     DT._build(dt_project)
     with pytest.raises(ValueError, match="at least two inputs"):
@@ -68,9 +89,10 @@ def test_decision_tree_indices_match_the_closed_form(dt_project):
 
     psa.set_range("decision_tree", "Demand if launched", "dirichlet", {"n": 20}, root=dt_project)
     p = gs.analyse("decision_tree", method="morris", n=4, root=dt_project)
-    assert any("Dirichlet" in note for note in p["notes"])
+    (grp,) = [r for r in p["outputs"][0]["indices"] if r["group"]]
+    assert grp["input"] == "Demand (branch probabilities)" and grp["n"] == 20 and grp["mu_star"] > 0
     for bad, msg in (({"method": "sobol", "n": 100}, "power of two"), ({"method": "morris", "n": 2}, "at least 4"),
-                     ({"method": "fast"}, "method must be"), ({"variable": "X"}, "system dynamics")):
+                     ({"method": "fast"}, "method must be"), ({"variable": "X"}, "variable doesn't apply here")):
         with pytest.raises(ValueError, match=msg):
             gs.analyse("decision_tree", root=dt_project, **bad)
     with pytest.raises(ValueError, match="no single output"):
@@ -133,3 +155,24 @@ def test_surfaces(dt_project):
     assert res.status_code == 200 and res.json()["result"]["method"] == "morris" and res.json()["commit_sha"] is None
     bad = client.post("/api/analysis/global-sensitivity", json={"model_type": "cld"})
     assert bad.status_code == 422
+
+
+def test_bayesian_network_tables_are_grouped_inputs(tmp_path, git_identity):
+    from latris.testing import build_example
+
+    root = build_example("system", tmp_path / "system")
+    p = gs.analyse("bn", variable="Respiratory Health", state="poor", evidence={"Transport Policy": "strict"},
+                   n=64, root=root)
+    assert p["primary"] == "P(Respiratory Health = poor | Transport Policy = strict)"
+    rows = p["outputs"][0]["indices"]
+    assert [r["input"] for r in rows] == ["Respiratory Health (probability table)",
+                                          "Air Quality Index (probability table)"]
+    # The table worth 10 observations carries far more of the uncertainty than the one worth 180.
+    assert rows[0]["ST"] > 0.8 and rows[1]["ST"] < 0.2 and all(r["group"] for r in rows)
+    assert {o["output"] for o in p["outputs"]} == {
+        f"P(Respiratory Health = {s} | Transport Policy = strict)" for s in ("good", "poor")} or len(p["outputs"]) >= 2
+    assert "Transport Policy" in p["fixed"]
+    with pytest.raises(ValueError, match="metric doesn't apply"):
+        gs.analyse("bn", variable="Respiratory Health", metric="final", root=root)
+    with pytest.raises(ValueError, match="which factor"):
+        gs.analyse("bn", root=root)

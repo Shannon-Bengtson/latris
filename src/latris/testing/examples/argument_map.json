@@ -1,0 +1,208 @@
+{
+ "model_type": "argument_map",
+ "factors": [
+  {
+   "label": "Fund the new drug",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "The drug works",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "We can afford it",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Patients want it",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "The trial was small",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "A second trial confirmed it",
+   "kind": "concept",
+   "sources": [
+    "trial2"
+   ],
+   "contradicts": []
+  },
+  {
+   "label": "The budget is overspent",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "label": "Should the board fund the new drug?",
+   "kind": "concept",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "links": [
+  {
+   "from": "The drug works",
+   "to": "Fund the new drug",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "We can afford it",
+   "to": "Fund the new drug",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "Patients want it",
+   "to": "Fund the new drug",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "The trial was small",
+   "to": "The drug works",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "A second trial confirmed it",
+   "to": "The trial was small",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  },
+  {
+   "from": "The budget is overspent",
+   "to": "We can afford it",
+   "kind": "causal",
+   "sources": [],
+   "contradicts": []
+  }
+ ],
+ "sources": [
+  {
+   "key": "trial2",
+   "title": "Confirmatory trial report (illustrative)",
+   "authors": [],
+   "year": 2026,
+   "extract_kind": "abstract"
+  }
+ ],
+ "assumptions": [],
+ "questions": [],
+ "findings": [],
+ "challenges": [],
+ "decisions": [],
+ "interpretation": [],
+ "argument_map": {
+  "elements": [
+   {
+    "node": "Fund the new drug",
+    "type": "conclusion"
+   },
+   {
+    "node": "Should the board fund the new drug?",
+    "type": "question"
+   },
+   {
+    "node": "The drug works",
+    "type": "claim"
+   },
+   {
+    "node": "We can afford it",
+    "type": "claim"
+   },
+   {
+    "node": "Patients want it",
+    "type": "claim"
+   },
+   {
+    "node": "The trial was small",
+    "type": "claim"
+   },
+   {
+    "node": "A second trial confirmed it",
+    "type": "claim"
+   },
+   {
+    "node": "The budget is overspent",
+    "type": "claim"
+   }
+  ],
+  "links": [
+   {
+    "link": "The drug works -> Fund the new drug",
+    "relation": "supports",
+    "reason": "value",
+    "warrant": "An effective treatment that fits the budget is good value.",
+    "qualifier": "probably",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "We can afford it -> Fund the new drug",
+    "relation": "supports",
+    "reason": "value",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "Patients want it -> Fund the new drug",
+    "relation": "supports",
+    "warrant": "Patient preference is a funding criterion.",
+    "qualifier": "possibly",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "The trial was small -> The drug works",
+    "relation": "attacks",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "A second trial confirmed it -> The trial was small",
+    "relation": "attacks",
+    "origin": "human-direct",
+    "verified": false
+   },
+   {
+    "link": "The budget is overspent -> We can afford it",
+    "relation": "attacks",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ],
+  "claims": [
+   {
+    "node": "Patients want it",
+    "assessment": "accepted",
+    "rationale": "The patient panel's view, accepted by the board.",
+    "origin": "human-direct",
+    "verified": false
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "argument_analyse"
+  }
+ ]
+}

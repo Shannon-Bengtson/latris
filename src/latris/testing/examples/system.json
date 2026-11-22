@@ -816,6 +816,17 @@
    "method": "sobol",
    "n": 32,
    "seed": 1234
+  },
+  {
+   "kind": "bn_gsa",
+   "method": "sobol",
+   "n": 32,
+   "seed": 1234,
+   "variable": "Respiratory Health",
+   "state": "poor",
+   "evidence": {
+    "Transport Policy": "strict"
+   }
   }
  ]
 }

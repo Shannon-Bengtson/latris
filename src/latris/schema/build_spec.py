@@ -453,6 +453,37 @@ class SpecACH(_Spec):
     ratings: list[SpecACHRating] = Field(default_factory=list)
 
 
+class SpecArgumentElement(_Spec):
+    node: str
+    type: Literal["conclusion", "claim", "question"]
+
+
+class SpecArgumentLink(_SpecParam):
+    link: str  # "Premise -> Claim" (the link must exist under links)
+    relation: Literal["supports", "attacks"] = "supports"
+    reason: str | None = None  # premises sharing a reason name work only together
+    warrant: str | None = None  # why the premise bears on the claim
+    qualifier: Literal["certainly", "probably", "possibly"] | None = None
+    notes: str | None = None
+    verified: bool = False
+
+
+class SpecArgumentClaim(_SpecParam):
+    node: str
+    assessment: Literal["accepted", "rejected"] | None = None
+    rationale: str | None = None
+    verified: bool = False
+
+
+class SpecArgumentMap(_Spec):
+    """Argument map: the conclusion and claims, how each premise bears on a claim (supports or attacks, its
+    reason, warrant and qualifier), and a person's assessment of claims taken as given."""
+
+    elements: list[SpecArgumentElement] = Field(default_factory=list)
+    links: list[SpecArgumentLink] = Field(default_factory=list)
+    claims: list[SpecArgumentClaim] = Field(default_factory=list)
+
+
 class SpecPsaRange(_SpecParam):
     """How uncertain a decision tree's or Markov model's input is, for probabilistic sensitivity analysis.
 
@@ -467,6 +498,21 @@ class SpecPsaRange(_SpecParam):
     strategy: str | None = None  # Markov: the range is on this strategy's own value
     distribution: Literal["uniform", "triangular", "normal", "lognormal", "beta", "gamma", "dirichlet"]
     params: dict[str, float]
+    reason: str = ""
+    verified: bool = False
+
+
+class SpecPsaCorrelation(_SpecParam):
+    """Two ranged values that move together (``rho``, a rank correlation): each end named as in
+    :class:`SpecPsaRange`, with its quantity and (Markov) strategy where needed."""
+
+    target: str
+    other: str
+    rho: float = Field(ge=-0.99, le=0.99)
+    quantity: str | None = None
+    other_quantity: str | None = None
+    strategy: str | None = None
+    other_strategy: str | None = None
     reason: str = ""
     verified: bool = False
 
@@ -511,6 +557,7 @@ class SpecDT(_Spec):
     payoffs: list[SpecDTPayoff] = Field(default_factory=list)
     uncertainties: list[SpecDTUncertainty] = Field(default_factory=list)
     ranges: list[SpecPsaRange] = Field(default_factory=list)  # for probabilistic sensitivity analysis
+    correlations: list[SpecPsaCorrelation] = Field(default_factory=list)  # ranges that move together
 
 
 class SpecMarkovElement(_Spec):
@@ -565,6 +612,7 @@ class SpecMarkov(_Spec):
     rewards: list[SpecMarkovReward] = Field(default_factory=list)
     start: list[SpecMarkovStart] = Field(default_factory=list)
     ranges: list[SpecPsaRange] = Field(default_factory=list)  # for probabilistic sensitivity analysis
+    correlations: list[SpecPsaCorrelation] = Field(default_factory=list)  # ranges that move together
 
 
 class SpecBNStates(_Spec):
@@ -965,17 +1013,26 @@ class MarkovAnalyseAnalysis(_Analysis):
 
 
 class GsaAnalysis(_Analysis):
-    """Global sensitivity of a fault tree, bow-tie, event tree, decision tree, Markov model or SD model: Sobol
-    indices or Morris screening over every input with a range. ``n``: Sobol base samples (a power of two) or
-    Morris trajectories; ``output``: the result to headline; SD takes ``variable`` and ``metric``."""
+    """Global sensitivity of a fault tree, bow-tie, event tree, decision tree, Markov, SD or Bayesian-network
+    model: Sobol indices or Morris screening over every input with a range. ``n``: Sobol base samples (a power
+    of two) or Morris trajectories; ``output``: the result to headline; SD takes ``variable`` and ``metric``,
+    a BN ``variable``, ``state`` and ``evidence``."""
 
-    kind: Literal["ft_gsa", "bt_gsa", "et_gsa", "dt_gsa", "markov_gsa", "sd_gsa"]
+    kind: Literal["ft_gsa", "bt_gsa", "et_gsa", "dt_gsa", "markov_gsa", "sd_gsa", "bn_gsa"]
     method: Literal["sobol", "morris"] | None = None
     n: int | None = Field(default=None, ge=4)
     seed: int | None = None
     output: str | None = None
     variable: str | None = None
     metric: str | None = None
+    state: str | None = None  # BN: the state of variable whose probability is explained
+    evidence: dict[str, str] = Field(default_factory=dict)  # BN: the question's observed states
+
+
+class ArgumentAnalyseAnalysis(_Analysis):
+    """Argument map: whether the conclusion stands, its reasons, objections and linchpins."""
+
+    kind: Literal["argument_analyse"]
 
 
 class PsaAnalysis(_Draws):
@@ -990,7 +1047,7 @@ ANALYSIS_MODELS: tuple[type[_Analysis], ...] = (
     BnQueryAnalysis, BnExplainAnalysis, BnMonteCarloAnalysis, BnCompareAnalysis, BnSensitivityAnalysis,
     TocCheckAnalysis, TocTraceAnalysis, TocImpactAnalysis, FtAnalyseAnalysis, BowtieAnalyseAnalysis,
     EtAnalyseAnalysis, RiskMonteCarloAnalysis, DagEstimateAnalysis, FcmInferAnalysis, McdaAnalyseAnalysis,
-    AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis, PsaAnalysis, GsaAnalysis,
+    AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis, PsaAnalysis, GsaAnalysis, ArgumentAnalyseAnalysis,
 )
 
 SpecAnalysis = Annotated[
@@ -998,7 +1055,8 @@ SpecAnalysis = Annotated[
     | BnQueryAnalysis | BnExplainAnalysis | BnMonteCarloAnalysis | BnCompareAnalysis | BnSensitivityAnalysis
     | TocCheckAnalysis | TocTraceAnalysis | TocImpactAnalysis | FtAnalyseAnalysis | BowtieAnalyseAnalysis
     | EtAnalyseAnalysis | RiskMonteCarloAnalysis | DagEstimateAnalysis | FcmInferAnalysis | McdaAnalyseAnalysis
-    | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis | PsaAnalysis | GsaAnalysis,
+    | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis | PsaAnalysis | GsaAnalysis
+    | ArgumentAnalyseAnalysis,
     Field(discriminator="kind"),
 ]
 
@@ -1063,6 +1121,7 @@ class BuildSpec(_Spec):
     event_tree: SpecEventTree | None = None  # Event tree elements, order, sequences, probabilities
     mcda: SpecMCDA | None = None  # MCDA options, criteria and scores
     ach: SpecACH | None = None  # ACH hypotheses, evidence items and ratings
+    argument_map: SpecArgumentMap | None = None  # argument map: conclusion, claims, links, assessments
     decision_tree: SpecDT | None = None  # Decision tree nodes, branches, payoffs, uncertainties
     markov: SpecMarkov | None = None  # Markov states, strategies, transitions, rewards, start, settings
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building

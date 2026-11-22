@@ -316,13 +316,42 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   analysis (below). A cohort expectation, not individual simulation; MDPs
   (choosing actions in each state) are not implemented.
 
+## Argument maps
+
+- **Lineage.** Toulmin (1958), *The Uses of Argument* (claim, grounds,
+  warrant, qualifier, rebuttal); IBIS, Kunz & Rittel (1970); abstract
+  argumentation and grounded semantics, Dung (1995); support relations
+  (bipolar argumentation), Cayrol & Lagasquie-Schiex (2005); undercutting
+  defeaters, Pollock (1987).
+- **Implemented.** A conclusion, claims and an optional question as view
+  roles; a link from a premise to a claim supports or attacks it, belongs to
+  a named reason (premises in one reason work only together) and can carry a
+  warrant and qualifier. Grounded labelling with support, to a fixed point:
+  a claim is in when every attack on it fails and a reason for it holds (all
+  its premises in, its inference unchallenged) or it is a premise taken as
+  given (not argued further, not rejected, its sources not against it); out
+  when an attack succeeds, a person rejected it, or every reason fails;
+  otherwise undecided. An open challenge on a link suspends that inference.
+  Objections and answers are told apart by side (attacks on claims that help
+  the conclusion are objections). Linchpins by leave-one-out; the premises
+  the conclusion rests on classified as checked, cited, accepted or
+  unsourced from their citations.
+- **Limits.** Qualitative: qualifiers are reported, not weighed, and one
+  reason that holds is enough — no numeric strengths, probabilities or
+  preference orderings between arguments (no value-based or structured
+  argumentation such as ASPIC+). A premise not argued further stands by
+  default; the report lists those without a checked source. One conclusion
+  per map.
+
 ## Probabilistic sensitivity analysis (decision trees and Markov models)
 
 - **Lineage.** Briggs, Claxton & Sculpher (2006), *Decision Modelling for
   Health Economic Evaluation*, ch. 4–7; acceptability curves after Fenwick,
   Claxton & Sculpher (2001); the expected value of perfect information over
-  the parameters after Claxton (1999); Latin hypercube sampling after
-  McKay, Beckman & Conover (1979).
+  the parameters after Claxton (1999); partial EVPI after Strong & Oakley
+  (2013) and Strong, Oakley & Brennan (2014); correlated draws after Iman &
+  Conover (1982); Latin hypercube sampling after McKay, Beckman & Conover
+  (1979).
 - **Implemented.** Ranges on a decision tree's payoffs, branch values and
   probabilities (one branch of a two-branch chance node, or every branch as
   a Dirichlet worth n observations; chance nodes resolving the same
@@ -340,10 +369,20 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   probability the chosen strategy is cost-effective at the stated
   willingness to pay. Spearman rank correlation names the inputs driving
   the decision (the best option's advantage, or its net monetary benefit,
-  over the runner-up).
-- **Limits.** Inputs are sampled independently (no correlated draws). EVPI
-  is for all parameters together; partial EVPI (EVPPI) and sample
-  information (EVSI) are not computed. Separately sampled probabilities of
+  over the runner-up). The partial EVPI of each input — what knowing it
+  alone before choosing is worth — comes from the same runs, without
+  rerunning the model: for a single value by sorting the runs on it and
+  taking each option's mean net benefit within equal bins (Strong & Oakley
+  2013); for a set of probabilities by a quadratic regression of net
+  benefit on its components. Two ranged values can be given a rank
+  correlation (two estimates from one study): Iman–Conover reordering pairs
+  their draws to it while each keeps exactly its own distribution and
+  Latin hypercube strata; a set of correlations that can't hold together
+  is refused.
+- **Limits.** Correlations join single values, not Dirichlet sets. The
+  partial EVPI is an estimate from the PSA runs — biased a little upward
+  when bins hold few runs — and prices one input at a time; sample
+  information (EVSI) is not computed. Separately sampled probabilities of
   leaving a Markov state that sum past 1 are scaled down to 1, and the
   report counts how often; a Dirichlet over the state avoids it.
 
@@ -355,7 +394,7 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   effects after Morris (1991), with μ* after Campolongo, Cariboni & Saltelli
   (2007).
 - **Implemented.** For fault trees, bow-ties, event trees, decision trees,
-  Markov models and system dynamics, every input with a range (the same
+  Markov models, system dynamics and Bayesian networks, every input with a range (the same
   distributions their Monte Carlo or PSA samples) is varied together on the
   unit hypercube and mapped through its quantile function. Sobol: a
   scrambled Sobol sequence, n·(k + 2) runs, first-order and total indices
@@ -364,10 +403,16 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   with a bootstrap interval on μ*. The headline output is the model's main
   result (the top event, the best option's advantage over the runner-up,
   the net monetary benefit at the willingness to pay, an SD variable's
-  metric). Implemented on numpy and scipy rather than SALib; checked
+  metric, a Bayesian network's posterior). A set of probabilities — a
+  chance node's branches, a state's transitions out, a Bayesian-network
+  table worth n observations — is one input spanning several columns,
+  decoded into an exact Dirichlet draw (each component a gamma quantile,
+  normalised) and indexed as a group (Jacques, Lavergne & Devictor 2006).
+  Implemented on numpy and scipy rather than SALib; checked
   against the Ishigami function's analytic indices and closed forms.
-- **Limits.** Inputs must be independent; Dirichlet sets of probabilities
-  (and so Bayesian-network tables) are held at their point values. Index
+- **Limits.** Inputs must be independent (correlations between ranges are
+  ignored by this analysis); a group's index covers the whole set, not each
+  of its rows. Index
   estimates carry sampling error — with heavy-tailed inputs or small n they
   can stray outside [0, 1]; the intervals say how far to trust them. Morris
   effects are per unit of an input's quantile and comparable only within
@@ -471,6 +516,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | ACH | Weighs explanations against evidence; orders hypotheses, gives no probabilities |
 | Decision tree | Choices under stated probabilities; the value of knowing them first — not causal estimation |
 | Markov model | Expected costs and outcomes under stated transition probabilities — not causal estimation |
+| Argument map | Whether a conclusion stands given the reasons and objections stated, and what it rests on — qualitative, not a probability |
 | DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -527,6 +573,10 @@ the code it describes win, and this page is wrong.
 - Campolongo, F., Cariboni, J., & Saltelli, A. (2007). "An effective screening
   design for sensitivity analysis of large models." *Environmental Modelling
   & Software*, 22(10), 1509–1518.
+- Cayrol, C., & Lagasquie-Schiex, M.-C. (2005). "On the acceptability of
+  arguments in bipolar argumentation frameworks." In *Symbolic and
+  Quantitative Approaches to Reasoning with Uncertainty (ECSQARU)*, LNCS
+  3571, 378–389. Springer.
 - CCPS & Energy Institute (2018). *Bow Ties in Risk Management: A Concept
   Book for Process Safety*. AIChE / Wiley.
 - CCPS — Center for Chemical Process Safety (2001). *Layer of Protection
@@ -541,6 +591,9 @@ the code it describes win, and this page is wrong.
 - Drummond, M. F., Sculpher, M. J., Claxton, K., Stoddart, G. L., &
   Torrance, G. W. (2015). *Methods for the Economic Evaluation of Health
   Care Programmes* (4th ed.). Oxford University Press.
+- Dung, P. M. (1995). "On the acceptability of arguments and its
+  fundamental role in nonmonotonic reasoning, logic programming and n-person
+  games." *Artificial Intelligence*, 77(2), 321–357.
 - Fairfield, T., & Charman, A. E. (2017). "Explicit Bayesian Analysis for
   Process Tracing: Guidelines, Opportunities, and Caveats." *Political
   Analysis*, 25(3), 363–380.
@@ -573,6 +626,12 @@ the code it describes win, and this page is wrong.
   Electrotechnical Commission.
 - IEC 62502:2010. *Analysis techniques for dependability — Event tree
   analysis (ETA)*. International Electrotechnical Commission.
+- Iman, R. L., & Conover, W. J. (1982). "A distribution-free approach to
+  inducing rank correlation among input variables." *Communications in
+  Statistics — Simulation and Computation*, 11(3), 311–334.
+- Jacques, J., Lavergne, C., & Devictor, N. (2006). "Sensitivity analysis
+  in presence of model uncertainty and correlated inputs." *Reliability
+  Engineering & System Safety*, 91(10–11), 1126–1134.
 - Jansen, M. J. W. (1999). "Analysis of variance designs for model output."
   *Computer Physics Communications*, 117(1–2), 35–43.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
@@ -584,6 +643,9 @@ the code it describes win, and this page is wrong.
   Kellogg Foundation.
 - Kosko, B. (1986). "Fuzzy Cognitive Maps." *International Journal of
   Man-Machine Studies*, 24(1), 65–75.
+- Kunz, W., & Rittel, H. W. J. (1970). *Issues as Elements of Information
+  Systems*. Working Paper 131, Institute of Urban and Regional Development,
+  University of California, Berkeley.
 - MacKinnon, J. G., & White, H. (1985). "Some heteroskedasticity-consistent
   covariance matrix estimators with improved finite sample properties."
   *Journal of Econometrics*, 29(3), 305–325.
@@ -601,6 +663,8 @@ the code it describes win, and this page is wrong.
   Cambridge University Press.
 - Pearl, J., & Mackenzie, D. (2018). *The Book of Why: The New Science of
   Cause and Effect*. Basic Books.
+- Pollock, J. L. (1987). "Defeasible reasoning." *Cognitive Science*, 11(4),
+  481–518.
 - Prais, S. J., & Winsten, C. B. (1954). *Trend Estimators and Serial
   Correlation*. Cowles Commission Discussion Paper No. 383.
 - Raiffa, H. (1968). *Decision Analysis: Introductory Lectures on Choices
@@ -632,6 +696,13 @@ the code it describes win, and this page is wrong.
   322–338.
 - Sterman, J. D. (2000). *Business Dynamics: Systems Thinking and Modeling
   for a Complex World*. Irwin/McGraw-Hill.
+- Strong, M., & Oakley, J. E. (2013). "An efficient method for computing
+  single-parameter partial expected value of perfect information."
+  *Medical Decision Making*, 33(6), 755–766.
+- Strong, M., Oakley, J. E., & Brennan, A. (2014). "Estimating
+  multiparameter partial expected value of perfect information from a
+  probabilistic sensitivity analysis sample: a nonparametric regression
+  approach." *Medical Decision Making*, 34(3), 311–326.
 - Toulmin, S. E. (1958). *The Uses of Argument*. Cambridge University Press.
 - US Nuclear Regulatory Commission (1975). *Reactor Safety Study*
   (WASH-1400, NUREG-75/014).

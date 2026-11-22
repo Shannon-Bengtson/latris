@@ -124,9 +124,14 @@ def fingerprint(
         # Only this model type's ranges (cells "sd:..." / "bn:..."), so a BN range doesn't age an SD run.
         from latris.operations import uncertainty as unc
 
-        own = [e.model_dump(mode="json") for e in unc.load(paths).entries
+        store = unc.load(paths)
+        own = [e.model_dump(mode="json") for e in store.entries
                if (e.parameter_cell_id or "").startswith(f"{model_type}:")]
         h.update(json.dumps(own, sort_keys=True).encode())
+        # Correlations between this type's ranges count too; with none, the hash is as before they existed.
+        tied = [c.model_dump(mode="json") for c in store.correlations if f"|{model_type}:" in c.a]
+        if tied:
+            h.update(json.dumps(tied, sort_keys=True).encode())
     return h.hexdigest()[:16]
 
 

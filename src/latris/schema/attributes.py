@@ -170,8 +170,33 @@ class ParameterUncertainty(EntryBase):
         return self
 
 
+class ParameterCorrelation(EntryBase):
+    """Two uncertain values that move together — e.g. two numbers from the same study.
+
+    Each end names a range as ``"<target id>|<parameter cell>"`` (the cell its ``ParameterUncertainty``
+    describes); ``target_id`` is the first end's target. ``rho`` is the rank (Spearman) correlation the
+    Monte Carlo induces between their draws (Iman & Conover 1982), leaving each range's own distribution
+    as it is.
+    """
+
+    attribute: str = "correlation"
+    a: str
+    b: str
+    rho: float = Field(ge=-0.99, le=0.99)
+    reason: str = ""
+
+    @model_validator(mode="after")
+    def _check_ends(self) -> ParameterCorrelation:
+        if self.a == self.b:
+            raise ValueError("a value can't be correlated with itself")
+        if self.rho == 0:
+            raise ValueError("a correlation of 0 is no correlation: clear it instead")
+        return self
+
+
 class ParameterUncertaintySet(_Base):
     entries: list[ParameterUncertainty] = Field(default_factory=list)
+    correlations: list[ParameterCorrelation] = Field(default_factory=list)
 
 
 class EvidenceLink(_Base):

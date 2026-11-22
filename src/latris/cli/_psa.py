@@ -141,6 +141,14 @@ def register(app: typer.Typer, model_type: str) -> None:
                         t.add_row(psa.money(c["wtp"][i], cu), *(f"{c['p'][j][i]:.0%}" for j in range(len(c["p"]))),
                                   psa.money(c["evpi"][i], cu))
                     console.print(t)
+            if payload.get("evppi"):
+                t = Table(show_header=True, header_style="bold", title="Partial EVPI: knowing one input first")
+                t.add_column("Input")
+                t.add_column("Worth up to", justify="right")
+                for r in payload["evppi"]:
+                    t.add_row(escape(r["input"]), psa.money(r["evppi"], payload["cost_units"])
+                              if model_type == "markov" else _g(r["evppi"]))
+                console.print(t)
             t = Table(show_header=True, header_style="bold", title=f"What drives the {payload['driver_target']}")
             for col in ("Input", "Distribution", "5th–95th", "Rank corr.", "Checked"):
                 t.add_column(col)
@@ -157,3 +165,54 @@ def register(app: typer.Typer, model_type: str) -> None:
         emit(payload, human=human, commit_sha=sha)
 
     del range_, psa_  # registered on the app
+
+
+def register_correlate(app: typer.Typer, model_type: str) -> None:
+    takes_strategy = model_type == "markov"
+
+    @app.command("correlate")
+    @handle_cli_errors
+    def correlate(
+        target: str = typer.Argument(..., help="A value with a range (as `range` names it)."),
+        other: str = typer.Argument(..., help="Another value with a range."),
+        rho: float = typer.Argument(0.0, help="Rank correlation, -0.99 to 0.99: positive when they rise together."),
+        quantity: str | None = typer.Option(None, "--quantity", "-q", help="The first value's quantity, where "
+                                                                          "its target leaves it open."),
+        other_quantity: str | None = typer.Option(None, "--other-quantity", help="The second value's quantity."),
+        strategy: str | None = typer.Option(None, "--strategy", help="Markov: the first value's strategy.",
+                                            hidden=not takes_strategy),
+        other_strategy: str | None = typer.Option(None, "--other-strategy", help="Markov: the second's strategy.",
+                                                  hidden=not takes_strategy),
+        reason: str = typer.Option("", "--reason", help="Why they move together (e.g. 'both from the ARC trial')."),
+        source: str | None = typer.Option(None, "--source", help="Source ID backing it."),
+        origin: str = typer.Option("human-direct", "--origin", help=ORIGIN_HELP),
+        verified: bool = typer.Option(False, "--verified", help="Mark it as checked by a person."),
+        clear: bool = typer.Option(False, "--clear", help="Remove the correlation instead."),
+    ) -> None:
+        """Say two uncertain values move together, so `psa` samples them together.
+
+        Two estimates from the same study — a treatment's effect and its
+        cost, two transition rates from one cohort — are rarely
+        independent. The correlation is a rank correlation: each value keeps
+        its own range, and only how their draws pair up changes. Global
+        sensitivity analysis ignores it (its indices need independent
+        inputs) and says so.
+        """
+        from latris.operations import psa
+
+        names = {"quantity": quantity, "other_quantity": other_quantity, "strategy": strategy,
+                 "other_strategy": other_strategy}
+        if clear:
+            sha = psa.clear_correlation(model_type, target, other, **names)
+            emit({"cleared": [target, other]},
+                 human=lambda: console.print(f"[green]cleared[/green] {escape(target)} ~ {escape(other)} · "
+                                             f"commit [cyan]{sha[:10]}[/cyan]"), commit_sha=sha)
+            return
+        entry, sha = psa.set_correlation(model_type, target, other, rho, **names, reason=reason, source_id=source,
+                                         origin=origin,  # type: ignore[arg-type]
+                                         verification=verification(verified))
+        emit(entry.model_dump(mode="json"),
+             human=lambda: console.print(f"[green]correlated[/green] {escape(target)} ~ {escape(other)} "
+                                         f"(rank {rho:+g}) · commit [cyan]{sha[:10]}[/cyan]"), commit_sha=sha)
+
+    del correlate
