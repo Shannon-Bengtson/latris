@@ -630,7 +630,7 @@ When the model is a system-dynamics model and the page carries *Everything*, a r
 - Switch between the model's saved **scenarios**, and carry on from one.
 - **Put it back**, one value or all of them.
 
-The page simulates from the model's own equations and gives the same runs as Latris itself.
+The page simulates from the model's own equations, and is tested against Latris's own runs.
 - **Copy a link to what they are looking at**, so a colleague opens the same view.
 
 ## Making one
