@@ -631,6 +631,18 @@ When the model is a system-dynamics model and the page carries *Everything*, a r
 - **Put it back**, one value or all of them.
 
 The page simulates from the model's own equations, and is tested against Latris's own runs.
+
+## Trying things on the other model types
+
+At *Everything*, these also recalculate in the page as the reader changes something, each shown against the model as you built it:
+
+- **Multi-criteria analysis**: move how much a criterion counts. The others keep their proportions, the options are re-ranked, and marks on each slider show where the top choice would change.
+- **Fuzzy cognitive map**: hold a factor at a level and see what moves.
+- **Decision tree**: change the odds, a payoff or a cost along the way, and see the best choice and the plan that follows.
+- **Event tree**: change the odds at a step, or how often it starts, and see how it ends.
+- **Competing hypotheses**: set a piece of evidence aside and see which hypothesis leads, and which evidence the lead rests on.
+
+Other model types show their picture, their reasoning and sources, and their recorded results.
 - **Copy a link to what they are looking at**, so a colleague opens the same view.
 
 ## Making one
