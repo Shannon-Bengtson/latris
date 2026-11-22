@@ -20,7 +20,8 @@ without being redrawn.
 | Risk and safety | Bow-tie → Fault tree / Event tree, with Monte Carlo | live links between them (today: citations); GSN |
 | Decisions | MCDA; decision tree → Markov, with PSA, acceptability curves and (partial) EVPI | influence diagram (#10) |
 | Arguments | ACH; argument map | GSN as a vocabulary over the argument map |
-| Across types | Monte Carlo / PSA with correlated ranges; global sensitivity (Sobol, Morris) | — |
+| Across types | Monte Carlo / PSA with correlated ranges; global sensitivity (Sobol, Morris) | **predict** — calling a pinned model with inputs (#17) |
+| Equations | (SD covers stock-and-flow models over time) | **equation model** — formulas with no clock (#18); time-series forcing for SD (#19) |
 
 The last three types built (fault tree, bow-tie, event tree) came from the
 registered roadmap list, which was assembled to test the schema's
@@ -84,6 +85,48 @@ type in about half a day.
 | 15 | **Realist CMO / outcome mapping** | Structure | Pairs with #6 |
 | 16 | **Survival extrapolation** | `lifelines` (MIT) | Only with the HTA vertical (#4 + #5) |
 
+## Priority — models that can be called (added 2026-11-22)
+
+*High priority, ahead of the remaining Tier B items. Each needs a short design section in
+[ARCHITECTURE.md](ARCHITECTURE.md) before code.*
+
+Every run today is an analysis of the model as stored, and its result is recorded into the project
+for the report. Nothing declares "these are the model's inputs, these are its outputs" or lets
+another program call it. That closes off a whole use: a pipeline that loads one reviewed version of
+a model from git and drives it with its own inputs (forcing). The same gap hides a kind of model
+Latris should hold well: one built from physics or published parameterisations, where every
+equation and coefficient has a source — among the most defensible models there are.
+
+| # | Model / layer | Answers | How | Effort |
+|---|---|---|---|---|
+| 17 | **Predict** — an input/output contract and a stateless run | Given these inputs, what does this version of the model say? | See below. SD and BN first | about a week |
+| 18 | **Equation model** — quantities joined by sourced formulas, no clock | What does this physics / published parameterisation give for these inputs? | A formalism plugin reusing the SD expression evaluator (`_sd_eval.py`) and unit checker (`_units.py`), without the integrator; each formula and coefficient cites its source and stated range of validity | 2–3 days after #17 |
+| 19 | **Time-series forcing for SD** | What happens under this rainfall / demand / price record? | A series input declared in the contract and interpolated against `TIME`; today the only route is a hand-typed lookup table | 1–2 days after #17 |
+
+**Predict (#17), in three parts:**
+
+1. **A contract, committed with the model.** Named inputs (units, scalar or series, valid range)
+   and named outputs. Derived where the formalism already knows the answer — SD constants and
+   initial values, BN evidence nodes, equation-model inputs — and edited by a person where it
+   doesn't.
+2. **A stateless `predict` operation.** Takes a contract-shaped payload, returns the outputs, and
+   writes nothing to the project. The result carries the model's commit and a hash of the
+   contract, so every number a pipeline emits traces to one exact, reviewed version and the
+   sources behind it.
+3. **Pinned loading.** Load a project at a git ref (a tag, a reviewed checkpoint) and call it:
+   from Python, the CLI and the server. The semantic diff reports a change to the contract
+   separately from a change to the internals, so a pipeline knows whether an upgrade is safe.
+
+**Guardrails:**
+
+- **Out-of-range inputs are reported, not hidden.** A pipeline will send values outside what the
+  evidence supports; predict returns a validity warning beside the number rather than clamping
+  silently.
+- **Forward evaluation only.** Calibration, parameter fitting and data assimilation are out of
+  scope here.
+- **Still inspectable.** This is not the "black-box predictors" of *Not doing*: every formula and
+  parameter stays one a person can source, check and challenge.
+
 ## Tier C — easy, but needs a decision first
 
 - **Vensim / XMILE import via `PySD` (MIT)** — quick, and possibly the
@@ -99,7 +142,8 @@ type in about half a day.
 ## Not doing
 
 Agent-based models (`Mesa`), causal discovery / structure learning,
-black-box predictors.
+black-box predictors. (Predict, #17, runs inspectable models on new inputs; it is not a
+black-box predictor.)
 
 ## Order of work
 
@@ -120,6 +164,9 @@ black-box predictors.
    function's analytic indices), and SALib would bring matplotlib, pandas and multiprocess.
 6. **Argument map** (#12) (done: `latris argument`; design in
    [ARGUMENT_MAP.md](ARGUMENT_MAP.md)), then GSN on top of it — when a safety user appears.
+7. **Models that can be called** (high priority, next) — #17 predict on SD and BN first, since it
+   settles the contract; then #18 equation model, built on the contract from the start, and #19
+   time-series forcing for SD.
 
 Registry statuses follow this plan: influence diagram is `roadmap`; GSN stays `roadmap`, now a
 vocabulary over the argument map (ARGUMENT_MAP.md → "GSN, later"). MCDA, ACH, decision tree,
