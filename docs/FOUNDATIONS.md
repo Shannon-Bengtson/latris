@@ -316,6 +316,33 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   analysis (below). A cohort expectation, not individual simulation; MDPs
   (choosing actions in each state) are not implemented.
 
+## Argument maps
+
+- **Lineage.** Toulmin (1958), *The Uses of Argument* (claim, grounds,
+  warrant, qualifier, rebuttal); IBIS, Kunz & Rittel (1970); abstract
+  argumentation and grounded semantics, Dung (1995); support relations
+  (bipolar argumentation), Cayrol & Lagasquie-Schiex (2005); undercutting
+  defeaters, Pollock (1987).
+- **Implemented.** A conclusion, claims and an optional question as view
+  roles; a link from a premise to a claim supports or attacks it, belongs to
+  a named reason (premises in one reason work only together) and can carry a
+  warrant and qualifier. Grounded labelling with support, to a fixed point:
+  a claim is in when every attack on it fails and a reason for it holds (all
+  its premises in, its inference unchallenged) or it is a premise taken as
+  given (not argued further, not rejected, its sources not against it); out
+  when an attack succeeds, a person rejected it, or every reason fails;
+  otherwise undecided. An open challenge on a link suspends that inference.
+  Objections and answers are told apart by side (attacks on claims that help
+  the conclusion are objections). Linchpins by leave-one-out; the premises
+  the conclusion rests on classified as checked, cited, accepted or
+  unsourced from their citations.
+- **Limits.** Qualitative: qualifiers are reported, not weighed, and one
+  reason that holds is enough — no numeric strengths, probabilities or
+  preference orderings between arguments (no value-based or structured
+  argumentation such as ASPIC+). A premise not argued further stands by
+  default; the report lists those without a checked source. One conclusion
+  per map.
+
 ## Probabilistic sensitivity analysis (decision trees and Markov models)
 
 - **Lineage.** Briggs, Claxton & Sculpher (2006), *Decision Modelling for
@@ -489,6 +516,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | ACH | Weighs explanations against evidence; orders hypotheses, gives no probabilities |
 | Decision tree | Choices under stated probabilities; the value of knowing them first — not causal estimation |
 | Markov model | Expected costs and outcomes under stated transition probabilities — not causal estimation |
+| Argument map | Whether a conclusion stands given the reasons and objections stated, and what it rests on — qualitative, not a probability |
 | DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -545,6 +573,10 @@ the code it describes win, and this page is wrong.
 - Campolongo, F., Cariboni, J., & Saltelli, A. (2007). "An effective screening
   design for sensitivity analysis of large models." *Environmental Modelling
   & Software*, 22(10), 1509–1518.
+- Cayrol, C., & Lagasquie-Schiex, M.-C. (2005). "On the acceptability of
+  arguments in bipolar argumentation frameworks." In *Symbolic and
+  Quantitative Approaches to Reasoning with Uncertainty (ECSQARU)*, LNCS
+  3571, 378–389. Springer.
 - CCPS & Energy Institute (2018). *Bow Ties in Risk Management: A Concept
   Book for Process Safety*. AIChE / Wiley.
 - CCPS — Center for Chemical Process Safety (2001). *Layer of Protection
@@ -559,6 +591,9 @@ the code it describes win, and this page is wrong.
 - Drummond, M. F., Sculpher, M. J., Claxton, K., Stoddart, G. L., &
   Torrance, G. W. (2015). *Methods for the Economic Evaluation of Health
   Care Programmes* (4th ed.). Oxford University Press.
+- Dung, P. M. (1995). "On the acceptability of arguments and its
+  fundamental role in nonmonotonic reasoning, logic programming and n-person
+  games." *Artificial Intelligence*, 77(2), 321–357.
 - Fairfield, T., & Charman, A. E. (2017). "Explicit Bayesian Analysis for
   Process Tracing: Guidelines, Opportunities, and Caveats." *Political
   Analysis*, 25(3), 363–380.
@@ -608,6 +643,9 @@ the code it describes win, and this page is wrong.
   Kellogg Foundation.
 - Kosko, B. (1986). "Fuzzy Cognitive Maps." *International Journal of
   Man-Machine Studies*, 24(1), 65–75.
+- Kunz, W., & Rittel, H. W. J. (1970). *Issues as Elements of Information
+  Systems*. Working Paper 131, Institute of Urban and Regional Development,
+  University of California, Berkeley.
 - MacKinnon, J. G., & White, H. (1985). "Some heteroskedasticity-consistent
   covariance matrix estimators with improved finite sample properties."
   *Journal of Econometrics*, 29(3), 305–325.
@@ -625,6 +663,8 @@ the code it describes win, and this page is wrong.
   Cambridge University Press.
 - Pearl, J., & Mackenzie, D. (2018). *The Book of Why: The New Science of
   Cause and Effect*. Basic Books.
+- Pollock, J. L. (1987). "Defeasible reasoning." *Cognitive Science*, 11(4),
+  481–518.
 - Prais, S. J., & Winsten, C. B. (1954). *Trend Estimators and Serial
   Correlation*. Cowles Commission Discussion Paper No. 383.
 - Raiffa, H. (1968). *Decision Analysis: Introductory Lectures on Choices

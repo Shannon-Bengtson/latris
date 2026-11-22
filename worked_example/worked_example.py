@@ -2179,6 +2179,59 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "sensitivity", "--model-type", "markov"])
     os.chdir(ex.root)
 
+    # ── 11k. Argument map ─────────────────────────────────────────────
+    ex.section(
+        "Argument Map",
+        "A case argued to a board: fund the new drug. The map lays out the reasons offered, the objections to "
+        "them and the answers to those, and evaluates it — each claim stands, is defeated or is undecided — so "
+        "the reader sees whether the conclusion stands, what it rests on, and which objection is still open. "
+        "Shown on a tenth, small project.",
+    )
+    am_root = ex.root.parent / "funding-case"
+    ex.run(["init", str(am_root), "--question", "Should the board fund the new drug?"])
+    os.chdir(am_root)
+    ex.run(["project", "select-models", "argument_map"])
+    _am_claims = ["Fund the new drug", "The drug works", "We can afford it", "Patients want it",
+                  "The trial was small", "A second trial confirmed it", "The budget is overspent"]
+    for _c in _am_claims:
+        ex.run(["node", "add", _c])
+        ex.run(["argument", "element", _c, "conclusion" if _c == "Fund the new drug" else "claim"])
+    ex.note("Two premises that only work together share a reason (value); 'patients want it' is a reason on its "
+            "own. An objection attacks a claim, and an answer to an objection attacks the objection.")
+    for _a, _b, _rel, _reason in (
+        ("The drug works", "Fund the new drug", "supports", "value"),
+        ("We can afford it", "Fund the new drug", "supports", "value"),
+        ("Patients want it", "Fund the new drug", "supports", None),
+        ("The trial was small", "The drug works", "attacks", None),
+        ("A second trial confirmed it", "The trial was small", "attacks", None),
+        ("The budget is overspent", "We can afford it", "attacks", None),
+    ):
+        ex.run(["edge", "add", _a, _b])
+        ex.run(["argument", "link", f"{_a} -> {_b}", "--relation", _rel] + (["--reason", _reason] if _reason else []))
+    ex.run(["argument", "link", "Patients want it -> Fund the new drug", "--warrant",
+            "Patient preference is a funding criterion", "--qualifier", "probably"])
+    ex.note("A premise's grounds are its sources, as anywhere else in Latris.")
+    ex.run(["ref", "add", "trial2", "--title", "Confirmatory trial report (illustrative)", "--year", "2026"])
+    ex.run(["evidence", "add", "A second trial confirmed it", "description", "trial2"])
+    ex.run(["argument", "check"])
+    ex.run(["argument", "show"])
+    ex.note("The value reason fails — the budget objection is unanswered — but the conclusion still stands on "
+            "patient preference alone: a linchpin, and asserted with no source.")
+    ex.run(["argument", "analyse"])
+    ex.note("Objecting to the inference rather than the premise is a challenge on the link. Until it is resolved "
+            "that reason counts for nothing, and the conclusion no longer stands.")
+    ex.run(["challenge", "open", "Patients want it -> Fund the new drug",
+            "Wanting a treatment isn't by itself a reason to fund it."])
+    ex.run(["argument", "analyse"])
+    ex.note("A person can also rule on a premise the map takes as given. Accepting the budget position the "
+            "finance director gave the board answers nothing by itself: the objection to it still stands.")
+    ex.run(["argument", "claim", "We can afford it", "accepted", "--rationale",
+            "Finance director's statement to the board"])
+    ex.run(["argument", "analyse", "--no-record"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "argument_map"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

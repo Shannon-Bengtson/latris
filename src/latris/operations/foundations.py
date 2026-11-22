@@ -325,6 +325,26 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="argument-map",
+        applies_to=("argument_map",),
+        method="Argument mapping evaluated by grounded labelling",
+        citation=(
+            "Toulmin (1958), *The Uses of Argument*; Kunz & Rittel (1970), \"Issues as Elements of Information "
+            "Systems\" (IBIS); Dung (1995), *Artificial Intelligence* 77(2); Cayrol & Lagasquie-Schiex (2005), "
+            "ECSQARU; Pollock (1987), *Cognitive Science* 11(4)"
+        ),
+        used_for=(
+            "a conclusion, the claims for and against it, linked and independent reasons, warrants and "
+            "qualifiers; each claim in, out or undecided by grounded labelling with support; open challenges on "
+            "links as undercutters; linchpins by leave-one-out; each premise's grounds from its citations"
+        ),
+        limits=(
+            "Qualitative: qualifiers are reported, not weighed — no numeric strengths or probabilities; a "
+            "premise not argued further stands unless rejected or contested by its sources, so the report "
+            "separates checked, unchecked and unsourced premises; one conclusion per map."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",

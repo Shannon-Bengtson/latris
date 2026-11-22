@@ -518,6 +518,24 @@ latris markov psa [--runs 1000] [--seed 1234] [--sampling lhs|random] [--no-reco
                                                  # EVPI per input, drivers
 ```
 
+## Argument map
+
+The conclusion, claims and an optional question (view roles); a link from a
+premise to a claim is an ordinary link. Relations, reasons, warrants,
+qualifiers and assessments are stored with provenance; a claim's grounds are
+its citations, an open challenge on a link an objection to the inference.
+`argument analyse` is recorded (`argument-analysis`). Design:
+[ARGUMENT_MAP.md](ARGUMENT_MAP.md).
+
+```bash
+latris argument element <node> <conclusion|claim|question>
+latris argument link "Premise -> Claim" [--relation supports|attacks] [--reason NAME] [--warrant W]
+                     [--qualifier certainly|probably|possibly] [--notes] [--source] [--origin] [--verified]
+latris argument claim <claim> <accepted|rejected|none> [--rationale R] [--source] [--verified]
+latris argument show | check
+latris argument analyse [--no-record]          # stands / defeated / undecided, reasons, objections, linchpins
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

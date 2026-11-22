@@ -76,6 +76,11 @@ repository. Start at the repo-root [README](../README.md).
   of perfect information (in total and per input), correlated ranges and
   what drives the decision — via `dt|markov
   range` and `psa`.
+- Argument maps: a conclusion, the reasons for it and the objections to
+  them (Toulmin, IBIS), evaluated by grounded labelling — whether the
+  conclusion stands, its linchpins, unanswered objections, and which
+  premises rest on checked sources — via CLI `argument` + `/api/argument/*`
+  ([design](engineering/ARGUMENT_MAP.md)).
 - Global sensitivity analysis over the same ranges: Sobol indices (each
   input's share of a result's variance, alone and with interactions) or
   Morris screening, for the risk types, decision trees, Markov, SD and
