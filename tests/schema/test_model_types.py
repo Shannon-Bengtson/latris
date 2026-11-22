@@ -15,7 +15,7 @@ def test_stable_types():
     stable = list_model_types(include_planned=False)
     ids = {s.id for s in stable}
     assert ids == {"cld", "dag", "fcm", "bn", "sd", "theory_of_change", "fault_tree", "bow_tie", "event_tree", "mcda", "ach", "decision_tree", "markov",
-                          "argument_map"}
+                          "argument_map", "equation_model"}
 
 
 def test_all_types_include_planned():

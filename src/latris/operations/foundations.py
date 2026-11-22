@@ -193,6 +193,28 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="equation-model-evaluation",
+        applies_to=("equation_model",),
+        method="Equation models: sourced formulas with dimensional analysis",
+        citation=(
+            "Buckingham (1914), \"On Physically Similar Systems\", *Physical Review* 4(4); Bridgman (1922), "
+            "*Dimensional Analysis*; Saltelli et al. (2008), *Global Sensitivity Analysis: The Primer*, ch. 1-2; "
+            "JCGM 101:2008, *Propagation of distributions using a Monte Carlo method*"
+        ),
+        used_for=(
+            "evaluating formulas in dependency order with every value carrying its units, so a dimensionally "
+            "inconsistent formula is refused; comparing named scenarios; one-at-a-time sweeps of an input with the "
+            "elasticity at the reference value; and Monte Carlo propagation of the stated ranges through the "
+            "formulas, with rank correlations for what drives the spread"
+        ),
+        limits=(
+            "Explicit formulas only: a circular set is refused, not solved, and there are no lookup tables or "
+            "time-varying inputs. Dimensional consistency does not make a formula right, and an empirical formula "
+            "is only as good as its source: values outside a stated valid range are reported, not corrected. "
+            "Sweeps move one input at a time and miss interactions; Monte Carlo samples the ranges independently."
+        ),
+    ),
+    Foundation(
         id="mcda-additive-value",
         applies_to=("mcda",),
         method="Multi-criteria decision analysis (additive value model)",

@@ -81,6 +81,11 @@ repository. Start at the repo-root [README](../README.md).
   conclusion stands, its linchpins, unanswered objections, and which
   premises rest on checked sources — via CLI `argument` + `/api/argument/*`
   ([design](engineering/ARGUMENT_MAP.md)).
+- Equation models: quantities joined by sourced formulas with units and no
+  clock (a physical law, a published parameterisation). Inputs and
+  parameters state the range they are valid over; formulas are checked
+  dimensionally; scenarios, input sweeps and Monte Carlo over the ranges —
+  via CLI `eq` + `/api/eq/*` ([design](engineering/EQUATION_MODEL.md)).
 - Global sensitivity analysis over the same ranges: Sobol indices (each
   input's share of a result's variance, alone and with interactions) or
   Morris screening, for the risk types, decision trees, Markov, SD and

@@ -221,7 +221,7 @@ Formalise turns your conceptual structure into a complete formal model. Choose t
 Each selected model type appears in the Formalise dropdown. With a model open you work in the representation(s) that type offers:
 
 - **Table** — a parameter grid for setting model-specific attributes (CLD polarity, FCM weights).
-- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector: Bayesian networks (states and probability tables), system dynamics (roles, equations and values), decision trees (decision, chance and payoff nodes; each branch's option or state, probability and value), Markov models (states, moves per cycle, costs, utilities, the starting cohort and the clock) and theories of change (each factor's level; process-tracing priors and evidence tests on links).
+- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector: Bayesian networks (states and probability tables), system dynamics (roles, equations and values), decision trees (decision, chance and payoff nodes; each branch's option or state, probability and value), Markov models (states, moves per cycle, costs, utilities, the starting cohort and the clock), equation models (each quantity's role, value or formula, units, valid range and uncertainty) and theories of change (each factor's level; process-tracing priors and evidence tests on links).
   Fault trees (event types, gates — AND, OR, k of n — and basic-event probabilities) and bow-ties (threats and their frequencies, barriers with type, status, owner and failure probability, the top event and consequences) are set here too, with a median and error factor for any value whose uncertainty you know.
 - **Matrix** — MCDA (options, criteria, swing weights and the score grid), ACH (hypotheses, evidence, credibility, relevance and the consistency grid) and event trees (the initiating frequency, the headings in order with their probabilities — conditional ones too — and each sequence's end state). These have no links: Build doesn't ask for their elements to be connected, and the other types' canvases leave them out.
 
@@ -394,6 +394,7 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **SD:** run the simulation (with saved scenarios to compare), Monte Carlo, sensitivity and loop dominance from the analysis pane; each factor shows its end-of-run value on the canvas (see the System Dynamics topic).
 - **BN, beyond evidence:** *set* a factor (a policy, not an observation), apply a saved scenario, record the query, find the most likely explanation, run sensitivity, Monte Carlo over the tables (after saying how well each table is known) and compare scenarios.
 - **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane; for decision trees and Markov models, a probabilistic sensitivity analysis over the ranges you set.
+- **Equation model:** evaluate the formulas (with saved scenarios), sweep an input, and run Monte Carlo over the ranges you set, from the analysis pane.
 - **MCDA, ACH:** run the analysis from the matrix page; its charts, tables and the report's figure show there.
 - **Fault tree, bow-tie, event tree:** analyse (cut sets and importance; consequence frequencies through the barriers; end-state frequencies), then Monte Carlo over the ranges you set.
 - **Global sensitivity (fault trees, bow-ties, event trees, decision trees, Markov, SD and Bayesian-network models):** once two or more inputs have a range, see which the result's uncertainty comes from — `latris analyse global-sensitivity <model type>`. **Sobol indices** (the default) give each input's share of the result's variance on its own (S1) and with its interactions (ST), with 95% intervals; an input with ST near 0 could be fixed anywhere in its range without changing the spread, so narrowing its range buys nothing. **Morris screening** (`--method morris`) ranks the inputs in far fewer runs: μ* for influence, σ near or above μ* for interaction or a non-linear effect. The headline result is the model's main one — the top event, the best option's advantage over the runner-up, the net benefit at the willingness to pay — or `--output`; SD takes `--variable` and `--metric`; a Bayesian network takes `--variable`, `--state` and `--evidence`, and treats each probability table you've said how well is known as one input (as it does a chance node's branches or a state's transitions out). Recorded with a chart.
@@ -868,6 +869,7 @@ Only to models an AI built: when most factors were added by a person, no checkpo
 - **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
 - **Markov model:** best for what happens to a group over time — moving between states such as well, ill and dead — and what each strategy costs and achieves, with cost-effectiveness (ICERs, net benefit). See the dedicated Markov Cohort Models topic.
 - **Argument map:** best for a case argued to a board, client or reviewer — whether the conclusion stands, the reasons it stands on, the objections still unanswered and the premises it turns on. See the dedicated Argument Maps topic.
+- **Equation model:** best for a model built on physics or published relationships — what the formulas give for your inputs, with units checked, every coefficient sourced, and values outside their valid range flagged. See the dedicated Equation Models topic.
 
 ## Which factors are in which model type
 
@@ -919,6 +921,9 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
   with cost-effectiveness.
 - "Does the case hold up, and what does it rest on?" → **Argument map** —
   a conclusion, the reasons for it and the objections to them.
+- "What do the equations give for these inputs, and how far can I trust
+  it?" → **Equation model** — sourced formulas with units, scenarios,
+  sweeps and Monte Carlo.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1416,6 +1421,43 @@ The result is recorded for the report with a diagram, and goes out of date when 
 ## Practical caution
 
 The evaluation is qualitative: qualifiers are reported, not weighed, and one strong reason counts as much as several weak ones. A premise you don't argue further stands by default — that is what the report's "no source" list is for. Methods: Toulmin (1958), Kunz & Rittel (1970), Dung (1995), Cayrol & Lagasquie-Schiex (2005), Pollock (1987).
+""",
+    ),
+    HelpTopic(
+        id="model-type-equation-model",
+        title="Equation Models",
+        category="model-types",
+        summary="Compute with sourced formulas: what a physical law or published relationship gives for your inputs.",
+        body="""## What an equation model represents
+
+Quantities joined by formulas, with units and no clock: a physical law, an engineering relationship, a published parameterisation. Each quantity is a factor with one of four roles:
+
+- an **input** is something the model is given (a depth, a dose, a rainfall total): `latris eq input Depth 1.2 m --min 0.2 --max 3`;
+- a **parameter** is a coefficient of the method (a roughness, an emission factor): `latris eq parameter Roughness 0.035 "s/m**(1/3)" --source chow-1959 --min 0.025 --max 0.05`;
+- a **computed** quantity has a formula over the others: `latris eq formula Velocity "hydraulic_radius ** (2/3) * SQRT(slope) / roughness" m/s --source manning-1891`;
+- an **output** is a computed quantity that is a result: add `--output`.
+
+A formula names other quantities by their label in lower case with underscores (Hydraulic radius is `hydraulic_radius`), so work from the inputs up. It can use arithmetic, `**` and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE`, `EXP`, `LN`, `LOG10`, `SQRT`, `SIN`, `COS`, `TAN` and `MODULO`. Setting a formula adds the links it needs to the map, so the diagram shows what each quantity is computed from.
+
+**Units are checked.** Every value carries its units through the formulas, so a formula that adds metres to seconds, or gives m/s where you declared m, is refused by `latris eq check`. Where an empirical formula hides units in a coefficient, give the coefficient those units (Manning's roughness is in `s/m**(1/3)`).
+
+**Valid ranges.** `--min` and `--max` state the range a value is good for, usually the range its source covered. Every analysis reports a value outside its range as an extrapolation. Nothing is clamped: you see the number and the warning together.
+
+## What the analyses show
+
+- `latris eq evaluate` works the model out: every quantity at the reference values, and under each **scenario** you have saved (`latris eq scenario "Design flood" --set "Depth=2.5 m"`).
+- `latris eq sweep --input Depth` moves one input across a range (by default its valid range), holding the rest, and gives the output's curve, whether it rises or falls throughout, and how many percent the output changes for a one percent change in the input.
+- `latris eq monte-carlo` answers "how sure is the result?": give inputs and parameters a range (`latris eq uncertainty Roughness triangular --min 0.025 --mode 0.035 --max 0.05 --reason "range across the cited channels"`), and it samples them, recomputes, and reports each output's spread and which values drive it.
+
+Each result is recorded for the report with a chart, and goes out of date when a value, formula or range changes.
+
+## In the app
+
+The model is drawn on the Formalise canvas: inputs and parameters with their values, formulas with their units, and an arrow for each quantity a formula reads. Select a quantity to set its role, value or formula, units, valid range and uncertainty in the inspector. The analyses run from the pane on the right in Analyse.
+
+## Practical caution
+
+Passing the units check does not make a formula right, and an empirical relationship is only as good as the study behind it: record the source of every formula and coefficient, and state its valid range. Formulas must be explicit; a set that depends on itself is refused, not solved. Temperatures in formulas must be in kelvin. Sweeps move one input at a time, and the Monte Carlo samples ranges independently. Methods: Buckingham (1914) and Bridgman (1922) on dimensional analysis; JCGM 101:2008 on propagating distributions by Monte Carlo.
 """,
     ),
     HelpTopic(

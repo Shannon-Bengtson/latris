@@ -164,6 +164,9 @@ class Formalism:
     # paths → factor id → its states, for a type whose factors have named states (a BN): what a surface
     # offers for an analysis option that is a state (``state``, ``evidence``)
     factor_states: Callable[[Any], dict[str, list[str]]] | None = None
+    # paths → factor id → verified?, for a type whose claims are its own values and formulas, each naming its
+    # source (an equation model): evidence coverage is then measured over those, not over links
+    parameter_sources: Callable[[Any], dict[str, bool]] | None = None
 
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""
@@ -306,7 +309,7 @@ def default_origin(verified_by: str) -> str:
 _MODULES = (
     "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov", "argument_map", "toc_impact", "causal", "fcm_steady_state", "global_sensitivity",
+    "markov", "argument_map", "equation_model", "toc_impact", "causal", "fcm_steady_state", "global_sensitivity",
 )
 
 

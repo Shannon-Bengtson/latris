@@ -536,6 +536,31 @@ latris argument show | check
 latris argument analyse [--no-record]          # stands / defeated / undecided, reasons, objections, linchpins
 ```
 
+## Equation model
+
+Quantities joined by sourced formulas, with units and no clock. Inputs,
+parameters, computed quantities and outputs are view roles; a formula names
+other quantities by slugified label and adds the links it reads. Values can
+state a valid range; analyses report values outside it. `evaluate`, `sweep`
+and `monte-carlo` are recorded (`eq-evaluation`, `eq-sweep`,
+`eq-monte-carlo`). Design: [EQUATION_MODEL.md](EQUATION_MODEL.md).
+
+```bash
+latris eq input <node> <value> <units> [--min] [--max] [--source] [--origin] [--verified] [--notes]
+latris eq parameter <node> <value> <units> [--min] [--max] [--source] [--origin] [--verified] [--notes]
+latris eq formula <node> "<formula>" <units> [--output] [--source] [--origin] [--verified] [--notes] [--no-link]
+latris eq role <node> <input|parameter|computed|output>
+latris eq remove <node>                        # out of the equation model; the factor stays
+latris eq show | check
+latris eq scenario <name> --set "Quantity=value [units]" [-d DESCRIPTION] [--reason] [--source] [--remove]
+latris eq scenarios
+latris eq uncertainty <node> [triangular|uniform|normal|lognormal|beta|gamma] [--min --mode --max --mean --sd …]
+                      [--reason] [--source] [--verified] [--clear]
+latris eq evaluate [--scenario NAME …] [--set "Quantity=value"] [--no-record]
+latris eq sweep [--input NODE] [--target OUTPUT] [--low X] [--high X] [--steps 25] [--no-record]
+latris eq monte-carlo [--runs 2000] [--seed 1234] [--sampling lhs|random] [--target OUTPUT] [--no-record]
+```
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

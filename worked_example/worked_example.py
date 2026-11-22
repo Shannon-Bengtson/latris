@@ -2232,6 +2232,69 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["interpret", "show", "implications", "--model-type", "argument_map"])
     os.chdir(ex.root)
 
+    # ── 11l. Equation model ───────────────────────────────────────────
+    ex.section(
+        "Equation Model",
+        "A model made of sourced formulas with no clock: how much water a channel carries, by Manning's "
+        "equation. Inputs and parameters carry their units and the range they are valid over; formulas turn "
+        "them into the output, and the units are checked on the way. Shown on an eleventh, small project.",
+    )
+    eq_root = ex.root.parent / "channel-capacity"
+    ex.run(["init", str(eq_root), "--question", "How much water can this channel carry?"])
+    os.chdir(eq_root)
+    ex.run(["project", "select-models", "equation_model"])
+    for _q in ["Flow depth", "Channel width", "Bed slope", "Roughness", "Flow area", "Hydraulic radius",
+               "Velocity", "Discharge", "Bank height"]:
+        ex.run(["node", "add", _q])
+    ex.run(["ref", "add", "manning1891", "--title", "On the flow of water in open channels and pipes",
+            "--year", "1891"])
+    ex.run(["ref", "add", "chow1959", "--title", "Open-Channel Hydraulics", "--year", "1959"])
+    ex.note("An input is something the model is given; a parameter is a coefficient of the method. Each says "
+            "the range it is valid over, usually the range its source covered.")
+    ex.run(["eq", "input", "Flow depth", "1.2", "m", "--min", "0.2", "--max", "3", "--notes", "Survey range."])
+    ex.run(["eq", "input", "Channel width", "8", "m"])
+    ex.run(["eq", "input", "Bed slope", "0.001", "dimensionless", "--min", "0.0001", "--max", "0.01"])
+    ex.run(["eq", "input", "Bank height", "3", "m"])
+    ex.run(["eq", "parameter", "Roughness", "0.035", "s/m**(1/3)", "--min", "0.025", "--max", "0.05",
+            "--source", "chow1959", "--verified", "--notes", "Natural stream, some weeds and stones."])
+    ex.note("Formulas name the other quantities by label, lower case with underscores, and say the units they "
+            "give. Setting one adds the links it reads to the map.")
+    ex.run(["eq", "formula", "Flow area", "channel_width * flow_depth", "m**2"])
+    ex.run(["eq", "formula", "Hydraulic radius", "flow_area / (channel_width + 2 * flow_depth)", "m"])
+    ex.note("Units are checked: this version of Manning's equation leaves out the two-thirds power, so it "
+            "doesn't give a velocity, and the check says so.")
+    ex.run(["eq", "formula", "Velocity", "hydraulic_radius * SQRT(bed_slope) / roughness", "m/s"])
+    ex.run(["eq", "formula", "Discharge", "velocity * flow_area", "m**3/s"])
+    ex.run(["eq", "check"], expect_fail=True)
+    ex.run(["eq", "formula", "Velocity", "hydraulic_radius ** (2/3) * SQRT(bed_slope) / roughness", "m/s",
+            "--source", "manning1891", "--verified", "--notes", "Uniform, fully turbulent flow."])
+    ex.note("The units now agree. What is left: the model doesn't yet say which quantity it is for.")
+    ex.run(["eq", "check"], expect_fail=True)
+    ex.run(["eq", "role", "Discharge", "output"])
+    ex.note("Bank height turned out not to be needed. Taking it out of the equation model removes its role "
+            "and value; the factor itself stays on the map.")
+    ex.run(["eq", "remove", "Bank height"])
+    ex.run(["eq", "check"])
+    ex.run(["eq", "show"])
+    ex.note("A scenario is a named set of input values. The design flood is deeper than the surveyed range, "
+            "and the result says so instead of clamping it.")
+    ex.run(["eq", "scenario", "Design flood", "--set", "Flow depth=3.5 m", "-d",
+            "Bankfull stage in the design event."])
+    ex.run(["eq", "scenario", "Low flow", "--set", "Flow depth=40 cm", "-d", "Late-summer stage."])
+    ex.run(["eq", "scenarios"])
+    ex.run(["eq", "evaluate"])
+    ex.note("How the output responds as one input moves across its valid range, everything else held.")
+    ex.run(["eq", "sweep", "--input", "Flow depth", "--steps", "15"])
+    ex.note("How sure is the result? Give the uncertain values a range and sample them.")
+    ex.run(["eq", "uncertainty", "Roughness", "triangular", "--min", "0.025", "--mode", "0.035", "--max", "0.05",
+            "--reason", "Range for natural streams of this kind.", "--source", "chow1959"])
+    ex.run(["eq", "uncertainty", "Bed slope", "uniform", "--min", "0.0008", "--max", "0.0012",
+            "--reason", "Survey accuracy."])
+    ex.run(["eq", "monte-carlo", "--runs", "1000"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "evidence_gaps", "--model-type", "equation_model"])
+    os.chdir(ex.root)
+
     # ── 12. Interpret phase ───────────────────────────────────────────
     ex.section(
         "Interpret",

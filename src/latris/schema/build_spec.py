@@ -421,6 +421,59 @@ class SpecMCDA(_Spec):
     scores: list[SpecMCDAScore] = Field(default_factory=list)
 
 
+class SpecEquationValue(_SpecParam):
+    """An input (something the model is given) or a parameter (a coefficient of the method), with its value."""
+
+    node: str
+    role: Literal["input", "parameter"]
+    value: float
+    units: str
+    valid_min: float | None = None  # the range the value is valid over, usually what its source covered
+    valid_max: float | None = None
+    notes: str | None = None
+    verified: bool = False
+
+
+class SpecEquationFormula(_SpecParam):
+    """A computed quantity or an output: a formula over the other quantities' slugified labels."""
+
+    node: str
+    role: Literal["computed", "output"]
+    expression: str
+    units: str
+    notes: str | None = None  # the conditions the formula holds under
+    verified: bool = False
+
+
+class SpecEquationUncertainty(_SpecParam):
+    """A distribution over an input's or parameter's value, in its own units."""
+
+    node: str
+    distribution: Literal["uniform", "triangular", "normal", "lognormal", "beta", "gamma"]
+    params: dict[str, float]
+    reason: str = ""
+    verified: bool = False
+
+
+class SpecEquationScenario(_SpecParam):
+    """A named set of input values: ``set`` holds 'Quantity=value [units]' assignments."""
+
+    name: str
+    set: list[str] = Field(min_length=1)
+    description: str = ""
+    reason: str = ""
+    verified: bool = False
+
+
+class SpecEquationModel(_Spec):
+    """Equation model: inputs and parameters (values), formulas, uncertainty ranges and scenarios."""
+
+    values: list[SpecEquationValue] = Field(default_factory=list)
+    formulas: list[SpecEquationFormula] = Field(default_factory=list)
+    uncertainty: list[SpecEquationUncertainty] = Field(default_factory=list)
+    scenarios: list[SpecEquationScenario] = Field(default_factory=list)
+
+
 class SpecACHElement(_Spec):
     node: str
     type: Literal["hypothesis", "evidence_item"]
@@ -731,6 +784,11 @@ ANALYSIS_OPTION_DOCS: dict[str, str] = {
     "n": "Global sensitivity: Sobol base samples, a power of two (runs = n × (inputs + 2)), or Morris "
          "trajectories (runs = n × (inputs + 1)).",
     "output": "The result to headline, by name or its start (default: the model's main result).",
+    "input": "The input or parameter to vary (default: the first input).",
+    "low": "Where the sweep starts, in the input's units (default: the bottom of its valid range, or half its "
+           "value).",
+    "high": "Where the sweep ends (default: the top of its valid range, or one and a half times its value).",
+    "steps": "Number of points across the sweep (default 25).",
 }
 
 
@@ -744,7 +802,7 @@ ANALYSIS_OPTION_INPUTS: dict[str, str] = {
     "scenarios": "scenarios", "scenario": "scenario",  # saved scenarios of this model type, by name
     "reference": "arm",  # 'baseline' or one of the compared scenarios
     "variables": "factors", "query": "factors", "over": "factors", "adjust": "factors",
-    "variable": "factor", "target": "factor", "treatment": "factor", "outcome": "factor",
+    "variable": "factor", "target": "factor", "treatment": "factor", "outcome": "factor", "input": "factor",
     "state": "state",  # a state of ``target``
     "evidence": "factor-states", "interventions": "factor-states",  # {factor: state}
     "soft": "factor-weights", "likelihood": "factor-weights",  # {factor: {state: number}}
@@ -770,6 +828,7 @@ ANALYSIS_OPTION_TITLES: dict[str, str] = {
     "treated": "Treated groups", "clamp": "Hold at", "initial": "Start from",
     "transfer_function": "Transfer function", "lambda_steepness": "Steepness", "max_iterations": "Most steps",
     "method": "Method", "n": "Samples", "output": "Headline result",
+    "input": "Input to vary", "low": "From", "high": "To", "steps": "Points",
 }
 
 
@@ -1042,12 +1101,40 @@ class PsaAnalysis(_Draws):
     kind: Literal["dt_psa", "markov_psa"]
 
 
+class EqEvaluateAnalysis(_Analysis):
+    """Equation model: every quantity at the reference values and under each scenario; ``set`` is a what-if."""
+
+    kind: Literal["eq_evaluate"]
+    scenarios: list[str] = Field(default_factory=list,
+                                 description="Saved scenarios to evaluate, by name (default: all of them).")
+    set: list[str] = Field(default_factory=list)
+
+
+class EqSweepAnalysis(_Analysis):
+    """Equation model: how ``target`` (an output) responds as ``input`` moves from ``low`` to ``high``."""
+
+    kind: Literal["eq_sweep"]
+    input: str | None = None
+    target: str | None = Field(default=None, description="The output to follow (default: the first output).")
+    low: float | None = None
+    high: float | None = None
+    steps: int | None = Field(default=None, ge=2, le=500)
+
+
+class EqMonteCarloAnalysis(_Draws):
+    """Equation model: the spread of the outputs given the ranges on inputs and parameters."""
+
+    kind: Literal["eq_monte_carlo"]
+    target: str | None = Field(default=None, description="The output to headline (default: the first output).")
+
+
 ANALYSIS_MODELS: tuple[type[_Analysis], ...] = (
     SimulateAnalysis, MonteCarloAnalysis, CompareAnalysis, SensitivityAnalysis, LoopsAnalysis,
     BnQueryAnalysis, BnExplainAnalysis, BnMonteCarloAnalysis, BnCompareAnalysis, BnSensitivityAnalysis,
     TocCheckAnalysis, TocTraceAnalysis, TocImpactAnalysis, FtAnalyseAnalysis, BowtieAnalyseAnalysis,
     EtAnalyseAnalysis, RiskMonteCarloAnalysis, DagEstimateAnalysis, FcmInferAnalysis, McdaAnalyseAnalysis,
     AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis, PsaAnalysis, GsaAnalysis, ArgumentAnalyseAnalysis,
+    EqEvaluateAnalysis, EqSweepAnalysis, EqMonteCarloAnalysis,
 )
 
 SpecAnalysis = Annotated[
@@ -1056,7 +1143,7 @@ SpecAnalysis = Annotated[
     | TocCheckAnalysis | TocTraceAnalysis | TocImpactAnalysis | FtAnalyseAnalysis | BowtieAnalyseAnalysis
     | EtAnalyseAnalysis | RiskMonteCarloAnalysis | DagEstimateAnalysis | FcmInferAnalysis | McdaAnalyseAnalysis
     | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis | PsaAnalysis | GsaAnalysis
-    | ArgumentAnalyseAnalysis,
+    | ArgumentAnalyseAnalysis | EqEvaluateAnalysis | EqSweepAnalysis | EqMonteCarloAnalysis,
     Field(discriminator="kind"),
 ]
 
@@ -1124,6 +1211,7 @@ class BuildSpec(_Spec):
     argument_map: SpecArgumentMap | None = None  # argument map: conclusion, claims, links, assessments
     decision_tree: SpecDT | None = None  # Decision tree nodes, branches, payoffs, uncertainties
     markov: SpecMarkov | None = None  # Markov states, strategies, transitions, rewards, start, settings
+    equation_model: SpecEquationModel | None = None  # equation model: values, formulas, uncertainty, scenarios
     analyses: list[SpecAnalysis] = Field(default_factory=list)  # run and recorded after building
     # results that read a dataset: carried as the sender's, recorded after the analyses
     carried_results: list[SpecCarriedResult] = Field(default_factory=list)

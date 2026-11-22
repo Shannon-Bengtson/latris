@@ -343,6 +343,33 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   default; the report lists those without a checked source. One conclusion
   per map.
 
+## Equation models
+
+- **Lineage.** Dimensional analysis after Buckingham (1914) and Bridgman
+  (1922): a physical equation must balance in its units. Propagating
+  distributions through a model by Monte Carlo after JCGM 101:2008
+  (Supplement 1 to the *Guide to the expression of uncertainty in
+  measurement*). One-at-a-time sensitivity and its limits after Saltelli et
+  al. (2008).
+- **Implemented.** Inputs, parameters, computed quantities and outputs as
+  view roles; each input and parameter a value with units, a source and an
+  optional valid range; each computed quantity a formula with declared units
+  and a source. Formulas are evaluated in dependency order with every value
+  carrying its units (`pint`), so a formula that is dimensionally
+  inconsistent, or gives other units than it declares, is refused. Named
+  scenarios; a sweep of one input across a range with the output's shape and
+  its elasticity at the reference value; Monte Carlo over the stated ranges
+  with Spearman rank correlations for what drives the spread. A value
+  outside its stated valid range is reported in every result and never
+  clamped.
+- **Limits.** Explicit formulas only: a circular set is refused, not solved,
+  and there are no lookup tables or time-varying inputs (system dynamics has
+  both). Dimensional consistency is necessary, not sufficient: it does not
+  make a formula right, and an empirical relationship is only as good as the
+  study behind it, inside the range that study covered. Sweeps move one
+  input at a time and miss interactions; the Monte Carlo samples ranges
+  independently. Units with an offset (°C, °F) can't be used in arithmetic.
+
 ## Probabilistic sensitivity analysis (decision trees and Markov models)
 
 - **Lineage.** Briggs, Claxton & Sculpher (2006), *Decision Modelling for
@@ -517,6 +544,7 @@ Pearl & Mackenzie (2018) order causal questions as association → intervention
 | Decision tree | Choices under stated probabilities; the value of knowing them first — not causal estimation |
 | Markov model | Expected costs and outcomes under stated transition probabilities — not causal estimation |
 | Argument map | Whether a conclusion stands given the reasons and objections stated, and what it rests on — qualitative, not a probability |
+| Equation model | Quantitative mechanism, computed from stated formulas; changing an input intervenes *on the model*, and the answer is only as causal as the formulas' sources make it |
 | DAG / BN | Observational queries and identification — what to measure; with data, an average effect by back-door adjusted regression, valid only under the DAG's assumptions; no counterfactuals |
 
 A CLD arrow is not a structural equation and carries no do-semantics; a
@@ -570,6 +598,9 @@ the code it describes win, and this page is wrong.
   Causation?" *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
 - Briggs, A., Claxton, K., & Sculpher, M. (2006). *Decision Modelling for
   Health Economic Evaluation*. Oxford University Press.
+- Bridgman, P. W. (1922). *Dimensional Analysis*. Yale University Press.
+- Buckingham, E. (1914). "On Physically Similar Systems; Illustrations of
+  the Use of Dimensional Equations." *Physical Review*, 4(4), 345–376.
 - Campolongo, F., Cariboni, J., & Saltelli, A. (2007). "An effective screening
   design for sensitivity analysis of large models." *Environmental Modelling
   & Software*, 22(10), 1509–1518.
@@ -634,6 +665,10 @@ the code it describes win, and this page is wrong.
   Engineering & System Safety*, 91(10–11), 1126–1134.
 - Jansen, M. J. W. (1999). "Analysis of variance designs for model output."
   *Computer Physics Communications*, 117(1–2), 35–43.
+- JCGM 101:2008. *Evaluation of measurement data — Supplement 1 to the
+  "Guide to the expression of uncertainty in measurement" — Propagation of
+  distributions using a Monte Carlo method*. Joint Committee for Guides in
+  Metrology.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.

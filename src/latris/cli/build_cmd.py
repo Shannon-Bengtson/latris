@@ -101,13 +101,19 @@ def build(
       links (link "Premise -> Claim", relation: supports | attacks, reason,
       warrant, qualifier: certainly | probably | possibly, source, …), claims
       (node, assessment: accepted | rejected, rationale)
+    - ``equation_model``: values (node, role: input | parameter, value,
+      units, valid_min, valid_max, source, origin, verified, notes), formulas
+      (node, role: computed | output, expression, units, source, …),
+      uncertainty (node, distribution, params, reason), scenarios (name, set:
+      ["Quantity=value units"], description, reason)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_compare | bn_sensitivity | toc_check |
       ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
       outcome, dataset, adjust, columns, estimator | mcda_analyse |
       ach_analyse | dt_analyse | markov_analyse | dt_psa | markov_psa |
       argument_analyse | ft_gsa | bt_gsa | et_gsa | dt_gsa | markov_gsa |
-      sd_gsa | bn_gsa)
+      sd_gsa | bn_gsa | eq_evaluate | eq_sweep: input, target, low, high,
+      steps | eq_monte_carlo)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML
