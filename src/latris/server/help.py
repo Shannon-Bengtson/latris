@@ -393,7 +393,7 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **BN:** observe evidence on nodes and read posterior beliefs, shown as bars inside each node (see the Bayesian Networks topic).
 - **SD:** run the simulation (with saved scenarios to compare), Monte Carlo, sensitivity and loop dominance from the analysis pane; each factor shows its end-of-run value on the canvas (see the System Dynamics topic).
 - **BN, beyond evidence:** *set* a factor (a policy, not an observation), apply a saved scenario, record the query, find the most likely explanation, run sensitivity, Monte Carlo over the tables (after saying how well each table is known) and compare scenarios.
-- **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane.
+- **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane; for decision trees and Markov models, a probabilistic sensitivity analysis over the ranges you set.
 - **MCDA, ACH:** run the analysis from the matrix page; its charts, tables and the report's figure show there.
 - **Fault tree, bow-tie, event tree:** analyse (cut sets and importance; consequence frequencies through the barriers; end-state frequencies), then Monte Carlo over the ranges you set.
 
@@ -1338,9 +1338,15 @@ When the same uncertainty appears under several choices — demand if you launch
 
 The result is recorded for the report and goes out of date when the tree or a value changes.
 
+## How sure is the choice? (probabilistic sensitivity analysis)
+
+Give uncertain inputs a range with `latris dt range`: a terminal's payoff (`latris dt range "Launched, high demand" normal --mean 500 --sd 100`), a branch's value (`--quantity value`), the probability of one branch of a two-branch chance node (`latris dt range "Demand if launched -> Launched, high demand" beta --mean 0.4 --sd 0.1` — the other branch takes the rest), or every branch probability of a chance node as a Dirichlet worth n observations (`latris dt range "Demand if launched" dirichlet --n 50`). A beta (probabilities) or gamma (costs) takes the mean and standard error a study reports; uniform, triangular, normal and lognormal take their own parameters. Each range keeps its reason, source and whether a person checked it, and must include the current value. Chance nodes named as one uncertainty take the same sampled probabilities.
+
+`latris dt psa` then samples every range together (seeded Latin hypercube) and rolls the tree back for each sample: each first choice's expected value across the runs (mean, 5th–95th percentile), **how often each option is best**, the **expected value of perfect information on the parameters** — the most it's worth to remove all of this uncertainty before choosing — and which inputs drive the advantage of the best option over the runner-up (rank correlation). Inputs without a range are held fixed and listed. It is recorded with a chart, and goes out of date when a value or range changes.
+
 ## Practical caution
 
-Expected value is risk-neutral: a strategy with a small chance of ruin can still come out best. Probabilities and payoffs are point values. Perfect information is an upper bound — real research is imperfect and worth less. Methods: Raiffa (1968), Clemen & Reilly (2014), Howard (1966).
+Expected value is risk-neutral: a strategy with a small chance of ruin can still come out best. Probabilities and payoffs are point values unless given a range, and ranges are sampled independently. Perfect information is an upper bound — real research is imperfect and worth less. Methods: Raiffa (1968), Clemen & Reilly (2014), Howard (1966).
 """,
     ),
     HelpTopic(
@@ -1360,9 +1366,15 @@ Each state can have a **cost** per cycle and a **utility** — a quality-of-life
 
 The result is recorded for the report and goes out of date when any value changes.
 
+## Probabilistic sensitivity analysis and acceptability curves
+
+Every probability, cost and utility is an estimate. Give one a range with `latris markov range`: a transition (`latris markov range "Healthy -> Sick" beta --mean 0.10 --sd 0.02`), a state's cost or utility (`latris markov range Sick gamma --quantity cost --mean 3000 --sd 600`), or all of a state's transitions out as a Dirichlet worth n observations (`--quantity leaving dirichlet --n 200`), so they can't sum past 1. `--strategy "New drug"` puts the range on that strategy's own value. The usual families are beta for probabilities and utilities and gamma for costs, each by the mean and standard error a study reports.
+
+`latris markov psa` samples every range together (seeded Latin hypercube) and reruns the cohort for each sample. It gives each strategy's cost and outcome across the runs (mean, 5th–95th percentile), the incremental analysis on the means (probabilistic ICERs), the **cost-effectiveness acceptability curve** — at each willingness to pay, the probability each strategy is the most cost-effective — and the **expected value of perfect information** per person (the most further research could be worth). With a willingness to pay set, it names the strategy to choose, how often it is cost-effective, and which inputs drive its net benefit over the runner-up. Recorded with a chart; it goes out of date when a value or range changes.
+
 ## Practical caution
 
-The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Values are point estimates — probabilistic sensitivity analysis is not yet available. Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015).
+The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently; separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). EVPI is for all the parameters together, not each one (no EVPPI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
 """,
     ),
     HelpTopic(

@@ -250,11 +250,49 @@
     "node": "Demand if licensed",
     "name": "Demand"
    }
+  ],
+  "ranges": [
+   {
+    "target": "Demand if launched -> Launched, high demand",
+    "distribution": "beta",
+    "params": {
+     "mean": 0.4,
+     "sd": 0.1
+    },
+    "reason": "market survey, 200 respondents",
+    "source": "market-survey-2026"
+   },
+   {
+    "target": "Launched, high demand",
+    "distribution": "normal",
+    "params": {
+     "mean": 500,
+     "sd": 100
+    },
+    "reason": "finance model scenarios",
+    "source": "finance-model"
+   },
+   {
+    "target": "Launched, low demand",
+    "distribution": "normal",
+    "params": {
+     "mean": -200,
+     "sd": 60
+    },
+    "reason": "finance model scenarios",
+    "source": "finance-model"
+   }
   ]
  },
  "analyses": [
   {
    "kind": "dt_analyse"
+  },
+  {
+   "kind": "dt_psa",
+   "runs": 500,
+   "seed": 1234,
+   "sampling": "lhs"
   }
  ]
 }

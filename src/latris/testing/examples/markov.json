@@ -162,11 +162,60 @@
     "state": "Healthy",
     "proportion": 1.0
    }
+  ],
+  "ranges": [
+   {
+    "target": "Healthy -> Sick",
+    "distribution": "beta",
+    "params": {
+     "mean": 0.1,
+     "sd": 0.02
+    },
+    "reason": "registry, 5-year follow-up",
+    "source": "disease-registry"
+   },
+   {
+    "target": "Healthy -> Sick",
+    "strategy": "New drug",
+    "distribution": "beta",
+    "params": {
+     "mean": 0.06,
+     "sd": 0.015
+    },
+    "reason": "trial arm, 95% CI 0.03–0.09",
+    "source": "phase-3-trial"
+   },
+   {
+    "target": "Sick",
+    "quantity": "cost",
+    "distribution": "gamma",
+    "params": {
+     "mean": 3000,
+     "sd": 600
+    },
+    "reason": "NHS reference costs"
+   },
+   {
+    "target": "Sick",
+    "quantity": "utility",
+    "distribution": "beta",
+    "params": {
+     "mean": 0.6,
+     "sd": 0.05
+    },
+    "reason": "EQ-5D survey"
+   }
   ]
  },
  "analyses": [
   {
    "kind": "markov_analyse"
+  },
+  {
+   "kind": "markov_psa",
+   "runs": 300,
+   "seed": 1234,
+   "sampling": "lhs"
   }
  ]
 }

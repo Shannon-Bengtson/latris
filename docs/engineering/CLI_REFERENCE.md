@@ -464,7 +464,8 @@ latris ach analyse [--no-record]                      # ranking by evidence agai
 
 Decision, chance and terminal nodes (view roles); branches are ordinary
 links, each node with one parent. Branch labels, probabilities, values and
-payoffs are stored with provenance. `dt analyse` is recorded (`dt-analysis`).
+payoffs are stored with provenance. `dt analyse` is recorded (`dt-analysis`);
+`dt psa` samples the ranges `dt range` sets (`dt-psa`).
 
 ```bash
 latris dt element <node> <decision|chance|terminal>
@@ -475,13 +476,18 @@ latris dt settings [--objective maximise|minimise] [--units U]
 latris dt show                                         # the tree with expected values; → marks best choices
 latris dt check                                        # one root, a tree, payoffs, probabilities sum to 1
 latris dt analyse [--no-record]                        # best strategy, EVPI, probability thresholds
+latris dt range <target> <distribution> [--quantity payoff|value|probability|probabilities] [--mean M --sd S]
+                [--min] [--mode] [--max] [--alpha] [--beta] [--shape] [--scale] [--n N] [--reason] [--source]
+                [--origin] [--verified] [--clear]   # a terminal, a branch "Parent -> Child", or a chance node (dirichlet)
+latris dt psa [--runs 2000] [--seed 1234] [--sampling lhs|random] [--no-record]   # spread, how often best, EVPI, drivers
 ```
 
 ## Markov cohort model
 
 States and strategies (view roles); transitions are ordinary links between
 states. Probabilities, costs, utilities and the start are stored with
-provenance. `markov analyse` is recorded (`markov-analysis`).
+provenance. `markov analyse` is recorded (`markov-analysis`); `markov psa`
+samples the ranges `markov range` sets (`markov-psa`).
 
 ```bash
 latris markov element <node> <state|strategy>
@@ -492,6 +498,9 @@ latris markov settings [--cycles N] [--cycle-length L] [--time-units years] [--d
                        [--half-cycle/--no-half-cycle] [--wtp W] [--cost-units U] [--outcome-units U]
 latris markov show | check
 latris markov analyse [--no-record]            # costs, outcomes, ICERs, dominance, the choice at the WTP
+latris markov range <target> <distribution> [--quantity transition|cost|utility|leaving] [--strategy S]
+                    [--mean M --sd S] [--n N] [...as dt range]   # a transition "From -> To", or a state
+latris markov psa [--runs 1000] [--seed 1234] [--sampling lhs|random] [--no-record]   # CEAC, EVPI, drivers
 ```
 
 ## Results

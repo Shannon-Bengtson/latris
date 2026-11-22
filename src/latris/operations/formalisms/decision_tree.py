@@ -10,6 +10,7 @@ from latris.operations.formalisms import (
     ChatTool,
     Formalism,
     ResultKind,
+    _psa,
     default_origin,
     register,
     spec_verification,
@@ -150,7 +151,7 @@ def _check(block, known, outcome: str | None) -> list[str]:
             problems.append(f"dt branch {b.link!r}: write it as 'Parent -> Child'")
         else:
             problems += [f"dt branch: no factor named {n!r}" for n in ends if not known(n)]
-    return problems
+    return problems + _psa.spec_check("dt", block.ranges, known)
 
 
 def _apply(block, verified_by: str, root: Path) -> int:
@@ -176,7 +177,7 @@ def _apply(block, verified_by: str, root: Path) -> int:
         dt.set_payoff(x.node, x.value, origin=x.origin or default_origin(verified_by), source_id=x.source,
                       verification=spec_verification(x.verified, verified_by), notes=x.notes, root=root)
         n += 1
-    return n
+    return n + _psa.spec_apply("decision_tree", block.ranges, verified_by, root)
 
 
 def _export(paths, labels: dict[str, str]):
@@ -203,7 +204,7 @@ def _export(paths, labels: dict[str, str]):
            for x in dt.get_chances(root=paths.root).entries if x.target_id in labels]
     s = dt.get_settings(root=paths.root)
     return SpecDT(objective=s.objective, units=s.units, elements=nodes, branches=branches, payoffs=payoffs,
-                  uncertainties=unc)
+                  uncertainties=unc, ranges=_psa.spec_export("decision_tree", paths, labels))
 
 
 def _run(a, root: Path) -> str:
@@ -245,6 +246,10 @@ _CHAT_OPS = (
     ChatOp('set_dt_uncertainty', ('uncertainties',),
         'Name the uncertainty a chance node resolves; chance nodes with the same name are the same '
         'uncertainty under different choices (for the value of information).'),
+    ChatOp('set_dt_range', ('ranges',),
+        "How uncertain an input is, for probabilistic sensitivity analysis: a terminal node's payoff, a "
+        "branch's value or probability ('Parent -> Child'), or a chance node's branch probabilities as a "
+        'Dirichlet worth n observations. Beta and gamma take a mean and sd.'),
 )
 
 register(Formalism(
@@ -267,7 +272,8 @@ register(Formalism(
     results=(ResultKind(tool=ChatTool(*_TOOLS['dt-analysis']),
                         kind="dt-analysis", title="Decision tree: best choice and the value of information",
                         render=_render, analysis="dt_analyse", run=_run, definition=_definition, charts=_charts,
-                        chart_kinds=("dt-ev",)),),
+                        chart_kinds=("dt-ev",)),
+             _psa.result_kind('decision_tree')),
     spec_field="decision_tree",
     spec_check=_check,
     spec_apply=_apply,

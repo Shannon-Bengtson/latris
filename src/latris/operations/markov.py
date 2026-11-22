@@ -276,10 +276,14 @@ def structure_problems(*, root: Path | None = None) -> list[MKProblem]:
 # ── the cohort ───────────────────────────────────────────────────────
 
 
-def run_strategy(m: Model, strategy: str | None) -> dict[str, Any]:
+def transition_matrix(m: Model, strategy: str | None, *, rescale: bool = False) -> tuple[Any, bool]:
+    """The per-cycle transition matrix for a strategy (rows: from, columns: to), and whether it was rescaled.
+
+    ``rescale``: where the probabilities of leaving a state sum to more than 1 (possible when they are sampled
+    separately), scale them down to sum to 1 rather than fail; the second value says if any row was.
+    """
     import numpy as np
 
-    s = m.settings
     n = len(m.states)
     idx = {st: i for i, st in enumerate(m.states)}
     P = np.zeros((n, n))
@@ -287,14 +291,23 @@ def run_strategy(m: Model, strategy: str | None) -> dict[str, Any]:
         t = m.prob(e, strategy)
         if t:
             P[idx[a], idx[b]] += t.probability
-    for i in range(n):
-        P[i, i] = 1.0 - P[i].sum() + P[i, i]
-    p = np.array([m.start.get(st, 0.0) for st in m.states])
-    trace = [p]
-    for _ in range(s.num_cycles):
-        p = p @ P
-        trace.append(p)
-    tr = np.array(trace)  # (cycles + 1) × states
+    np.fill_diagonal(P, 0.0)
+    leave = P.sum(axis=1)
+    over = leave > 1.0 + 1e-12
+    if over.any():
+        if not rescale:
+            raise ValueError("probabilities of leaving a state sum to more than 1")
+        P[over] /= leave[over, None]
+        leave = P.sum(axis=1)
+    P[np.arange(n), np.arange(n)] = 1.0 - leave
+    return P, bool(over.any())
+
+
+def _counting(m: Model, strategy: str | None, tr) -> dict[str, Any]:
+    """Discounted and undiscounted totals from a cohort trace ((cycles + 1) × states)."""
+    import numpy as np
+
+    s = m.settings
     years = s.cycle_length * YEARS[s.time_units]
     rc = s.discount_rate
     ro = s.outcome_discount_rate if s.outcome_discount_rate is not None else rc
@@ -310,14 +323,41 @@ def run_strategy(m: Model, strategy: str | None) -> dict[str, Any]:
     dc, do = (1 + rc) ** -when, (1 + ro) ** -when
     per_cost = occ @ cost
     per_out = (occ @ util) * years
+    return {"occ": occ, "cost": float(per_cost @ dc), "outcome": float(per_out @ do),
+            "cost_undiscounted": float(per_cost.sum()), "outcome_undiscounted": float(per_out.sum())}
+
+
+def _trace(m: Model, P) -> Any:
+    import numpy as np
+
+    p = np.array([m.start.get(st, 0.0) for st in m.states])
+    trace = [p]
+    for _ in range(m.settings.num_cycles):
+        p = p @ P
+        trace.append(p)
+    return np.array(trace)
+
+
+def totals(m: Model, strategy: str | None, *, rescale: bool = False) -> tuple[float, float, bool]:
+    """A strategy's discounted (cost, outcome) per person, and whether its probabilities had to be rescaled."""
+    P, rescaled = transition_matrix(m, strategy, rescale=rescale)
+    c = _counting(m, strategy, _trace(m, P))
+    return c["cost"], c["outcome"], rescaled
+
+
+def run_strategy(m: Model, strategy: str | None) -> dict[str, Any]:
+    s = m.settings
+    tr = _trace(m, transition_matrix(m, strategy)[0])  # (cycles + 1) × states
+    c = _counting(m, strategy, tr)
+    occ = c["occ"]
     step = max(1, (len(tr) - 1) // (MAX_TRACE_ROWS - 1))
     rows = list(range(0, len(tr), step))
     if rows[-1] != len(tr) - 1:
         rows.append(len(tr) - 1)
     return {
         "strategy": m.labels[strategy] if strategy else BASE_CASE,
-        "cost": float(per_cost @ dc), "outcome": float(per_out @ do),
-        "cost_undiscounted": float(per_cost.sum()), "outcome_undiscounted": float(per_out.sum()),
+        "cost": c["cost"], "outcome": c["outcome"],
+        "cost_undiscounted": c["cost_undiscounted"], "outcome_undiscounted": c["outcome_undiscounted"],
         "time_in_state": {m.labels[st]: float(occ[:, i].sum() * s.cycle_length) for i, st in enumerate(m.states)},
         "final": {m.labels[st]: float(tr[-1, i]) for i, st in enumerate(m.states)},
         "trace": {"cycles": rows, "states": [m.labels[st] for st in m.states],

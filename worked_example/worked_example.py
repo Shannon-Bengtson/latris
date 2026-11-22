@@ -2092,6 +2092,19 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("Licensing is the better bet on today's numbers. Knowing demand first would be worth up to 140: "
             "research costing more isn't worth it. If high demand is likelier than about 42%, launching wins.")
     ex.run(["dt", "analyse"])
+    ex.note("How sure is that choice? Probabilistic sensitivity analysis gives the uncertain inputs a range — the "
+            "survey's estimate of high demand as a beta by its mean and standard error, the launch payoffs the "
+            "finance model's spread — and rolls the tree back for every sample. Demand is one uncertainty, so "
+            "licensing takes the same sampled probability as launching.")
+    ex.run(["dt", "range", "Demand if launched -> Launched, high demand", "beta", "--mean", "0.4", "--sd", "0.1",
+            "--source", "market-survey-2026", "--reason", "survey of 200 firms"])
+    ex.run(["dt", "range", "Launched, high demand", "normal", "--mean", "500", "--sd", "100",
+            "--source", "finance-model", "--reason", "finance model's optimistic and pessimistic cases"])
+    ex.run(["dt", "range", "Launched, low demand", "normal", "--mean", "-200", "--sd", "60",
+            "--source", "finance-model"])
+    ex.note("Licensing stays best on average, but launching wins in about four runs in ten: the evidence doesn't "
+            "settle the choice, and the demand estimate is what it hangs on.")
+    ex.run(["dt", "psa", "--runs", "2000"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "decision_tree"])
     os.chdir(ex.root)
@@ -2128,6 +2141,18 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["markov", "check"])
     ex.run(["markov", "show"])
     ex.run(["markov", "analyse"])
+    ex.note("Each probability, cost and utility is an estimate. Ranges in the conventional families — beta for "
+            "probabilities and utilities, gamma for costs, each by the mean and standard error its study reports — "
+            "go through a probabilistic sensitivity analysis: the cohort reruns for every sample.")
+    ex.run(["markov", "range", "Healthy -> Sick", "beta", "--mean", "0.10", "--sd", "0.02",
+            "--source", "disease-registry"])
+    ex.run(["markov", "range", "Healthy -> Sick", "beta", "--mean", "0.06", "--sd", "0.015", "--strategy", "New drug",
+            "--source", "phase-3-trial", "--reason", "trial arm, 95% CI 0.03–0.09"])
+    ex.run(["markov", "range", "Sick", "gamma", "--quantity", "cost", "--mean", "3000", "--sd", "600"])
+    ex.run(["markov", "range", "Sick", "beta", "--quantity", "utility", "--mean", "0.6", "--sd", "0.05"])
+    ex.note("The acceptability curve gives, at each willingness to pay, the chance each strategy is the most "
+            "cost-effective; the EVPI is the most further research could be worth per person.")
+    ex.run(["markov", "psa", "--runs", "1000"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "sensitivity", "--model-type", "markov"])
     os.chdir(ex.root)

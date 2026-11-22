@@ -246,10 +246,10 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "and for all of them together; the probabilities at which the best first choice changes"
         ),
         limits=(
-            "Risk-neutral (expected value, no utility function); point probabilities and payoffs, no "
-            "probabilistic sensitivity analysis yet; EVPI needs an uncertainty to have the same probabilities "
-            "whatever is chosen, and treats separate uncertainties as independent; no imperfect information "
-            "(EVSI); thresholds for two-state uncertainties only."
+            "Risk-neutral (expected value, no utility function); point probabilities and payoffs (ranges on "
+            "them go through the probabilistic sensitivity analysis); EVPI needs an uncertainty to have the same "
+            "probabilities whatever is chosen, and treats separate uncertainties as independent; no imperfect "
+            "information (EVSI); thresholds for two-state uncertainties only."
         ),
     ),
     Foundation(
@@ -269,8 +269,31 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
         limits=(
             "Memoryless: the chance of moving depends only on the current state, not on time in it (no tunnel "
-            "states or time-varying probabilities yet); point estimates only — no probabilistic sensitivity "
-            "analysis or acceptability curves yet; a cohort expectation, not individual-level simulation."
+            "states or time-varying probabilities yet); point estimates (ranges on them go through the "
+            "probabilistic sensitivity analysis); a cohort expectation, not individual-level simulation."
+        ),
+    ),
+    Foundation(
+        id="decision-psa",
+        applies_to=("decision_tree", "markov"),
+        method="Probabilistic sensitivity analysis, acceptability curves and the value of information",
+        citation=(
+            "Briggs, Claxton & Sculpher (2006), *Decision Modelling for Health Economic Evaluation*, ch. 4–7; "
+            "Fenwick, Claxton & Sculpher (2001), \"Representing uncertainty: the role of cost-effectiveness "
+            "acceptability curves\", *Health Economics* 10(8); Claxton (1999), \"The irrelevance of inference\", "
+            "*Journal of Health Economics* 18(3); McKay, Beckman & Conover (1979), *Technometrics* 21(2)"
+        ),
+        used_for=(
+            "sampling every decision-tree payoff, branch value and probability, or Markov transition, cost and "
+            "utility given a range (beta and gamma by mean and sd, Dirichlet sets of probabilities), seeded Latin "
+            "hypercube; how often each choice is best; Markov acceptability curves and the expected value of "
+            "perfect information over a willingness-to-pay grid; Spearman rank correlation for what drives the "
+            "decision"
+        ),
+        limits=(
+            "Inputs are sampled independently (no correlation between ranges); EVPI is for all parameters "
+            "together — no partial EVPI (EVPPI) or sample information (EVSI); probabilities of leaving a Markov "
+            "state sampled separately are scaled down when they sum past 1 (the report counts the runs)."
         ),
     ),
     Foundation(
@@ -465,6 +488,8 @@ _ANALYSIS_KIND_TO_ID = {
     "ft-monte-carlo": "risk-monte-carlo",
     "bt-monte-carlo": "risk-monte-carlo",
     "et-monte-carlo": "risk-monte-carlo",
+    "dt-psa": "decision-psa",
+    "markov-psa": "decision-psa",
 }
 
 

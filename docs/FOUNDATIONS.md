@@ -289,8 +289,9 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   For each two-state uncertainty, the probabilities at which the best first
   choice changes, found by scanning and bisection. Every value keeps its
   provenance; unverified values on the best path are named.
-- **Limits.** Risk-neutral (no utility function). Point probabilities and
-  payoffs; no probabilistic sensitivity analysis yet. EVPI is undefined for
+- **Limits.** Risk-neutral (no utility function). Probabilities and payoffs
+  are point values unless given a range for the probabilistic sensitivity
+  analysis (below). EVPI is undefined for
   an uncertainty whose probabilities depend on the choice (it is reported
   as not priced), and is an upper bound — imperfect information (EVSI) is
   not computed. A node has one parent; shared subtrees are repeated.
@@ -310,10 +311,41 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   ICERs along the frontier, and net monetary benefit at a willingness to
   pay. Every value keeps its provenance.
 - **Limits.** Memoryless — the chance of moving depends only on the current
-  state (no tunnel states or time-varying probabilities yet). Point
-  estimates only: no probabilistic sensitivity analysis, acceptability
-  curves or value of information yet. A cohort expectation, not individual
-  simulation; MDPs (choosing actions in each state) are not implemented.
+  state (no tunnel states or time-varying probabilities yet). Values are
+  point estimates unless given a range for the probabilistic sensitivity
+  analysis (below). A cohort expectation, not individual simulation; MDPs
+  (choosing actions in each state) are not implemented.
+
+## Probabilistic sensitivity analysis (decision trees and Markov models)
+
+- **Lineage.** Briggs, Claxton & Sculpher (2006), *Decision Modelling for
+  Health Economic Evaluation*, ch. 4–7; acceptability curves after Fenwick,
+  Claxton & Sculpher (2001); the expected value of perfect information over
+  the parameters after Claxton (1999); Latin hypercube sampling after
+  McKay, Beckman & Conover (1979).
+- **Implemented.** Ranges on a decision tree's payoffs, branch values and
+  probabilities (one branch of a two-branch chance node, or every branch as
+  a Dirichlet worth n observations; chance nodes resolving the same
+  uncertainty take the same sampled probabilities), and on a Markov model's
+  transition probabilities, costs and utilities (each for every strategy or
+  one; a state's transitions out as a Dirichlet). Beta and gamma by mean
+  and standard deviation (method of moments), or any of uniform,
+  triangular, normal and lognormal; each range keeps its reason, source and
+  verification and must include the current value. Seeded Latin hypercube
+  sampling through each model's own calculation. Decision trees: each first
+  choice's expected value across the runs, how often each is best, and the
+  EVPI over the parameters. Markov: each strategy's cost and outcome across
+  the runs, the incremental analysis on the means, the cost-effectiveness
+  acceptability curve and EVPI over a willingness-to-pay grid, and the
+  probability the chosen strategy is cost-effective at the stated
+  willingness to pay. Spearman rank correlation names the inputs driving
+  the decision (the best option's advantage, or its net monetary benefit,
+  over the runner-up).
+- **Limits.** Inputs are sampled independently (no correlated draws). EVPI
+  is for all parameters together; partial EVPI (EVPPI) and sample
+  information (EVSI) are not computed. Separately sampled probabilities of
+  leaving a Markov state that sum past 1 are scaled down to 1, and the
+  report counts how often; a Dirichlet over the state avoids it.
 
 ## Theory of change
 
@@ -472,11 +504,17 @@ the code it describes win, and this page is wrong.
   Book for Process Safety*. AIChE / Wiley.
 - Clemen, R. T., & Reilly, T. (2014). *Making Hard Decisions with
   DecisionTools* (3rd ed.). Cengage.
+- Claxton, K. (1999). "The irrelevance of inference: a decision-making
+  approach to the stochastic evaluation of health care technologies."
+  *Journal of Health Economics*, 18(3), 341–364.
 - Department for Communities and Local Government (2009). *Multi-criteria
   analysis: a manual*. London: DCLG.
 - Drummond, M. F., Sculpher, M. J., Claxton, K., Stoddart, G. L., &
   Torrance, G. W. (2015). *Methods for the Economic Evaluation of Health
   Care Programmes* (4th ed.). Oxford University Press.
+- Fenwick, E., Claxton, K., & Sculpher, M. (2001). "Representing
+  uncertainty: the role of cost-effectiveness acceptability curves."
+  *Health Economics*, 10(8), 779–787.
 - Fairfield, T., & Charman, A. E. (2017). "Explicit Bayesian Analysis for
   Process Tracing: Guidelines, Opportunities, and Caveats." *Political
   Analysis*, 25(3), 363–380.

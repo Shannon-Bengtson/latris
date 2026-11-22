@@ -10,6 +10,7 @@ from latris.operations.formalisms import (
     ChatTool,
     Formalism,
     ResultKind,
+    _psa,
     default_origin,
     register,
     spec_verification,
@@ -148,7 +149,7 @@ def _check(block, known, outcome: str | None) -> list[str]:
     names = [x.state for x in block.rewards] + [x.state for x in block.start]
     names += [x.strategy for x in [*block.transitions, *block.rewards] if x.strategy]
     problems += [f"markov: no factor named {n!r}" for n in names if not known(n)]
-    return problems
+    return problems + _psa.spec_check("markov", block.ranges, known)
 
 
 def _apply(block, verified_by: str, root: Path) -> int:
@@ -174,7 +175,7 @@ def _apply(block, verified_by: str, root: Path) -> int:
     for s in block.start:
         markov.set_start(s.state, s.proportion, root=root)
         n += 1
-    return n
+    return n + _psa.spec_apply("markov", block.ranges, verified_by, root)
 
 
 def _export(paths, labels: dict[str, str]):
@@ -210,7 +211,8 @@ def _export(paths, labels: dict[str, str]):
              for s in markov.get_start(root=paths.root).entries if s.target_id in labels]
     st = markov.get_settings(root=paths.root)
     settings = SpecMarkovSettings(**st.model_dump(exclude={"model_type", "set_by", "rationale"}))
-    return SpecMarkov(elements=elements, settings=settings, transitions=trans, rewards=rewards, start=start)
+    return SpecMarkov(elements=elements, settings=settings, transitions=trans, rewards=rewards, start=start,
+                      ranges=_psa.spec_export("markov", paths, labels))
 
 
 def _run(a, root: Path) -> str:
@@ -251,6 +253,10 @@ _CHAT_OPS = (
         "A state's cost and utility per cycle (optionally for one strategy)."),
     ChatOp('set_markov_start', ('start',),
         'The share of the cohort starting in a state.'),
+    ChatOp('set_markov_range', ('ranges',),
+        "How uncertain an input is, for probabilistic sensitivity analysis: a transition ('From -> To'), a "
+        "state's cost or utility (quantity), or a state's transitions out as a Dirichlet (quantity 'leaving'); "
+        'optionally for one strategy. Beta (probabilities, utilities) and gamma (costs) take a mean and sd.'),
 )
 
 register(Formalism(
@@ -271,7 +277,8 @@ register(Formalism(
     results=(ResultKind(tool=ChatTool(*_TOOLS['markov-analysis']),
                         kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
                         render=_render, analysis="markov_analyse", run=_run, definition=_definition,
-                        charts=_charts, chart_kinds=("markov-trace", "markov-ce")),),
+                        charts=_charts, chart_kinds=("markov-trace", "markov-ce")),
+             _psa.result_kind('markov')),
     spec_field="markov",
     spec_check=_check,
     spec_apply=_apply,

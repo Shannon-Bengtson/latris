@@ -69,6 +69,12 @@ repository. Start at the repo-root [README](../README.md).
   discounted costs and outcomes with half-cycle correction; incremental
   cost-effectiveness (ICERs, dominance, extended dominance, net benefit) —
   via CLI `markov` + `/api/markov/*`.
+- Probabilistic sensitivity analysis for decision trees and Markov models:
+  ranges on payoffs, probabilities, costs and utilities (beta and gamma by
+  mean and sd, Dirichlet sets of probabilities) sampled through the model —
+  how often each choice is best, acceptability curves, the expected value
+  of perfect information and what drives the decision — via `dt|markov
+  range` and `psa`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

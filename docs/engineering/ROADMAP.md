@@ -106,9 +106,9 @@ black-box predictors.
 2. **Quick wins** — #1 effect estimation (done: `latris analyse
    estimate`, an analysis layer on the DAG), #2 MCDA (done: `latris mcda`),
    #3 ACH (done: `latris ach`).
-3. **Decisions + HTA** — #4 decision tree + EVPI (done: `latris dt`; probabilistic sensitivity
-   analysis still to come), #5 Markov (done: `latris markov`; PSA and
-   acceptability curves still to come).
+3. **Decisions + HTA** — #4 decision tree + EVPI (done: `latris dt`, with probabilistic
+   sensitivity analysis: `dt range` and `dt psa`), #5 Markov (done: `latris markov`, with PSA,
+   acceptability curves and EVPI: `markov range` and `markov psa`).
 4. **Evaluation ladder** — #6 process tracing (done: `latris toc prior|test|trace`, an analysis on
    the theory of change), #9 ITS / DiD (done: `latris toc impact`).
 5. **Analysis layers** — #7 Monte Carlo on the risk types (done: `latris ft|bowtie|et uncertainty`
