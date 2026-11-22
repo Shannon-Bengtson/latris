@@ -112,7 +112,11 @@ black-box predictors.
 4. **Evaluation ladder** — #6 process tracing (done: `latris toc prior|test|trace`, an analysis on
    the theory of change), #9 ITS / DiD (done: `latris toc impact`).
 5. **Analysis layers** — #7 Monte Carlo on the risk types (done: `latris ft|bowtie|et uncertainty`
-   and `monte-carlo`), #8 SALib.
+   and `monte-carlo`), #8 global sensitivity (done: `latris analyse global-sensitivity`, Sobol and
+   Morris over the risk types, decision trees, Markov and SD). Built on numpy and scipy's Sobol
+   sequence rather than SALib: the estimators are a few dozen lines (checked against the Ishigami
+   function's analytic indices), and SALib would bring matplotlib, pandas and multiprocess. BN
+   tables (Dirichlet rows) aren't single inputs, so BN waits for a grouped design.
 6. **Argument map** (#12), then GSN on top of it — when a safety user appears.
 
 Registry statuses follow this plan: influence diagram and argument map are

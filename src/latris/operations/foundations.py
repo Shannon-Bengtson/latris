@@ -297,6 +297,28 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="global-sensitivity",
+        applies_to=("fault_tree", "bow_tie", "event_tree", "decision_tree", "markov", "sd"),
+        method="Global sensitivity analysis: Sobol indices and Morris screening",
+        citation=(
+            "Saltelli et al. (2008), *Global Sensitivity Analysis: The Primer*; Sobol (2001), *Mathematics and "
+            "Computers in Simulation* 55; Saltelli et al. (2010), *Computer Physics Communications* 181(2); "
+            "Jansen (1999), *Computer Physics Communications* 117; Morris (1991), *Technometrics* 33(2); "
+            "Campolongo, Cariboni & Saltelli (2007), *Environmental Modelling & Software* 22(10)"
+        ),
+        used_for=(
+            "apportioning the variance of a result among every input with a range, varied together over their "
+            "distributions: first-order and total Sobol indices (Saltelli and Jansen estimators on a scrambled "
+            "Sobol sequence, bootstrap intervals), or Morris elementary effects (μ*, σ) as a cheaper screen"
+        ),
+        limits=(
+            "Inputs are independent (no correlated ranges); Dirichlet sets of probabilities are held at their "
+            "point values; indices are estimates — with heavy-tailed inputs or few samples they can stray below "
+            "0 or above 1 (the intervals say how far to trust them); Morris effects are per unit of an input's "
+            "quantile, comparable within one result only."
+        ),
+    ),
+    Foundation(
         id="toc-results-chain",
         applies_to=("theory_of_change",),
         method="Theory of change as a results chain",
@@ -490,6 +512,7 @@ _ANALYSIS_KIND_TO_ID = {
     "et-monte-carlo": "risk-monte-carlo",
     "dt-psa": "decision-psa",
     "markov-psa": "decision-psa",
+    **{k: "global-sensitivity" for k in ("ft-gsa", "bt-gsa", "et-gsa", "dt-gsa", "markov-gsa", "sd-gsa")},
 }
 
 

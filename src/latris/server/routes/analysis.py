@@ -1,10 +1,12 @@
-"""Graph analysis routes — loops, propagation, d-separation, blanket, paths, effect estimates."""
+"""Graph analysis routes — loops, propagation, d-separation, blanket, paths, effect estimates, global
+sensitivity."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
 from latris.operations import analysis as analysis_ops
 from latris.server.deps import Root
@@ -110,3 +112,27 @@ def adjustment_sets_route(
         "adjustment_sets": [sorted(s) for s in sets],
         "count": len(sets),
     }
+
+
+class GlobalSensitivityRequest(BaseModel):
+    model_type: str
+    method: str = "sobol"
+    n: int | None = None
+    seed: int = 1234
+    output: str | None = None
+    variable: str | None = None  # SD only
+    metric: str | None = None  # SD only
+    record: bool = True
+
+
+@router.post("/global-sensitivity")
+def global_sensitivity(body: GlobalSensitivityRequest, root: Root) -> dict[str, Any]:
+    """Sobol indices or Morris screening over every input with a range (operations/global_sensitivity.py)."""
+    from latris.operations import global_sensitivity as gs
+
+    payload = gs.analyse(body.model_type, method=body.method, n=body.n, seed=body.seed, output=body.output,
+                         variable=body.variable, metric=body.metric, root=root)
+    sha = None
+    if body.record:
+        sha, payload["run_id"] = gs.record(payload, root=root)
+    return {"result": payload, "commit_sha": sha}

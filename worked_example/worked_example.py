@@ -2105,6 +2105,10 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("Licensing stays best on average, but launching wins in about four runs in ten: the evidence doesn't "
             "settle the choice, and the demand estimate is what it hangs on.")
     ex.run(["dt", "psa", "--runs", "2000"])
+    ex.note("Rank correlations say which input moves with the result; global sensitivity apportions the result's "
+            "variance among the inputs, varied together. Sobol indices: each input's share alone and with its "
+            "interactions, so a range that doesn't matter can be left alone.")
+    ex.run(["analyse", "global-sensitivity", "decision_tree", "-n", "256"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "decision_tree"])
     os.chdir(ex.root)
@@ -2153,6 +2157,8 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("The acceptability curve gives, at each willingness to pay, the chance each strategy is the most "
             "cost-effective; the EVPI is the most further research could be worth per person.")
     ex.run(["markov", "psa", "--runs", "1000"])
+    ex.note("Morris screening ranks the same inputs in far fewer runs: μ* for influence, σ for interaction.")
+    ex.run(["analyse", "global-sensitivity", "markov", "--method", "morris", "-n", "10"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "sensitivity", "--model-type", "markov"])
     os.chdir(ex.root)

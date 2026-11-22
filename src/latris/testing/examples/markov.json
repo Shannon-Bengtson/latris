@@ -216,6 +216,12 @@
    "runs": 300,
    "seed": 1234,
    "sampling": "lhs"
+  },
+  {
+   "kind": "markov_gsa",
+   "method": "morris",
+   "n": 8,
+   "seed": 1234
   }
  ]
 }

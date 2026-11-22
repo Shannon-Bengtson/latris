@@ -306,7 +306,7 @@ def default_origin(verified_by: str) -> str:
 _MODULES = (
     "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov", "toc_impact", "causal", "fcm_steady_state",
+    "markov", "toc_impact", "causal", "fcm_steady_state", "global_sensitivity",
 )
 
 

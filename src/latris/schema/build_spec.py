@@ -678,6 +678,11 @@ ANALYSIS_OPTION_DOCS: dict[str, str] = {
     "transfer_function": "sigmoid (default), tanh or step.",
     "lambda_steepness": "Steepness of the transfer function (default 1).",
     "max_iterations": "Stop after this many steps if it hasn't settled (default 100).",
+    "method": "Global sensitivity: sobol (each input's share of the variance, alone and in total) or morris "
+              "(a cheaper screen of elementary effects).",
+    "n": "Global sensitivity: Sobol base samples, a power of two (runs = n × (inputs + 2)), or Morris "
+         "trajectories (runs = n × (inputs + 1)).",
+    "output": "The result to headline, by name or its start (default: the model's main result).",
 }
 
 
@@ -716,6 +721,7 @@ ANALYSIS_OPTION_TITLES: dict[str, str] = {
     "estimator": "Estimator", "time": "Time column", "at": "Intervention starts", "group": "Group column",
     "treated": "Treated groups", "clamp": "Hold at", "initial": "Start from",
     "transfer_function": "Transfer function", "lambda_steepness": "Steepness", "max_iterations": "Most steps",
+    "method": "Method", "n": "Samples", "output": "Headline result",
 }
 
 
@@ -958,6 +964,20 @@ class MarkovAnalyseAnalysis(_Analysis):
     kind: Literal["markov_analyse"]
 
 
+class GsaAnalysis(_Analysis):
+    """Global sensitivity of a fault tree, bow-tie, event tree, decision tree, Markov model or SD model: Sobol
+    indices or Morris screening over every input with a range. ``n``: Sobol base samples (a power of two) or
+    Morris trajectories; ``output``: the result to headline; SD takes ``variable`` and ``metric``."""
+
+    kind: Literal["ft_gsa", "bt_gsa", "et_gsa", "dt_gsa", "markov_gsa", "sd_gsa"]
+    method: Literal["sobol", "morris"] | None = None
+    n: int | None = Field(default=None, ge=4)
+    seed: int | None = None
+    output: str | None = None
+    variable: str | None = None
+    metric: str | None = None
+
+
 class PsaAnalysis(_Draws):
     """Decision tree or Markov: probabilistic sensitivity analysis over every input with a range — how often
     each choice is best, the acceptability curve (Markov) and the expected value of perfect information."""
@@ -970,7 +990,7 @@ ANALYSIS_MODELS: tuple[type[_Analysis], ...] = (
     BnQueryAnalysis, BnExplainAnalysis, BnMonteCarloAnalysis, BnCompareAnalysis, BnSensitivityAnalysis,
     TocCheckAnalysis, TocTraceAnalysis, TocImpactAnalysis, FtAnalyseAnalysis, BowtieAnalyseAnalysis,
     EtAnalyseAnalysis, RiskMonteCarloAnalysis, DagEstimateAnalysis, FcmInferAnalysis, McdaAnalyseAnalysis,
-    AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis, PsaAnalysis,
+    AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis, PsaAnalysis, GsaAnalysis,
 )
 
 SpecAnalysis = Annotated[
@@ -978,7 +998,7 @@ SpecAnalysis = Annotated[
     | BnQueryAnalysis | BnExplainAnalysis | BnMonteCarloAnalysis | BnCompareAnalysis | BnSensitivityAnalysis
     | TocCheckAnalysis | TocTraceAnalysis | TocImpactAnalysis | FtAnalyseAnalysis | BowtieAnalyseAnalysis
     | EtAnalyseAnalysis | RiskMonteCarloAnalysis | DagEstimateAnalysis | FcmInferAnalysis | McdaAnalyseAnalysis
-    | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis | PsaAnalysis,
+    | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis | PsaAnalysis | GsaAnalysis,
     Field(discriminator="kind"),
 ]
 

@@ -293,6 +293,12 @@
    "runs": 500,
    "seed": 1234,
    "sampling": "lhs"
+  },
+  {
+   "kind": "dt_gsa",
+   "method": "sobol",
+   "n": 128,
+   "seed": 1234
   }
  ]
 }
