@@ -438,10 +438,10 @@ def open_checkpoint(*, root: Path | None = None) -> Checkpoint | None:
 # ── Recording ─────────────────────────────────────────────────────────────
 
 
-def _record(entry_kwargs: dict[str, Any], subject: str, m: _Model) -> tuple[PersonInput, str]:
+def _record(entry_kwargs: dict[str, Any], subject: str, m: _Model, via: str | None) -> tuple[PersonInput, str]:
     entry = PersonInput(
         id=new_id("person-input"),
-        relayed_by=os.environ.get(RECORDED_BY_AGENT_ENV) or None,
+        relayed_by=(via or "").strip() or os.environ.get(RECORDED_BY_AGENT_ENV) or None,
         authored_by=_author(m.paths.root),
         **entry_kwargs,
     )
@@ -461,10 +461,11 @@ def record_input(
     answers: str,
     *,
     questions: list[str] | None = None,
+    via: str | None = None,
     root: Path | None = None,
 ) -> tuple[PersonInput, str]:
     """Record the person's answers at a checkpoint, in their words. ``questions`` defaults to what the
-    checkpoint asks now."""
+    checkpoint asks now; ``via`` names how they were relayed (default: the agent driving the CLI, if any)."""
     if checkpoint not in CHECKPOINT_ORDER:
         raise ValueError(f"checkpoint must be one of {', '.join(CHECKPOINT_ORDER)}")
     if not answers.strip():
@@ -476,11 +477,12 @@ def record_input(
          "answers": answers.strip(), "covers": covers},
         f"Person input at {checkpoint}: {_quoted(answers, 60)}",
         m,
+        via,
     )
 
 
 def skip_checkpoint(
-    checkpoint: CheckpointId, reason: str, *, root: Path | None = None
+    checkpoint: CheckpointId, reason: str, *, via: str | None = None, root: Path | None = None
 ) -> tuple[PersonInput, str]:
     """Carry on past a checkpoint without the person; the report shows it was skipped, and why."""
     if checkpoint not in CHECKPOINT_ORDER:
@@ -494,6 +496,7 @@ def skip_checkpoint(
          "covers": covers},
         f"Skipped checkpoint {checkpoint}: {_quoted(reason, 60)}",
         m,
+        via,
     )
 
 

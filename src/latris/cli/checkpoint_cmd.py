@@ -87,9 +87,10 @@ def record(
     question: list[str] = typer.Option(
         None, "--question", "-q", help="A question you asked (repeatable; default: the checkpoint's own)."
     ),
+    via: str = typer.Option(None, "--via", help="How the answers reached you, e.g. 'chat' (default: the agent)."),
 ) -> None:
     """Record the person's answers at a checkpoint."""
-    entry, sha = ops.record_input(checkpoint, answers, questions=question or None)  # type: ignore[arg-type]
+    entry, sha = ops.record_input(checkpoint, answers, questions=question or None, via=via)  # type: ignore[arg-type]
     emit(entry, commit_sha=sha, human=lambda: console.print(
         f"[green]recorded[/green] {checkpoint} [cyan]{entry.id}[/cyan] · commit [cyan]{sha[:10]}[/cyan]"))
 
@@ -99,9 +100,10 @@ def record(
 def skip(
     checkpoint: str = typer.Argument(..., help="framing | structure | values | surprise | audience"),
     reason: str = typer.Option(..., "--reason", "-r", help="Why you're carrying on without the person."),
+    via: str = typer.Option(None, "--via", help="Who decided to carry on, e.g. 'chat' (default: the agent)."),
 ) -> None:
     """Carry on past a checkpoint without the person; the report says so, and why."""
-    entry, sha = ops.skip_checkpoint(checkpoint, reason)  # type: ignore[arg-type]
+    entry, sha = ops.skip_checkpoint(checkpoint, reason, via=via)  # type: ignore[arg-type]
     emit(entry, commit_sha=sha, human=lambda: console.print(
         f"[yellow]skipped[/yellow] {checkpoint} [cyan]{entry.id}[/cyan] · commit [cyan]{sha[:10]}[/cyan]"))
 

@@ -50,14 +50,15 @@ def test_show_lists_states_and_the_open_one(project: Path) -> None:
 def test_record_skip_and_pace(project: Path, agent) -> None:
     out = runner.invoke(app, ["checkpoint", "record", "framing", "--answers", "It's for the board; I expect burnout."])
     assert out.exit_code == 0, out.output
-    out = runner.invoke(app, ["checkpoint", "skip", "structure", "--reason", "The person said carry on."])
+    out = runner.invoke(app, ["checkpoint", "skip", "structure", "--reason", "The person said carry on.",
+                              "--via", "chat"])
     assert out.exit_code == 0, out.output
     out = runner.invoke(app, ["checkpoint", "pace", "just-build"])
     assert out.exit_code == 0, out.output
     log = load_model(PersonInputLog, ProjectPaths(project).person_input_yaml)
     assert log.pace == "just_build"
     assert [(e.checkpoint, e.outcome, e.relayed_by) for e in log.entries] == [
-        ("framing", "answered", "test-agent"), ("structure", "skipped", "test-agent")]
+        ("framing", "answered", "test-agent"), ("structure", "skipped", "chat")]
     assert runner.invoke(app, ["checkpoint", "pace", "sometimes"]).exit_code != 0
     assert runner.invoke(app, ["checkpoint", "record", "vibes", "--answers", "x"]).exit_code != 0
 

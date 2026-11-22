@@ -152,7 +152,7 @@ latris prediction add "..." --horizon ...
 
 ```bash
 latris checkpoint show                     # each checkpoint's state, and the one to ask now (questions built from the model)
-latris checkpoint record structure --answers "..."   # the person's words; --question to name what you asked
+latris checkpoint record structure --answers "..."   # the person's words; --question what you asked, --via chat
 latris checkpoint skip values --reason "..."         # carry on without them; the report says so
 latris checkpoint pace just-build          # the person said carry on alone: stop asking (`ask` turns it back on)
 ```
