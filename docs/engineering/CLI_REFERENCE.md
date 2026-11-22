@@ -224,9 +224,13 @@ Mermaid sketch of the model (section `diagram`, in every pack) that
 renders on GitHub and in most chat UIs, with links coloured by polarity and
 the feedback loops listed under it (R1, B1, …; cycles that differ by one
 alternative step count as one loop). Sections appear in the pack's own
-order: `client` and `publication` lead with the interpretation (answer,
-implications, confidence) and leave out the change log (`history`); the
-client pack shows approved findings only and says how many are waiting. `--report-url` adds a link to the
+order: `client` and `publication` are grouped into parts (`##` Summary,
+The model, What the analysis shows, How confident we are, Technical
+appendix, with each section a `###` beneath), lead with the answer and
+leave out the change log (`history`). They show approved findings only,
+interpretation sections only once written up (merged across model types),
+and only results computed on the current model, with a line counting the
+earlier ones. `--report-url` adds a link to the
 hosted copy of the report in the footer; it defaults to the link recorded
 when the project was shared, if any. `--no-ai` writes the narrative
 preamble without attempting an AI call.
