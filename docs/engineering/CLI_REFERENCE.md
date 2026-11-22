@@ -256,10 +256,11 @@ latris analyse d-sep <x> <y> [--given <z1,z2,...>]
 latris analyse blanket <variable>
 latris analyse paths <from-variable> <to-variable>
 latris analyse adjustment-sets <treatment> <outcome>
-latris analyse global-sensitivity <fault_tree|bow_tie|event_tree|decision_tree|markov|sd>
-    [--method sobol|morris] [-n N] [--seed S] [--output R] [--variable V --metric M (SD)] [--no-record]
+latris analyse global-sensitivity <fault_tree|bow_tie|event_tree|decision_tree|markov|sd|bn>
+    [--method sobol|morris] [-n N] [--seed S] [--output R] [--variable V --metric M (SD)]
+    [--variable F --state S -e "Factor=state" ... (BN)] [--no-record]
     # Sobol S1/ST with bootstrap 95% (n base samples, a power of two) or Morris μ*/σ (n trajectories),
-    # over every input with a range; recorded (ft-gsa, bt-gsa, et-gsa, dt-gsa, markov-gsa, sd-gsa)
+    # over every input with a range; recorded (ft-gsa, bt-gsa, et-gsa, dt-gsa, markov-gsa, sd-gsa, bn-gsa)
 latris analyse estimate <treatment> <outcome> --dataset NAME [--adjust F ...] [--no-adjust]
                         [--column "Factor=column" ...] [--model auto|linear|logistic] [--no-record]
 ```

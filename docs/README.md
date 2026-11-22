@@ -77,8 +77,9 @@ repository. Start at the repo-root [README](../README.md).
   range` and `psa`.
 - Global sensitivity analysis over the same ranges: Sobol indices (each
   input's share of a result's variance, alone and with interactions) or
-  Morris screening, for the risk types, decision trees, Markov and SD
-  models — via `analyse global-sensitivity` + `/api/analysis/global-sensitivity`.
+  Morris screening, for the risk types, decision trees, Markov, SD and
+  Bayesian-network models (a table or any set of probabilities is one
+  grouped input) — via `analyse global-sensitivity` + `/api/analysis/global-sensitivity`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

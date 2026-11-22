@@ -355,7 +355,7 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   effects after Morris (1991), with μ* after Campolongo, Cariboni & Saltelli
   (2007).
 - **Implemented.** For fault trees, bow-ties, event trees, decision trees,
-  Markov models and system dynamics, every input with a range (the same
+  Markov models, system dynamics and Bayesian networks, every input with a range (the same
   distributions their Monte Carlo or PSA samples) is varied together on the
   unit hypercube and mapped through its quantile function. Sobol: a
   scrambled Sobol sequence, n·(k + 2) runs, first-order and total indices
@@ -364,10 +364,16 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   with a bootstrap interval on μ*. The headline output is the model's main
   result (the top event, the best option's advantage over the runner-up,
   the net monetary benefit at the willingness to pay, an SD variable's
-  metric). Implemented on numpy and scipy rather than SALib; checked
+  metric, a Bayesian network's posterior). A set of probabilities — a
+  chance node's branches, a state's transitions out, a Bayesian-network
+  table worth n observations — is one input spanning several columns,
+  decoded into an exact Dirichlet draw (each component a gamma quantile,
+  normalised) and indexed as a group (Jacques, Lavergne & Devictor 2006).
+  Implemented on numpy and scipy rather than SALib; checked
   against the Ishigami function's analytic indices and closed forms.
-- **Limits.** Inputs must be independent; Dirichlet sets of probabilities
-  (and so Bayesian-network tables) are held at their point values. Index
+- **Limits.** Inputs must be independent (correlations between ranges are
+  ignored by this analysis); a group's index covers the whole set, not each
+  of its rows. Index
   estimates carry sampling error — with heavy-tailed inputs or small n they
   can stray outside [0, 1]; the intervals say how far to trust them. Morris
   effects are per unit of an input's quantile and comparable only within
@@ -573,6 +579,9 @@ the code it describes win, and this page is wrong.
   Electrotechnical Commission.
 - IEC 62502:2010. *Analysis techniques for dependability — Event tree
   analysis (ETA)*. International Electrotechnical Commission.
+- Jacques, J., Lavergne, C., & Devictor, N. (2006). "Sensitivity analysis
+  in presence of model uncertainty and correlated inputs." *Reliability
+  Engineering & System Safety*, 91(10–11), 1126–1134.
 - Jansen, M. J. W. (1999). "Analysis of variance designs for model output."
   *Computer Physics Communications*, 117(1–2), 35–43.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.

@@ -965,17 +965,20 @@ class MarkovAnalyseAnalysis(_Analysis):
 
 
 class GsaAnalysis(_Analysis):
-    """Global sensitivity of a fault tree, bow-tie, event tree, decision tree, Markov model or SD model: Sobol
-    indices or Morris screening over every input with a range. ``n``: Sobol base samples (a power of two) or
-    Morris trajectories; ``output``: the result to headline; SD takes ``variable`` and ``metric``."""
+    """Global sensitivity of a fault tree, bow-tie, event tree, decision tree, Markov, SD or Bayesian-network
+    model: Sobol indices or Morris screening over every input with a range. ``n``: Sobol base samples (a power
+    of two) or Morris trajectories; ``output``: the result to headline; SD takes ``variable`` and ``metric``,
+    a BN ``variable``, ``state`` and ``evidence``."""
 
-    kind: Literal["ft_gsa", "bt_gsa", "et_gsa", "dt_gsa", "markov_gsa", "sd_gsa"]
+    kind: Literal["ft_gsa", "bt_gsa", "et_gsa", "dt_gsa", "markov_gsa", "sd_gsa", "bn_gsa"]
     method: Literal["sobol", "morris"] | None = None
     n: int | None = Field(default=None, ge=4)
     seed: int | None = None
     output: str | None = None
     variable: str | None = None
     metric: str | None = None
+    state: str | None = None  # BN: the state of variable whose probability is explained
+    evidence: dict[str, str] = Field(default_factory=dict)  # BN: the question's observed states
 
 
 class PsaAnalysis(_Draws):

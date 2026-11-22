@@ -298,7 +298,7 @@ FOUNDATIONS: tuple[Foundation, ...] = (
     ),
     Foundation(
         id="global-sensitivity",
-        applies_to=("fault_tree", "bow_tie", "event_tree", "decision_tree", "markov", "sd"),
+        applies_to=("fault_tree", "bow_tie", "event_tree", "decision_tree", "markov", "sd", "bn"),
         method="Global sensitivity analysis: Sobol indices and Morris screening",
         citation=(
             "Saltelli et al. (2008), *Global Sensitivity Analysis: The Primer*; Sobol (2001), *Mathematics and "
@@ -312,10 +312,11 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "Sobol sequence, bootstrap intervals), or Morris elementary effects (μ*, σ) as a cheaper screen"
         ),
         limits=(
-            "Inputs are independent (no correlated ranges); Dirichlet sets of probabilities are held at their "
-            "point values; indices are estimates — with heavy-tailed inputs or few samples they can stray below "
-            "0 or above 1 (the intervals say how far to trust them); Morris effects are per unit of an input's "
-            "quantile, comparable within one result only."
+            "Inputs are independent (correlations between ranges are ignored here); a set of probabilities "
+            "(a Dirichlet: a chance node's branches, a state's transitions out, a Bayesian-network table) is "
+            "one input, indexed as a group; indices are estimates — with heavy-tailed inputs or few samples "
+            "they can stray below 0 or above 1 (the intervals say how far to trust them); Morris effects are "
+            "per unit of an input's quantile, comparable within one result only."
         ),
     ),
     Foundation(
@@ -512,7 +513,8 @@ _ANALYSIS_KIND_TO_ID = {
     "et-monte-carlo": "risk-monte-carlo",
     "dt-psa": "decision-psa",
     "markov-psa": "decision-psa",
-    **{k: "global-sensitivity" for k in ("ft-gsa", "bt-gsa", "et-gsa", "dt-gsa", "markov-gsa", "sd-gsa")},
+    **{k: "global-sensitivity" for k in ("ft-gsa", "bt-gsa", "et-gsa", "dt-gsa", "markov-gsa", "sd-gsa",
+                                         "bn-gsa")},
 }
 
 

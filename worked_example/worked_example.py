@@ -1142,6 +1142,12 @@ def build_example(ex: WorkedExample) -> None:
             "--reason", "Learned from 180 monitoring rows"])
     ex.run(["bn", "monte-carlo", "Respiratory Health", "--state", "poor",
             "--evidence", "Transport Policy=strict", "--runs", "300"])
+    ex.note(
+        "Which table's uncertainty matters more for that answer? Global sensitivity treats each table as one "
+        "input — all its rows sampled together — and gives its share of the answer's variance."
+    )
+    ex.run(["analyse", "global-sensitivity", "bn", "--variable", "Respiratory Health", "--state", "poor",
+            "--evidence", "Transport Policy=strict", "-n", "64"])
 
     # ── 7.8c BN interventions and weighted tables ─────────────────────
     ex.section(

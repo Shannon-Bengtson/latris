@@ -25,9 +25,11 @@ distributions, with their provenance — sampled on the unit hypercube and
 mapped through each distribution's quantile function, so the indices refer
 to those distributions. Each model type supplies its inputs and a function
 from them to named outputs (``_PROVIDERS``): the risk types, decision trees,
-Markov models and system dynamics. Inputs are independent (as the indices
-require); Dirichlet ranges (sets of probabilities) aren't single inputs and
-are held at their point values, and listed.
+Markov models, system dynamics and Bayesian networks. Inputs are independent
+(as the indices require). A set of probabilities — a chance node's branches,
+a state's transitions out, a Bayesian-network table worth n observations —
+is one input made of several columns (a group: Jacques, Lavergne & Devictor
+2006), decoded into an exact Dirichlet draw; its index is the whole set's.
 """
 
 from __future__ import annotations
@@ -44,7 +46,7 @@ from latris.schema.attributes import ParameterUncertainty
 
 METHODS = ("sobol", "morris")
 KINDS = {"fault_tree": "ft-gsa", "bow_tie": "bt-gsa", "event_tree": "et-gsa", "decision_tree": "dt-gsa",
-         "markov": "markov-gsa", "sd": "sd-gsa"}
+         "markov": "markov-gsa", "sd": "sd-gsa", "bn": "bn-gsa"}
 MAX_RUNS = 200_000
 BOOTSTRAP = 200
 MORRIS_LEVELS = 4
@@ -64,6 +66,22 @@ class Problem:
     fixed: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     units: str | None = None
+    # Inputs that are sets of probabilities: key → the Dirichlet parameters of each of its parts (a chance
+    # node's branches, a state's transitions out, each row of a Bayesian-network table). Such an input is
+    # one group of columns, decoded through gamma quantiles; ``evaluate`` gets its parts' probabilities.
+    groups: dict[str, list[list[float]]] = field(default_factory=dict)
+
+    def point_values(self) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for k in self.keys:
+            if k in self.groups:
+                out[k] = [[a / sum(alpha) for a in alpha] for alpha in self.groups[k]]
+            else:
+                out[k] = self.points[k]
+        return out
+
+    def widths(self) -> list[int]:
+        return [sum(len(a) for a in self.groups[k]) if k in self.groups else 1 for k in self.keys]
 
 
 # ── estimators (pure numpy) ─────────────────────────────────────────
@@ -80,20 +98,33 @@ def _unit_samples(k: int, n: int, seed: int):
     return s[:, :k], s[:, k:]
 
 
-def sobol_indices(f: Callable[[Any], Any], k: int, n: int, seed: int) -> dict[str, Any]:
+def _columns(k: int, widths: list[int] | None) -> list[list[int]]:
+    """Each input's columns: one apiece, or ``widths[i]`` for an input that is a group of columns."""
+    widths = widths or [1] * k
+    out, c = [], 0
+    for w in widths:
+        out.append(list(range(c, c + w)))
+        c += w
+    return out
+
+
+def sobol_indices(f: Callable[[Any], Any], k: int, n: int, seed: int,
+                  widths: list[int] | None = None) -> dict[str, Any]:
     """Sobol S1 and ST of ``f`` (rows of unit-hypercube points → an array of outputs, one column each).
 
     Saltelli (2010) S1 = mean(f(B)·(f(AB_i) − f(A))) / V; Jansen (1999) ST = mean((f(A) − f(AB_i))²) / 2V,
-    with V the variance of f over A and B; bootstrap 95% intervals.
+    with V the variance of f over A and B; bootstrap 95% intervals. With ``widths``, input i spans that many
+    columns, all swapped together (group indices; Jacques, Lavergne & Devictor 2006).
     """
     import numpy as np
 
-    a, b = _unit_samples(k, n, seed)
+    cols = _columns(k, widths)
+    a, b = _unit_samples(sum(len(c) for c in cols), n, seed)
     ya, yb = f(a), f(b)
     yab = []
     for i in range(k):
         ab = a.copy()
-        ab[:, i] = b[:, i]
+        ab[:, cols[i]] = b[:, cols[i]]
         yab.append(f(ab))
     yab_arr = np.stack(yab)  # k × n × outputs
     rng = np.random.default_rng(seed)
@@ -121,11 +152,13 @@ def sobol_indices(f: Callable[[Any], Any], k: int, n: int, seed: int) -> dict[st
 
 
 def morris_effects(f: Callable[[Any], Any], k: int, r: int, seed: int,
-                   levels: int = MORRIS_LEVELS) -> dict[str, Any]:
+                   levels: int = MORRIS_LEVELS, widths: list[int] | None = None) -> dict[str, Any]:
     """Morris elementary effects over ``r`` trajectories on a ``levels``-level grid of quantiles.
 
     Each step moves one input by the standard Δ = p / 2(p − 1) of its grid; the effect is the output's change
-    per unit of quantile. μ* = mean |EE|, σ = sd of EE, with bootstrap 95% on μ*.
+    per unit of quantile. μ* = mean |EE|, σ = sd of EE, with bootstrap 95% on μ*. With ``widths``, an input
+    spanning several columns moves them all in one step (groups; Campolongo, Cariboni & Saltelli 2007) — its
+    μ* is then the one to read, as μ and σ mix the directions its columns moved in.
     """
     import numpy as np
 
@@ -137,17 +170,20 @@ def morris_effects(f: Callable[[Any], Any], k: int, r: int, seed: int,
     grid = MORRIS_TAIL + (1 - 2 * MORRIS_TAIL) * np.arange(levels) / (levels - 1)
     jump = levels // 2
     delta = (1 - 2 * MORRIS_TAIL) * jump / (levels - 1)
+    cols = _columns(k, widths)
+    width = sum(len(c) for c in cols)
     points, moved, signs = [], [], []
     for _ in range(r):
-        x = rng.integers(0, levels, size=k)
+        x = rng.integers(0, levels, size=width)
         order = rng.permutation(k)
         traj = [grid[x].copy()]
         for i in order:
-            up = x[i] + jump < levels
-            x[i] = x[i] + jump if up else x[i] - jump
+            ups = [x[c] + jump < levels for c in cols[i]]
+            for c, up in zip(cols[i], ups, strict=True):
+                x[c] = x[c] + jump if up else x[c] - jump
             traj.append(grid[x].copy())
             moved.append(i)
-            signs.append(1.0 if up else -1.0)
+            signs.append(1.0 if sum(ups) * 2 >= len(ups) else -1.0)
         points.append(np.array(traj))
     y = f(np.concatenate(points))  # (r·(k+1)) × outputs
     y = y.reshape(r, k + 1, -1)
@@ -184,6 +220,16 @@ def _risk(model_type: str, paths, _opts) -> Problem:
                    model.primary, fixed, units=model.quantity)
 
 
+def _set_groups(sets: dict[str, tuple[ParameterUncertainty, list[float]]]) -> dict[str, list[list[float]]]:
+    """A PSA Dirichlet range (one set of probabilities, worth n observations) as a one-part group."""
+    return {k: [[e.params["n"] * p for p in probs]] for k, (e, probs) in sets.items()}
+
+
+def _first_parts(x: dict[str, Any], sets) -> dict[str, Any]:
+    """The PSA's ``apply`` takes a set's probabilities as one vector: a one-part group's only part."""
+    return {k: (v[0] if k in sets else v) for k, v in x.items()}
+
+
 def _dt(paths, _opts) -> Problem:
     from latris.operations import decision_tree as dt
     from latris.operations import psa
@@ -196,19 +242,17 @@ def _dt(paths, _opts) -> Problem:
     order = sorted(point, key=lambda o: (-t.sign * point[o], list(point).index(o)))
     gap = f"advantage of {order[0]} over {order[1]}" if len(order) > 1 else None
 
-    def evaluate(x: dict[str, float]) -> dict[str, float]:
-        opts = psa._dt_options(t, dt.rollback(apply(x))[0])
+    def evaluate(x: dict[str, Any]) -> dict[str, float]:
+        opts = psa._dt_options(t, dt.rollback(apply(_first_parts(x, sets)))[0])
         out = {f"{o} (expected value)": v for o, v in opts.items()}
         if gap:
             out[gap] = t.sign * (opts[order[0]] - opts[order[1]])
         return out
 
-    keys = sorted(scalar, key=lambda k: labels[k])
-    notes = [f"{labels[k]} has a Dirichlet range, which isn't a single input; held at its point values"
-             for k in sorted(sets)]
-    return Problem(keys, {k: labels[k] for k in keys}, scalar, {k: points[k] for k in keys}, evaluate,
-                   gap or f"{order[0]} (expected value)", psa._dt_fixed(t, set(scalar)), notes,
-                   units=t.settings.units)
+    keys = sorted([*scalar, *sets], key=lambda k: labels[k])
+    return Problem(keys, {k: labels[k] for k in keys}, {**scalar, **{k: e for k, (e, _) in sets.items()}},
+                   {k: points[k] for k in keys}, evaluate, gap or f"{order[0]} (expected value)",
+                   psa._dt_fixed(t, set(scalar)), units=t.settings.units, groups=_set_groups(sets))
 
 
 def _markov(paths, _opts) -> Problem:
@@ -229,8 +273,8 @@ def _markov(paths, _opts) -> Problem:
         a, b = sorted(nmb, key=lambda n: -nmb[n])[:2]
         pair = (a, b, f"net monetary benefit of {a} over {b}")
 
-    def evaluate(x: dict[str, float]) -> dict[str, float]:
-        mi = apply(x)
+    def evaluate(x: dict[str, Any]) -> dict[str, float]:
+        mi = apply(_first_parts(x, sets))
         out: dict[str, float] = {}
         for n, st in zip(names, strategies, strict=True):
             c, o, _ = markov.totals(mi, st, rescale=True)
@@ -240,12 +284,11 @@ def _markov(paths, _opts) -> Problem:
             out[label] = (s.wtp * out[f"{a} {ou}"] - out[f"{a} cost"]) - (s.wtp * out[f"{b} {ou}"] - out[f"{b} cost"])
         return out
 
-    keys = sorted(scalar, key=lambda k: labels[k])
-    notes = [f"{labels[k]} has a Dirichlet range, which isn't a single input; held at its point values"
-             for k in sorted(sets)]
+    keys = sorted([*scalar, *sets], key=lambda k: labels[k])
     primary = pair[2] if pair else f"{names[0]} {ou}"
-    return Problem(keys, {k: labels[k] for k in keys}, scalar, {k: points[k] for k in keys}, evaluate, primary,
-                   [], notes, units=s.cost_units if pair else ou)
+    return Problem(keys, {k: labels[k] for k in keys}, {**scalar, **{k: e for k, (e, _) in sets.items()}},
+                   {k: points[k] for k in keys}, evaluate, primary, [], units=s.cost_units if pair else ou,
+                   groups=_set_groups(sets))
 
 
 def _sd(paths, opts: dict[str, Any]) -> Problem:
@@ -278,11 +321,93 @@ def _sd(paths, opts: dict[str, Any]) -> Problem:
                    units=model.unit_text.get(vid, ""))
 
 
+def _bn(paths, opts: dict[str, Any]) -> Problem:
+    """Each table with a stated uncertainty ("worth n observations") is one input: a group of its rows'
+    Dirichlets (a Noisy-OR table: a Beta around each cause's strength and the leak)."""
+    from latris.operations import _bn_engine, bn, uncertainty
+    from latris.operations._bn_canonical import expand_noisy_or
+    from latris.operations._resolve import resolve_target
+    from latris.operations.bn_inference import applied_likelihood
+    from latris.operations.bn_montecarlo import _row_n
+    from latris.operations.uncertainty import BN_TABLE
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+    from latris.schema.attributes import ParameterUncertainty as PU
+
+    variable = opts.get("variable")
+    if not variable:
+        raise ValueError("say which factor's probability to explain (variable), and optionally its state")
+    sub = load_model(Substrate, paths.conceptual_yaml)
+    labels = {e.id: e.label for e in sub.entities}
+    ss_map = {e.target_id: e.states for e in bn._load_state_spaces(paths).entries}
+    noisy = {e.target_id: e for e in bn._load_noisy_or(paths).entries}
+    cpts = bn._effective_cpt_map(paths)
+    target = resolve_target(variable, sub)
+    if target not in cpts:
+        raise ValueError(f"{labels.get(target, variable)} is not in the network")
+    evidence = {resolve_target(k, sub): v for k, v in (opts.get("evidence") or {}).items()}
+    if target in evidence:
+        raise ValueError(f"{labels[target]} is observed; ask about a factor that isn't")
+    states = ss_map[target]
+    state = opts.get("state") or states[0]
+    if state not in states:
+        raise ValueError(f"{state!r} is not a state of {labels[target]} (states: {', '.join(states)})")
+    specs = {k: v for k, v in uncertainty.bn_specs(paths).items() if k in cpts}
+    groups: dict[str, list[list[float]]] = {}
+    shown: dict[str, PU] = {}
+    rows_of: dict[str, list[int]] = {}
+    for node, node_specs in specs.items():
+        if node in noisy:
+            n = node_specs[BN_TABLE].params["n"]
+            ne = noisy[node]
+            groups[node] = [[n * ne.leak, n * (1 - ne.leak)]] + [[n * lk.prob, n * (1 - lk.prob)] for lk in ne.links]
+        else:
+            entry = cpts[node]
+            parts, idx = [], []
+            for j, row in enumerate(entry.rows):
+                rn = _row_n(node_specs, entry.parents, row.parent_states)
+                if rn:
+                    parts.append([rn * p for p in row.p])
+                    idx.append(j)
+            if not parts:
+                continue
+            groups[node], rows_of[node] = parts, idx
+        shown[node] = node_specs.get(BN_TABLE) or next(iter(node_specs.values()))
+    given = ", ".join(f"{labels.get(k, k)} = {v}" for k, v in evidence.items())
+    names = [f"P({labels[target]} = {st}" + (f" | {given})" if given else ")") for st in states]
+
+    def evaluate(x: dict[str, Any]) -> dict[str, float]:
+        tables = dict(cpts)
+        for node, parts in x.items():
+            if node in noisy:
+                ne = noisy[node]
+                drawn = ne.model_copy(update={"leak": parts[0][0], "links": [
+                    lk.model_copy(update={"prob": p[0]}) for lk, p in zip(ne.links, parts[1:], strict=True)]})
+                tables[node] = expand_noisy_or(drawn, ss_map)
+            else:
+                entry = cpts[node]
+                rows = list(entry.rows)
+                for j, p in zip(rows_of[node], parts, strict=True):
+                    rows[j] = rows[j].model_copy(update={"p": p})
+                tables[node] = entry.model_copy(update={"rows": rows})
+        network = _bn_engine.build_network(ss_map, tables)
+        applied = applied_likelihood(network, ss_map, evidence, {}, {})
+        marg = _bn_engine.query_marginals(network, [target], evidence, likelihood=applied or None)[target]
+        return {nm: marg[st] for nm, st in zip(names, states, strict=True)}
+
+    keys = sorted(groups, key=lambda k: labels.get(k, k))
+    fixed = sorted(labels.get(k, k) for k in cpts if k not in groups)
+    return Problem(keys, {k: f"{labels.get(k, k)} (probability table)" for k in keys}, shown,
+                   dict.fromkeys(keys), evaluate, names[states.index(state)], fixed, units="probability",
+                   groups=groups)
+
+
 @dataclass(frozen=True)
 class Provider:
     build: Callable[[Any, dict[str, Any]], Problem]
     ranges_how: str  # the command that gives an input a range
-    takes_variable: bool = False  # SD: the result is a variable's metric
+    options: frozenset[str] = frozenset()  # what else it takes: SD a variable and metric, BN a variable,
+    # a state and evidence
     default_n: tuple[int, int] = (512, 20)  # (Sobol base samples, Morris trajectories)
     keyed_by_output: bool = False  # recorded per output (SD: one result per variable and metric)
 
@@ -294,8 +419,11 @@ _PROVIDERS: dict[str, Provider] = {
     "decision_tree": Provider(_dt, "latris dt range"),
     "markov": Provider(_markov, "latris markov range"),
     # SD runs are slower, so fewer by default; each variable and metric is its own result.
-    "sd": Provider(_sd, "latris sd set-uncertainty", takes_variable=True, default_n=(128, 10),
+    "sd": Provider(_sd, "latris sd set-uncertainty", options=frozenset({"variable", "metric"}), default_n=(128, 10),
                    keyed_by_output=True),
+    # A BN query is quick, but each table is a group of many columns; recorded per question asked.
+    "bn": Provider(_bn, "latris bn set-uncertainty", options=frozenset({"variable", "state", "evidence"}),
+                   default_n=(256, 20), keyed_by_output=True),
 }
 
 
@@ -304,10 +432,12 @@ _PROVIDERS: dict[str, Provider] = {
 
 def analyse(model_type: str, *, method: str = "sobol", n: int | None = None, seed: int = 1234,
             output: str | None = None, variable: str | None = None, metric: str | None = None,
+            state: str | None = None, evidence: dict[str, str] | None = None,
             root: Path | None = None) -> dict[str, Any]:
     """Sobol indices (``n`` base samples, a power of two) or Morris effects (``n`` trajectories) for each
     uncertain input of ``model_type``'s result. ``output`` picks the headline result; SD takes ``variable``
-    and ``metric`` (final, max, min, mean, total, at:T) as its sensitivity analysis does."""
+    and ``metric`` (final, peak, peak-time, min, mean, total, at:T) as its sensitivity analysis does; a BN
+    takes ``variable`` (the factor asked about), ``state`` and ``evidence``."""
     import numpy as np
 
     if model_type not in _PROVIDERS:
@@ -315,10 +445,13 @@ def analyse(model_type: str, *, method: str = "sobol", n: int | None = None, see
     if method not in METHODS:
         raise ValueError(f"method must be one of {', '.join(METHODS)}")
     provider = _PROVIDERS[model_type]
-    if not provider.takes_variable and (variable or metric):
-        raise ValueError("variable and metric apply to system dynamics")
+    given = {"variable": variable, "metric": metric, "state": state, "evidence": evidence}
+    extra = sorted(k for k, v in given.items() if v and k not in provider.options)
+    if extra:
+        raise ValueError(f"{', '.join(extra)} {'doesn' if len(extra) == 1 else 'don'}'t apply here" + (
+            f" (this analysis takes {', '.join(sorted(provider.options))})" if provider.options else ""))
     paths = require_project(root)
-    prob = provider.build(paths, {"variable": variable, "metric": metric})
+    prob = provider.build(paths, given)
     k = len(prob.keys)
     if k < 2:
         raise ValueError(f"global sensitivity needs at least two inputs with a range (`{provider.ranges_how}`); "
@@ -331,14 +464,18 @@ def analyse(model_type: str, *, method: str = "sobol", n: int | None = None, see
     runs = n * (k + 2) if method == "sobol" else n * (k + 1)
     if runs > MAX_RUNS:
         raise ValueError(f"{runs} model runs is more than {MAX_RUNS}; lower n")
-    samplers = [smp.Sampler(prob.specs[key]) for key in prob.keys]
-    names: list[str] = list(prob.evaluate(dict(prob.points)))  # type: ignore[arg-type]
+    samplers = {key: smp.Sampler(prob.specs[key]) for key in prob.keys if key not in prob.groups}
+    widths = prob.widths()
+    cols = _columns(k, widths)
+    names: list[str] = list(prob.evaluate(prob.point_values()))
 
     def f(u):
+        decoded = {key: _decode_group(prob.groups[key], u[:, cols[i]]) if key in prob.groups
+                   else [samplers[key].ppf(float(x)) for x in u[:, cols[i][0]]]
+                   for i, key in enumerate(prob.keys)}
         rows = []
-        for row in u:
-            vals = {key: s.ppf(float(x)) for key, s, x in zip(prob.keys, samplers, row, strict=True)}
-            out = prob.evaluate(vals)
+        for r in range(len(u)):
+            out = prob.evaluate({key: v[r] for key, v in decoded.items()})
             rows.append([out[nm] for nm in names])
         return np.array(rows, dtype=float)
 
@@ -346,7 +483,8 @@ def analyse(model_type: str, *, method: str = "sobol", n: int | None = None, see
 
     with warnings.catch_warnings(), np.errstate(divide="ignore", invalid="ignore"):
         warnings.simplefilter("ignore", RuntimeWarning)  # an output that doesn't vary has no indices (NaN)
-        res = sobol_indices(f, k, n, seed) if method == "sobol" else morris_effects(f, k, n, seed)
+        res = (sobol_indices(f, k, n, seed, widths) if method == "sobol"
+               else morris_effects(f, k, n, seed, widths=widths))
     primary = prob.primary
     if output:
         match = [nm for nm in names if nm.casefold().startswith(output.casefold())]
@@ -358,10 +496,15 @@ def analyse(model_type: str, *, method: str = "sobol", n: int | None = None, see
         rows = []
         for i, key in enumerate(prob.keys):
             spec = prob.specs[key]
+            sampler = samplers.get(key)
             row: dict[str, Any] = {"input": prob.labels[key], "distribution": spec.distribution,
-                                   "point": prob.points[key], "reason": spec.reason,
+                                   "point": prob.points.get(key), "reason": spec.reason,
                                    "weak": spec.verification != "human-verified" or spec.contested,
-                                   "p5": samplers[i].quantile(0.05), "p95": samplers[i].quantile(0.95)}
+                                   "p5": sampler.quantile(0.05) if sampler else None,
+                                   "p95": sampler.quantile(0.95) if sampler else None,
+                                   "group": key in prob.groups}
+            if key in prob.groups:
+                row["n"] = spec.params.get("n")
             if method == "sobol":
                 row.update({x: _num(res[x][i, j]) for x in ("S1", "ST", "S1_conf", "ST_conf")})
             else:
@@ -379,7 +522,30 @@ def analyse(model_type: str, *, method: str = "sobol", n: int | None = None, see
     outputs.sort(key=lambda o: o["output"] != primary)
     return {"model_type": model_type, "method": method, "n": n, "seed": seed, "runs": res["runs"],
             "primary": primary, "outputs": outputs, "fixed": prob.fixed, "notes": prob.notes, "units": prob.units,
-            "variable": variable, "metric": metric}
+            "variable": variable, "metric": metric, "state": state, "evidence": dict(evidence or {})}
+
+
+def _decode_group(parts: list[list[float]], u) -> list[list[list[float]]]:
+    """Unit-uniform columns → each run's probabilities for every part of a Dirichlet group.
+
+    Each component is a Gamma(α, 1) quantile of its own column, normalised within its part — the standard
+    construction of a Dirichlet draw, so independent uniforms give exactly Dirichlet(α). A zero α stays 0.
+    """
+    import numpy as np
+    from scipy.stats import gamma
+
+    out: list[Any] = []
+    c = 0
+    for alpha in parts:
+        a = np.asarray(alpha, dtype=float)
+        m = len(a)
+        g = np.where(a > 0, gamma.ppf(u[:, c:c + m], np.where(a > 0, a, 1.0)), 0.0)
+        total = g.sum(axis=1, keepdims=True)
+        point = a / a.sum()
+        probs = np.where(total > 0, g / np.where(total > 0, total, 1.0), point)
+        out.append(probs)
+        c += m
+    return [[p[r].tolist() for p in out] for r in range(len(u))]
 
 
 def _share(x: float) -> float:
@@ -436,6 +602,7 @@ def record(payload: dict[str, Any], *, root: Path | None = None) -> tuple[str, s
         summary=describe(payload),
         model_type=mt,
         hyperparameters={"method": payload["method"], "n": payload["n"], "output": payload["primary"],
+                         "state": payload.get("state"), "evidence": payload.get("evidence") or None,
                          "variable": payload.get("variable"), "metric": payload.get("metric")},
         uncertainty=True,
         seed=payload["seed"],

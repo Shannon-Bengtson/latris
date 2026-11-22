@@ -19,6 +19,12 @@ _TYPES = {
     "decision_tree": ("dt_gsa", "gsa_decision_tree", "Decision tree"),
     "markov": ("markov_gsa", "gsa_markov", "Markov cohort model"),
     "sd": ("sd_gsa", "gsa_sd", "System dynamics"),
+    "bn": ("bn_gsa", "gsa_bn", "Bayesian network"),
+}
+_OPTS = {
+    "sd": "; variable and metric (final, peak, peak-time, min, mean, total, at:T)",
+    "bn": "; variable (the factor asked about), state and evidence: each probability table worth n observations "
+          "is one input",
 }
 _TOOL = ("Which uncertain inputs does the {what}'s result depend on, alone and through interactions? Varies every "
          "input with a range together: Sobol indices (method 'sobol': the share of the result's variance each "
@@ -93,17 +99,19 @@ def _kind(model_type: str) -> ResultKind:
         from latris.operations import global_sensitivity as gs
 
         payload = gs.analyse(model_type, method=a.method or "sobol", n=a.n, seed=1234 if a.seed is None else a.seed,
-                             output=a.output, variable=a.variable, metric=a.metric, root=root)
+                             output=a.output, variable=a.variable, metric=a.metric, state=a.state,
+                             evidence=a.evidence or None, root=root)
         return gs.record(payload, root=root)[1]
 
     def definition(p: dict[str, Any]):
         from latris.schema.build_spec import make_analysis
 
         return make_analysis(kind=analysis, method=p["method"], n=p["n"], seed=p["seed"], output=p["primary"],
-                             variable=p.get("variable"), metric=p.get("metric"))
+                             variable=p.get("variable"), metric=p.get("metric"), state=p.get("state"),
+                             evidence=p.get("evidence") or {})
 
-    sd_opts = "; variable and metric (final, peak, peak-time, min, mean, total, at:T)" if model_type == "sd" else ""
-    return ResultKind(tool=ChatTool(tool, _TOOL.format(what=what.lower(), sd=sd_opts)), kind=KINDS[model_type],
+    return ResultKind(tool=ChatTool(tool, _TOOL.format(what=what.lower(), sd=_OPTS.get(model_type, ""))),
+                      kind=KINDS[model_type],
                       title=f"{what}: global sensitivity",
                       title_for=lambda p: f"{what}: global sensitivity of {p['primary']}",
                       render=_render, analysis=analysis, run=run, definition=definition, claims=_claims,
