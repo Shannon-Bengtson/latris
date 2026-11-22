@@ -696,7 +696,7 @@ register_model_type(
     ModelTypeSpec(
         id="equation_model",
         display_name="Equation Model",
-        short_name="EQ",
+        short_name="Equations",
         description=(
             "Quantities joined by sourced formulas, with units checked and no clock: what a physical law or "
             "a published parameterisation gives for these inputs, how an output responds to each input, and "

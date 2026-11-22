@@ -76,6 +76,21 @@ def test_readiness_and_the_kernel(project):
     assert [o["quantity"] for o in eq.outside_range(m, eq.compute(m, {depth: 5.0}))] == ["Depth"]
 
 
+def test_build_does_not_ask_for_links_the_formulas_will_add(project):
+    from latris.operations.project import update_selected_models
+    from latris.operations.readiness import assess_transition_readiness
+
+    def gate() -> str:
+        return next(t.light for t in assess_transition_readiness(root=project).transitions
+                    if t.to_phase == "formalise")
+
+    assert gate() == "red"  # unlinked factors, no model type chosen
+    update_selected_models(["equation_model"], root=project)
+    assert gate() == "green"
+    update_selected_models(["equation_model", "cld"], root=project)  # a loop map still needs its links
+    assert gate() == "red"
+
+
 def test_a_formula_adds_the_links_it_reads(project):
     from latris.operations.edges import list_edges
 
@@ -367,7 +382,8 @@ def test_report_diagram_claims(built):
     root, _ = built
     md = render(ProjectPaths(root), model_type="equation_model", ai=False, chart_markers=True)
     assert "### Equation model: results" in md and "`velocity * flow_area`" in md and "8.64 m³/s" in md
-    assert "### How Discharge responds to Depth" in md and "the sweep stays inside it" in md
+    assert "### Equation model: response to an input: Discharge against Depth" in md
+    assert "the sweep stays inside it" in md
     assert "### Equation model: uncertainty (Monte Carlo)" in md and "gauging scatter" in md
     assert "Equation models: sourced formulas with dimensional analysis" in md
     for chart in ("eq-scenarios", "eq-response", "mc-strip"):
@@ -400,6 +416,7 @@ def test_routes(built):
     by = {q["quantity"]: q for q in model["quantities"]}
     assert by["Discharge"]["value"] == pytest.approx(8.64) and by["Discharge"]["reads"] == ["Flow area", "Velocity"]
     assert by["Velocity"]["uncertainty"]["distribution"] == "normal" and model["scenarios"][0]["name"] == "Flood"
+    assert by["Discharge"]["units"] == "m**3/s" and by["Discharge"]["units_display"] == "m³/s"
     assert not model["problems"]
 
     r = c.post("/api/eq/value", json={"node": "Width", "value": 10, "units": "m", "valid_max": 12})

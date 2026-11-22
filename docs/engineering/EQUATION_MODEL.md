@@ -59,6 +59,8 @@ A formula's references are the model's structure, and the map shows them as ordi
 the diagram, the canvas and evidence on links all work as they do everywhere else. Setting a formula
 adds any link it needs in the same commit. The structure check reports a link the formulas don't use
 (`eq_unused_link`) and a reference with no link (`eq_missing_link`, e.g. after a link was deleted).
+Because the links are written in Formalise, Build doesn't ask for an equation model's factors to be
+connected first (`Formalism.links_from_values`).
 
 ### The valid range
 

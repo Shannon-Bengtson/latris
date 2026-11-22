@@ -429,7 +429,8 @@ def structure_problems(*, root: Path | None = None) -> list[EquationProblem]:
 
 def snapshot(*, root: Path | None = None) -> dict[str, Any]:
     """The whole model as a surface shows it: every quantity with its role, value (computed, once the model
-    is complete) or formula, units, valid range and provenance; the saved scenarios; the ranges; the problems."""
+    is complete) or formula, units (and ``units_display``, as a reader sees them: ``m³/s``), valid range and
+    provenance; the saved scenarios; the ranges; the problems."""
     paths = require_project(root)
     m = load(root=paths.root)
     values = compute(m) if not m.problems else {i: v.value for i, v in m.values.items()}
@@ -441,7 +442,7 @@ def snapshot(*, root: Path | None = None) -> dict[str, Any]:
             r = ranges.get(i)
             rows.append({
                 "id": i, "quantity": m.labels[i], "name": m.slugs[i], "role": role, "value": values.get(i),
-                "units": e.units if e else None,
+                "units": e.units if e else None, "units_display": display_units(e.units) if e else "",
                 "formula": m.formulas[i].expression if i in m.formulas else None,
                 "reads": [m.labels[d] for d in m.reads.get(i, [])],
                 "valid_min": getattr(e, "valid_min", None), "valid_max": getattr(e, "valid_max", None),
@@ -454,7 +455,8 @@ def snapshot(*, root: Path | None = None) -> dict[str, Any]:
         "quantities": rows,
         "scenarios": [{"name": s.name, "description": s.description, "reason": s.reason, "source": s.source_id,
                        "changes": [{"quantity": m.labels.get(o.target_id, o.target_id), "value": o.value,
-                                    "units": o.units} for o in s.overrides]}
+                                    "units": o.units, "units_display": display_units(o.units)}
+                                   for o in s.overrides]}
                       for s in get_scenarios(root=paths.root).scenarios],
         "problems": [{"id": p.target_id, "label": m.labels.get(p.target_id or "", "(model)"),
                       "gap_type": p.gap_type, "message": p.message} for p in m.problems],

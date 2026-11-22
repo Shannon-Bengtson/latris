@@ -156,6 +156,9 @@ class Formalism:
     polarity_labels: bool = False  # its links are labelled with their polarity (+/−) in diagrams
     whole_map: bool = False  # it is the project's whole map (the causal types), not factors given a role in it
     connected_structure: bool = True  # it lives on links; False for MCDA, ACH, event trees (elements, no links)
+    # Its links are written by its own values (an equation model's formulas add the links they read), so
+    # Build doesn't ask for its factors to be connected before Formalise.
+    links_from_values: bool = False
     # (attribute, how the AI is told to fill it): the value each link carries in this type, e.g. polarity
     link_attribute: tuple[str, str] | None = None
     # (gap type, message): readiness when nothing has joined it yet, for a type sharing the map

@@ -1453,7 +1453,7 @@ Each result is recorded for the report with a chart, and goes out of date when a
 
 ## In the app
 
-The model is drawn on the Formalise canvas: inputs and parameters with their values, formulas with their units, and an arrow for each quantity a formula reads. Select a quantity to set its role, value or formula, units, valid range and uncertainty in the inspector. The analyses run from the pane on the right in Analyse.
+The model is drawn on the Formalise canvas: inputs and parameters as rounded boxes, formulas as square ones (an output in bold), each with its value, and an arrow for each quantity a formula reads. Double-click the canvas to add a quantity, or add the factors in Build: they don't need linking there, because saving a formula adds the links to what it reads. Select a quantity to set its role, value or formula, units, valid range and uncertainty in the inspector. In Analyse, **Evaluate the model** works it out under the reference values and your scenarios (kept in the same pane), and the input sweep and Monte Carlo are under **More analyses**.
 
 ## Practical caution
 
