@@ -26,8 +26,8 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
   formalism"). What comes next is in
   [`docs/engineering/ROADMAP.md`](./docs/engineering/ROADMAP.md).
 - [`tests/`](./tests/) — pytest suite mirroring the package layout.
-  Hermetic — env-var git identity and `LATRIS_AI_MOCK=1`; no network or
-  real keys required.
+  Hermetic — env-var git identity, commit signing off, and
+  `LATRIS_AI_MOCK=1`; no network or real keys required.
 - [`worked_example/`](./worked_example/) — living worked example
   (acceptance test) and generated transcript.
 - [`docs/`](./docs/) — engineering reference. Start at

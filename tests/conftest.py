@@ -2,7 +2,8 @@
 
 Hermetic git identity: tests that commit use env-var overrides so they don't
 depend on the developer's global ``~/.gitconfig``. ``GIT_AUTHOR_*`` and
-``GIT_COMMITTER_*`` are honoured by git directly, ahead of config.
+``GIT_COMMITTER_*`` are honoured by git directly, ahead of config. Commit
+signing is switched off for every test (see ``_no_commit_signing``).
 
 Shared template projects: ``init_project`` plus a handful of nodes/edges is
 ~1.5-2.5s of git work, repeated for every test in many files. The
@@ -24,6 +25,28 @@ from typing import TypeVar
 import pytest
 
 T = TypeVar("T")
+
+
+def _no_commit_signing() -> None:
+    """Tests never sign their commits, whatever the machine's git config says.
+
+    A test commit is throwaway, and a suite makes thousands. Where the global config signs commits
+    (``commit.gpgsign``) each one calls out to the signing program; in a cloud agent's container that
+    helper ran out of file handles part-way through a parallel run and every later commit failed
+    ("failed to write commit object"). ``GIT_CONFIG_COUNT``/``KEY_n``/``VALUE_n`` is config git reads
+    ahead of every config file, and it reaches every git a test starts, in this process or a child.
+    """
+    n = int(os.environ.get("GIT_CONFIG_COUNT") or 0)
+    have = {os.environ.get(f"GIT_CONFIG_KEY_{i}") for i in range(n)}
+    for key in ("commit.gpgsign", "tag.gpgsign"):
+        if key not in have:  # xdist workers inherit the controller's environment
+            os.environ[f"GIT_CONFIG_KEY_{n}"] = key
+            os.environ[f"GIT_CONFIG_VALUE_{n}"] = "false"
+            n += 1
+    os.environ["GIT_CONFIG_COUNT"] = str(n)
+
+
+_no_commit_signing()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
