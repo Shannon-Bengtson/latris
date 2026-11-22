@@ -352,6 +352,10 @@ class ProjectPaths:
     def story_assets_dir(self) -> Path:
         return self.communicate_dir / "assets"
 
+    @property
+    def explorers_yaml(self) -> Path:
+        return self.communicate_dir / "explorers.yaml"
+
 
 ALL_DIRS_TO_CREATE = (
     "state_dir",

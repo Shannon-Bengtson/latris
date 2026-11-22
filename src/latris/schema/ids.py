@@ -42,6 +42,7 @@ IDKind = Literal[
     "story",
     "story-beat",
     "story-asset",
+    "explorer",
     "person-input",
 ]
 

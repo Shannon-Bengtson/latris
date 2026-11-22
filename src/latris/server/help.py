@@ -173,7 +173,7 @@ Turn analysis outputs and project evidence into structured interpretation sectio
 
 ## Communicate
 
-Use the left-hand strip to switch between Report, Diagram, Review and Story. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type.
+Use the left-hand strip to switch between Report, Diagram, Review, Story and Explorer. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type. An Explorer is one model as an interactive page a reader can click through.
 
 ## Readiness gates
 
@@ -586,6 +586,49 @@ A project can have **several stories**: a council briefing, a community explaine
 A Story is curated for its audience and may leave out detail, for confidentiality or to fit the reader. The Report and Review Pack carry the full evidence.
 
 Stories are made in the Latris app.
+""",
+    ),
+    HelpTopic(
+        id="communicate-explorer",
+        title="Explorer (interactive model)",
+        category="communicate",
+        summary="Hand someone the model itself, as a page they can click through, with the reasoning and sources behind it.",
+        body="""## What an Explorer is
+
+An Explorer is one of your models as an interactive web page. A Story tells the reader what the model says; an Explorer lets them look for themselves. It works for every model type.
+
+On the page a reader can:
+
+- **Hover** over a factor or a link for a summary, and see what it connects to.
+- **Click** anything for its description, why it is there, how confident the model is in it, whether a person has reviewed it, and what supports it.
+- **Trace** what drives a factor and what it drives. Where links have a direction, they can follow a change: if this goes up, what goes up, what goes down, and what depends on how strong the links are.
+- **Light up a feedback loop** from the list of loops.
+- **Highlight** the links with no source yet, the disputed ones, and anything proposed by AI that nobody has reviewed.
+- **Read the results** the model has recorded, as charts and tables.
+- **Copy a link to what they are looking at**, so a colleague opens the same view.
+
+## Making one
+
+1. In Communicate, choose **Explorer** and **New explorer**. It is made for the model you have open.
+2. Try it in the preview: it is exactly the page your readers get.
+3. Give it a heading and a line or two on what to look for.
+4. **Download the page.** It is one file that works offline. Send it to colleagues or put it on your own website.
+
+## What leaves the building
+
+You decide what the page carries:
+
+- **Structure**: the picture, descriptions, confidence and review status.
+- **Results**: also the model's recorded results.
+- **Everything** (the default): also the model's own numbers, so readers can try their own what-ifs where the model type supports it. Anyone who has the file can read those numbers, so choose a lower level for a confidential model.
+
+**Show sources** is on by default: readers see what each link cites, whether the source was checked, and the passage that was quoted. The text you stored from a source never leaves.
+
+## A snapshot
+
+The page is stamped with the date it was made and the version of the model it came from. It does not change when the model does: download it again after you update the model.
+
+Explorers are made in the Latris app.
 """,
     ),
     HelpTopic(
