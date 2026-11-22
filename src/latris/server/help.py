@@ -607,6 +607,19 @@ On the page a reader can:
 - **Light up a feedback loop** from the list of loops.
 - **Highlight** the links with no source yet, the disputed ones, and anything proposed by AI that nobody has reviewed.
 - **Read the results** the model has recorded, as charts and tables.
+
+## Trying things on a Bayesian network
+
+When the model is a Bayesian network and the page carries *Everything*, a reader can also work the model:
+
+- **Click a state** to say it has been seen. Every factor's probabilities update at once, with a mark showing where each stood before.
+- Choose **We see this** (an observation, which also tells you about its causes) or **We make it so** (an intervention: what follows responds, its causes stay as they were).
+- Say **how sure** they are of an observation, from 50% to 100%.
+- Switch between the model's saved **options** and see what each changes.
+- Keep one factor **in view**, and see **what to find out next**: the other factors ranked by how much knowing them would tell you about it.
+- See **the most likely explanation**: the single most likely state of everything at once.
+
+The numbers are calculated in the page from the model's own probability tables, and give the same answers as Latris itself. The page opens where the model's latest recorded query stands.
 - **Copy a link to what they are looking at**, so a colleague opens the same view.
 
 ## Making one
