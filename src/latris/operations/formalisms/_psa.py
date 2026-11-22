@@ -45,10 +45,37 @@ def _drivers(p: dict[str, Any]) -> list[str]:
             + md.table(["Input", "Range", "Rank correlation", "Why this range", "Range checked"], rows))
 
 
+def _money(p: dict[str, Any], x: float) -> str:
+    from latris.operations import psa
+
+    if p["model_type"] == "decision_tree":
+        from latris.operations.decision_tree import fmt
+
+        return fmt(x, p["units"])
+    return psa.money(x, p["cost_units"])
+
+
+def _evppi(p: dict[str, Any]) -> list[str]:
+    from latris.exporters import md
+
+    rows = p.get("evppi") or []
+    if not rows:
+        return []
+    per = " per person" if p["model_type"] == "markov" else ""
+    out = [f"What knowing each input exactly before choosing would be worth{per}, the rest still uncertain "
+           f"(partial EVPI; all of them together: {_money(p, p['evpi'])}):", ""]
+    out += md.table(["Input", "Partial EVPI"], [[r["input"], _money(p, r["evppi"])] for r in rows[:md.MAX_ROWS]])
+    return out
+
+
 def _footer(p: dict[str, Any]) -> list[str]:
     from latris.exporters import md
 
     out = []
+    if p.get("correlations"):
+        out += ["Sampled together: " + "; ".join(
+            f"{md.esc(c['a'])} and {md.esc(c['b'])} (rank correlation {c['rho']:+.2g}"
+            + (f": {md.esc(c['reason'])}" if c["reason"] else "") + ")" for c in p["correlations"]) + ".", ""]
     if p["fixed"]:
         out += ["Held at their point value (no range given): " + md.esc(", ".join(p["fixed"][:md.MAX_ROWS * 2]))
                 + ".", ""]
@@ -97,7 +124,7 @@ def _render(p: dict[str, Any]) -> list[str]:
         if p["rescaled_runs"]:
             out += [f"In {p['rescaled_runs']} run(s) the sampled probabilities of leaving a state summed to more "
                     "than 1 and were scaled down to 1; a Dirichlet on the state avoids this.", ""]
-    return out + _drivers(p) + _footer(p)
+    return out + _evppi(p) + _drivers(p) + _footer(p)
 
 
 def _claims(p: dict[str, Any], out: dict[str, list[str]]) -> None:
@@ -127,6 +154,13 @@ def _claims(p: dict[str, Any], out: dict[str, list[str]]) -> None:
         if p["evpi"] > 0:
             out["implications"].append(f"Further research is worth at most {psa.money(p['evpi'], cu)} per person "
                                           "affected by the decision (the EVPI at the willingness to pay).")
+    worth = [r for r in p.get("evppi") or [] if r["evppi"] > 0]
+    if worth:
+        per = " per person" if p["model_type"] == "markov" else ""
+        out["implications"].append(
+            f"Of the uncertain inputs, learning {worth[0]['input']} is worth most: up to {_money(p, worth[0]['evppi'])}"
+            f"{per}" + (f"; next {worth[1]['input']} ({_money(p, worth[1]['evppi'])})" if len(worth) > 1 else "")
+            + ". A study of anything else costing more than its partial EVPI isn't worth doing.")
     if p["fixed"]:
         out["assumptions_limitations"].append(
             f"The PSA treats {len(p['fixed'])} input(s) as exact (no range given), so the uncertainty it shows is "
@@ -173,6 +207,69 @@ def spec_check(where: str, entries, known) -> list[str]:
             names.append(r.strategy)
         problems += [f"{where} range: no factor named {n!r}" for n in names if not known(n)]
     return problems
+
+
+def spec_check_correlations(where: str, entries, known) -> list[str]:
+    from latris.operations.build import split_link
+
+    problems = []
+    for c in entries:
+        names = []
+        for t in (c.target, c.other):
+            ends = split_link(t)
+            names += list(ends) if ends else [t]
+        names += [x for x in (c.strategy, c.other_strategy) if x]
+        problems += [f"{where} correlation: no factor named {n!r}" for n in names if not known(n)]
+    return problems
+
+
+def spec_apply_correlations(model_type: str, entries, verified_by: str, root: Path) -> int:
+    from latris.operations import psa
+
+    for c in entries:
+        psa.set_correlation(model_type, c.target, c.other, c.rho, quantity=c.quantity,
+                            other_quantity=c.other_quantity, strategy=c.strategy, other_strategy=c.other_strategy,
+                            reason=c.reason, source_id=c.source, origin=c.origin or default_origin(verified_by),
+                            verification=spec_verification(c.verified, verified_by), root=root)
+    return len(entries)
+
+
+def spec_export_correlations(model_type: str, paths, labels: dict[str, str]) -> list:
+    from latris.operations import psa
+    from latris.operations import uncertainty as unc
+    from latris.repo.yaml_io import load_model
+    from latris.schema import Substrate
+    from latris.schema.build_spec import SpecPsaCorrelation
+
+    ends = {e.id: (e.from_id, e.to_id) for e in load_model(Substrate, paths.conceptual_yaml).edges}
+
+    def name(key: str) -> tuple[str, str, str | None] | None:
+        target, cell = key.split("|", 1)
+        quantity, sid = psa.describe_cell(cell)
+        if target in ends:
+            a, b = ends[target]
+            if a not in labels or b not in labels:
+                return None
+            label = f"{labels[a]} -> {labels[b]}"
+        elif target in labels:
+            label = labels[target]
+        else:
+            return None
+        if sid and sid not in labels:
+            return None
+        return label, quantity, labels[sid] if sid else None
+
+    out = []
+    for c in unc.load(paths).correlations:
+        if f"|{model_type}:" not in c.a:
+            continue
+        a, b = name(c.a), name(c.b)
+        if a and b:
+            out.append(SpecPsaCorrelation(target=a[0], quantity=a[1], strategy=a[2], other=b[0],
+                                          other_quantity=b[1], other_strategy=b[2], rho=c.rho, reason=c.reason,
+                                          source=c.source_id, origin=c.origin,
+                                          verified=c.verification == "human-verified"))
+    return sorted(out, key=lambda c: (c.target, c.other))
 
 
 def spec_apply(model_type: str, entries, verified_by: str, root: Path) -> int:

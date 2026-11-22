@@ -471,6 +471,21 @@ class SpecPsaRange(_SpecParam):
     verified: bool = False
 
 
+class SpecPsaCorrelation(_SpecParam):
+    """Two ranged values that move together (``rho``, a rank correlation): each end named as in
+    :class:`SpecPsaRange`, with its quantity and (Markov) strategy where needed."""
+
+    target: str
+    other: str
+    rho: float = Field(ge=-0.99, le=0.99)
+    quantity: str | None = None
+    other_quantity: str | None = None
+    strategy: str | None = None
+    other_strategy: str | None = None
+    reason: str = ""
+    verified: bool = False
+
+
 class SpecDTNode(_Spec):
     node: str
     type: Literal["decision", "chance", "terminal"]
@@ -511,6 +526,7 @@ class SpecDT(_Spec):
     payoffs: list[SpecDTPayoff] = Field(default_factory=list)
     uncertainties: list[SpecDTUncertainty] = Field(default_factory=list)
     ranges: list[SpecPsaRange] = Field(default_factory=list)  # for probabilistic sensitivity analysis
+    correlations: list[SpecPsaCorrelation] = Field(default_factory=list)  # ranges that move together
 
 
 class SpecMarkovElement(_Spec):
@@ -565,6 +581,7 @@ class SpecMarkov(_Spec):
     rewards: list[SpecMarkovReward] = Field(default_factory=list)
     start: list[SpecMarkovStart] = Field(default_factory=list)
     ranges: list[SpecPsaRange] = Field(default_factory=list)  # for probabilistic sensitivity analysis
+    correlations: list[SpecPsaCorrelation] = Field(default_factory=list)  # ranges that move together
 
 
 class SpecBNStates(_Spec):

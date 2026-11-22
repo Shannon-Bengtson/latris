@@ -59,6 +59,7 @@ from latris.schema import (
     Milestone,
     MilestoneLog,
     ParameterUncertainty,
+    ParameterCorrelation,
     ParameterUncertaintySet,
     PersonInput,
     PersonInputLog,
@@ -217,7 +218,11 @@ def _fixtures() -> dict[str, BaseModel]:
                     params={"alpha": 2.0, "beta": 5.0},
                     parameter_cell_id="cell_01EXAMPLE",
                 ),
-            ]
+            ],
+            correlations=[
+                ParameterCorrelation(target_id=edge.id, a=f"{edge.id}|markov:transition",
+                                     b=f"{node_a.id}|markov:cost", rho=0.6, reason="same trial"),
+            ],
         ),
         "settings_sd": SDSettings(dt=0.5, final_time=50.0),
         "settings_fcm": FCMSettings(lambda_steepness=2.0, max_iterations=200),

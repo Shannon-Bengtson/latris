@@ -321,8 +321,10 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
 - **Lineage.** Briggs, Claxton & Sculpher (2006), *Decision Modelling for
   Health Economic Evaluation*, ch. 4–7; acceptability curves after Fenwick,
   Claxton & Sculpher (2001); the expected value of perfect information over
-  the parameters after Claxton (1999); Latin hypercube sampling after
-  McKay, Beckman & Conover (1979).
+  the parameters after Claxton (1999); partial EVPI after Strong & Oakley
+  (2013) and Strong, Oakley & Brennan (2014); correlated draws after Iman &
+  Conover (1982); Latin hypercube sampling after McKay, Beckman & Conover
+  (1979).
 - **Implemented.** Ranges on a decision tree's payoffs, branch values and
   probabilities (one branch of a two-branch chance node, or every branch as
   a Dirichlet worth n observations; chance nodes resolving the same
@@ -340,10 +342,20 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   probability the chosen strategy is cost-effective at the stated
   willingness to pay. Spearman rank correlation names the inputs driving
   the decision (the best option's advantage, or its net monetary benefit,
-  over the runner-up).
-- **Limits.** Inputs are sampled independently (no correlated draws). EVPI
-  is for all parameters together; partial EVPI (EVPPI) and sample
-  information (EVSI) are not computed. Separately sampled probabilities of
+  over the runner-up). The partial EVPI of each input — what knowing it
+  alone before choosing is worth — comes from the same runs, without
+  rerunning the model: for a single value by sorting the runs on it and
+  taking each option's mean net benefit within equal bins (Strong & Oakley
+  2013); for a set of probabilities by a quadratic regression of net
+  benefit on its components. Two ranged values can be given a rank
+  correlation (two estimates from one study): Iman–Conover reordering pairs
+  their draws to it while each keeps exactly its own distribution and
+  Latin hypercube strata; a set of correlations that can't hold together
+  is refused.
+- **Limits.** Correlations join single values, not Dirichlet sets. The
+  partial EVPI is an estimate from the PSA runs — biased a little upward
+  when bins hold few runs — and prices one input at a time; sample
+  information (EVSI) is not computed. Separately sampled probabilities of
   leaving a Markov state that sum past 1 are scaled down to 1, and the
   report counts how often; a Dirichlet over the state avoids it.
 
@@ -579,6 +591,9 @@ the code it describes win, and this page is wrong.
   Electrotechnical Commission.
 - IEC 62502:2010. *Analysis techniques for dependability — Event tree
   analysis (ETA)*. International Electrotechnical Commission.
+- Iman, R. L., & Conover, W. J. (1982). "A distribution-free approach to
+  inducing rank correlation among input variables." *Communications in
+  Statistics — Simulation and Computation*, 11(3), 311–334.
 - Jacques, J., Lavergne, C., & Devictor, N. (2006). "Sensitivity analysis
   in presence of model uncertainty and correlated inputs." *Reliability
   Engineering & System Safety*, 91(10–11), 1126–1134.
@@ -641,6 +656,13 @@ the code it describes win, and this page is wrong.
   322–338.
 - Sterman, J. D. (2000). *Business Dynamics: Systems Thinking and Modeling
   for a Complex World*. Irwin/McGraw-Hill.
+- Strong, M., & Oakley, J. E. (2013). "An efficient method for computing
+  single-parameter partial expected value of perfect information."
+  *Medical Decision Making*, 33(6), 755–766.
+- Strong, M., Oakley, J. E., & Brennan, A. (2014). "Estimating
+  multiparameter partial expected value of perfect information from a
+  probabilistic sensitivity analysis sample: a nonparametric regression
+  approach." *Medical Decision Making*, 34(3), 311–326.
 - Toulmin, S. E. (1958). *The Uses of Argument*. Cambridge University Press.
 - US Nuclear Regulatory Commission (1975). *Reactor Safety Study*
   (WASH-1400, NUREG-75/014).

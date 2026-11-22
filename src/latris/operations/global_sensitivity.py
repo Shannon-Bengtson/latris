@@ -220,6 +220,18 @@ def _risk(model_type: str, paths, _opts) -> Problem:
                    model.primary, fixed, units=model.quantity)
 
 
+def _ignored(model_type: str, paths, labels: dict[str, str]) -> list[str]:
+    """Correlations set between ranges, which this analysis can't honour (the indices need independence)."""
+    from latris.operations import psa
+
+    rows = psa._correlation_rows(model_type, paths, labels)
+    if not rows:
+        return []
+    pairs = ", ".join(f"{c['a']} with {c['b']}" for c in rows)
+    return [f"Inputs vary independently here, so the correlation of {pairs} is ignored (Sobol and Morris need "
+            "independent inputs; the PSA honours it)"]
+
+
 def _set_groups(sets: dict[str, tuple[ParameterUncertainty, list[float]]]) -> dict[str, list[list[float]]]:
     """A PSA Dirichlet range (one set of probabilities, worth n observations) as a one-part group."""
     return {k: [[e.params["n"] * p for p in probs]] for k, (e, probs) in sets.items()}
@@ -252,7 +264,8 @@ def _dt(paths, _opts) -> Problem:
     keys = sorted([*scalar, *sets], key=lambda k: labels[k])
     return Problem(keys, {k: labels[k] for k in keys}, {**scalar, **{k: e for k, (e, _) in sets.items()}},
                    {k: points[k] for k in keys}, evaluate, gap or f"{order[0]} (expected value)",
-                   psa._dt_fixed(t, set(scalar)), units=t.settings.units, groups=_set_groups(sets))
+                   psa._dt_fixed(t, set(scalar)), _ignored("decision_tree", paths, labels), units=t.settings.units,
+                   groups=_set_groups(sets))
 
 
 def _markov(paths, _opts) -> Problem:
@@ -287,8 +300,8 @@ def _markov(paths, _opts) -> Problem:
     keys = sorted([*scalar, *sets], key=lambda k: labels[k])
     primary = pair[2] if pair else f"{names[0]} {ou}"
     return Problem(keys, {k: labels[k] for k in keys}, {**scalar, **{k: e for k, (e, _) in sets.items()}},
-                   {k: points[k] for k in keys}, evaluate, primary, [], units=s.cost_units if pair else ou,
-                   groups=_set_groups(sets))
+                   {k: points[k] for k in keys}, evaluate, primary, [], _ignored("markov", paths, labels),
+                   units=s.cost_units if pair else ou, groups=_set_groups(sets))
 
 
 def _sd(paths, opts: dict[str, Any]) -> Problem:

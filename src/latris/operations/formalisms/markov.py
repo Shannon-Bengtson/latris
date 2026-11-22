@@ -149,7 +149,8 @@ def _check(block, known, outcome: str | None) -> list[str]:
     names = [x.state for x in block.rewards] + [x.state for x in block.start]
     names += [x.strategy for x in [*block.transitions, *block.rewards] if x.strategy]
     problems += [f"markov: no factor named {n!r}" for n in names if not known(n)]
-    return problems + _psa.spec_check("markov", block.ranges, known)
+    return (problems + _psa.spec_check("markov", block.ranges, known)
+            + _psa.spec_check_correlations("markov", block.correlations, known))
 
 
 def _apply(block, verified_by: str, root: Path) -> int:
@@ -175,7 +176,8 @@ def _apply(block, verified_by: str, root: Path) -> int:
     for s in block.start:
         markov.set_start(s.state, s.proportion, root=root)
         n += 1
-    return n + _psa.spec_apply("markov", block.ranges, verified_by, root)
+    n += _psa.spec_apply("markov", block.ranges, verified_by, root)
+    return n + _psa.spec_apply_correlations("markov", block.correlations, verified_by, root)
 
 
 def _export(paths, labels: dict[str, str]):
@@ -212,7 +214,8 @@ def _export(paths, labels: dict[str, str]):
     st = markov.get_settings(root=paths.root)
     settings = SpecMarkovSettings(**st.model_dump(exclude={"model_type", "set_by", "rationale"}))
     return SpecMarkov(elements=elements, settings=settings, transitions=trans, rewards=rewards, start=start,
-                      ranges=_psa.spec_export("markov", paths, labels))
+                      ranges=_psa.spec_export("markov", paths, labels),
+                      correlations=_psa.spec_export_correlations("markov", paths, labels))
 
 
 def _run(a, root: Path) -> str:
@@ -253,6 +256,9 @@ _CHAT_OPS = (
         "A state's cost and utility per cycle (optionally for one strategy)."),
     ChatOp('set_markov_start', ('start',),
         'The share of the cohort starting in a state.'),
+    ChatOp('set_markov_correlation', ('correlations',),
+        'Two ranged values that move together (e.g. two rates from one cohort): rank correlation rho, -0.99 to '
+        '0.99, each end with its quantity and strategy where needed. The PSA samples them together.'),
     ChatOp('set_markov_range', ('ranges',),
         "How uncertain an input is, for probabilistic sensitivity analysis: a transition ('From -> To'), a "
         "state's cost or utility (quantity), or a state's transitions out as a Dirichlet (quantity 'leaving'); "

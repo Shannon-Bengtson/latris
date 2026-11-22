@@ -2108,8 +2108,13 @@ def build_example(ex: WorkedExample) -> None:
             "--source", "finance-model", "--reason", "finance model's optimistic and pessimistic cases"])
     ex.run(["dt", "range", "Launched, low demand", "normal", "--mean", "-200", "--sd", "60",
             "--source", "finance-model"])
+    ex.note("Both launch payoffs come out of one finance model: if it is optimistic about one, it is about the "
+            "other. Correlating them makes the PSA sample them together.")
+    ex.run(["dt", "correlate", "Launched, high demand", "Launched, low demand", "0.6",
+            "--reason", "both from the same finance model"])
     ex.note("Licensing stays best on average, but launching wins in about four runs in ten: the evidence doesn't "
-            "settle the choice, and the demand estimate is what it hangs on.")
+            "settle the choice. The partial EVPI prices each uncertainty on its own: any one of them is worth about "
+            "two thirds of resolving everything, so a single good study would do most of the work.")
     ex.run(["dt", "psa", "--runs", "2000"])
     ex.note("Rank correlations say which input moves with the result; global sensitivity apportions the result's "
             "variance among the inputs, varied together. Sobol indices: each input's share alone and with its "
@@ -2160,6 +2165,11 @@ def build_example(ex: WorkedExample) -> None:
             "--source", "phase-3-trial", "--reason", "trial arm, 95% CI 0.03–0.09"])
     ex.run(["markov", "range", "Sick", "gamma", "--quantity", "cost", "--mean", "3000", "--sd", "600"])
     ex.run(["markov", "range", "Sick", "beta", "--quantity", "utility", "--mean", "0.6", "--sd", "0.05"])
+    ex.note("The two progression rates come from the same registry cohort, so they are sampled together. Then "
+            "their errors largely cancel in the comparison: the drug comes out cost-effective in almost every run, "
+            "and the partial EVPI shows what little value is left lies in the two rates together.")
+    ex.run(["markov", "correlate", "Healthy -> Sick", "Healthy -> Sick", "0.8", "--other-strategy", "New drug",
+            "--reason", "both estimated in the same registry cohort"])
     ex.note("The acceptability curve gives, at each willingness to pay, the chance each strategy is the most "
             "cost-effective; the EVPI is the most further research could be worth per person.")
     ex.run(["markov", "psa", "--runs", "1000"])

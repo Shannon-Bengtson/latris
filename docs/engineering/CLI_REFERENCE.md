@@ -488,7 +488,10 @@ latris dt analyse [--no-record]                        # best strategy, EVPI, pr
 latris dt range <target> <distribution> [--quantity payoff|value|probability|probabilities] [--mean M --sd S]
                 [--min] [--mode] [--max] [--alpha] [--beta] [--shape] [--scale] [--n N] [--reason] [--source]
                 [--origin] [--verified] [--clear]   # a terminal, a branch "Parent -> Child", or a chance node (dirichlet)
-latris dt psa [--runs 2000] [--seed 1234] [--sampling lhs|random] [--no-record]   # spread, how often best, EVPI, drivers
+latris dt correlate <target> <other> <rho> [--quantity Q] [--other-quantity Q] [--reason] [--source] [--verified]
+                    [--clear]                    # two ranged values sampled together (rank correlation)
+latris dt psa [--runs 2000] [--seed 1234] [--sampling lhs|random] [--no-record]   # spread, how often best, EVPI,
+                                                 # partial EVPI per input, drivers
 ```
 
 ## Markov cohort model
@@ -509,7 +512,10 @@ latris markov show | check
 latris markov analyse [--no-record]            # costs, outcomes, ICERs, dominance, the choice at the WTP
 latris markov range <target> <distribution> [--quantity transition|cost|utility|leaving] [--strategy S]
                     [--mean M --sd S] [--n N] [...as dt range]   # a transition "From -> To", or a state
-latris markov psa [--runs 1000] [--seed 1234] [--sampling lhs|random] [--no-record]   # CEAC, EVPI, drivers
+latris markov correlate <target> <other> <rho> [--quantity Q] [--other-quantity Q] [--strategy S]
+                        [--other-strategy S] [--reason] [--source] [--verified] [--clear]
+latris markov psa [--runs 1000] [--seed 1234] [--sampling lhs|random] [--no-record]   # CEAC, EVPI, partial
+                                                 # EVPI per input, drivers
 ```
 
 ## Results

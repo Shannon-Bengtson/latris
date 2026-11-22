@@ -232,6 +232,11 @@ def test_dt_report_claims_spec_cli_and_routes(dt_project):
     assert res["commit_sha"] is None and len(res["result"]["outputs"]) == 3
     r = client.post("/api/dt/range", json={"target": "Licensed, high", "clear": True})
     assert r.status_code == 200 and client.get("/api/dt/range").json()["count"] == 3
+    r = client.post("/api/dt/correlation", json={"target": "Launched, high", "other": "Launched, low", "rho": 0.5,
+                                                 "reason": "one finance model"})
+    assert r.status_code == 200 and r.json()["result"]["rho"] == 0.5
+    p = client.post("/api/dt/psa", json={"runs": 100, "record": False}).json()["result"]
+    assert p["correlations"][0]["reason"] == "one finance model" and p["evppi"]
 
 
 def test_markov_report_cli_and_routes(mk_project):
@@ -270,3 +275,97 @@ def test_markov_report_cli_and_routes(mk_project):
     assert res["commit_sha"] and res["result"]["run_id"]
     assert client.post("/api/markov/range", json={"target": "Sick", "quantity": "utility",
                                                   "clear": True}).status_code == 200
+
+
+def test_partial_evpi_matches_the_closed_form(dt_project):
+    DT._build(dt_project)
+    psa.set_range("decision_tree", "Launched, high", "normal", {"mean": 500, "sd": 100}, root=dt_project)
+    psa.set_range("decision_tree", "Launched, low", "normal", {"mean": -200, "sd": 60}, root=dt_project)
+    p = psa.dt_psa(runs=10000, root=dt_project)
+    z = NormalDist()
+
+    def gain(sigma: float) -> float:  # E[(N(80, σ) − 90)⁺]: knowing one payoff, the other still at its mean
+        d = 10 / sigma
+        return sigma * z.pdf(d) - 10 * (1 - z.cdf(d))
+
+    by = {r["input"]: r["evppi"] for r in p["evppi"]}
+    assert by["Launched, high (payoff)"] == pytest.approx(gain(0.4 * 100), rel=0.15)
+    assert by["Launched, low (payoff)"] == pytest.approx(gain(0.6 * 60), rel=0.15)
+    assert max(by.values()) <= p["evpi"] + 1e-9  # one input can't be worth more than all of them
+
+
+def test_partial_evpi_of_a_set_by_regression():
+    import numpy as np
+
+    rng = np.random.default_rng(1)
+    x = rng.dirichlet([8, 12], size=4000)
+    nb = np.column_stack([np.full(4000, 90.0), 700 * x[:, 0] - 200])  # licence vs launch, as in the tree
+    exact = np.mean(np.maximum(90, 700 * x[:, 0] - 200)) - max(90, (700 * x[:, 0] - 200).mean())
+    assert psa.evppi(nb, x) == pytest.approx(exact, rel=0.1)
+    assert psa.evppi(nb, rng.random((4000, 1))) < 0.15 * exact  # an unrelated input is worth ~nothing
+
+
+def test_correlated_ranges(mk_project):
+    from fastapi.testclient import TestClient
+    from typer.testing import CliRunner
+
+    from latris.cli.app import app
+    from latris.operations import global_sensitivity as gs
+    from latris.operations._sampling import spearman
+    from latris.operations.analysis_results import is_stale, report_results
+    from latris.operations.share_link import export_spec
+    from latris.server.app import create_app
+
+    root = mk_project
+    MK._full(root)
+    psa.set_range("markov", "Healthy -> Sick", "beta", {"mean": 0.10, "sd": 0.02}, root=root)
+    psa.set_range("markov", "Healthy -> Sick", "beta", {"mean": 0.06, "sd": 0.015}, strategy="New drug", root=root)
+    psa.set_range("markov", "Sick", "gamma", {"mean": 3000, "sd": 600}, quantity="cost", root=root)
+    apart = psa.markov_psa(runs=1000, root=root)
+    psa.record(apart, root=root)
+    (run,) = [x.run for x in report_results(root=root) if x.run.result_kind == "markov-psa"]
+
+    # Both rates come from one registry: a cohort that progresses faster does so on either strategy.
+    r = CliRunner().invoke(app, ["markov", "correlate", "Healthy -> Sick", "Healthy -> Sick", "0.8",
+                                 "--other-strategy", "New drug", "--reason", "same registry cohort"])
+    assert r.exit_code == 0, r.output
+    assert is_stale(run, ProjectPaths(root))  # a correlation ages the PSA
+    together = psa.markov_psa(runs=1000, root=root)
+    assert together["correlations"] == [{"a": "P(Healthy → Sick)", "b": "P(Healthy → Sick) under New drug",
+                                         "rho": 0.8, "reason": "same registry cohort", "weak": True}]
+    # Sampled together, the drug's advantage is surer: the rates' noise largely cancels in the difference.
+    assert together["p_cost_effective"] > apart["p_cost_effective"]
+    m = MK.markov.load(root=root)
+    scalar, sets, *_ = psa._mk_inputs(m, psa.ranges("markov", ProjectPaths(root)))
+    draws = psa._draws(scalar, sets, 2000, 1, "lhs", psa.correlations("markov", paths=ProjectPaths(root)))
+    a, b = sorted(k for k in scalar if "transition" in k)
+    assert spearman([d[a] for d in draws], [d[b] for d in draws]) == pytest.approx(0.8, abs=0.05)
+
+    with pytest.raises(ValueError, match="positive definite"):  # an impossible set is refused
+        psa.set_correlation("markov", "Healthy -> Sick", "Sick", -0.9, other_quantity="cost", root=root)
+        psa.set_correlation("markov", "Healthy -> Sick", "Sick", 0.9, strategy="New drug", other_quantity="cost",
+                            root=root)
+    with pytest.raises(ValueError, match="no range yet"):
+        psa.set_correlation("markov", "Healthy -> Sick", "Healthy -> Dead", 0.5, root=root)
+    with pytest.raises(ValueError, match="with itself"):
+        psa.set_correlation("markov", "Sick", "Sick", 0.5, quantity="cost", other_quantity="cost", root=root)
+
+    _, spec = export_spec(model_type="markov", root=root)
+    assert {(c.target, c.other_strategy, c.rho) for c in spec.markov.correlations} >= {
+        ("Healthy -> Sick", "New drug", 0.8)}
+    g = gs.analyse("markov", method="morris", n=4, root=root)
+    assert any("is ignored" in note for note in g["notes"])
+
+    client = TestClient(create_app(project_root=root))
+    listed = client.get("/api/markov/range").json()
+    assert len(listed["correlations"]) >= 1
+    res = client.post("/api/markov/correlation", json={"target": "Healthy -> Sick", "other": "Healthy -> Sick",
+                                                       "other_strategy": "New drug", "clear": True})
+    assert res.status_code == 200
+    bad = client.post("/api/markov/correlation", json={"target": "Healthy -> Sick", "other": "Sick", "rho": 1.5,
+                                                       "other_quantity": "cost"})
+    assert bad.status_code == 422
+    # Clearing a range takes its correlations with it.
+    psa.set_correlation("markov", "Healthy -> Sick", "Sick", 0.3, other_quantity="cost", root=root)
+    psa.clear_range("markov", "Sick", quantity="cost", root=root)
+    assert psa.correlations("markov", paths=ProjectPaths(root)) == {}
