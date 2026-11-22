@@ -205,7 +205,9 @@ over any parameterized model (BN, regression, SD, …) — it is not itself a
 model type or a parameter file. Built for SD (`sd monte-carlo`,
 `sd sensitivity`), BN tables (`bn monte-carlo`) and the risk types (`ft`/`bowtie`/`et
 monte-carlo`, cells `fault_tree:probability`, `bow_tie:pfd`, `bow_tie:frequency`,
-`event_tree:probability[:<heading>=<answer>,…]`, `event_tree:frequency`). See the PARAMETERS design spec (held in the private design docs).
+`event_tree:probability[:<heading>=<answer>,…]`, `event_tree:frequency`), and decision trees
+and Markov models (`dt`/`markov psa`, cells `decision_tree:payoff|value|probability|probabilities`,
+`markov:transition|cost|utility|leaving[:<strategy id>]`). See the PARAMETERS design spec (held in the private design docs).
 
 ## Maturity ladder
 

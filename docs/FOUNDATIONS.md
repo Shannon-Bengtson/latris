@@ -289,8 +289,9 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   For each two-state uncertainty, the probabilities at which the best first
   choice changes, found by scanning and bisection. Every value keeps its
   provenance; unverified values on the best path are named.
-- **Limits.** Risk-neutral (no utility function). Point probabilities and
-  payoffs; no probabilistic sensitivity analysis yet. EVPI is undefined for
+- **Limits.** Risk-neutral (no utility function). Probabilities and payoffs
+  are point values unless given a range for the probabilistic sensitivity
+  analysis (below). EVPI is undefined for
   an uncertainty whose probabilities depend on the choice (it is reported
   as not priced), and is an upper bound — imperfect information (EVSI) is
   not computed. A node has one parent; shared subtrees are repeated.
@@ -310,10 +311,67 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
   ICERs along the frontier, and net monetary benefit at a willingness to
   pay. Every value keeps its provenance.
 - **Limits.** Memoryless — the chance of moving depends only on the current
-  state (no tunnel states or time-varying probabilities yet). Point
-  estimates only: no probabilistic sensitivity analysis, acceptability
-  curves or value of information yet. A cohort expectation, not individual
-  simulation; MDPs (choosing actions in each state) are not implemented.
+  state (no tunnel states or time-varying probabilities yet). Values are
+  point estimates unless given a range for the probabilistic sensitivity
+  analysis (below). A cohort expectation, not individual simulation; MDPs
+  (choosing actions in each state) are not implemented.
+
+## Probabilistic sensitivity analysis (decision trees and Markov models)
+
+- **Lineage.** Briggs, Claxton & Sculpher (2006), *Decision Modelling for
+  Health Economic Evaluation*, ch. 4–7; acceptability curves after Fenwick,
+  Claxton & Sculpher (2001); the expected value of perfect information over
+  the parameters after Claxton (1999); Latin hypercube sampling after
+  McKay, Beckman & Conover (1979).
+- **Implemented.** Ranges on a decision tree's payoffs, branch values and
+  probabilities (one branch of a two-branch chance node, or every branch as
+  a Dirichlet worth n observations; chance nodes resolving the same
+  uncertainty take the same sampled probabilities), and on a Markov model's
+  transition probabilities, costs and utilities (each for every strategy or
+  one; a state's transitions out as a Dirichlet). Beta and gamma by mean
+  and standard deviation (method of moments), or any of uniform,
+  triangular, normal and lognormal; each range keeps its reason, source and
+  verification and must include the current value. Seeded Latin hypercube
+  sampling through each model's own calculation. Decision trees: each first
+  choice's expected value across the runs, how often each is best, and the
+  EVPI over the parameters. Markov: each strategy's cost and outcome across
+  the runs, the incremental analysis on the means, the cost-effectiveness
+  acceptability curve and EVPI over a willingness-to-pay grid, and the
+  probability the chosen strategy is cost-effective at the stated
+  willingness to pay. Spearman rank correlation names the inputs driving
+  the decision (the best option's advantage, or its net monetary benefit,
+  over the runner-up).
+- **Limits.** Inputs are sampled independently (no correlated draws). EVPI
+  is for all parameters together; partial EVPI (EVPPI) and sample
+  information (EVSI) are not computed. Separately sampled probabilities of
+  leaving a Markov state that sum past 1 are scaled down to 1, and the
+  report counts how often; a Dirichlet over the state avoids it.
+
+## Global sensitivity analysis (Sobol indices, Morris screening)
+
+- **Lineage.** Saltelli et al. (2008), *Global Sensitivity Analysis: The
+  Primer*; variance-based indices after Sobol (2001), estimated as in
+  Saltelli et al. (2010) (first order) and Jansen (1999) (total); elementary
+  effects after Morris (1991), with μ* after Campolongo, Cariboni & Saltelli
+  (2007).
+- **Implemented.** For fault trees, bow-ties, event trees, decision trees,
+  Markov models and system dynamics, every input with a range (the same
+  distributions their Monte Carlo or PSA samples) is varied together on the
+  unit hypercube and mapped through its quantile function. Sobol: a
+  scrambled Sobol sequence, n·(k + 2) runs, first-order and total indices
+  for every output with bootstrap 95% intervals. Morris: r trajectories on a
+  four-level grid over each input's central 95%, r·(k + 1) runs, μ*, μ and σ
+  with a bootstrap interval on μ*. The headline output is the model's main
+  result (the top event, the best option's advantage over the runner-up,
+  the net monetary benefit at the willingness to pay, an SD variable's
+  metric). Implemented on numpy and scipy rather than SALib; checked
+  against the Ishigami function's analytic indices and closed forms.
+- **Limits.** Inputs must be independent; Dirichlet sets of probabilities
+  (and so Bayesian-network tables) are held at their point values. Index
+  estimates carry sampling error — with heavy-tailed inputs or small n they
+  can stray outside [0, 1]; the intervals say how far to trust them. Morris
+  effects are per unit of an input's quantile and comparable only within
+  one result.
 
 ## Theory of change
 
@@ -466,10 +524,16 @@ the code it describes win, and this page is wrong.
   Causation?" *Proceedings of the Royal Society of Medicine*, 58(5), 295–300.
 - Briggs, A., Claxton, K., & Sculpher, M. (2006). *Decision Modelling for
   Health Economic Evaluation*. Oxford University Press.
-- CCPS — Center for Chemical Process Safety (2001). *Layer of Protection
-  Analysis: Simplified Process Risk Assessment*. AIChE.
+- Campolongo, F., Cariboni, J., & Saltelli, A. (2007). "An effective screening
+  design for sensitivity analysis of large models." *Environmental Modelling
+  & Software*, 22(10), 1509–1518.
 - CCPS & Energy Institute (2018). *Bow Ties in Risk Management: A Concept
   Book for Process Safety*. AIChE / Wiley.
+- CCPS — Center for Chemical Process Safety (2001). *Layer of Protection
+  Analysis: Simplified Process Risk Assessment*. AIChE.
+- Claxton, K. (1999). "The irrelevance of inference: a decision-making
+  approach to the stochastic evaluation of health care technologies."
+  *Journal of Health Economics*, 18(3), 341–364.
 - Clemen, R. T., & Reilly, T. (2014). *Making Hard Decisions with
   DecisionTools* (3rd ed.). Cengage.
 - Department for Communities and Local Government (2009). *Multi-criteria
@@ -482,6 +546,9 @@ the code it describes win, and this page is wrong.
   Analysis*, 25(3), 363–380.
 - Fenton, N., & Neil, M. (2018). *Risk Assessment and Decision Analysis with
   Bayesian Networks* (2nd ed.). CRC Press.
+- Fenwick, E., Claxton, K., & Sculpher, M. (2001). "Representing
+  uncertainty: the role of cost-effectiveness acceptability curves."
+  *Health Economics*, 10(8), 779–787.
 - Forrester, J. W. (1961). *Industrial Dynamics*. MIT Press.
 - Fussell, J. B. (1975). "How to Hand-Calculate System Reliability and
   Safety Characteristics." *IEEE Transactions on Reliability*, R-24(3),
@@ -491,11 +558,11 @@ the code it describes win, and this page is wrong.
   Society*, 15, 262–263.
 - Guyatt, G., et al. (2008). "GRADE: an emerging consensus on rating quality
   of evidence and strength of recommendations." *BMJ*, 336, 924–926.
-- Hernán, M., & Robins, J. (2020). *Causal Inference: What If*. Chapman &
-  Hall/CRC. <https://hsph.harvard.edu/causalinference/>
 - Helton, J. C., & Davis, F. J. (2003). "Latin hypercube sampling and the
   propagation of uncertainty in analyses of complex systems." *Reliability
   Engineering & System Safety*, 81(1), 23–69.
+- Hernán, M., & Robins, J. (2020). *Causal Inference: What If*. Chapman &
+  Hall/CRC. <https://hsph.harvard.edu/causalinference/>
 - Heuer, R. J. (1999). *Psychology of Intelligence Analysis*. Center for the
   Study of Intelligence, Central Intelligence Agency.
 - Heuer, R. J., & Pherson, R. H. (2015). *Structured Analytic Techniques for
@@ -506,10 +573,9 @@ the code it describes win, and this page is wrong.
   Electrotechnical Commission.
 - IEC 62502:2010. *Analysis techniques for dependability — Event tree
   analysis (ETA)*. International Electrotechnical Commission.
+- Jansen, M. J. W. (1999). "Analysis of variance designs for model output."
+  *Computer Physics Communications*, 117(1–2), 35–43.
 - Jeffrey, R. (1965). *The Logic of Decision*. McGraw-Hill.
-- MacKinnon, J. G., & White, H. (1985). "Some heteroskedasticity-consistent
-  covariance matrix estimators with improved finite sample properties."
-  *Journal of Econometrics*, 29(3), 305–325.
 - Johnson, D. B. (1975). "Finding all the elementary circuits of a directed
   graph." *SIAM Journal on Computing*, 4(1), 77–84.
 - Keeney, R. L., & Raiffa, H. (1976). *Decisions with Multiple Objectives:
@@ -518,12 +584,17 @@ the code it describes win, and this page is wrong.
   Kellogg Foundation.
 - Kosko, B. (1986). "Fuzzy Cognitive Maps." *International Journal of
   Man-Machine Studies*, 24(1), 65–75.
+- MacKinnon, J. G., & White, H. (1985). "Some heteroskedasticity-consistent
+  covariance matrix estimators with improved finite sample properties."
+  *Journal of Econometrics*, 29(3), 305–325.
 - Mayne, J. (2012). "Contribution analysis: Coming of age?" *Evaluation*,
   18(3), 270–280.
 - McKay, M. D., Beckman, R. J., & Conover, W. J. (1979). "A Comparison of
   Three Methods for Selecting Values of Input Variables in the Analysis of
   Output from a Computer Code." *Technometrics*, 21(2), 239–245.
 - Meadows, D. H. (2008). *Thinking in Systems: A Primer*. Chelsea Green.
+- Morris, M. D. (1991). "Factorial sampling plans for preliminary
+  computational experiments." *Technometrics*, 33(2), 161–174.
 - Pearl, J. (1988). *Probabilistic Reasoning in Intelligent Systems: Networks
   of Plausible Inference*. Morgan Kaufmann.
 - Pearl, J. (2009). *Causality: Models, Reasoning and Inference* (2nd ed.).
@@ -536,17 +607,26 @@ the code it describes win, and this page is wrong.
   under Uncertainty*. Addison-Wesley.
 - Rauzy, A. (1993). "New Algorithms for Fault Trees Analysis."
   *Reliability Engineering & System Safety*, 40(3), 203–211.
-- Schum, D. A. (1994). *Evidential Foundations of Probabilistic Reasoning*.
-  Wiley.
+- Saltelli, A., Annoni, P., Azzini, I., Campolongo, F., Ratto, M., &
+  Tarantola, S. (2010). "Variance based sensitivity analysis of model
+  output." *Computer Physics Communications*, 181(2), 259–270.
+- Saltelli, A., Ratto, M., Andres, T., Campolongo, F., Cariboni, J.,
+  Gatelli, D., Saisana, M., & Tarantola, S. (2008). *Global Sensitivity
+  Analysis: The Primer*. Wiley.
 - Schoenberg, S., Davidsen, P., & Eberlein, R. (2020). "Loops That Matter."
   *System Dynamics Review*.
 - Schoenberg, S., Hayward, J., & Eberlein, R. (2023). Revised flow-to-stock
   link score for Loops That Matter. *System Dynamics Review*.
+- Schum, D. A. (1994). *Evidential Foundations of Probabilistic Reasoning*.
+  Wiley.
 - Seabold, S., & Perktold, J. (2010). "statsmodels: Econometric and
   Statistical Modeling with Python." *Proceedings of the 9th Python in
   Science Conference*.
 - Shachter, R. D. (1998). "Bayes-Ball: The Rational Pastime." *Proceedings of
   the 14th Conference on Uncertainty in Artificial Intelligence (UAI)*.
+- Sobol, I. M. (2001). "Global sensitivity indices for nonlinear
+  mathematical models and their Monte Carlo estimates." *Mathematics and
+  Computers in Simulation*, 55(1–3), 271–280.
 - Sonnenberg, F. A., & Beck, J. R. (1993). "Markov Models in Medical
   Decision Making: A Practical Guide." *Medical Decision Making*, 13(4),
   322–338.

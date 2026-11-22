@@ -102,3 +102,8 @@ def set_settings(body: dict[str, Any], root: Root) -> dict[str, Any]:
 
 _formalism.add_check_route(router, "markov")
 _formalism.add_analyse_route(router, markov)
+
+
+from latris.server.routes import _psa  # noqa: E402
+
+_psa.add_routes(router, "markov")

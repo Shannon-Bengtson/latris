@@ -22,7 +22,7 @@ BRANCH = re.compile(
 OWN = ("operations/formalisms/", "cli/", "server/routes/", "operations/sd", "operations/bn", "operations/fcm",
        "operations/mcda", "operations/ach", "operations/decision_tree", "operations/markov", "operations/toc",
        "operations/fault_tree", "operations/event_tree", "operations/bow_tie", "operations/process_tracing",
-       "operations/estimation", "operations/impact", "operations/risk_uncertainty", "schema/")
+       "operations/estimation", "operations/impact", "operations/risk_uncertainty", "operations/psa", "schema/")
 
 
 def test_shared_code_has_no_model_type_branches():

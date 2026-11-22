@@ -453,6 +453,24 @@ class SpecACH(_Spec):
     ratings: list[SpecACHRating] = Field(default_factory=list)
 
 
+class SpecPsaRange(_SpecParam):
+    """How uncertain a decision tree's or Markov model's input is, for probabilistic sensitivity analysis.
+
+    ``target`` names a factor or a link ('A -> B'); ``quantity`` says which of its numbers (decision tree:
+    payoff, value, probability, probabilities; Markov: transition, cost, utility, leaving) where the target
+    alone doesn't. ``params`` as for the distribution, ``{mean, sd}`` for a beta or gamma (method of
+    moments), or ``{n}`` for a Dirichlet over a chance node's branches or a state's transitions out.
+    """
+
+    target: str
+    quantity: str | None = None
+    strategy: str | None = None  # Markov: the range is on this strategy's own value
+    distribution: Literal["uniform", "triangular", "normal", "lognormal", "beta", "gamma", "dirichlet"]
+    params: dict[str, float]
+    reason: str = ""
+    verified: bool = False
+
+
 class SpecDTNode(_Spec):
     node: str
     type: Literal["decision", "chance", "terminal"]
@@ -492,6 +510,7 @@ class SpecDT(_Spec):
     branches: list[SpecDTBranch] = Field(default_factory=list)
     payoffs: list[SpecDTPayoff] = Field(default_factory=list)
     uncertainties: list[SpecDTUncertainty] = Field(default_factory=list)
+    ranges: list[SpecPsaRange] = Field(default_factory=list)  # for probabilistic sensitivity analysis
 
 
 class SpecMarkovElement(_Spec):
@@ -545,6 +564,7 @@ class SpecMarkov(_Spec):
     transitions: list[SpecMarkovTransition] = Field(default_factory=list)
     rewards: list[SpecMarkovReward] = Field(default_factory=list)
     start: list[SpecMarkovStart] = Field(default_factory=list)
+    ranges: list[SpecPsaRange] = Field(default_factory=list)  # for probabilistic sensitivity analysis
 
 
 class SpecBNStates(_Spec):
@@ -658,6 +678,11 @@ ANALYSIS_OPTION_DOCS: dict[str, str] = {
     "transfer_function": "sigmoid (default), tanh or step.",
     "lambda_steepness": "Steepness of the transfer function (default 1).",
     "max_iterations": "Stop after this many steps if it hasn't settled (default 100).",
+    "method": "Global sensitivity: sobol (each input's share of the variance, alone and in total) or morris "
+              "(a cheaper screen of elementary effects).",
+    "n": "Global sensitivity: Sobol base samples, a power of two (runs = n × (inputs + 2)), or Morris "
+         "trajectories (runs = n × (inputs + 1)).",
+    "output": "The result to headline, by name or its start (default: the model's main result).",
 }
 
 
@@ -696,6 +721,7 @@ ANALYSIS_OPTION_TITLES: dict[str, str] = {
     "estimator": "Estimator", "time": "Time column", "at": "Intervention starts", "group": "Group column",
     "treated": "Treated groups", "clamp": "Hold at", "initial": "Start from",
     "transfer_function": "Transfer function", "lambda_steepness": "Steepness", "max_iterations": "Most steps",
+    "method": "Method", "n": "Samples", "output": "Headline result",
 }
 
 
@@ -938,12 +964,33 @@ class MarkovAnalyseAnalysis(_Analysis):
     kind: Literal["markov_analyse"]
 
 
+class GsaAnalysis(_Analysis):
+    """Global sensitivity of a fault tree, bow-tie, event tree, decision tree, Markov model or SD model: Sobol
+    indices or Morris screening over every input with a range. ``n``: Sobol base samples (a power of two) or
+    Morris trajectories; ``output``: the result to headline; SD takes ``variable`` and ``metric``."""
+
+    kind: Literal["ft_gsa", "bt_gsa", "et_gsa", "dt_gsa", "markov_gsa", "sd_gsa"]
+    method: Literal["sobol", "morris"] | None = None
+    n: int | None = Field(default=None, ge=4)
+    seed: int | None = None
+    output: str | None = None
+    variable: str | None = None
+    metric: str | None = None
+
+
+class PsaAnalysis(_Draws):
+    """Decision tree or Markov: probabilistic sensitivity analysis over every input with a range — how often
+    each choice is best, the acceptability curve (Markov) and the expected value of perfect information."""
+
+    kind: Literal["dt_psa", "markov_psa"]
+
+
 ANALYSIS_MODELS: tuple[type[_Analysis], ...] = (
     SimulateAnalysis, MonteCarloAnalysis, CompareAnalysis, SensitivityAnalysis, LoopsAnalysis,
     BnQueryAnalysis, BnExplainAnalysis, BnMonteCarloAnalysis, BnCompareAnalysis, BnSensitivityAnalysis,
     TocCheckAnalysis, TocTraceAnalysis, TocImpactAnalysis, FtAnalyseAnalysis, BowtieAnalyseAnalysis,
     EtAnalyseAnalysis, RiskMonteCarloAnalysis, DagEstimateAnalysis, FcmInferAnalysis, McdaAnalyseAnalysis,
-    AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis,
+    AchAnalyseAnalysis, DtAnalyseAnalysis, MarkovAnalyseAnalysis, PsaAnalysis, GsaAnalysis,
 )
 
 SpecAnalysis = Annotated[
@@ -951,7 +998,7 @@ SpecAnalysis = Annotated[
     | BnQueryAnalysis | BnExplainAnalysis | BnMonteCarloAnalysis | BnCompareAnalysis | BnSensitivityAnalysis
     | TocCheckAnalysis | TocTraceAnalysis | TocImpactAnalysis | FtAnalyseAnalysis | BowtieAnalyseAnalysis
     | EtAnalyseAnalysis | RiskMonteCarloAnalysis | DagEstimateAnalysis | FcmInferAnalysis | McdaAnalyseAnalysis
-    | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis,
+    | AchAnalyseAnalysis | DtAnalyseAnalysis | MarkovAnalyseAnalysis | PsaAnalysis | GsaAnalysis,
     Field(discriminator="kind"),
 ]
 
