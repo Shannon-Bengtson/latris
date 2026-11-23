@@ -313,13 +313,15 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "utility given a range (beta and gamma by mean and sd, Dirichlet sets of probabilities), seeded Latin "
             "hypercube; how often each choice is best; Markov acceptability curves and the expected value of "
             "perfect information over a willingness-to-pay grid; the partial EVPI of each input from the same runs "
-            "(a cross-fitted regression of net benefit on the input: a spline for one value, a quadratic for a set); rank correlations between ranges induced by "
+            "(a cross-fitted regression of net benefit on the input: a spline for one value, a quadratic for a "
+            "set); rank correlations between ranges induced by "
             "Iman–Conover reordering; Spearman rank correlation for what drives the decision"
         ),
         limits=(
             "Correlations are rank correlations between single values (not within or with a Dirichlet set); "
             "partial EVPI is estimated from the PSA runs (a little low, and 0 when within the runs' sampling noise "
-            "— a small real value needs more runs to show), one input at a time — no sample information (EVSI); probabilities of leaving a Markov state sampled separately "
+            "— a small real value needs more runs to show), one input at a time — no sample information (EVSI); "
+            "probabilities of leaving a Markov state sampled separately "
             "are scaled down when they sum past 1 (the report counts the runs)."
         ),
     ),
