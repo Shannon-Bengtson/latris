@@ -341,7 +341,8 @@ def _value_questions(payload: dict[str, Any]) -> list[str]:
 
 
 def _value_rows(payload: dict[str, Any]) -> list[tuple[str, str]]:
-    """(what it is about, the question) for the estimates a recorded sensitivity result ranks highest (unchecked ones only).
+    """(what it is about, the question) for each estimate a recorded sensitivity result ranks highest
+    (unchecked ones only).
 
     Reads the payload shapes sensitivity results have: rows of values swung low/high (``parameters``),
     probability-table cells (``findings``), a global sensitivity analysis's ranked inputs (``outputs`` →

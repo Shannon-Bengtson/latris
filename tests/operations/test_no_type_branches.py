@@ -1,8 +1,8 @@
 """Shared code never branches on a model type's name: what sets a type apart is declared on its formalism.
 
 A new type then needs no edits to shared code, and an old type's special treatment is visible in one
-place (its module in ``operations/formalisms/``). This scans the shared layers for comparisons against a
-registered model-type id. A type's own operations module (``operations/sd.py``, ``operations/mcda.py``,
+place (its module in ``operations/formalisms/``). This scans the shared layers (operations, exporters, server, ai,
+diff) for comparisons against a registered model-type id. A type's own operations module (``operations/sd.py``, ``operations/mcda.py``,
 …) is its implementation and may of course name it; so may the modules listed below, with why.
 """
 
@@ -14,6 +14,8 @@ from pathlib import Path
 from latris.schema.model_types import list_model_types
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "latris"
+
+LAYERS = ("operations", "exporters", "server", "ai", "diff")
 
 # Modules that legitimately name types, and why.
 ALLOWED = {
@@ -34,7 +36,7 @@ def _pattern() -> re.Pattern[str]:
 
 def _shared_modules() -> list[Path]:
     own = {f"operations/{s.id}.py" for s in list_model_types(include_planned=True)}
-    files = [*SRC.joinpath("operations").rglob("*.py"), *SRC.joinpath("exporters").rglob("*.py")]
+    files = [p for layer in LAYERS for p in SRC.joinpath(layer).rglob("*.py")]
     out = []
     for p in files:
         rel = p.relative_to(SRC).as_posix()

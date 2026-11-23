@@ -39,7 +39,7 @@ what to do.
 | `tests/server/test_routes_are_tested.py` | Every server route is named by some test. Only latris's own routes count: routes a plugin adds (`latris.server_plugins`) are tested where the plugin lives. |
 | `tests/test_worked_example_coverage.py` | Every CLI command appears in the worked example. |
 | `tests/operations/test_formalisms.py` | Every model type is complete: its plugin, spec field, analyses, foundations entry, help topic. |
-| `tests/operations/test_no_type_branches.py` | Shared code doesn't branch on a model type's name. |
+| `tests/test_no_type_branches.py`, `tests/operations/test_no_type_branches.py` | Shared code doesn't branch on a model type's name (the first scans the whole package outside each type's own modules; the second the shared layers — operations, exporters, server, ai, diff — with a wider pattern). Both take the type ids from the registry. |
 | `tests/operations/test_methods_register.py` | Every analysis names the method it stands on. |
 | `tests/schema/test_model_types.py` | Model-type text is about the method, never the GUI's status. |
 
