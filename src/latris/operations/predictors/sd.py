@@ -31,10 +31,11 @@ class SDPredictor:
             return []
         consts = [Candidate(i, m.labels[i], ("value",), units=m.unit_text.get(i) or str(q.units),
                             value=float(q.magnitude), role="constant", suggested=True)
-                  for i, q in sorted(m.constants.items(), key=lambda t: m.labels[t[0]].casefold())]
+                  for i, q in sorted(m.constants.items(), key=lambda t: m.labels[t[0]].casefold())
+                  if i not in m.hidden]
         stocks = [Candidate(i, m.labels[i], ("value",), units=m.unit_text.get(i) or str(m.stock_units[i]),
                             value=m.initial[i], role="stock (starting value)")
-                  for i in sorted(m.stocks, key=lambda i: m.labels[i].casefold())]
+                  for i in sorted(m.stocks, key=lambda i: m.labels[i].casefold()) if i not in m.hidden]
         return consts + stocks
 
     def outputs(self) -> list[Candidate]:
@@ -43,7 +44,9 @@ class SDPredictor:
             return []
         shown = [i for i in [*m.stocks, *m.order] if i not in m.hidden]
         return [Candidate(i, m.labels[i], ("series", "value"), units=m.unit_text.get(i), role=m.roles.get(i, ""),
-                          needs_metric=True, suggested=i == self.outcome or (not self.outcome and i in m.stocks))
+                          needs_metric=True, suggested=i == self.outcome or (not self.outcome and i in m.stocks),
+                          time_units=str(m.settings.time_units),
+                          time_range=(float(m.settings.initial_time), float(m.settings.final_time)))
                 for i in shown]
 
     def run(self, values: dict[str, Any], modes: dict[str, str], outputs: list[Any]) -> Run:

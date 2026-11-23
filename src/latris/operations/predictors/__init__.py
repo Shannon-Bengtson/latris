@@ -30,6 +30,8 @@ class Candidate:
     role: str = ""  # what it is in the model ("input", "constant", "stock (starting value)"…)
     needs_metric: bool = False  # output: a "value" is a metric of its time series (final, peak…)
     suggested: bool = False  # part of the contract `contract init` drafts
+    time_units: str | None = None  # output with a run behind it: the clock's units (peak-time, total)
+    time_range: tuple[float, float] | None = None  # … and the time the run covers (at:T must be inside it)
 
 
 @dataclass

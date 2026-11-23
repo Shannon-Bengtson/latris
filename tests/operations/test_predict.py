@@ -406,3 +406,149 @@ def test_cli(project, tmp_path):
     run("predict", "--inputs", "-", stdin="[1, 2]", code=2)
     run("contract", "input", "equation_model", "Depth", "--default", "none", "--required")
     assert "is required" in run("predict", code=2)
+
+
+# ── regressions ──────────────────────────────────────────────────────
+
+
+def test_an_output_is_given_in_the_contracts_units(project):
+    contract.init("equation_model", root=project)
+    v1 = git.head_sha(project)
+    assert predict.predict(root=project)["outputs"]["discharge"] == {"value": pytest.approx(Q), "units": "m**3/s",
+                                                                     "label": "Discharge"}
+    # The model now works in litres a second; the contract still promises cubic metres.
+    eq.set_formula("Discharge", "velocity * flow_area", "liter/s", root=project)
+    assert eq.compute(eq.load(root=project))[contract.get("equation_model", root=project).outputs[0].target_id] \
+        == pytest.approx(Q * 1000)
+    assert contract.check(root=project) == []
+    out = predict.predict(root=project)["outputs"]["discharge"]
+    assert out["value"] == pytest.approx(Q) and out["units"] == "m**3/s"  # converted, not mislabelled
+    assert contract.compare(v1, root=project)["verdict"] == "internal"
+    # Changing something else about the output keeps the units it promised.
+    contract.set_output("equation_model", "Discharge", description="what the channel carries", root=project)
+    assert contract.get("equation_model", root=project).outputs[0].units == "m**3/s"
+
+    # Units of another kind can't be converted: check says so, predict refuses, and the diff is breaking.
+    eq.set_formula("Discharge", "velocity * flow_area / width", "m**2/s", root=project)
+    (problem,) = contract.check(root=project)
+    assert "output 'discharge' is in m**3/s, but Discharge is in m**2/s now" in problem
+    with pytest.raises(ValueError, match="can't be run"):
+        predict.predict(root=project)
+    d = contract.compare(v1, root=project)
+    assert d["verdict"] == "breaking" and "output discharge is in m**3/s" in d["breaking"][0]
+    contract.set_output("equation_model", "Discharge", root=project)  # takes the model's units
+    assert contract.get("equation_model", root=project).outputs[0].units == "m**2/s"
+    assert contract.check(root=project) == []
+    assert "output discharge changed from a value in m**3/s to a value in m**2/s" in contract.compare(
+        v1, root=project)["breaking"]
+
+
+def test_a_name_pointed_at_another_factor_is_a_breaking_change(project):
+    contract.init("equation_model", root=project)
+    v1, first = git.head_sha(project), contract.describe(root=project)["hash"]
+    with pytest.raises(ValueError, match="already has an output called 'discharge', for Discharge"):
+        contract.set_output("equation_model", "Flow area", name="discharge", root=project)  # not silently replaced
+    assert contract.get("equation_model", root=project).outputs[0].units == "m**3/s"
+
+    # Flow area and Discharge swap units, so the contract's text is identical but for the factor behind it.
+    eq.set_formula("Flow area", "width * depth", "m**3/s", root=project)
+    contract.remove("equation_model", "discharge", root=project)
+    contract.set_output("equation_model", "Flow area", name="discharge", root=project)
+    d = contract.compare(v1, root=project)
+    assert d["verdict"] == "breaking" and "output discharge now reports a different factor" in d["breaking"]
+    assert contract.describe(root=project)["hash"] != first
+
+    new = contract.get("equation_model", root=project)
+    same_text = new.model_copy(update={"outputs": [new.outputs[0].model_copy(update={"target_id": "other"})]})
+    assert contract.contract_hash(same_text) != contract.contract_hash(new)
+    inputs = new.model_copy(update={"inputs": [new.inputs[0].model_copy(update={"target_id": "other"}),
+                                               *new.inputs[1:]]})
+    assert contract.contract_hash(inputs) != contract.contract_hash(new)
+    breaking: list[str] = []
+    contract._compare_inputs(new, inputs, breaking, [])
+    assert breaking == [f"input {new.inputs[0].name} now sets a different factor"]
+
+
+def test_a_measure_of_a_run_has_its_own_units(system):
+    contract.init("sd", root=system)
+    when, _ = contract.set_output("sd", "PM2.5 Load", name="peak_at", metric="peak-time", root=system)
+    total, _ = contract.set_output("sd", "PM2.5 Load", name="load_years", metric="total", root=system)
+    emitted, _ = contract.set_output("sd", "Emission", name="emitted", metric="total", root=system)
+    mean, _ = contract.set_output("sd", "PM2.5 Load", name="mean_load", metric="mean", root=system)
+    assert (when.units, total.units, emitted.units, mean.units) == ("year", "tonne * year", "tonne", "tonne")
+    assert contract.check("sd", root=system) == []
+    out = predict.predict(model_type="sd", root=system)["outputs"]
+    assert out["peak_at"]["units"] == "year" and 0 <= out["peak_at"]["value"] <= 10
+
+    with pytest.raises(ValueError, match="at:1e\\+09 is outside the time the model runs over"):
+        contract.set_output("sd", "PM2.5 Load", name="later", metric="at:1e9", root=system)
+    contract.set_output("sd", "PM2.5 Load", name="midway", metric="at:5", root=system)
+    # A contract written before the check (or a run since shortened) is caught by `contract check`.
+    paths = eq.require_project(system)
+    c = contract.get("sd", root=system)
+    c.outputs = [o.model_copy(update={"metric": "at:1e9"}) if o.name == "midway" else
+                 o.model_copy(update={"units": "tonne"}) if o.name == "peak_at" else o for o in c.outputs]
+    contract._save(paths, c, "an older contract")
+    problems = contract.check("sd", root=system)
+    assert any("'midway'" in p and "outside the time" in p for p in problems)
+    assert any("'peak_at' is in tonne, but PM2.5 Load is in year now" in p for p in problems)
+
+
+def test_a_series_is_converted_too_and_hidden_stocks_are_not_offered(system):
+    from latris.operations import sd as sd_ops
+
+    hidden = sd_ops.compile_project(root=system).hidden
+    assert hidden  # the example smooths a variable: SMOOTH's own stocks are not the modeller's
+    offered = contract.candidates("sd", root=system)
+    assert not hidden & {c["target_id"] for c in offered["inputs"] + offered["outputs"]}
+
+    c, _ = contract.init("sd", root=system)
+    name = next(o.name for o in c.outputs if o.units == "tonne")
+    tonnes = predict.predict(model_type="sd", root=system)["outputs"][name]["series"]["values"]
+    c.outputs = [o.model_copy(update={"units": "kilogram"}) if o.name == name else o for o in c.outputs]
+    contract._save(eq.require_project(system), c, "the caller reads kilograms")
+    out = predict.predict(model_type="sd", root=system)["outputs"][name]
+    assert out["units"] == "kilogram" and out["series"]["values"] == pytest.approx([v * 1000 for v in tonnes])
+
+
+def test_a_model_type_never_names_a_file(project, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from latris.repo.layout import ProjectPaths
+    from latris.server.app import create_app
+
+    contract.init("equation_model", root=project)
+    secret = tmp_path / "secret.yaml"
+    secret.write_text("password: hunter2\n")
+    c = TestClient(create_app(project_root=project))
+    up = "../../../../secret"
+    for r in (c.get("/api/contract/check", params={"model_type": up}),
+              c.get("/api/contract", params={"model_type": up}),
+              c.get("/api/contract/candidates", params={"model_type": up}),
+              c.post("/api/contract/init", json={"model_type": up}),
+              c.post("/api/contract/output", json={"model_type": up, "node": "Discharge"}),
+              c.post("/api/predict", json={"model_type": up})):
+        assert r.status_code == 422, r.text
+        assert "hunter2" not in r.text and "password" not in r.text
+    assert "unknown model type" in c.get("/api/contract/check", params={"model_type": "zzz"}).json()["detail"]
+    for bad in (up, "a/b", "..", "", "Equation Model", "x.yaml"):
+        with pytest.raises(ValueError, match="not a model type"):
+            ProjectPaths(project).contract_path(bad)
+    assert ProjectPaths(project).contract_path("equation_model").name == "equation_model.yaml"
+
+
+def test_predict_refuses_a_malformed_value_and_reads_an_empty_ref_as_none(project):
+    from fastapi.testclient import TestClient
+
+    from latris.server.app import create_app
+
+    contract.init("equation_model", root=project)
+    c = TestClient(create_app(project_root=project))
+    r = c.post("/api/predict", json={"inputs": {"depth": {"value": 2, "units": 5}}})
+    assert r.status_code == 422 and "units must be text" in r.json()["detail"]
+    assert c.post("/api/predict", json={"inputs": {"depth": {"value": 2, "units": ["cm"]}}}).status_code == 422
+    assert c.post("/api/predict", json={"inputs": {"depth": True}}).status_code == 422
+    r = c.post("/api/predict", json={"ref": "", "inputs": {"depth": {"value": 200, "units": "cm"}}})
+    assert r.status_code == 200 and r.json()["provenance"]["ref"] is None  # the working folder, not a pin
+    assert r.json()["outputs"]["discharge"]["value"] == pytest.approx(0.9 * 8 * 2)
+    assert c.get("/api/contract", params={"ref": ""}).status_code == 200

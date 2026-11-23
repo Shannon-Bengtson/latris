@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,6 +24,7 @@ import latris
 from latris.ai.adapters import mock_enabled
 from latris.ai.adapters.base import LLMCallError
 from latris.operations._resolve import ResolveError
+from latris.operations.errors import NotFoundError
 from latris.repo.git import GitError, IdentityError
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import NotAProjectError
@@ -224,6 +226,11 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
 
     @app.exception_handler(LookupError)
     async def _lookup_error(_request: Request, exc: LookupError) -> JSONResponse:
+        # A deliberate not-found is a NotFoundError (or a KeyError raised with a message). A bare KeyError or
+        # IndexError that strays here is a bug answering 404: log it, so it can be found.
+        if not isinstance(exc, NotFoundError):
+            logging.getLogger("latris.server").warning(
+                "%s answered 404 on %s %s", type(exc).__name__, _request.method, _request.url.path, exc_info=exc)
         return JSONResponse(status_code=404, content={"error": "not_found", "detail": str(exc)})
 
     @app.exception_handler(LLMCallError)

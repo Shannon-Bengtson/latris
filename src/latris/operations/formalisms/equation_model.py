@@ -468,9 +468,9 @@ register(Formalism(
     set_outcome=_set_outcome,
     structure_problems=_problems,
     validators={
-        "eq_quantities_complete": ("eq_no_output", "eq_no_value", "eq_no_formula"),
+        "eq_quantities_complete": ("eq_no_output", "eq_unclassified", "eq_no_value", "eq_no_formula"),
         "eq_formulas_valid": ("eq_formula_invalid", "eq_unknown_reference", "eq_name_collision", "eq_circular",
-                              "eq_units"),
+                              "eq_units", "eq_scenario_invalid", "eq_range_invalid"),
         "eq_links_match": ("eq_missing_link", "eq_unused_link"),
     },
     claims=_claims,

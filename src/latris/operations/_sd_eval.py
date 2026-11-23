@@ -54,6 +54,7 @@ ALGEBRAIC_FUNCTIONS: tuple[str, ...] = (
 )
 
 _MAX_EXPONENT = 100
+_MAX_POWER_BITS = 1024  # a float's own ceiling: beyond it a whole-number power is refused
 
 _ALLOWED_NODES: tuple[type[ast.AST], ...] = (
     ast.Expression, ast.BinOp, ast.UnaryOp, ast.Compare, ast.BoolOp, ast.Call,
@@ -145,7 +146,17 @@ def _safe_pow(a: Any, b: Any) -> Any:
     exponent = b.to("dimensionless").magnitude if isinstance(b, Quantity) else b
     if _is_number(exponent) and abs(exponent) > _MAX_EXPONENT:
         raise EquationError(f"exponent {exponent} is too large")
-    return op.pow(a, b)
+    # Whole numbers have no overflow of their own: a tower of small powers, each within the exponent
+    # limit, would grow without bound (and take as long). Refuse what a float couldn't hold anyway.
+    base = a.magnitude if isinstance(a, Quantity) else a
+    if (isinstance(base, int) and isinstance(exponent, int) and not isinstance(base, bool)
+            and exponent > 0 and base.bit_length() * exponent > _MAX_POWER_BITS):
+        raise EquationError(f"a power of {exponent} here gives a number that is too large")
+    result = op.pow(a, b)
+    if isinstance(result.magnitude if isinstance(result, Quantity) else result, complex):
+        raise EquationError(f"a negative number ({base:g}) to a fractional power ({exponent:g}) is not a real "
+                            "number, so it can't be evaluated")
+    return result
 
 
 _OPERATORS = {

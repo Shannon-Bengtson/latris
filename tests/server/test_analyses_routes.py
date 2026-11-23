@@ -57,3 +57,33 @@ def test_choices_give_a_networks_states_by_label(two_node_project_root):
     ch = c.get("/api/analyses/choices", params={"model_type": "bn"}).json()
     assert ch["states"] == {"Price": ["low", "high"]}
     assert "Price" in {f["label"] for f in ch["factors"]}
+
+
+def test_run_says_what_is_wrong_with_the_kind(sd_bathtub_root):
+    c = TestClient(create_app(project_root=sd_bathtub_root))
+    r = c.post("/api/analyses/run", json={})
+    assert r.status_code == 422 and "'kind'" in r.json()["detail"]
+    assert c.post("/api/analyses/run", json={"kind": 3}).status_code == 422
+    r = c.post("/api/analyses/run", json={"kind": "no_such_analysis"})
+    assert r.status_code == 422 and "no analysis of kind 'no_such_analysis'" in r.json()["detail"]
+
+
+def test_a_stray_lookup_error_is_logged(sd_bathtub_root, caplog):
+    from latris.operations.errors import NotFoundError
+
+    app = create_app(project_root=sd_bathtub_root)
+
+    @app.get("/api/_test/stray")
+    def stray() -> None:
+        [][0]  # noqa: B018 — a bug, not a deliberate not-found
+
+    @app.get("/api/_test/missing")
+    def missing() -> None:
+        raise NotFoundError("no such run")
+
+    c = TestClient(app)
+    with caplog.at_level("WARNING", logger="latris.server"):
+        assert c.get("/api/_test/missing").status_code == 404
+        assert not caplog.records
+        assert c.get("/api/_test/stray").status_code == 404
+    assert "IndexError answered 404 on GET /api/_test/stray" in caplog.text

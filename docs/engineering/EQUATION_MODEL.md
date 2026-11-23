@@ -78,11 +78,29 @@ extrapolation is shown as one, beside the number.
 
 ## Structure problems
 
-`eq_no_output`, `eq_unclassified` (a factor linked into the model with no role), `eq_no_value`,
+`eq_no_output`, `eq_unclassified` (a factor linked into the model with no role; not reported when the
+project shares its map with a loop map, DAG or FCM, whose links those are), `eq_no_value`,
 `eq_no_formula`, `eq_formula_invalid`, `eq_unknown_reference`, `eq_name_collision`, `eq_circular`,
-`eq_units`, `eq_missing_link`, `eq_unused_link`.
+`eq_units`, `eq_missing_link`, `eq_unused_link`, `eq_scenario_invalid` (a saved scenario changes a
+quantity that has no value any more, or gives it in units of another kind), `eq_range_invalid` (a value
+lies outside its own uncertainty range).
 
-A circular set of formulas is refused, not solved: simultaneous equations are out of scope.
+A circular set of formulas is refused, not solved: simultaneous equations are out of scope. Only a
+formula that reads itself through other formulas is called circular; one that is merely waiting on a
+quantity with no value or no formula is not, since that quantity's own problem says what to do.
+
+`eq_units` also covers a formula that can't be evaluated at the reference values (a negative number
+under a fractional power, a division by zero). Such a failure is always an `EquationError`: the check
+reports it, a sweep marks the point, and a Monte Carlo leaves the draw out and counts it.
+
+### Changing a value's units
+
+A scenario's value carries its own units, so it survives a change to compatible units (metres to
+centimetres). An uncertainty range is in the value's units, so `set_value` converts it in the same
+commit: a range of 2–4 m stays 2–4 m when the value is re-entered as 300 cm. A change to units of
+another kind (metres to seconds) is refused while a scenario or a range still speaks of the old ones;
+the message names what to remove first. Taking a quantity out of the model (`eq remove`) or deleting its
+factor removes its overrides from the saved scenarios, and a scenario left with nothing to change.
 
 ## Predict (#17)
 

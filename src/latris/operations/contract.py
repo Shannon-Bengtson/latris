@@ -70,8 +70,20 @@ def default_model_type(model_type: str | None, paths: ProjectPaths) -> str:
 # ── reads ────────────────────────────────────────────────────────────
 
 
+def known_model_type(model_type: str) -> str:
+    """``model_type`` if it is one latris knows; refused otherwise. Every read and write of a contract comes
+    through here, so a caller's text never chooses a file (``layout.contract_path`` refuses it too)."""
+    from latris.operations import formalisms
+
+    known = {f.model_type for f in formalisms.all_formalisms()}
+    if not isinstance(model_type, str) or model_type not in known:
+        able = ", ".join(sorted(f.model_type for f in formalisms.all_formalisms() if f.predictor))
+        raise ValueError(f"unknown model type {str(model_type)[:60]!r}; a contract belongs to one of: {able}")
+    return model_type
+
+
 def get(model_type: str, *, root: Path | None = None) -> Contract | None:
-    path = require_project(root).contract_path(model_type)
+    path = require_project(root).contract_path(known_model_type(model_type))
     return load_model(Contract, path) if path.exists() else None
 
 
@@ -83,13 +95,15 @@ def require(model_type: str, paths: ProjectPaths) -> Contract:
 
 
 def contract_hash(contract: Contract) -> str:
-    """A short hash of the interface: names, kinds, units, modes and whether an input is required.
+    """A short hash of the interface: names, the factors they stand for, kinds, units, modes and whether an
+    input is required.
 
-    It changes exactly when a caller might have to: a default or a description doesn't change it.
+    It changes exactly when a caller might have to: a default or a description doesn't change it. A name
+    pointed at a different factor does: the caller would be setting, or reading, something else.
     """
     interface = {
-        "inputs": sorted([i.name, i.kind, i.units, i.mode, i.required] for i in contract.inputs),
-        "outputs": sorted([o.name, o.kind, o.units, o.metric] for o in contract.outputs),
+        "inputs": sorted([i.name, i.target_id, i.kind, i.units, i.mode, i.required] for i in contract.inputs),
+        "outputs": sorted([o.name, o.target_id, o.kind, o.units, o.metric] for o in contract.outputs),
     }
     return hashlib.sha256(json.dumps(interface, sort_keys=True).encode()).hexdigest()[:12]
 
@@ -199,7 +213,79 @@ def _problems(contract: Contract, predictor: Predictor) -> list[str]:
             problems.append(f"output {o.name!r}: {c.label} can be {' or '.join(c.kinds)}, not a {o.kind}")
         elif o.kind == "value" and c.needs_metric and not o.metric:
             problems.append(f"output {o.name!r}: say which value of {c.label}'s run it is (metric: final, peak…)")
+        else:
+            problems += [f"output {o.name!r}{p}" for p in (_metric_problem(c, o.metric), _units_problem(c, o)) if p]
     return problems
+
+
+def model_units(c: Candidate, kind: str, metric: str | None) -> str | None:
+    """The units the model gives an output in: the factor's own, except for a measure of a run that isn't in
+    them (``peak-time`` is a time; ``total`` is the factor's units times time)."""
+    if kind == "distribution":
+        return None
+    if kind == "value" and metric and c.time_units:
+        from latris.operations.sd_sensitivity import parse_metric
+
+        try:
+            name = parse_metric(metric)[0]
+        except ValueError:
+            return c.units
+        if name == "peak-time":
+            return c.time_units
+        if name == "total" and c.units:
+            per = f"/{c.time_units}"
+            if c.units.replace(" ", "").endswith(per) and c.units.count("/") == 1:
+                return c.units.replace(" ", "")[: -len(per)]  # tonne/year over years: tonne
+            return f"({c.units}) * {c.time_units}" if any(ch in c.units for ch in "/*+- ") else \
+                f"{c.units} * {c.time_units}"
+    return c.units
+
+
+def _metric_problem(c: Candidate, metric: str | None) -> str | None:
+    """Why ``metric`` can't be measured on this output's run (``at:T`` outside the time it covers)."""
+    if not metric or not c.time_range:
+        return None
+    from latris.operations.sd_sensitivity import parse_metric
+
+    try:
+        name, at = parse_metric(metric)
+    except ValueError as exc:
+        return f": {exc}"
+    lo, hi = c.time_range
+    if name == "at" and at is not None and not lo <= at <= hi:
+        return f": at:{at:g} is outside the time the model runs over ({lo:g} to {hi:g} {c.time_units or ''})".rstrip()
+    return None
+
+
+def _units_problem(c: Candidate, o: ContractOutput) -> str | None:
+    """Why the model's value can't be given in the units the contract promises."""
+    have = model_units(c, o.kind, o.metric)
+    if not o.units or not have:
+        return None
+    try:
+        if is_compatible(parse_unit(o.units), parse_unit(have)):
+            return None
+    except UnitError as exc:
+        return f": {exc}"
+    return (f" is in {o.units}, but {c.label} is in {have} now; set the output again to take the model's units "
+            "(a caller reading the old ones must change)")
+
+
+def convert_output(value: Any, have: str | None, want: str | None) -> Any:
+    """A computed value (or each value of a run) in the contract's units."""
+    if not have or not want or have == want or value is None:
+        return value
+    from latris.operations._units import Quantity
+
+    a, b = parse_unit(have), parse_unit(want)
+    if a == b:
+        return value
+    try:
+        if isinstance(value, list):
+            return [float(Quantity(float(x), a).to(b).magnitude) for x in value]
+        return float(Quantity(float(value), a).to(b).magnitude)
+    except Exception as exc:  # pint: another dimension, or units with an offset
+        raise ValueError(f"a value in {have} can't be given in {want}") from exc
 
 
 def check(model_type: str | None = None, *, root: Path | None = None) -> list[str]:
@@ -237,7 +323,7 @@ def _output_from(c: Candidate, name: str, kind: str | None = None, metric: str |
     if kind == "value" and c.needs_metric and not metric:
         metric = "final"
     return ContractOutput(name=name, target_id=c.target_id, kind=kind,  # type: ignore[arg-type]
-                          units=None if kind == "distribution" else c.units, metric=metric)
+                          units=model_units(c, kind, metric), metric=metric)
 
 
 def draft(model_type: str, *, root: Path | None = None) -> Contract:
@@ -331,13 +417,24 @@ def set_output(
     """Add an output to the contract, or change the one called ``name``.
 
     A factor can be several outputs (a system dynamics stock's whole run, and its peak), so an output is
-    identified by its name: without ``name`` the factor's own (slugified) is used.
+    identified by its name: without ``name`` the factor's own (slugified) is used. A name that already
+    stands for another factor is refused: a caller reading it would silently get something else. Remove it
+    first to reuse the name.
+
+    An output being changed keeps its units while the model's are still compatible with them (the value is
+    converted on the way out); otherwise it takes the model's.
     """
     paths = require_project(root)
-    c = _candidate(paths, target, predictor_for(model_type, paths).outputs(), "an output")
+    predictor = predictor_for(model_type, paths)
+    c = _candidate(paths, target, predictor.outputs(), "an output")
     contract = get(model_type, root=paths.root) or Contract(model_type=model_type)
     name = name or slugify(c.label)
     current = next((o for o in contract.outputs if o.name == name), None)
+    if current is not None and current.target_id != c.target_id:
+        other = _by_id(predictor.outputs()).get(current.target_id)
+        raise ValueError(f"the contract already has an output called {name!r}, for "
+                         f"{other.label if other else 'another factor'}; give {c.label}'s another name (--name), "
+                         f"or remove that one first (`latris contract remove {model_type} {name}`)")
     if metric:
         from latris.operations.sd_sensitivity import parse_metric
 
@@ -348,6 +445,12 @@ def set_output(
         raise ValueError(f"{c.label} can be {' or '.join(c.kinds)}, not a {entry.kind}")
     if entry.metric and not c.needs_metric:
         raise ValueError(f"{c.label} is a single value: it has no metric")
+    bad = _metric_problem(c, entry.metric)
+    if bad:
+        raise ValueError(f"output {entry.name!r}{bad}")
+    if (current and current.units and entry.units and (current.kind, current.metric) == (entry.kind, entry.metric)
+            and _units_problem(c, current) is None):
+        entry = entry.model_copy(update={"units": current.units})
     if description is not None or current:
         entry = entry.model_copy(update={"description": description if description is not None
                                          else current.description if current else ""})
@@ -385,7 +488,9 @@ def compare(base: str, head: str | None = None, *, model_type: str | None = None
     """What changed for a caller between two versions (``head`` defaults to the latest save).
 
     - **breaking**: a caller written against ``base`` may fail or be misread on ``head`` — an input or
-      output gone or renamed, its kind or units changed, an input now required, a new required input;
+      output gone or renamed, pointed at a different factor, its kind or units changed (in the contract, or
+      in the model so that it can no longer be given in the contract's), an input now required, a new
+      required input;
     - **compatible**: the caller still works — an optional input or an output added, a default or a valid
       range changed, an input no longer required;
     - **internal**: the contract is the same, but the model behind it changed, so the same inputs may give
@@ -409,11 +514,45 @@ def compare(base: str, head: str | None = None, *, model_type: str | None = None
     else:
         _compare_inputs(old, new, breaking, compatible)
         _compare_outputs(old, new, breaking, compatible)
+        breaking += _model_units_changed(paths, model_type, a, b, old, new)
     model_changed = bool(git.changed_paths(paths.root, a, b, list(_MODEL_PATHS))) if a != b else False
     verdict = "breaking" if breaking else "compatible" if compatible else "internal" if model_changed else "same"
     return {"model_type": model_type, "base": a, "head": b, "verdict": verdict, "breaking": breaking,
             "compatible": compatible, "model_changed": model_changed,
             "base_hash": contract_hash(old) if old else None, "head_hash": contract_hash(new) if new else None}
+
+
+def _output_unit_problems(paths: ProjectPaths, model_type: str, sha: str, contract: Contract) -> dict[str, str] | None:
+    """Output name → why the model at ``sha`` can't give it in the contract's units; None if that version
+    can't be loaded (written by another latris, say), in which case nothing is claimed about it."""
+    from pydantic import ValidationError
+
+    from latris.operations.predict import materialise
+
+    try:
+        outs = _by_id(predictor_for(model_type, ProjectPaths(materialise(sha, paths))).outputs())
+    except (ValueError, ValidationError, git.GitError, OSError):
+        return None
+    found = {}
+    for o in contract.outputs:
+        c = outs.get(o.target_id)
+        problem = _units_problem(c, o) if c else None
+        if problem:
+            found[o.name] = problem
+    return found
+
+
+def _model_units_changed(paths: ProjectPaths, model_type: str, a: str, b: str, old: Contract,
+                         new: Contract) -> list[str]:
+    """Outputs whose contract still promises the same units while the model stopped giving them: the
+    contract reads "same", but a caller no longer gets what it says."""
+    if a == b:
+        return []
+    after = _output_unit_problems(paths, model_type, b, new)
+    if not after:
+        return []
+    before = _output_unit_problems(paths, model_type, a, old) or {}
+    return [f"output {name}{why}" for name, why in sorted(after.items()) if name not in before]
 
 
 def _compare_inputs(old: Contract, new: Contract, breaking: list[str], compatible: list[str]) -> None:
@@ -423,6 +562,8 @@ def _compare_inputs(old: Contract, new: Contract, breaking: list[str], compatibl
         if j is None:
             breaking.append(f"input {name} was removed")
             continue
+        if i.target_id != j.target_id:
+            breaking.append(f"input {name} now sets a different factor")
         if (i.kind, i.units, i.mode) != (j.kind, j.units, j.mode):
             breaking.append(f"input {name} changed from {_shape(i)} to {_shape(j)}")
         if j.required and not i.required:
@@ -445,7 +586,10 @@ def _compare_outputs(old: Contract, new: Contract, breaking: list[str], compatib
         p = after.get(name)
         if p is None:
             breaking.append(f"output {name} was removed")
-        elif (o.kind, o.units, o.metric) != (p.kind, p.units, p.metric):
+            continue
+        if o.target_id != p.target_id:
+            breaking.append(f"output {name} now reports a different factor")
+        if (o.kind, o.units, o.metric) != (p.kind, p.units, p.metric):
             breaking.append(f"output {name} changed from {_shape(o)} to {_shape(p)}")
     compatible.extend(f"output {name} was added" for name in sorted(after) if name not in before)
 

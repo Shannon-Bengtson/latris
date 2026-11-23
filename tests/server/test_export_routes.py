@@ -43,3 +43,10 @@ def test_export_dot_contains_digraph(client: TestClient) -> None:
     resp = client.get("/api/export/dot")
     assert resp.status_code == 200
     assert "digraph" in resp.text
+
+
+def test_export_spec_refuses_an_unknown_model_type(client: TestClient) -> None:
+    assert client.get("/api/export/spec").status_code == 200
+    assert client.get("/api/export/spec", params={"model_type": "cld"}).status_code == 200
+    resp = client.get("/api/export/spec", params={"model_type": "zzz"})
+    assert resp.status_code == 422 and "unknown model type 'zzz'" in resp.json()["detail"]

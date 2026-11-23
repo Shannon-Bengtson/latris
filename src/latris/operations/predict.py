@@ -182,10 +182,14 @@ class LoadedModel:
         units = i.units or ""
         if isinstance(given, dict):
             given, units = given.get("value"), given.get("units") or units
+            if not isinstance(units, str):
+                raise ValueError(f"input {i.name!r}: units must be text such as \"cm\", got {units!r}")
         elif isinstance(given, str):
             head, _, tail = given.strip().partition(" ")
             given, units = head, tail.strip() or units
         try:
+            if isinstance(given, bool):
+                raise TypeError
             number = float(given)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"input {i.name!r} needs a number, got {given!r}") from exc
@@ -241,11 +245,20 @@ class LoadedModel:
                 warnings.append(f"input {i.name} = {with_units(f'{shown:g}', i.units or '')} is outside its valid "
                                 f"range ({_span(lo, hi, i.units or '')}): the result is an extrapolation")
         run = self.predictor.run(values, modes, list(self.contract.outputs))
-        labels = {c.target_id: c.label for c in self.predictor.outputs()}
+        outs = {c.target_id: c for c in self.predictor.outputs()}
         outputs = {}
         for o in self.contract.outputs:
             key = {"value": "value", "series": "series", "distribution": "distribution"}[o.kind]
-            outputs[o.name] = {key: run.outputs[o.name], "units": o.units, "label": labels.get(o.target_id)}
+            c, result = outs.get(o.target_id), run.outputs[o.name]
+            have = contract_ops.model_units(c, o.kind, o.metric) if c else None
+            try:  # the model computes in its own units; the contract's are what the caller was promised
+                if o.kind == "series" and isinstance(result, dict):
+                    result = {**result, "values": contract_ops.convert_output(result["values"], have, o.units)}
+                elif o.kind == "value":
+                    result = contract_ops.convert_output(result, have, o.units)
+            except ValueError as exc:
+                raise ValueError(f"output {o.name!r}: {exc}") from exc
+            outputs[o.name] = {key: result, "units": o.units, "label": c.label if c else None}
         declared = {i.target_id for i in self.contract.inputs}
         notes = warnings + [text for target, text in run.warnings if target not in declared]
         if self.provenance["uncommitted_changes"]:
@@ -271,7 +284,9 @@ class LoadedModel:
 def load(*, model_type: str | None = None, ref: str | None = None, root: Path | None = None) -> LoadedModel:
     """Load a model for calling: the working folder's, or (``ref``) a pinned version's."""
     paths = require_project(root)
-    if ref is None:
+    if ref is not None and not isinstance(ref, str):
+        raise ValueError(f"ref must be the name of a commit, milestone or version, got {ref!r}")
+    if not (ref or "").strip():  # no ref, or an empty one (a form left blank): the working folder
         return LoadedModel(paths, contract_ops.default_model_type(model_type, paths))
     pinned = pin(ref, paths)
     at = ProjectPaths(materialise(pinned.commit, paths))

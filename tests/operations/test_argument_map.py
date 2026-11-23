@@ -194,3 +194,22 @@ def test_surfaces(project):
     assert client.get("/api/argument/check").json()["ready"]
     res = client.post("/api/argument/analyse", json={"record": False}).json()
     assert res["result"]["status"] == "in"
+
+
+def test_an_answer_that_keeps_the_conclusion_standing_is_a_linchpin(tmp_path, git_identity):
+    # P supports C; O objects to C; R answers O. Take R away and O stands, so C falls: C rests on R.
+    root = tmp_path / "defended"
+    init_project(root, statement="Does it hold?")
+    for c in ("C", "P", "O", "R"):
+        node_ops.add_node(c, root=root)
+    am.set_element("C", "conclusion", root=root)
+    for claim in ("P", "O", "R"):
+        am.set_element(claim, "claim", root=root)
+    for a, b, rel in (("P", "C", "supports"), ("O", "C", "attacks"), ("R", "O", "attacks")):
+        edge_ops.add_edge(a, b, root=root)
+        am.set_link(f"{a} -> {b}", relation=rel, root=root)
+    p = am.analyse(root=root)
+    assert p["status"] == "in"
+    assert sorted(x["claim"] for x in p["linchpins"]) == ["P", "R"]
+    assert sorted(p["rests_on"]["none"]) == ["P", "R"]  # the unsourced rebuttal is listed with the premise
+    assert "2 premise(s) it rests on have no checked source" in am.describe(p)

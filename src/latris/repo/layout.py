@@ -14,6 +14,7 @@ from pathlib import Path
 # A filename component that is safe on every platform and cannot escape
 # its directory. Anything else is stored under a hashed name instead.
 _SAFE_FILENAME_STEM = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._+-]{0,150}$")
+_MODEL_TYPE_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")  # a model type's id, as it appears in a file name
 
 
 def safe_filename_stem(name: str) -> str:
@@ -167,7 +168,13 @@ class ProjectPaths:
         return self.views_dir / "contracts"
 
     def contract_path(self, model_type: str) -> Path:
-        """Return path for a model type's contract."""
+        """Return path for a model type's contract.
+
+        ``model_type`` reaches here from a caller (a query parameter, a CLI option), so anything that is not
+        a plain identifier is refused: it must never name a file outside ``contracts_dir``.
+        """
+        if not isinstance(model_type, str) or not _MODEL_TYPE_NAME.fullmatch(model_type):
+            raise ValueError(f"{model_type!r} is not a model type")
         return self.contracts_dir / f"{model_type}.yaml"
 
     # Layout (coordinates, colours — git-ignored by default)
