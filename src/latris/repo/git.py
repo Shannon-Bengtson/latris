@@ -376,11 +376,33 @@ def export_commit(cwd: Path, sha: str, dest: Path) -> None:
     A local clone with no checkout, then a detached checkout of the commit: nothing is written to the
     source repository (a worktree would register itself there). *dest* keeps no ``.git``.
     """
-    import shutil
-
     run_git(["clone", "--quiet", "--no-checkout", str(cwd), str(dest)])
     run_git(["-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", sha], cwd=dest)
-    shutil.rmtree(dest / ".git", ignore_errors=True)
+    remove_tree(dest / ".git")
+
+
+def remove_tree(path: Path) -> None:
+    """Delete *path* recursively, best effort — including git's read-only object files.
+
+    On Windows git writes its objects read-only and a plain ``shutil.rmtree`` fails on them
+    (silently, with ``ignore_errors``); clear the bit and retry each one.
+    """
+    import stat
+    import sys
+
+    def _retry(func, p, _exc):  # noqa: ANN001 — shutil's callback signature
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        except OSError:
+            pass
+
+    if not path.exists():
+        return
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_retry)
+    else:
+        shutil.rmtree(path, onerror=_retry)
 
 
 def is_dirty(cwd: Path) -> bool:

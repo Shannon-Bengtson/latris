@@ -15,7 +15,6 @@ the working folder: the commit is exported once to a cache folder and loaded fro
 
 from __future__ import annotations
 
-import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -114,7 +113,7 @@ def materialise(commit: str, paths: ProjectPaths) -> Path:
             if not (dest / ".graph-tooling").is_dir():
                 raise
     finally:
-        shutil.rmtree(staging.parent, ignore_errors=True)
+        git.remove_tree(staging.parent)
     return dest
 
 
