@@ -302,7 +302,49 @@ def test_partial_evpi_of_a_set_by_regression():
     nb = np.column_stack([np.full(4000, 90.0), 700 * x[:, 0] - 200])  # licence vs launch, as in the tree
     exact = np.mean(np.maximum(90, 700 * x[:, 0] - 200)) - max(90, (700 * x[:, 0] - 200).mean())
     assert psa.evppi(nb, x) == pytest.approx(exact, rel=0.1)
-    assert psa.evppi(nb, rng.random((4000, 1))) < 0.15 * exact  # an unrelated input is worth ~nothing
+    assert psa.evppi(nb, rng.random((4000, 1))) == 0  # an unrelated input is worth nothing
+
+
+def _two_options(seed: int, runs: int):
+    """Do nothing (0) or act (x + z), x and z standard normal: knowing x is worth E[x⁺] = 1/√(2π)."""
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    x, z = rng.normal(size=runs), rng.normal(size=runs)
+    return rng, x, np.column_stack([np.zeros(runs), x + z])
+
+
+def test_partial_evpi_of_an_irrelevant_input_is_zero():
+    """The regression's own noise mustn't pass for value: binned means gave a pure-noise input 5–8% of the EVPI."""
+    import numpy as np
+
+    single, sets = [], []
+    for seed in range(20):
+        rng, _, nb = _two_options(seed, 1000)
+        single.append(psa.evppi(nb, rng.lognormal(size=1000)))
+        sets.append(psa.evppi(nb, rng.dirichlet([5, 5, 5, 5], size=1000)))
+    evpi = nb.max(axis=1).mean() - nb.mean(axis=0).max()
+    assert sum(v > 0 for v in single) <= 2 and sum(v > 0 for v in sets) <= 2
+    assert np.mean(single) < 0.02 * evpi and np.mean(sets) < 0.02 * evpi
+    assert psa.evppi(nb, np.ones(1000)) == 0  # nor an input that doesn't vary
+
+
+def test_partial_evpi_recovers_a_known_value_and_stays_under_the_total():
+    import numpy as np
+
+    exact = 1 / math.sqrt(2 * math.pi)
+    values = []
+    for seed in range(10):
+        _, x, nb = _two_options(seed, 4000)
+        values.append(psa.evppi(nb, x))
+        assert values[-1] <= nb.max(axis=1).mean() - nb.mean(axis=0).max()
+        assert psa.evppi(nb, np.exp(x)) == pytest.approx(values[-1])  # ranks: any monotone rescaling
+    assert np.mean(values) == pytest.approx(exact, rel=0.06)
+    # A threshold the choice turns on, which no polynomial follows: act pays 1 above the 70th percentile.
+    rng = np.random.default_rng(3)
+    u = rng.random(8000)
+    nb = np.column_stack([np.zeros(8000), np.where(u > 0.7, 1.0, -0.2) + rng.normal(size=8000) * 0.5])
+    assert psa.evppi(nb, u) == pytest.approx(0.3 - 0.16, rel=0.12)
 
 
 def test_correlated_ranges(mk_project):

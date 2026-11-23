@@ -117,6 +117,31 @@ def test_extends_merges_and_evidence_in_the_call_wins(flood):
         bn_scenarios.remove_scenario("Stronger levee", root=flood)
 
 
+def test_monte_carlo_makes_the_checks_a_query_makes_on_set_factors(flood, monkeypatch):
+    """A scenario's set factor that has left the network, or is also observed, is refused — as `infer` does."""
+    import dataclasses
+
+    bn_scenarios.set_scenario("Levee raised", set_=["Levee Holds=yes"], root=flood)
+    uncertainty.set_table_uncertainty("Flood", 20, root=flood)
+    assert bn_ops.run_monte_carlo("Flood", scenario="Levee raised", runs=20, root=flood)["interventions"]
+    real = bn_ops.with_scenario
+
+    def stale(*a, **k):
+        applied = real(*a, **k)
+        return dataclasses.replace(applied, interventions={**applied.interventions, "node_gone": "yes"})
+
+    def both(*a, **k):
+        applied = real(*a, **k)
+        return dataclasses.replace(applied, evidence=dict(applied.interventions))
+
+    for patched, message in ((stale, "not in the network"), (both, "set or observed, not both")):
+        monkeypatch.setattr(bn_ops, "with_scenario", patched)
+        for ask in (lambda: bn_ops.run_monte_carlo("Flood", scenario="Levee raised", runs=20, root=flood),
+                    lambda: bn_ops.infer(query=["Flood"], scenario="Levee raised", root=flood)):
+            with pytest.raises(ValueError, match=message):
+                ask()
+
+
 def test_point_comparison_names_the_reference(flood):
     _scenarios(flood)
     p = bn_ops.run_compare("Flood", ["Stronger levee", "Stronger levee, storm season"], state="yes", root=flood)

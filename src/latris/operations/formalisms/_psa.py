@@ -161,6 +161,10 @@ def _claims(p: dict[str, Any], out: dict[str, list[str]]) -> None:
             f"Of the uncertain inputs, learning {worth[0]['input']} is worth most: up to {_money(p, worth[0]['evppi'])}"
             f"{per}" + (f"; next {worth[1]['input']} ({_money(p, worth[1]['evppi'])})" if len(worth) > 1 else "")
             + ". A study of anything else costing more than its partial EVPI isn't worth doing.")
+    elif p.get("evppi") and p["evpi"] > 0:
+        out["implications"].append(
+            "No single input is worth learning on its own at this number of runs: each one's partial EVPI is "
+            "within sampling noise of zero.")
     if p["fixed"]:
         out["assumptions_limitations"].append(
             f"The PSA treats {len(p['fixed'])} input(s) as exact (no range given), so the uncertainty it shows is "

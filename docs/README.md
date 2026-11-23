@@ -16,7 +16,7 @@ repository. Start at the repo-root [README](../README.md).
   commits every change to Git automatically, talks to an LLM through a
   vendor-agnostic adapter under human approval, and produces defensible
   review/report artefacts.
-- All 46 canonical AI prompts wired end-to-end across 10 categories
+- All 45 canonical AI prompts wired end-to-end across 10 categories
   (authoring, scrutiny, scope, evidence, output, references, provenance
   assist, compose, interpret, configure).
 - Data wrangling (39 pandas operations with versioning and audit trail),

@@ -11,8 +11,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from latris.schema.model_types import list_model_types
+
 SRC = Path(__file__).resolve().parents[1] / "src" / "latris"
-TYPES = r"(cld|dag|fcm|bn|sd|mcda|ach|decision_tree|markov|theory_of_change|fault_tree|event_tree|bow_tie)"
+# Every registered model type, planned ones included, longest id first — read from the registry so a new
+# type is covered the day it is added (a hand-kept list had fallen behind by two).
+TYPES = "(" + "|".join(sorted((t.id for t in list_model_types(include_planned=True)), key=len, reverse=True)) + ")"
 BRANCH = re.compile(
     rf"""(model_type|spec\.id|view|kind)\s*(==|!=)\s*["']{TYPES}["']"""
     rf"""|(model_type|spec\.id)\s+(not\s+)?in\s+\(["']{TYPES}["']"""
@@ -35,3 +39,8 @@ def test_shared_code_has_no_model_type_branches():
             if BRANCH.search(line):
                 hits.append(f"{rel}:{n}: {line.strip()}")
     assert hits == [], "ask the type's Formalism instead:\n" + "\n".join(hits)
+
+
+def test_the_guard_knows_every_registered_type():
+    for t in list_model_types(include_planned=True):
+        assert BRANCH.search(f'    if model_type == "{t.id}":'), t.id

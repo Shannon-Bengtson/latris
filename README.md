@@ -32,8 +32,8 @@ report in the app. Send it as it is — no wrapper page or separate document.
   citations, assumptions, decisions, challenges, sign-offs.
 - AI assistance returns **structured proposals**, never free-form
   mutations; a human approves before anything commits.
-- One substrate, fifteen model types in seven families — pick by the
-  question, and add another without redrawing:
+- One substrate, fifteen model types in seven method families — pick by
+  the question, and add another without redrawing:
   - **Systems:** causal loop diagrams, fuzzy cognitive maps, and **system
     dynamics** (unit-checked equations, delays, scenarios, Monte Carlo
     bands, sensitivity and loop dominance). A causal loop diagram and an SD
@@ -227,7 +227,7 @@ A `latris link` link **is** the shareable report: it opens the interactive
 report in the app. Send it as it is — no wrapper page or separate document.
 
 **An agent can act as the model.** The AI layer doesn't require its own
-API key: any of the 46 AI prompts can be delegated to whichever agent is
+API key: any of the 45 AI prompts can be delegated to whichever agent is
 already in the loop via
 `latris ai task emit <PromptName> --inputs '<json>'`, which writes a
 task package (prompt + project context + response schema). The agent

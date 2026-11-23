@@ -1296,7 +1296,7 @@ A theory of change is a results chain: what an intervention does (**activities**
 - **untested** — no source at all;
 - **contested** — a source argues against it.
 
-A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris provenance assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
+A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
 
 ## Process tracing: how far does the evidence support each link?
 
@@ -1545,7 +1545,7 @@ Every probability, cost and utility is an estimate. Give one a range with `latri
 
 ## Practical caution
 
-The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently unless you correlate two of them (`latris markov correlate "Healthy -> Sick" "Healthy -> Sick" 0.8 --other-strategy "New drug"` for two rates from one cohort; `--quantity` / `--other-quantity` for a state's cost or utility); separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). The partial EVPI is estimated from the same runs (slightly high with few runs); there is no value of sample information (EVSI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
+The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently unless you correlate two of them (`latris markov correlate "Healthy -> Sick" "Healthy -> Sick" 0.8 --other-strategy "New drug"` for two rates from one cohort; `--quantity` / `--other-quantity` for a state's cost or utility); separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). The partial EVPI is estimated from the same runs (slightly low; an input whose value can't be told from sampling noise shows as 0 — more runs can reveal a small one); there is no value of sample information (EVSI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
 """,
     ),
     HelpTopic(

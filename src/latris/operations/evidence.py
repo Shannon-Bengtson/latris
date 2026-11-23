@@ -288,7 +288,7 @@ def add_data_link(
 
     library = _load_dataset_library(paths)
     if not any(d.id == dataset_id for d in library.entries):
-        raise ValueError(f"unknown dataset {dataset_id!r}. Import a dataset first with `latris data import ...`")
+        raise ValueError(f"unknown dataset {dataset_id!r}. Add a dataset first with `latris data add ...`")
 
     store = load_model_or_default(DataLinkSet, paths.data_links_yaml)
 

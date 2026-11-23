@@ -161,6 +161,52 @@ def test_values_from_sensitivity_payloads() -> None:
                   "among the most sensitive to it. Does that sound right?"]
 
 
+def test_values_reads_global_sensitivity_and_psa_payloads() -> None:
+    row = {"input": "P(Demand = High)", "point": 0.4, "p5": 0.24, "p95": 0.57, "weak": True}
+    qs = cp._value_questions({"primary": "y", "outputs": [
+        {"output": "other", "indices": [{**row, "input": "Elsewhere", "ST": 0.9}]},  # not the headline output
+        {"output": "y", "indices": [
+            {**row, "ST": 0.6},
+            {"input": "Branches of Demand", "point": None, "weak": True, "group": True, "ST": 0.3},
+            {**row, "input": "Checked", "weak": False, "ST": 0.2},
+            {**row, "input": "Negligible", "ST": 0.01},
+            {**row, "input": "No index", "ST": None}]}]})
+    assert len(qs) == 2 and "'P(Demand = High)' is 0.4 (I've let it range 0.24 to 0.57) — my estimate" in qs[0]
+    assert "'Branches of Demand'" in qs[1] and "probabilities" in qs[1]
+    qs = cp._value_questions({"primary": "y", "outputs": [{"output": "y", "indices": [  # Morris: by μ*
+        {**row, "mu_star": 100.0}, {**row, "input": "Small", "mu_star": 1.0}]}]})
+    assert len(qs) == 1 and "P(Demand = High)" in qs[0]
+    qs = cp._value_questions({"drivers": [
+        {**row, "input": "Weak link", "spearman": 0.1},
+        {**row, "input": "Second", "spearman": 0.4},
+        {**row, "spearman": -0.7},
+        {"node": "n_1", "label": "No word on whether it's checked", "rho": -0.5}]})
+    assert len(qs) == 2 and "P(Demand = High)" in qs[0] and "'Second'" in qs[1]
+
+
+def test_values_looks_past_results_that_rank_nothing(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A comparison or Monte Carlo recorded after the tornado mustn't send the agent back to 'run sensitivity'."""
+    from types import SimpleNamespace
+
+    from latris.operations import analysis_results
+
+    tornado = {"parameters": [{"label": "Burnout rate", "baseline_value": 0.15, "swing": 40, "weak": True}]}
+    gsa = {"primary": "y", "outputs": [{"output": "y", "indices": [
+        {"input": "Burnout rate", "point": 0.15, "weak": True, "ST": 0.8},
+        {"input": "Hiring delay", "point": 3, "weak": True, "ST": 0.2}]}]}
+    payloads = {"options": {}, "mc": {"parameters": [{"label": "Burnout rate"}]}, "query": tornado, "gsa": gsa,
+                "tornado": tornado}
+    runs = [SimpleNamespace(purpose="inference" if k == "query" else "sensitivity-analysis", key=k)
+            for k in payloads]
+    monkeypatch.setattr(cp, "_values_set", lambda m: True)
+    monkeypatch.setattr(cp, "_results", lambda m: runs)
+    monkeypatch.setattr(analysis_results, "load_payload", lambda run, root=None: payloads[run.key])
+    c = cp._values(cp._load(root))
+    assert c is not None and c.before_asking is None
+    assert len(c.questions) == 2 and sum("Burnout rate" in q for q in c.questions) == 1  # asked once
+    assert "Hiring delay" in c.questions[1]
+
+
 def test_record_refuses_unknown_checkpoint_and_empty_answers(root: Path) -> None:
     with pytest.raises(ValueError, match="checkpoint must be"):
         cp.record_input("vibes", "x", root=root)  # type: ignore[arg-type]

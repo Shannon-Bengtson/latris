@@ -33,6 +33,34 @@ def test_sobol_recovers_the_ishigami_indices():
     assert (r["ST_conf"] > 0).all() and (r["ST_conf"] < 0.1).all()
 
 
+def test_sobol_is_unmoved_by_a_large_mean():
+    """The estimators centre the outputs: adding a constant changes neither the indices nor their intervals."""
+    r = gs.sobol_indices(_ishigami, 3, 512, seed=1)
+    off = gs.sobol_indices(lambda u: _ishigami(u) + 1000, 3, 512, seed=1)
+    assert off["S1"] == pytest.approx(r["S1"], abs=1e-6) and off["ST"] == pytest.approx(r["ST"], abs=1e-6)
+    assert off["S1_conf"] == pytest.approx(r["S1_conf"], abs=1e-3)
+    assert off["S1"][:, 0] == pytest.approx([0.314, 0.442, 0.0], abs=0.08)
+    # A linear model with a mean 20 sd from zero: exact shares, and an interval that says so.
+    co = np.array([3.0, 2.0, 1.0])
+    lin = gs.sobol_indices(lambda u: (50 + u @ co)[:, None], 3, 256, seed=3)
+    assert lin["S1"][:, 0] == pytest.approx(co**2 / (co**2).sum(), abs=0.05)
+    assert (lin["S1_conf"] < 0.15).all()
+
+
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+def test_floating_point_noise_is_not_spread():
+    """An output that differs only in its last bits has no indices and is described as not varying."""
+    with np.errstate(all="ignore"):
+        r = gs.sobol_indices(lambda u: (0.1 + 0.2 + (u[:, 0] > 0.5) * 5.5e-17)[:, None], 2, 64, seed=1)
+    assert r["variance"][0] == 0 and np.isnan(r["S1"]).all() and np.isnan(r["ST"]).all()
+    row = {"input": "a", "S1": 0.5, "ST": 0.5, "S1_conf": 0.0, "ST_conf": 0.0}
+    payload = {"method": "sobol", "primary": "y", "runs": 256,
+               "outputs": [{"output": "y", "variance": 1.5e-33, "mean": 0.3, "sum_S1": 0.5, "indices": [row]}]}
+    assert gs.describe(payload) == "y doesn't vary over the ranges given (256 runs)"
+    payload["outputs"][0].update(variance=1e-12, mean=0.0)  # small but real, around zero
+    assert "most of its variance comes from a" in gs.describe(payload)
+
+
 def test_morris_gives_slopes_of_a_linear_model_and_flags_interaction():
     r = gs.morris_effects(lambda u: (3 * u[:, 0] + u[:, 1])[:, None], 3, 10, seed=1)
     assert r["mu_star"][:, 0] == pytest.approx([3, 1, 0]) and r["sigma"][:, 0] == pytest.approx([0, 0, 0], abs=1e-9)
