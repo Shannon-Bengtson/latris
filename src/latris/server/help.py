@@ -64,7 +64,7 @@ Use the process stepper across the top of the app:
 2. **Formalise** by selecting model types and setting their parameters.
 3. **Analyse** each model on its canvas.
 4. **Interpret** findings into claims and prose.
-5. **Communicate** through reports, diagrams, and review packs.
+5. **Communicate & Use**: reports, diagrams and review packs for readers, and a contract for code that runs the model.
 
 Evidence (Data and References) is always available alongside the stepper — it is a persistent resource, not a phase.
 """,
@@ -100,7 +100,7 @@ A Latris project contains:
 1. Create or open a project from the landing page.
 2. Set the modelling question in the project overview.
 3. Build the conceptual model.
-4. Move through Build, Formalise, Analyse, Interpret, and Communicate. Data and References are always available as the evidence basis.
+4. Move through Build, Formalise, Analyse, Interpret, and Communicate & Use. Data and References are always available as the evidence basis.
 """,
     ),
     HelpTopic(
@@ -150,7 +150,7 @@ Every prompt that proposes content the user will live with — node descriptions
         id="workflow-overview",
         title="The Five-Phase Workflow",
         category="workflow",
-        summary="How Build, Formalise, Analyse, Interpret, and Communicate fit together.",
+        summary="How Build, Formalise, Analyse, Interpret, and Communicate & Use fit together.",
         body="""## Evidence basis
 
 Data and References are always available from the header — a persistent resource, not a phase. Import datasets and references whenever they are useful; they inform structure in Build and parameters in Formalise.
@@ -171,9 +171,9 @@ Interrogate a finished model. Pick a model from the Analyse dropdown to see its 
 
 Turn analysis outputs and project evidence into structured interpretation sections. Interpret is per-formalism: pick a model from the Interpret dropdown to see that formalism's sections. These sections are then available to the report builder.
 
-## Communicate
+## Communicate & Use
 
-Use the left-hand strip to switch between Report, Diagram, Review and Story. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type.
+The last stage is how the model leaves the workbench: to readers, and to code. Use the left-hand strip to switch between Report, Diagram, Review, Story and **Use**. Use is where a model becomes callable from a script: you declare its contract (the inputs a caller may set, the outputs it returns), try it on your own numbers, and copy the code that runs a pinned version (see "Using a Model Elsewhere"). Report, Diagram, Review and Story are for readers. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type.
 
 ## Readiness gates
 
@@ -705,6 +705,10 @@ result = model.predict({"depth": 2.5})
 - **Breaking**: an input or output was removed or renamed, its units changed, or an input became required. A caller written against the old version may fail.
 - **Compatible**: something optional was added, or a default or range changed. The caller still works.
 - **Internal only**: the contract is the same but the model behind it changed, so the same inputs may give different outputs.
+
+## In the app
+
+**Communicate & Use → Use** (the last button on the left strip) shows the contract for the model you have open. **Draft the contract** fills it from the model; the tables set each input's default and valid range and add or remove inputs and outputs. **Try it** runs the model on values you type and shows the outputs, any warnings and the commit they came from. The pane on the right gives the Python and command-line code for a pipeline. Choose a milestone there to pin the code to it and to see whether the model as it is now would break a caller written against that milestone.
 
 ## Practical caution
 
