@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from latris.operations import sd_inference, sd_scenarios
 from latris.operations._resolve import resolve_entity
@@ -29,6 +30,7 @@ from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
 from latris.schema import Substrate
 from latris.schema.common import ProvenanceOrigin
+from latris.schema.model_types import get_model_type
 from latris.schema.roles import RoleSet
 from latris.schema.sd import (
     SDConstantEntry,
@@ -43,6 +45,9 @@ from latris.schema.sd import (
     TablePoint,
 )
 from latris.schema.settings import SDSettings
+
+if TYPE_CHECKING:
+    from latris.operations.readiness import ReadinessGap, ValidationContext
 
 _MODEL_TYPE = "sd"
 
@@ -316,20 +321,11 @@ def get_tables(*, root: Path | None = None) -> SDTableSet:
 # ── readiness check ──────────────────────────────────────────────────
 
 
-def check(*, root: Path | None = None, advisories: bool = False):
-    """Run every SD structural validator and return the gaps (with ``advisories``, those too).
+def _validation_context(paths, substrate) -> ValidationContext:
+    from latris.operations.readiness import ValidationContext
 
-    Scoped by ``operations/membership.py``: in a model that shares its map with a loop map only the
-    factors with an SD role (and the links among them) are checked; otherwise the whole map is.
-    Unlike BN, SD validators depend on view roles, so the real role set is loaded.
-    """
-    from latris.operations.readiness import _STRUCTURAL_VALIDATORS, SD_VALIDATORS, ValidationContext
-    from latris.schema.model_types import get_model_type
-
-    paths = require_project(root)
-    substrate = load_model(Substrate, paths.conceptual_yaml)
     entity_ids, edge_ids = _scope_ids(paths, substrate)
-    ctx = ValidationContext(
+    return ValidationContext(
         substrate=substrate,
         view_entity_ids=entity_ids,
         view_edge_ids=edge_ids,
@@ -337,9 +333,43 @@ def check(*, root: Path | None = None, advisories: bool = False):
         roles=_load_roles(paths),
         paths=paths,
     )
-    gaps = []
-    for name in SD_VALIDATORS:
-        gaps.extend(_STRUCTURAL_VALIDATORS[name](ctx))  # type: ignore[operator]
+
+
+def _all_gap_categories() -> frozenset[str]:
+    return frozenset().union(
+        sd_inference.CLASSIFICATION_GAPS, sd_inference.FLOW_GAPS, sd_inference.LOOP_GAPS,
+        sd_inference.EQUATION_GAPS, sd_inference.VALUE_GAPS, sd_inference.TABLE_GAPS,
+        sd_inference.UNIT_GAPS,
+    )
+
+
+def structure_gaps(*, root: Path | None = None, _ctx: ValidationContext | None = None) -> list[ReadinessGap]:
+    """Every structural gap in the SD model (severity ``gap``), labelled — the one analysis the
+    formalism plugin's readiness validators partition by gap type, and ``sd check`` prints.
+
+    Scoped by ``operations/membership.py``: in a model that shares its map with a loop map only the
+    factors with an SD role (and the links among them) are checked; otherwise the whole map is.
+    Unlike BN, SD validators depend on view roles, so the real role set is loaded.
+    """
+    from latris.operations.readiness import _sd_problems
+
+    paths = require_project(root)
+    ctx = _ctx or _validation_context(paths, load_model(Substrate, paths.conceptual_yaml))
+    return _sd_problems(ctx, _all_gap_categories())
+
+
+def check(*, root: Path | None = None, advisories: bool = False):
+    """Run every SD structural validator and return the gaps (with ``advisories``, those too).
+
+    The validators are the formalism plugin's (``operations/formalisms/sd.py``), in its order.
+    """
+    from latris.operations import formalisms
+
+    paths = require_project(root)
+    ctx = _validation_context(paths, load_model(Substrate, paths.conceptual_yaml))
+    all_gaps = structure_gaps(root=paths.root, _ctx=ctx)
+    plugin = formalisms.get(_MODEL_TYPE)
+    gaps = [g for gap_types in plugin.validators.values() for g in all_gaps if g.gap_type in gap_types]
     if advisories:
         from latris.operations.readiness import sd_advisories
 
