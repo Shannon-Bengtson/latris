@@ -644,8 +644,10 @@ At *Everything*, these also recalculate in the page as the reader changes someth
 - **Fault tree**: change how likely a basic event is, from never to certain, and see the top event, what drives it and the ways it can happen.
 - **Bow-tie**: change how often a barrier fails or a threat arises, and see how often the top event and each consequence follow.
 - **Markov cohort model**: change a chance of moving, a state's cost or quality of life, or what an outcome is worth paying, and see each strategy's cost and outcome and which is the best value.
+- **Causal DAG**: pick a cause and an effect, tick what to adjust for, and see which paths between them are open, whether the effect can be read cleanly, and the smallest sets of factors that would make it so.
+- **Theory of change**: follow a pathway from activity to impact link by link, with what holds each link up, and suppose a link fails to see what no longer follows.
 
-Other model types show their picture, their reasoning and sources, and their recorded results.
+A causal loop diagram has no numbers to change: its page has the loops, tracing, reasoning and sources.
 - **Copy a link to what they are looking at**, so a colleague opens the same view.
 
 ## Making one
