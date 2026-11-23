@@ -7,10 +7,14 @@ work, including types that aren't registered yet.*
 
 ## Where we are
 
-Fifteen model types are usable today, in seven families (updated 2026-11-22). The pattern that
+Fifteen model types are usable today, in seven method families (updated 2026-11-22). The pattern that
 works is a **ladder** within each family — qualitative → semi-quantitative
 → quantitative, all on one shared substrate — so a model climbs a rung
-without being redrawn.
+without being redrawn. (These seven are the ladders of method in the table below. They are not the
+three groups a model picker shows — `MODEL_FAMILIES` in `schema/model_types.py`: Causal & Systems
+Thinking, Risk & Safety, Decisions & Evidence — which sort the same fifteen types more coarsely for
+someone choosing one; a Bayesian network, for instance, sits on the causal-inference ladder here and
+under Risk & Safety in the picker.)
 
 | Family | Built | Missing rung |
 |---|---|---|

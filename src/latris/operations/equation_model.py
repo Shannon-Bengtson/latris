@@ -178,15 +178,92 @@ def set_value(
     entry = EquationValueEntry(target_id=tid, value=value, units=units.strip(), valid_min=valid_min,
                                valid_max=valid_max, notes=notes, origin=origin, source_id=source_id,
                                verification=verification)
+    store = get_values(root=paths.root)
+    previous = next((e for e in store.entries if e.target_id == tid), None)
+    ranges, converted = _carry_range(paths, tid, label, previous, entry)
     if role is not None:
         _assign_role(paths, tid, role)
-    store = get_values(root=paths.root)
     replace_entry(store, entry)
+    path = _store.path(paths, "value")
+    dump_model(store, path)
+    touched = [path]
+    if ranges is not None:
+        dump_model(ranges, paths.parameter_uncertainty_yaml)
+        touched.append(paths.parameter_uncertainty_yaml)
     span = "" if valid_min is None and valid_max is None else f"\nvalid range: {valid_min} to {valid_max}"
-    sha = _store.save(paths, "value", store, subject=f"Set equation-model value {label} = {value:g} {entry.units}",
+    sha = auto_commit(paths.root, subject=f"Set equation-model value {label} = {value:g} {entry.units}",
                       body=f"target: {tid}\nvalue: {value}\nunits: {entry.units}{span}\norigin: {origin}\n"
-                           f"source_id: {source_id}")
+                           f"source_id: {source_id}" + (f"\nuncertainty range converted from {previous.units} to "
+                                                        f"{entry.units}" if converted and previous else ""),
+                      paths=touched)
     return entry, sha
+
+
+def _convert(value: float, have: str, want: str) -> float:
+    """``value`` in ``have`` units, expressed in ``want`` units; ``ValueError`` if they don't convert."""
+    try:
+        return float(Quantity(float(value), parse_unit(have)).to(parse_unit(want)).magnitude)
+    except UnitError:
+        raise
+    except Exception as exc:  # pint: a different dimension, or units with an offset
+        raise ValueError(f"{have} can't be converted to {want}") from exc
+
+
+# The parameters of a distribution that are in the value's units (the others are shapes).
+_UNIT_PARAMS = ("min", "mode", "max", "mean", "sd", "scale")
+
+
+def _carry_range(paths, tid: str, label: str, previous: EquationValueEntry | None, entry: EquationValueEntry):
+    """What a change of units means for what was said in the old ones.
+
+    A scenario's value carries its own units, so it survives any compatible change; an uncertainty range is
+    in the value's units, so it is converted with them. A change to units of another kind (metres to
+    seconds) leaves both meaningless, and is refused until they are removed.
+
+    Returns ``(the uncertainty store to save, or None; whether a range was converted)``.
+    """
+    if previous is None or previous.units == entry.units:
+        return None, False
+    try:
+        old, new = parse_unit(previous.units), parse_unit(entry.units)
+    except UnitError:
+        return None, False  # the old units were never valid: nothing to carry
+    if old == new:
+        return None, False
+    store = unc.load(paths)
+    mine = [e for e in store.entries if e.target_id == tid and e.parameter_cell_id == CELL]
+    scenarios = [s.name for s in get_scenarios(root=paths.root).scenarios
+                 if any(o.target_id == tid and not _fits(o.units, new) for o in s.overrides)]
+    if not is_compatible(old, new):
+        blockers = ([f"scenario {', '.join(repr(n) for n in scenarios)} "
+                     f"(`latris eq scenario <name> --remove`, or save it again without {label})"] if scenarios else [])
+        blockers += [f"its uncertainty range (`latris eq uncertainty \"{label}\" --clear`)"] if mine else []
+        if blockers:
+            raise ValueError(f"{label} is in {previous.units}; {entry.units} is a different kind of quantity, so what "
+                             f"was said about it in {previous.units} would no longer mean anything. Remove first: "
+                             + "; ".join(blockers))
+        return None, False
+    if not mine:
+        return None, False
+    try:
+        factor = _convert(1.0, previous.units, entry.units)
+        linear = abs(_convert(0.0, previous.units, entry.units)) < 1e-12 and factor > 0
+    except ValueError:
+        linear = False
+    if not linear:
+        raise ValueError(f"{label}'s uncertainty range is in {previous.units} and can't be carried over to "
+                         f"{entry.units}; clear it first (`latris eq uncertainty \"{label}\" --clear`) and set it "
+                         "again")
+    for e in mine:
+        e.params = {k: (v * factor if k in _UNIT_PARAMS else v) for k, v in e.params.items()}
+    return store, True
+
+
+def _fits(units: str, unit) -> bool:  # noqa: ANN001
+    try:
+        return is_compatible(parse_unit(units), unit)
+    except UnitError:
+        return False
 
 
 def _names(paths, substrate: Substrate) -> dict[str, list[str]]:
@@ -379,9 +456,26 @@ def load(*, root: Path | None = None, check_units: bool = True) -> Model:
             add(EquationProblem(e.id, "eq_unused_link", f"{labels[e.to_id]} is {_an(roles[e.to_id])}: it is given, "
                                 f"not computed, so the link from {labels[e.from_id]} means nothing here."))
     m.order = _order(m)
-    for i in _by_label(set(m.reads) - set(m.order), labels):
+    # A formula left out of the order is waiting on something upstream that has its own problem (no value, no
+    # formula); only one that reads itself through other formulas is circular.
+    for i in _by_label((i for i in set(m.reads) - set(m.order) if _reads_itself(m, i)), labels):
         add(EquationProblem(i, "eq_circular", "Its formula depends on itself through other formulas; simultaneous "
                                               "equations aren't solved here."))
+    from latris.operations.membership import shares_map
+
+    if not shares_map(paths, MODEL_TYPE):  # on a shared map, a link to a loop-map factor is the loop map's
+        strays: dict[str, set[str]] = {}
+        for e in substrate.edges:
+            if e.kind == "causal" and (e.from_id in roles) != (e.to_id in roles):
+                inside, outside = (e.from_id, e.to_id) if e.from_id in roles else (e.to_id, e.from_id)
+                if outside in labels:
+                    strays.setdefault(outside, set()).add(inside)
+        for i in _by_label(strays, labels):
+            near = ", ".join(labels[x] for x in _by_label(strays[i], labels))
+            add(EquationProblem(i, "eq_unclassified", f"Linked to {near} "
+                                "but has no role in the equation model: make it an input, a parameter, a computed "
+                                "quantity or an output, or remove the link."))
+    _check_scenarios_and_ranges(paths, m)
     # The units are checked as soon as every formula can be evaluated: a model with no output yet, or a
     # link out of step with a formula, still computes.
     if check_units and not {p.gap_type for p in m.problems} - _COMPUTABLE_WITH:
@@ -389,7 +483,60 @@ def load(*, root: Path | None = None, check_units: bool = True) -> Model:
     return m
 
 
-_COMPUTABLE_WITH = frozenset({"eq_no_output", "eq_missing_link", "eq_unused_link"})
+_COMPUTABLE_WITH = frozenset({"eq_no_output", "eq_missing_link", "eq_unused_link", "eq_unclassified",
+                              "eq_scenario_invalid", "eq_range_invalid"})
+
+
+def _reads_itself(m: Model, start: str) -> bool:
+    """Does ``start``'s formula read ``start`` again, through any chain of formulas?"""
+    seen: set[str] = set()
+    stack = list(m.reads.get(start, []))
+    while stack:
+        i = stack.pop()
+        if i == start:
+            return True
+        if i not in seen:
+            seen.add(i)
+            stack.extend(m.reads.get(i, []))
+    return False
+
+
+def _check_scenarios_and_ranges(paths, m: Model) -> None:
+    """A saved scenario or an uncertainty range that no longer fits the value it is about (its units were
+    changed by hand, the quantity lost its value): reported here, so no analysis meets it as a raw error."""
+    add = m.problems.append
+    for s in get_scenarios(root=paths.root).scenarios:
+        for o in s.overrides:
+            name = m.labels.get(o.target_id, o.target_id)
+            entry = m.values.get(o.target_id)
+            if entry is None:
+                add(EquationProblem(o.target_id if o.target_id in m.labels else None, "eq_scenario_invalid",
+                                    f"Scenario '{s.name}' changes {name}, which has no value in the model any more; "
+                                    f"save the scenario again without it, or remove it "
+                                    f"(`latris eq scenario \"{s.name}\" --remove`)."))
+                continue
+            try:
+                fits = is_compatible(parse_unit(o.units), parse_unit(entry.units))
+            except UnitError:
+                continue  # the value's own units are reported by the units check
+            if not fits:
+                add(EquationProblem(o.target_id, "eq_scenario_invalid",
+                                    f"Scenario '{s.name}' gives {name} in {o.units}, but it is in {entry.units} now; "
+                                    f"save the scenario again with a value in {entry.units}."))
+    for i, r in sorted(specs(paths).items()):
+        entry = m.values.get(i)
+        if entry is None:
+            continue
+        try:
+            sampler = smp.Sampler(r)
+            lo, hi = sampler.quantile(0.001), sampler.quantile(0.999)
+        except (ValueError, KeyError, RuntimeError, ZeroDivisionError):
+            continue
+        if not lo <= entry.value <= hi:
+            add(EquationProblem(i, "eq_range_invalid",
+                                f"Its value {entry.value:g} {display_units(entry.units)} lies outside its uncertainty "
+                                f"range ({lo:.3g} to {hi:.3g}, read in the same units); set the range again "
+                                f"(`latris eq uncertainty`) or clear it (`--clear`)."))
 
 
 def _order(m: Model) -> list[str]:
@@ -498,6 +645,9 @@ def compute(m: Model, values: dict[str, float] | None = None) -> dict[str, float
             except Exception as exc:
                 raise EquationError(f"the formula for {m.labels[i]} gives {describe_unit(raw.units)} but its declared "
                                     f"units are {f.units}", target_id=i) from exc
+        if isinstance(q.magnitude, complex):
+            raise EquationError(f"the formula for {m.labels[i]} can't be evaluated at these values: it doesn't "
+                                "give a real number", target_id=i)
         value = float(q.magnitude)
         if not math.isfinite(value):
             raise EquationError(f"the formula for {m.labels[i]} doesn't give a finite number", target_id=i)
@@ -552,8 +702,12 @@ def _overrides(m: Model, overrides: list[EquationOverride]) -> dict[str, float]:
         if o.target_id not in m.values:
             raise ValueError(f"a scenario changes {m.labels.get(o.target_id, o.target_id)}, which has no value in "
                              "the model any more")
-        out[o.target_id] = float(Quantity(o.value, parse_unit(o.units)).to(parse_unit(m.values[o.target_id].units))
-                                 .magnitude)
+        entry = m.values[o.target_id]
+        try:
+            out[o.target_id] = _convert(o.value, o.units, entry.units)
+        except ValueError as exc:
+            raise ValueError(f"a scenario gives {m.labels[o.target_id]} in {o.units}, but it is in {entry.units}: "
+                             "save the scenario again in its units") from exc
     return out
 
 

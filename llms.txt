@@ -83,7 +83,7 @@ People rarely know which formalism fits their question. Guide the choice by the 
 ## Using a model outside Latris (contract and predict)
 
 - A model declares a contract: named inputs (units, default, valid range) and named outputs. `latris contract init <equation_model|sd|bn>` drafts it from the model; `contract input|output|remove` edit it; `contract show` prints it; `contract check` says whether it still fits the model.
-- `latris predict --set name=value [--ref <milestone or commit>] [--json]` runs the model on those inputs and records nothing (an analysis is recorded for the report; a prediction is a throwaway call). The result has `outputs`, the `inputs` used, `warnings` (an input outside its valid range: the result is an extrapolation) and `provenance` (the commit, the contract's hash, the review state). Always pass on the warnings and the commit.
+- `latris predict --set name=value [--ref <milestone or commit>]` (JSON: `latris --json predict …` — `--json` goes before the command) runs the model on those inputs and records nothing (an analysis is recorded for the report; a prediction is a throwaway call). The result has `outputs`, the `inputs` used, `warnings` (an input outside its valid range: the result is an extrapolation) and `provenance` (the commit, the contract's hash, the review state). Always pass on the warnings and the commit.
 - From Python: `import latris; model = latris.load(path, ref="Signed off"); model.predict({"flow_depth": 2.5})`. `latris contract diff <old> <new>` says whether a newer version breaks a caller (exit 1 if so).
 - Declare a contract only when the person wants the model used elsewhere. Never invent an input name or widen a valid range to silence a warning. Design: [docs/engineering/PREDICT.md](docs/engineering/PREDICT.md).
 
@@ -91,7 +91,7 @@ Same substrate throughout: factors and links stay, evidence and challenges stay,
 
 ## Delegated AI invocation (no API key in this environment?)
 
-- Any of the 46 closed prompts can be answered by you, the agent, instead of a vendor API: `latris ai task emit <PromptName> --inputs '<json>'` writes a self-contained task package (system + user context + response JSON schema). Answer with JSON matching `response_schema`, then have the human run `latris ai task apply --task task.json --from response.json`. Validation, approval gates, and provenance are identical to API calls; the interaction logs `model_id` as `external-agent[:name]`. See [docs/engineering/AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls (bring your own agent)".
+- Any of the 45 closed prompts can be answered by you, the agent, instead of a vendor API: `latris ai task emit <PromptName> --inputs '<json>'` writes a self-contained task package (system + user context + response JSON schema). Answer with JSON matching `response_schema`, then have the human run `latris ai task apply --task task.json --from response.json`. Validation, approval gates, and provenance are identical to API calls; the interaction logs `model_id` as `external-agent[:name]`. See [docs/engineering/AI_LAYER.md](docs/engineering/AI_LAYER.md) § "Delegated calls (bring your own agent)".
 
 ## Working rules for agents in this repo
 

@@ -14,6 +14,9 @@ argued and approved, and stay valid as history after the element is gone.
 Every parameter and attribute store shares one shape — a top-level
 ``entries`` list whose rows carry ``target_id`` — so the sweep is
 store-agnostic and covers model types added later without changes here.
+Saved scenarios are the one other shape (a ``scenarios`` list, each with
+``overrides`` rows carrying ``target_id``): an override about a removed
+element goes, and a scenario left with nothing to change goes with it.
 """
 
 from __future__ import annotations
@@ -39,6 +42,34 @@ def _view_files(paths: ProjectPaths) -> list[Path]:
     return sorted(paths.views_dir.glob("*.yaml"))
 
 
+def _sweep_scenarios(path: Path, doomed: set[str]) -> int:
+    """Drop the overrides about *doomed* from a scenarios file (a top-level ``scenarios`` list, each with
+    ``overrides`` rows carrying ``target_id``); a scenario left with nothing to change goes too, unless it
+    builds on another or another builds on it. Returns the
+    number of overrides removed (the file is rewritten if any were)."""
+    data = load_raw(path)
+    scenarios = data.get("scenarios") if isinstance(data, dict) else None
+    if not isinstance(scenarios, list):
+        return 0
+    removed = 0
+    kept_scenarios = []
+    extended = {s.get("extends") for s in scenarios if isinstance(s, dict)}  # built on by another: stays
+    for s in scenarios:
+        rows = s.get("overrides") if isinstance(s, dict) else None
+        if not isinstance(rows, list):
+            kept_scenarios.append(s)
+            continue
+        kept = [r for r in rows if not (isinstance(r, dict) and r.get("target_id") in doomed)]
+        removed += len(rows) - len(kept)
+        s["overrides"] = kept
+        if kept or not rows or s.get("extends") or s.get("name") in extended:
+            kept_scenarios.append(s)
+    if removed:
+        data["scenarios"] = kept_scenarios
+        dump_raw(data, path)
+    return removed
+
+
 def cascade_removed_ids(paths: ProjectPaths, removed_ids: Collection[str]) -> tuple[list[Path], int]:
     """Drop every row that points at one of *removed_ids*.
 
@@ -55,6 +86,10 @@ def cascade_removed_ids(paths: ProjectPaths, removed_ids: Collection[str]) -> tu
         data = load_raw(path)
         entries = data.get("entries") if isinstance(data, dict) else None
         if not isinstance(entries, list):
+            swept = _sweep_scenarios(path, doomed)
+            if swept:
+                removed += swept
+                changed.append(path)
             continue
         kept = [row for row in entries if not (isinstance(row, dict) and row.get("target_id") in doomed)]
         if len(kept) != len(entries):
@@ -114,6 +149,10 @@ def cascade_model_type(paths: ProjectPaths, model_type: str, target_ids: Collect
         data = load_raw(path)
         entries = data.get("entries") if isinstance(data, dict) else None
         if not isinstance(entries, list):
+            swept = _sweep_scenarios(path, doomed)
+            if swept:
+                removed += swept
+                changed.append(path)
             continue
         kept = [row for row in entries if not (isinstance(row, dict) and row.get("target_id") in doomed)]
         if len(kept) != len(entries):

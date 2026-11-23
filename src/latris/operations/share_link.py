@@ -101,6 +101,9 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
 
     paths = require_project(root)
     foundation = load_model(ProjectFoundation, paths.project_yaml)
+    if model_type and formalisms.get(model_type) is None:
+        known = ", ".join(sorted(f.model_type for f in formalisms.all_formalisms()))
+        raise ValueError(f"unknown model type {model_type[:60]!r}. Model types: {known}")
     model_type = model_type or next(iter(foundation.selected_model_types), "cld")
     substrate = load_model(Substrate, paths.conceptual_yaml)
 

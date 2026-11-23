@@ -159,3 +159,21 @@ class TestInterpolate:
         assert interpolate(linear, -1) == pytest.approx(-1)
         assert interpolate(linear, 2) == pytest.approx(5)
         assert interpolate(TABLE, 0.5) == pytest.approx(2)
+
+
+def test_a_tower_of_powers_is_refused_quickly():
+    import time
+
+    started = time.monotonic()
+    with pytest.raises(EquationError, match="too large"):
+        _eval("(((10**100)**100)**100)**100")  # each exponent is within the limit; the result is not
+    assert time.monotonic() - started < 2
+    assert _eval("2**10") == 1024 and _eval("10**100") == 10**100  # whole-number powers are unchanged
+
+
+def test_a_negative_number_to_a_fractional_power_is_an_equation_error():
+    with pytest.raises(EquationError, match="can't be evaluated"):
+        _eval("(0 - 8) ** (1/3)")
+    with pytest.raises(EquationError, match="can't be evaluated"):
+        _eval("x ** 0.5", _names(x=(-4, "meter**2")))
+    assert _eval("(0 - 2) ** 3") == -8

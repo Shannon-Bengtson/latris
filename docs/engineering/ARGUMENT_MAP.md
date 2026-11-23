@@ -76,7 +76,10 @@ The analysis then gives:
 - **unanswered objections** — attacks that are in, anywhere under the
   conclusion;
 - **linchpins** — premises whose rejection would stop the conclusion
-  standing (leave-one-out, as ACH's linchpins), with their evidence status;
+  standing (leave-one-out, as ACH's linchpins), with their evidence status.
+  What the conclusion rests on includes the answers that keep its
+  objections out, not only what supports it: an unsourced rebuttal that
+  is the one thing defeating an objection is a linchpin too;
 - **unsupported links** — reasons with no warrant stated, inferences under
   challenge.
 

@@ -764,6 +764,7 @@ Equation models, system dynamics models and Bayesian networks can have a contrac
 - `latris contract input <model type> <factor> --name depth --min 0.2 --max 3` adds or changes an input: its name, units, default and valid range. For a Bayesian network an input is a factor's state, observed (`--observe`) or made so (`--set`).
 - `latris contract output <model type> <factor>` adds an output. A system dynamics variable can be returned as its whole run (`--kind series`) or as one value of it (`--metric final`, `peak`, `mean`…).
 - `latris contract show` prints the contract; `latris contract check` says whether it still fits the model.
+- An output keeps the units the contract promised: if the model's own units change later, `predict` converts the result to the contract's units, and `contract check` says so when they can no longer be converted. An input or output name can stand for only one factor.
 
 ## Running it
 
@@ -792,7 +793,7 @@ result = model.predict({"depth": 2.5})
 
 `latris contract diff "Signed off"` compares that version's contract with the latest:
 
-- **Breaking**: an input or output was removed or renamed, its units changed, or an input became required. A caller written against the old version may fail.
+- **Breaking**: an input or output was removed or renamed, now stands for a different factor, its units changed, or an input became required. A caller written against the old version may fail.
 - **Compatible**: something optional was added, or a default or range changed. The caller still works.
 - **Internal only**: the contract is the same but the model behind it changed, so the same inputs may give different outputs.
 
@@ -1296,7 +1297,7 @@ A theory of change is a results chain: what an intervention does (**activities**
 - **untested** — no source at all;
 - **contested** — a source argues against it.
 
-A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris provenance assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
+A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
 
 ## Process tracing: how far does the evidence support each link?
 
@@ -1545,7 +1546,7 @@ Every probability, cost and utility is an estimate. Give one a range with `latri
 
 ## Practical caution
 
-The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently unless you correlate two of them (`latris markov correlate "Healthy -> Sick" "Healthy -> Sick" 0.8 --other-strategy "New drug"` for two rates from one cohort; `--quantity` / `--other-quantity` for a state's cost or utility); separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). The partial EVPI is estimated from the same runs (slightly high with few runs); there is no value of sample information (EVSI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
+The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently unless you correlate two of them (`latris markov correlate "Healthy -> Sick" "Healthy -> Sick" 0.8 --other-strategy "New drug"` for two rates from one cohort; `--quantity` / `--other-quantity` for a state's cost or utility); separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). The partial EVPI is estimated from the same runs (slightly low; an input whose value can't be told from sampling noise shows as 0 — more runs can reveal a small one); there is no value of sample information (EVSI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
 """,
     ),
     HelpTopic(
@@ -1596,7 +1597,7 @@ Quantities joined by formulas, with units and no clock: a physical law, an engin
 
 A formula names other quantities by their label in lower case with underscores (Hydraulic radius is `hydraulic_radius`), so work from the inputs up. It can use arithmetic, `**` and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE`, `EXP`, `LN`, `LOG10`, `SQRT`, `SIN`, `COS`, `TAN` and `MODULO`. Setting a formula adds the links it needs to the map, so the diagram shows what each quantity is computed from.
 
-**Units are checked.** Every value carries its units through the formulas, so a formula that adds metres to seconds, or gives m/s where you declared m, is refused by `latris eq check`. Where an empirical formula hides units in a coefficient, give the coefficient those units (Manning's roughness is in `s/m**(1/3)`).
+**Units are checked.** Every value carries its units through the formulas, so a formula that adds metres to seconds, or gives m/s where you declared m, is refused by `latris eq check`. The check also names a factor that is linked into the model but has no role, and a scenario or uncertainty range that no longer fits its value. Changing a value's units converts its uncertainty range with it; a change to units of a different kind is refused until the scenarios and range that depend on it are removed. Where an empirical formula hides units in a coefficient, give the coefficient those units (Manning's roughness is in `s/m**(1/3)`).
 
 **Valid ranges.** `--min` and `--max` state the range a value is good for, usually the range its source covered. Every analysis reports a value outside its range as an extrapolation. Nothing is clamped: you see the number and the warning together.
 

@@ -502,3 +502,125 @@ def test_cli(project):
     data = json.loads(runner.invoke(app, ["--json", "eq", "show"]).stdout)["result"]
     assert {q["role"] for q in data["quantities"]} == {"input", "parameter", "computed", "output"}
     assert data["problems"][0]["gap_type"] == "eq_unknown_reference"
+
+
+# ── regressions ──────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def small(tmp_path: Path, git_identity, monkeypatch):
+    root = tmp_path / "small"
+    init_project(root, statement="Q?")
+    for label in ("X", "Y", "Z"):
+        node_ops.add_node(label, root=root)
+    monkeypatch.chdir(root)
+    return root
+
+
+def _gaps(root: Path) -> list[tuple[str, str]]:
+    m = eq.load(root=root)
+    return [(m.labels.get(p.target_id or "", ""), p.gap_type) for p in m.problems]
+
+
+def test_a_formula_with_no_real_value_is_a_problem_not_a_crash(small):
+    eq.set_value("X", 8, "m**3", role="input", root=small)
+    eq.set_formula("Y", "x ** (1/3)", "m", role="output", root=small)
+    assert eq.load(root=small).problems == []
+    swept = eq.sweep(input="X", low=-8, high=8, steps=5, root=small)
+    assert swept["failed"] == [-8, -4] and swept["series"]["Y"][:2] == [None, None]  # the point is marked
+    eq.set_uncertainty("X", "uniform", {"min": -2, "max": 10}, root=small)
+    mc = eq.monte_carlo(runs=200, root=small)
+    assert 150 < mc["evaluated"] < 200  # the draws below zero are left out and counted
+    eq.clear_uncertainty("X", root=small)
+    eq.set_value("X", -8, "m**3", root=small)
+    problems = eq.load(root=small).problems  # reported, not raised
+    assert [p.gap_type for p in problems] == ["eq_units"] and "can't be evaluated" in problems[0].message
+    assert eq.snapshot(root=small)["problems"]
+
+
+def test_circular_is_only_said_of_a_real_cycle(small):
+    eq.set_role("X", "input", root=small)  # an input with no value yet
+    eq.ensure_role("Z", "computed", root=small)  # a computed quantity with no formula yet
+    eq.set_formula("Y", "x + z", "m", role="output", root=small)
+    assert sorted(_gaps(small)) == [("X", "eq_no_value"), ("Z", "eq_no_formula")]
+    eq.set_value("X", 1, "m", root=small)
+    eq.set_formula("Z", "y * 2", "m", root=small)
+    assert sorted(_gaps(small)) == [("Y", "eq_circular"), ("Z", "eq_circular")]
+    node_ops.add_node("W", root=small)
+    eq.set_formula("W", "z + x", "m", role="computed", root=small)  # downstream of the cycle, not in it
+    assert ("W", "eq_circular") not in _gaps(small)
+
+
+def test_a_linked_factor_with_no_role_is_unclassified(small):
+    from latris.operations.edges import add_edge, remove_edge
+
+    eq.set_value("X", 2, "m", role="input", root=small)
+    eq.set_formula("Y", "x * 2", "m", role="output", root=small)
+    assert _gaps(small) == []  # Z has no role, but isn't linked into the model
+    add_edge("Z", "Y", root=small)
+    problems = eq.load(root=small).problems
+    assert [p.gap_type for p in problems] == ["eq_unclassified"] and "Linked to Y" in problems[0].message
+    assert "eq_unclassified" in {g.gap_type for g in assess_readiness("equation_model", root=small).gaps}
+    remove_edge("Z -> Y", root=small)
+    assert _gaps(small) == []
+
+
+def test_changing_a_values_units_carries_what_was_said_in_the_old_ones(small):
+    eq.set_value("X", 3, "m", role="input", root=small)
+    eq.set_formula("Y", "x * 2", "m", role="output", root=small)
+    eq.set_scenario("High", ["X=4 m"], root=small)
+    eq.set_uncertainty("X", "triangular", {"min": 2, "mode": 3, "max": 4}, root=small)
+    paths = eq.require_project(small)
+
+    eq.set_value("X", 300, "cm", root=small)  # the same length, re-entered in other units
+    (r,) = eq.specs(paths).values()
+    assert r.params == pytest.approx({"min": 200, "mode": 300, "max": 400})  # still 2–4 m, not 2–4 cm
+    assert eq.load(root=small).problems == []
+    arms = eq.evaluate(root=small)["arms"]
+    assert arms[0]["values"]["Y"] == pytest.approx(6) and arms[1]["values"]["Y"] == pytest.approx(8)
+
+    with pytest.raises(ValueError, match="different kind of quantity.*scenario 'High'.*uncertainty range"):
+        eq.set_value("X", 3, "s", root=small)  # another dimension: refused while they stand
+    assert eq.get_values(root=small).entries[0].units == "cm"
+    eq.clear_uncertainty("X", root=small)
+    eq.remove_scenario("High", root=small)
+    eq.set_value("X", 3, "s", root=small)
+    assert eq.get_values(root=small).entries[0].units == "s"
+
+
+def test_a_stale_scenario_or_range_is_a_problem_not_a_raw_error(small):
+    from latris.repo.yaml_io import dump_model
+    from latris.schema.equation_model import EquationOverride, EquationScenario, EquationScenarioSet
+
+    eq.set_value("X", 3, "m", role="input", root=small)
+    eq.set_formula("Y", "x * 2", "m", role="output", root=small)
+    eq.set_uncertainty("X", "uniform", {"min": 2, "max": 4}, root=small)
+    paths = eq.require_project(small)
+    # A file written by an older version, or by hand: a scenario in units of another kind.
+    dump_model(EquationScenarioSet(scenarios=[EquationScenario(name="Odd", overrides=[
+        EquationOverride(target_id=eq.get_values(root=small).entries[0].target_id, value=5, units="s")])]),
+        eq._store.path(paths, "scenarios"))
+    problems = eq.load(root=small).problems
+    assert [p.gap_type for p in problems] == ["eq_scenario_invalid"] and "Odd" in problems[0].message
+    assert eq.evaluate(root=small)["problems"]  # no pint error escapes
+    assert "eq_scenario_invalid" in {g.gap_type for g in assess_readiness("equation_model", root=small).gaps}
+    eq.remove_scenario("Odd", root=small)
+    eq.set_value("X", 30, "m", root=small)  # the value has left its own range
+    assert [p.gap_type for p in eq.load(root=small).problems] == ["eq_range_invalid"]
+
+
+def test_scenario_overrides_go_with_the_quantity(small):
+    eq.set_value("X", 3, "m", role="input", root=small)
+    eq.set_value("Z", 1, "m", role="input", root=small)
+    eq.set_formula("Y", "x * 2 + z", "m", role="output", root=small)
+    eq.set_scenario("Both", ["X=4 m", "Z=2 m"], root=small)
+    eq.set_scenario("Only Z", ["Z=5 m"], root=small)
+    _, removed, _ = eq.remove("Z", root=small)  # taken out of the model: its overrides go too
+    assert removed == 4  # role, value, two overrides
+    saved = eq.get_scenarios(root=small).scenarios
+    assert [(s.name, len(s.overrides)) for s in saved] == [("Both", 1)]  # a scenario with nothing left goes
+
+    eq.set_value("Z", 1, "m", role="input", root=small)
+    eq.set_scenario("Only Z", ["Z=5 m"], root=small)
+    node_ops.remove_node("Z", root=small)  # deleted outright
+    assert [s.name for s in eq.get_scenarios(root=small).scenarios] == ["Both"]

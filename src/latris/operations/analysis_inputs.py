@@ -58,10 +58,19 @@ def run(options: dict[str, Any], *, root: Path | None = None) -> str:
     from latris.operations.analysis_replay import run_analysis
     from latris.schema.build_spec import SpecAnalysis
 
+    kind = options.get("kind") if isinstance(options, dict) else None
+    if not isinstance(kind, str) or not kind.strip():
+        raise ValueError("Say which analysis to run: the options need a 'kind' (GET /api/analyses lists a model "
+                         "type's analyses)")
     try:
         analysis = TypeAdapter(SpecAnalysis).validate_python(options)
     except ValidationError as exc:
-        where = lambda e: ".".join(str(p) for p in e["loc"][1:]) or str(e["loc"][0])  # noqa: E731 — drop the kind
+        def where(e: dict[str, Any]) -> str:  # the option's name, without the kind it sits under
+            loc = [str(p) for p in e["loc"]]
+            return ".".join(loc[1:]) or (loc[0] if loc else "kind")
+
+        if any(e["type"].startswith("union_tag") for e in exc.errors()):
+            raise ValueError(f"These options can't run: there is no analysis of kind {kind!r}") from exc
         problems = "; ".join(f"{where(e)}: {e['msg']}" for e in exc.errors())
         raise ValueError(f"These options can't run: {problems}") from exc
     return run_analysis(analysis, root=root)

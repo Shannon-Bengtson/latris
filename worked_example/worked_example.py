@@ -49,13 +49,13 @@ from latris.ai.proposals import (  # noqa: E402
     EvidenceDemoteProposal,
     ExplanationResult,
     FormalViewProjectionResult,
+    InterpretProseResult,
     NewConnectionsProposal,
     PeerReviewResult,
     ReportDraft,
     ReportSection,
     ResearchGap,
     ResearchGapsResult,
-    InterpretProseResult,
     ScopeCheckResult,
     SteelmanProposal,
     SuggestedVariable,
@@ -214,22 +214,27 @@ def _register_mock_responses(node_ids: dict[str, str], edge_ids: dict[str, str])
                         name="Source-pathway-receptor",
                         entities=[
                             DraftEntity(label="Industrial Emissions", kind="variable",
-                                        description="Pollutant output from industrial point sources including factories and power plants."),
+                                        description="Pollutant output from industrial point sources including "
+                                                    "factories and power plants."),
                             DraftEntity(label="Atmospheric Dispersion", kind="concept",
-                                        description="The process by which pollutants spread through the atmosphere via wind, turbulence, and chemical reactions."),
+                                        description="The process by which pollutants spread through the atmosphere "
+                                                    "via wind, turbulence, and chemical reactions."),
                             DraftEntity(label="Receptor Exposure", kind="variable",
-                                        description="The concentration of pollutants experienced by human populations at ground level."),
+                                        description="The concentration of pollutants experienced by human "
+                                                    "populations at ground level."),
                         ],
                         edges=[
                             DraftEdge(
                                 from_label="Industrial Emissions",
                                 to_label="Atmospheric Dispersion", kind="causal",
-                                description="Industrial stack emissions enter the atmosphere and undergo dispersion governed by meteorological conditions.",
+                                description="Industrial stack emissions enter the atmosphere and undergo dispersion "
+                                            "governed by meteorological conditions.",
                             ),
                             DraftEdge(
                                 from_label="Atmospheric Dispersion",
                                 to_label="Receptor Exposure", kind="causal",
-                                description="Dispersion patterns determine ground-level concentrations at receptor locations.",
+                                description="Dispersion patterns determine ground-level concentrations at receptor "
+                                            "locations.",
                             ),
                         ],
                         assumptions=[
@@ -245,17 +250,20 @@ def _register_mock_responses(node_ids: dict[str, str], edge_ids: dict[str, str])
                         name="Policy-response",
                         entities=[
                             DraftEntity(label="Emission Standards", kind="decision",
-                                        description="Regulatory limits on pollutant emissions set by government agencies."),
+                                        description="Regulatory limits on pollutant emissions set by government "
+                                                    "agencies."),
                             DraftEntity(label="Compliance Rate", kind="variable",
                                         description="The proportion of regulated entities meeting emission standards."),
                         ],
                         edges=[
                             DraftEdge(from_label="Emission Standards", to_label="Compliance Rate", kind="causal",
-                                      description="Stricter standards increase compliance costs but drive adoption of cleaner technology."),
+                                      description="Stricter standards increase compliance costs but drive adoption "
+                                                  "of cleaner technology."),
                         ],
                         assumptions=[
                             DraftAssumption(
-                                statement="Compliance is primarily driven by regulatory enforcement, not voluntary action.",
+                                statement="Compliance is primarily driven by regulatory enforcement, not voluntary "
+                                          "action.",
                                 rationale="Empirical evidence from EPA enforcement data.",
                             ),
                         ],
@@ -867,7 +875,7 @@ def build_example(ex: WorkedExample) -> None:
         decisions:
           - statement: Left out paid staff.
             rationale: The program has none.
-        """)
+        """)  # noqa: E501 — the spec is printed as written
     ex.transcript.append("```yaml" + chr(10) + build_spec + "```" + chr(10))
     ex.run(["build", "--spec", "-"], input=build_spec)
     ex.run(["analyse", "loops"])
@@ -1431,12 +1439,14 @@ def build_example(ex: WorkedExample) -> None:
                         to_id=nids["Green Infrastructure"],
                         kind="causal",
                         rationale="Transport policy often includes green corridor mandates.",
-                        description="Urban transport policies frequently mandate green corridors and tree planting along major roads to mitigate pollution exposure.",
+                        description="Urban transport policies frequently mandate green corridors and tree planting "
+                                    "along major roads to mitigate pollution exposure.",
                         # Provenance co-authored in the same proposal: the polarity
                         # + its rationale (persisted to the CLD store, kept coherent
                         # with the description) and an assumption bound to this edge.
                         polarity="+",
-                        polarity_rationale="More supportive transport policy increases green-infrastructure investment.",
+                        polarity_rationale="More supportive transport policy increases green-infrastructure "
+                                           "investment.",
                         assumptions=[
                             DraftAssumption(
                                 statement="Policy mandates are funded, not merely aspirational.",
@@ -2167,7 +2177,8 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["markov", "range", "Sick", "beta", "--quantity", "utility", "--mean", "0.6", "--sd", "0.05"])
     ex.note("The two progression rates come from the same registry cohort, so they are sampled together. Then "
             "their errors largely cancel in the comparison: the drug comes out cost-effective in almost every run, "
-            "and the partial EVPI shows what little value is left lies in the two rates together.")
+            "and so little value is left (an EVPI of a few pounds) that no input's partial EVPI can be told from "
+            "zero.")
     ex.run(["markov", "correlate", "Healthy -> Sick", "Healthy -> Sick", "0.8", "--other-strategy", "New drug",
             "--reason", "both estimated in the same registry cohort"])
     ex.note("The acceptability curve gives, at each willingness to pay, the chance each strategy is the most "

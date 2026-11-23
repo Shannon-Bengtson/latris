@@ -51,6 +51,7 @@ MAX_RUNS = 200_000
 BOOTSTRAP = 200
 MORRIS_LEVELS = 4
 MORRIS_TAIL = 0.025
+FLAT_REL = 1e-20  # a variance at or under this × mean² is floating-point noise, not spread
 
 
 @dataclass
@@ -108,6 +109,17 @@ def _columns(k: int, widths: list[int] | None) -> list[list[int]]:
     return out
 
 
+def _flat(variance: Any, mean: Any) -> Any:
+    """Whether an output doesn't vary: no variance, or only floating-point noise beside its mean.
+
+    A result that is the same in every run can still differ in its last bits (sums taken in another order), so
+    an exact ``variance == 0`` test lets a variance of 1e-33 through and reports indices of pure rounding.
+    """
+    import numpy as np
+
+    return ~(np.asarray(variance) > FLAT_REL * np.square(mean))
+
+
 def sobol_indices(f: Callable[[Any], Any], k: int, n: int, seed: int,
                   widths: list[int] | None = None) -> dict[str, Any]:
     """Sobol S1 and ST of ``f`` (rows of unit-hypercube points → an array of outputs, one column each).
@@ -132,8 +144,13 @@ def sobol_indices(f: Callable[[Any], Any], k: int, n: int, seed: int,
 
     def est(ia):
         a_, b_, ab_ = ya[ia], yb[ia], yab_arr[:, ia]
-        v = np.var(np.concatenate([a_, b_], axis=-2), axis=-2)
-        v = np.where(v > 0, v, np.nan)
+        pooled = np.concatenate([a_, b_], axis=-2)
+        m = np.mean(pooled, axis=-2)
+        # Centre on the pooled mean of f(A) and f(B) first: the first-order estimator multiplies by f(B), so a
+        # mean far from 0 adds noise in proportion to mean² — enough to swamp the index (Saltelli et al. 2010).
+        a_, b_, ab_ = a_ - m, b_ - m, ab_ - m
+        v = np.var(pooled, axis=-2)
+        v = np.where(_flat(v, m), np.nan, v)
         s1 = np.mean(b_ * (ab_ - a_), axis=-2) / v
         st = 0.5 * np.mean((a_ - ab_) ** 2, axis=-2) / v
         return s1, st, v
@@ -146,9 +163,10 @@ def sobol_indices(f: Callable[[Any], Any], k: int, n: int, seed: int,
         boot_s1.append(b1)
         boot_st.append(bt)
     q = lambda arr: 1.96 * np.nanstd(np.stack(arr), axis=0)  # noqa: E731
+    both = np.concatenate([ya, yb])
+    variance, mean = np.var(both, axis=0), np.mean(both, axis=0)
     return {"S1": s1, "ST": st, "S1_conf": q(boot_s1), "ST_conf": q(boot_st),
-            "variance": np.var(np.concatenate([ya, yb]), axis=0),
-            "mean": np.mean(np.concatenate([ya, yb]), axis=0), "runs": n * (k + 2)}
+            "variance": np.where(_flat(variance, mean), 0.0, variance), "mean": mean, "runs": n * (k + 2)}
 
 
 def morris_effects(f: Callable[[Any], Any], k: int, r: int, seed: int,
@@ -575,7 +593,7 @@ def describe(p: dict[str, Any]) -> str:
     main = next(o for o in p["outputs"] if o["output"] == p["primary"])
     rows = main["indices"]
     if p["method"] == "sobol":
-        if main.get("variance") in (None, 0):
+        if main.get("variance") is None or bool(_flat(main["variance"], main.get("mean") or 0.0)):
             return f"{p['primary']} doesn't vary over the ranges given ({p['runs']} runs)"
         top = [r for r in rows if r["ST"] is not None][:3]
         parts = ", ".join(f"{r['input']} (total {_share(r['ST']):.0%}, alone {_share(min(r['S1'] or 0, r['ST'])):.0%})"

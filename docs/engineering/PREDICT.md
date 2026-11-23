@@ -41,6 +41,18 @@ nothing is exposed by default beyond the draft.
 valid range** is used as given and reported as a warning: an extrapolation is shown as one, never
 clamped. The range is the contract's own where it states one, else the model's.
 
+**An output's units are a promise too.** They are set when the output is declared and kept after that:
+the model computes in its own units and `predict` converts the result to the contract's (a value, or
+every value of a series). If the model's units stop being convertible (metres became seconds),
+`contract check` says so and `predict` refuses; declaring the output again takes the model's units. A
+measure of a run has the units of the measure: `peak-time` is in the clock's units, `total` in the
+variable's units times time (a flow in tonne/year totals to tonne). `at:T` must lie inside the time the
+model runs over; `contract output` and `contract check` both refuse one that doesn't.
+
+**A name stands for one factor.** `contract output --name` changes the output of that name; it refuses
+a name that already stands for a different factor (remove it first), so a caller is never silently
+handed something else.
+
 The contract lives outside `views/parameters/` on purpose: editing it must not make recorded analysis
 results look out of date. If a factor it names is deleted, the contract is not silently trimmed:
 `contract check` reports the dangling entry.
@@ -74,7 +86,12 @@ provenance  {project, model_type, ref, commit, uncommitted_changes, contract_has
 ```
 
 A given value is a number in the input's units, a string with units (`"250 cm"`), or
-`{"value": 250, "units": "cm"}`; compatible units are converted, incompatible ones refused.
+`{"value": 250, "units": "cm"}`; compatible units are converted, incompatible ones refused. An empty
+`ref` means the working folder, as no `ref` does.
+
+`model_type` is checked against the model types latris knows before anything is read, and the path
+helper (`layout.contract_path`) refuses anything that isn't a plain identifier: a caller's text never
+chooses a file.
 
 `predict` never refuses a version for being unreviewed: it reports the review state and leaves the
 decision to the caller. A pipeline that wants a gate passes `require="approved"` (or `"reviewed"`).
@@ -95,14 +112,20 @@ model's commit.
 
 `contract.compare(base, head)` sorts the difference by what it means for a caller:
 
-- **breaking**: an input or output removed or renamed, its kind or units changed, an input made
-  required, a new required input;
+- **breaking**: an input or output removed or renamed, pointed at a different factor, its kind or units
+  changed, an input made required, a new required input; also an output whose contract is unchanged
+  but whose model no longer gives units the contract's can be converted from (found by loading the
+  model at both versions);
 - **compatible**: an optional input or an output added, a default or valid range changed;
 - **internal**: the same contract, but the model behind it changed (anything under `substrate/`,
   `views/roles/`, `views/parameters/`), so the same inputs may give different outputs;
 - **same**.
 
 `latris contract diff` exits 1 on a breaking change, so a pipeline can refuse to upgrade.
+
+The contract's hash covers the same things: names, the factors they stand for, kinds, units, modes,
+metrics and whether an input is required. (The factor was added in 0.18.0, so a hash
+recorded by an earlier latris differs from the one computed now for the same contract.)
 
 ## Surfaces
 

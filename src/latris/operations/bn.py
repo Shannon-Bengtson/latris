@@ -542,6 +542,21 @@ def with_scenario(
                            overrides=list(sc.tables), extends=sc.extends)
 
 
+def _set_factors(applied: ScenarioApplied, ss_map: dict[str, list[str]]) -> dict[str, CPTEntry]:
+    """The tables to compute on once the factors a call or its scenario SETS are set — refusing a set factor
+    that isn't in the network (a scenario saved before it was removed) or that is also observed."""
+    do = applied.interventions
+    if not do:
+        return applied.tables
+    for node in do:
+        if node not in applied.tables:
+            raise ValueError(f"{node!r} is not in the network, so it can't be set")
+    overlap = set(do) & set(applied.evidence | applied.soft | applied.likelihood)
+    if overlap:
+        raise ValueError("a factor can be set or observed, not both: " + ", ".join(sorted(overlap)))
+    return intervene(applied.tables, ss_map, do)
+
+
 def infer(
     *,
     query: list[str] | None = None,
@@ -576,14 +591,7 @@ def infer(
     cpt_map = applied.tables
     evidence, soft, likelihood = applied.evidence, applied.soft, applied.likelihood
     do = applied.interventions
-    if do:
-        for node in do:
-            if node not in cpt_map:
-                raise ValueError(f"{node!r} is not in the network, so it can't be set")
-        overlap = set(do) & set(evidence | soft | likelihood)
-        if overlap:
-            raise ValueError("a factor can be set or observed, not both: " + ", ".join(sorted(overlap)))
-        cpt_map = intervene(cpt_map, ss_map, do)
+    cpt_map = _set_factors(applied, ss_map)
     result = bn_infer(
         ss_map, cpt_map, query=query_ids, evidence=evidence or None, soft=soft or None, likelihood=likelihood or None
     )
@@ -786,7 +794,7 @@ def run_monte_carlo(
     applied = with_scenario(scenario, paths, _effective_cpt_map(paths), evidence=_resolve_block(evidence, substrate),
                             soft=_resolve_block(soft, substrate), likelihood=_resolve_block(likelihood, substrate),
                             labels=labels)
-    tables = intervene(applied.tables, ss_map, applied.interventions) if applied.interventions else applied.tables
+    tables = _set_factors(applied, ss_map)
     out = bn_montecarlo.monte_carlo(
         ss_map, tables, noisy, uncertainty.bn_specs(paths), resolve_target(target, substrate),
         state=state, evidence=applied.evidence, soft=applied.soft, likelihood=applied.likelihood, runs=runs,

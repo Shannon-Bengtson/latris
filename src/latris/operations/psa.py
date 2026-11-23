@@ -426,35 +426,71 @@ def _driver(label: str, e: ParameterUncertainty, point: float | None, column: li
 # ── partial value of information ─────────────────────────────────────
 
 
+EVPPI_FOLDS = 5  # the decision rule for each run is learnt from the other four fifths of the runs
+EVPPI_Z = 1.645  # a partial EVPI under this many standard errors (one-sided 95%) is reported as 0
+# Interior knots of the cubic spline, as quantiles of the input: more once there are runs to place them.
+EVPPI_KNOTS = (0.2, 0.4, 0.6, 0.8)
+EVPPI_KNOTS_MANY = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+
+
+def _evppi_design(x):
+    """The regression basis for E(NB | x): a cubic spline in the input's rank for one value, a quadratic in
+    its components for a set. Ranks make the fit the same under any monotone rescaling and steady in a long
+    tail; tied values share a rank."""
+    import numpy as np
+    from scipy.stats import rankdata
+
+    runs = len(x)
+    if x.shape[1] == 1:
+        u = (rankdata(x[:, 0]) - 0.5) / runs
+        # Fewer knots with few runs: each needs enough runs either side of it to be more than noise.
+        knots = (EVPPI_KNOTS_MANY if runs >= 2000 else EVPPI_KNOTS if runs >= 200
+                 else (0.5,) if runs >= 50 else ())
+        return np.column_stack([np.ones(runs), u, u ** 2, u ** 3,
+                                *[np.clip(u - k, 0, None) ** 3 for k in knots]])
+    x = x[:, x.std(axis=0) > 0]
+    return np.column_stack([np.ones(runs), x, x ** 2])
+
+
 def evppi(nb, x) -> float:
     """The expected value of perfect information on one input (or one set of probabilities), from PSA runs.
 
     ``nb``: runs × options, each option's net benefit (larger is better) in each run; ``x``: runs × columns,
     the input's sampled value(s). EVPPI = E_x[max_d E(NB_d | x)] − max_d E(NB_d): what knowing x before
-    choosing is worth, with the rest still uncertain. E(NB_d | x) is estimated from the same runs — for one
-    value by sorting the runs on it and averaging within equal bins (Strong & Oakley 2013), for a set by a
-    quadratic regression on its components (after Strong, Oakley & Brennan 2014).
+    choosing is worth, with the rest still uncertain. E(NB_d | x) is a least-squares regression of each
+    option's net benefit on the input, from the same runs (Strong, Oakley & Brennan 2014): a cubic spline in
+    its rank for one value, a quadratic in its components for a set.
+
+    Averaging the largest *fitted* mean is biased upward — a regression on pure noise still finds some x
+    where one option looks better, so an irrelevant input scores a few percent of the EVPI. The estimate here
+    is cross-fitted instead: the runs are split into fifths; the option to choose at each run's x comes from
+    the regression on the other four fifths, and is then paid that run's own net benefit. That is the value
+    of a decision rule learnt without the run it is scored on: unbiased for that rule, so at most the true
+    EVPPI in expectation (a rule from finite runs is not quite the best one) and never above the EVPI of the
+    same runs. An estimate within sampling noise of 0 — under ``EVPPI_Z`` standard errors of the per-run
+    gains — is reported as 0, so an input the choice doesn't depend on is worth nothing rather than
+    something small. It needs runs to say anything: with a few hundred only a strong dependence clears that.
     """
     import numpy as np
 
     nb = np.asarray(nb, dtype=float)
     x = np.asarray(x, dtype=float).reshape(len(nb), -1)
     runs = len(nb)
-    base = nb.mean(axis=0).max()
-    if x.shape[1] == 1:
-        order = np.argsort(x[:, 0], kind="stable")
-        bins = max(10, int(math.sqrt(runs)))
-        total = 0.0
-        for idx in np.array_split(order, bins):
-            if len(idx):
-                total += len(idx) * nb[idx].mean(axis=0).max()
-        value = total / runs - base
-    else:
-        x = x[:, x.std(axis=0) > 0]
-        design = np.column_stack([np.ones(runs), x, x ** 2])
-        coef, *_ = np.linalg.lstsq(design, nb, rcond=None)
-        value = (design @ coef).max(axis=1).mean() - base
-    return max(0.0, float(value))
+    best = int(nb.mean(axis=0).argmax())
+    if nb.shape[1] < 2 or runs < 2 * EVPPI_FOLDS:
+        return 0.0
+    design = _evppi_design(x)
+    fold = np.random.default_rng(runs).permutation(runs) % EVPPI_FOLDS  # fixed: same runs, same answer
+    choice = np.full(runs, best)
+    for k in range(EVPPI_FOLDS):
+        held = fold == k
+        coef, *_ = np.linalg.lstsq(design[~held], nb[~held], rcond=None)
+        choice[held] = (design[held] @ coef).argmax(axis=1)
+    gain = nb[np.arange(runs), choice] - nb[:, best]  # what choosing by x paid over the best fixed choice
+    value = float(gain.mean())
+    if value <= EVPPI_Z * float(gain.std(ddof=1)) / math.sqrt(runs):
+        return 0.0
+    return value
 
 
 def _evppi_rows(draws: list[dict[str, Any]], keys: list[str], labels: dict[str, str], nb,

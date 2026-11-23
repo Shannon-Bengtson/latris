@@ -355,7 +355,9 @@ def _sides(m: Map, top: str) -> dict[str, bool]:
 
 
 def _rests_on(m: Map, lab: dict[str, str], top: str) -> list[str]:
-    """The premises taken as given that ``top`` stands on through reasons that hold."""
+    """The premises taken as given that ``top`` stands on: through reasons that hold, and through the
+    answers that keep its objections out (an objection to anything on the way that is defeated by a claim
+    that stands: without that answer the objection would stand instead)."""
     out, seen = [], set()
 
     def walk(c: str) -> None:
@@ -366,11 +368,17 @@ def _rests_on(m: Map, lab: dict[str, str], top: str) -> list[str]:
         a = m.assessment.get(c)
         if not groups or (a and a.assessment == "accepted"):
             out.append(c)
-            return
-        for g in groups.values():
-            if all(lab[ln.premise] == IN for ln in g) and not any(ln.edge in m.challenged for ln in g):
-                for ln in g:
-                    walk(ln.premise)
+        else:
+            for g in groups.values():
+                if all(lab[ln.premise] == IN for ln in g) and not any(ln.edge in m.challenged for ln in g):
+                    for ln in g:
+                        walk(ln.premise)
+        for objection in m.attacks(c):
+            if objection.edge in m.challenged or lab[objection.premise] != OUT:
+                continue
+            for answer in m.attacks(objection.premise):
+                if answer.edge not in m.challenged and lab[answer.premise] == IN:
+                    walk(answer.premise)
 
     walk(top)
     return out

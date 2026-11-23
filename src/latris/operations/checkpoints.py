@@ -42,6 +42,8 @@ from latris.schema import (
 from latris.schema.person_input import Pace
 
 MAX_QUESTIONS = 3
+GSA_SHARE = 0.05  # a total Sobol index (or share of the top Morris μ*) under this isn't worth a question
+DRIVER_RHO = 0.3  # nor a rank correlation with the result weaker than this
 _MIN_AI_FACTORS = 3  # the structure checkpoint waits for a map worth showing
 _STALE_GROWTH = 0.5  # a reviewed structure reopens when AI factors grow by half again (and by ≥3)
 
@@ -301,13 +303,17 @@ def _values(m: _Model) -> Checkpoint | None:
         return None
     from latris.operations.analysis_results import load_payload
 
-    runs = [r for r in _results(m) if r.purpose == "sensitivity-analysis"]
-    questions: list[str] = []
-    for run in runs[:2]:
-        payload = load_payload(run, root=m.paths.root) or {}
-        questions += _value_questions(payload)
-        if len(questions) >= MAX_QUESTIONS:
+    # Every recorded sensitivity result, newest first, until there is enough to ask: the newest may be one
+    # that ranks nothing a person could check (a comparison of options), with a tornado further back.
+    asked: dict[str, str] = {}  # what each question is about → the question: one per value, however often ranked
+    for run in _results(m):
+        if run.purpose != "sensitivity-analysis":
+            continue
+        for subject, question in _value_rows(load_payload(run, root=m.paths.root) or {}):
+            asked.setdefault(subject, question)
+        if len(asked) >= MAX_QUESTIONS:
             break
+    questions = list(asked.values())
     if questions:
         return Checkpoint("values", PHASE["values"], WHY["values"], questions[:MAX_QUESTIONS], then=_VALUES_THEN)
     tools = _sensitivity_tools(m)
@@ -331,18 +337,26 @@ _VALUES_THEN = ("Set each value the person gives you, and add an assumption (`la
 
 
 def _value_questions(payload: dict[str, Any]) -> list[str]:
-    """Questions about the estimates a recorded sensitivity result ranks highest (unchecked ones only).
+    return [q for _, q in _value_rows(payload)]
 
-    Reads the two payload shapes sensitivity results have: rows of values swung low/high (``parameters``)
-    and probability-table cells (``findings``).
+
+def _value_rows(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    """(what it is about, the question) for each estimate a recorded sensitivity result ranks highest
+    (unchecked ones only).
+
+    Reads the payload shapes sensitivity results have: rows of values swung low/high (``parameters``),
+    probability-table cells (``findings``), a global sensitivity analysis's ranked inputs (``outputs`` →
+    ``indices``) and a probabilistic analysis's drivers (``drivers``). Rows that don't say whether the value
+    has been checked (``weak``) can't form a question and are skipped.
     """
-    out: list[str] = []
+    out: list[tuple[str, str]] = []
     for row in payload.get("parameters") or []:
         if row.get("swing") in (None, 0) or not row.get("weak"):
             continue
         units = f" {row['units']}" if row.get("units") else ""
-        out.append(f"'{row.get('label')}' is {row.get('baseline_value')}{units} — my estimate, and one of the "
-                   "values the result moves with most. Is that right, or what would you put?")
+        out.append((_subject(row.get("label")),
+                    f"'{row.get('label')}' is {row.get('baseline_value')}{units} — my estimate, and one of the "
+                    "values the result moves with most. Is that right, or what would you put?"))
     labels = payload.get("labels") or {}
     for cell in payload.get("findings") or []:
         if not cell.get("weak") or not cell.get("influence"):
@@ -351,9 +365,40 @@ def _value_questions(payload: dict[str, Any]) -> list[str]:
         given = ", ".join(f"{labels.get(k, k)} = {v}" for k, v in (cell.get("parent_states") or {}).items())
         prob = cell.get("baseline_prob")
         pct = f"{prob:.0%}" if isinstance(prob, int | float) else str(prob)
-        out.append(f"The chance of '{node} = {cell.get('state')}'{' when ' + given if given else ''} is {pct} — "
-                   "my estimate, and the answer is among the most sensitive to it. Does that sound right?")
+        question = (f"The chance of '{node} = {cell.get('state')}'{' when ' + given if given else ''} is {pct} — "
+                    "my estimate, and the answer is among the most sensitive to it. Does that sound right?")
+        out.append((question, question))
+    outputs = payload.get("outputs") or []
+    main = next((o for o in outputs if isinstance(o, dict) and o.get("output") == payload.get("primary")), None)
+    ranked = (main or {}).get("indices") or []
+    top = max((r.get("mu_star") or 0 for r in ranked), default=0)  # Morris: μ* is in the result's units
+    for row in ranked:
+        share = row.get("ST") if "ST" in row else (row.get("mu_star") or 0) / top if top else None
+        if not row.get("weak") or share is None or share < GSA_SHARE:
+            continue
+        out.append((_subject(row.get("input")),
+                    _range_question(row, "one of the inputs most of the spread in the result comes from")))
+    drivers = [d for d in payload.get("drivers") or [] if isinstance(d, dict) and d.get("weak")
+               and abs(d.get("spearman") or 0) >= DRIVER_RHO]
+    for row in sorted(drivers, key=lambda d: -abs(d["spearman"])):
+        out.append((_subject(row.get("input")),
+                    _range_question(row, "one of the inputs the result moves with most")))
     return out
+
+
+def _subject(label: Any) -> str:
+    return str(label).casefold()
+
+
+def _range_question(row: dict[str, Any], why: str) -> str:
+    """A question about an input a result ranks by the range it was given (its point value and 5th–95th)."""
+    point, lo, hi = row.get("point"), row.get("p5"), row.get("p95")
+    if point is None:  # a set of probabilities: no single number to quote
+        return (f"'{row.get('input')}' is {why}, and how well I've said it is known is my estimate. Are those "
+                "probabilities right, or what would you put?")
+    spread = f" (I've let it range {lo:.3g} to {hi:.3g})" if lo is not None and hi is not None else ""
+    return (f"'{row.get('input')}' is {point:.3g}{spread} — my estimate, and {why}. Is that right, or what "
+            "would you put?")
 
 
 def _surprise(m: _Model) -> Checkpoint | None:
