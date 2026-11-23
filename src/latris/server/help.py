@@ -45,13 +45,13 @@ HELP_TOPICS: list[HelpTopic] = [
         summary="What Latris is, what it is for, and the ideas that make the workspace hang together.",
         body="""## What Latris is
 
-Latris is an evidence-native modelling workbench for building, reviewing, analysing, and reporting on causal and systems models. It keeps the model, evidence, provenance, AI assistance, version history, and exported outputs in one auditable project.
+Latris is an evidence-native modelling workbench for building, reviewing, analysing, and reporting on models you have to defend: causal and systems models, and models for evaluation, risk, decisions, arguments and equation-based calculation. It keeps the model, evidence, provenance, AI assistance, version history, and exported outputs in one auditable project.
 
 ## Core ideas
 
 - **Inspectability is the boundary.** Latris is for models whose reasoning can be inspected, evidenced, challenged, and defended. The graph is *how* a model is made inspectable — the lens, not the limit. Models you can run but can't explain (black-box predictors) are out of scope by design.
 - **Substrate first.** The shared conceptual model is the source of truth for entities, edges, definitions, evidence, and review history.
-- **Formal views second.** CLD, DAG, and FCM views are projections from the shared substrate with model-specific rules and attributes.
+- **Formal views second.** Each model type (a causal loop diagram, a Bayesian network, a fault tree, a decision tree and the rest) is a projection from the shared substrate with model-specific rules and attributes.
 - **Evidence attaches to claims.** Citations and data links attach to attributes such as definitions, confidence, polarity, and weights.
 - **AI is reviewable.** AI drafts suggestions, but the user previews, accepts, rejects, and audits what lands in the project.
 - **Every change is versioned.** Project state is stored in files and committed through Git-backed history.
@@ -850,8 +850,8 @@ Only to models an AI built: when most factors were added by a person, no checkpo
         title="Choosing a Model Type",
         category="model-types",
         summary=(
-            "How to choose between CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, "
-            "and planned formal views — by the question each one answers."
+            "How to choose between the fifteen model types — systems, causal inference, evaluation, risk, "
+            "decisions, arguments and equations — by the question each one answers."
         ),
         body="""## Current stable model types
 

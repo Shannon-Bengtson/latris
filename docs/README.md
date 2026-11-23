@@ -10,8 +10,9 @@ repository. Start at the repo-root [README](../README.md).
 
 **Is:**
 - A Python CLI (`latris`) + FastAPI server backend that scaffolds a
-  modelling project, lets you author a structured, inspectable
-  causal/systems model qualitatively, attaches evidence and provenance,
+  modelling project, lets you author a structured, inspectable model
+  (fifteen model types: causal and systems models, evaluation, risk,
+  decisions, arguments, equations), attaches evidence and provenance,
   commits every change to Git automatically, talks to an LLM through a
   vendor-agnostic adapter under human approval, and produces defensible
   review/report artefacts.
