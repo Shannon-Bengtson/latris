@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "latris"
 dynamic = ["version"]
-description = "Latris — an AI-assisted, evidence-native causal-modelling workbench (Python CLI + server backend)."
+description = "Latris — an AI-assisted, evidence-native modelling workbench: causal and systems models, evaluation, risk, decisions, arguments and equations (Python CLI + server backend)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
@@ -17,6 +17,11 @@ keywords = [
     "systems-thinking",
     "cld",
     "bayesian",
+    "system-dynamics",
+    "decision-analysis",
+    "risk-analysis",
+    "theory-of-change",
+    "argument-mapping",
     "evidence",
     "provenance",
     "git",

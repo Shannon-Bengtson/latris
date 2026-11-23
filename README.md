@@ -2,10 +2,11 @@
 
 **Structure for defensible reasoning.**
 
-Latris is an evidence-native modelling workbench for building defensible
-causal and systems models — structured provenance, challenge workflows,
-git-native versioning, AI-assisted drafting under human approval, and
-report generation.
+Latris is an evidence-native modelling workbench for building models you
+can defend — causal and systems models, and models for evaluation, risk,
+decisions, arguments and equation-based calculation — with structured
+provenance, challenge workflows, git-native versioning, AI-assisted drafting
+under human approval, and report generation.
 
 This repository is the open-source core: the Python package (`latris`),
 its CLI, and the FastAPI + WebSocket server backend. The Latris app
@@ -31,14 +32,31 @@ report in the app. Send it as it is — no wrapper page or separate document.
   citations, assumptions, decisions, challenges, sign-offs.
 - AI assistance returns **structured proposals**, never free-form
   mutations; a human approves before anything commits.
-- One substrate, many formalisms: causal loop diagrams and DAGs; fuzzy
-  cognitive maps; a discrete **Bayesian network** engine (per-cell
-  provenance, exact inference with hard and soft evidence, the most likely
-  explanation, learning from data, sensitivity and Monte Carlo over the
-  tables); and **system dynamics** (unit-checked equations, delays,
-  scenarios, Monte Carlo bands, sensitivity and loop dominance). A causal
-  loop diagram and an SD model can share one project: its loops include
-  feedback through stocks.
+- One substrate, fifteen model types in seven families — pick by the
+  question, and add another without redrawing:
+  - **Systems:** causal loop diagrams, fuzzy cognitive maps, and **system
+    dynamics** (unit-checked equations, delays, scenarios, Monte Carlo
+    bands, sensitivity and loop dominance). A causal loop diagram and an SD
+    model can share one project: its loops include feedback through stocks.
+  - **Causal inference:** causal DAGs (d-separation, adjustment sets and,
+    with a dataset, effect estimates) and a discrete **Bayesian network**
+    engine (per-cell provenance, exact inference with hard and soft
+    evidence, the most likely explanation, learning from data, sensitivity
+    and Monte Carlo over the tables).
+  - **Evaluation:** theories of change, with process tracing and impact
+    estimates (interrupted time series, difference-in-differences).
+  - **Risk and safety:** bow-ties, fault trees and event trees, with Monte
+    Carlo over their probabilities and frequencies.
+  - **Decisions:** multi-criteria decision analysis, decision trees and
+    Markov cohort models, with probabilistic sensitivity analysis and the
+    value of information.
+  - **Arguments:** analysis of competing hypotheses and argument maps.
+  - **Equations:** equation models — sourced formulas with units checked
+    and no clock.
+
+  Global sensitivity analysis (Sobol, Morris) runs across the quantitative
+  types. [docs/README.md](docs/README.md) says what each does;
+  <https://latris.app/formalisms/> is the guide to choosing.
 
 Status: **alpha**. Apache-2.0 licensed.
 
@@ -187,7 +205,8 @@ python -m pytest tests/test_worked_example.py --slow   # acceptance test (regene
 
 ## For AI agents
 
-**Latris** is an evidence-native causal-modelling CLI + API server. This
+**Latris** is an evidence-native modelling CLI + API server (causal and
+systems models, evaluation, risk, decisions, arguments, equations). This
 section ships with the package: `latris docs` prints it with no network
 (`latris docs readme` for the whole README, `latris docs llms` for
 [`llms.txt`](llms.txt)), and `latris capabilities` lists what Latris can
@@ -282,6 +301,23 @@ approach shows it:
   steady-state tendencies — not year-three numbers.
 - "How will it behave over time if we intervene?" → `sd`. Stocks, flows,
   units, scenarios — the most commitment; build the CLD first.
+- "How is this programme supposed to work, and which steps are taken on
+  trust?" → `theory_of_change` (`latris toc`).
+- "What stands between this hazard and harm?" → `bow_tie` (`latris
+  bowtie`); "what combinations of failures cause this, and how likely is
+  it?" → `fault_tree` (`latris ft`); "once this happens, how does it play
+  out?" → `event_tree` (`latris et`).
+- "Which option should we choose, given what we care about?" → `mcda`;
+  "what should we do, given what we don't know — and is it worth finding
+  out more first?" → `decision_tree` (`latris dt`); "what does each option
+  cost and achieve over years?" → `markov`.
+- "Which explanation does the evidence fail to rule out?" → `ach`; "does
+  the case hold up, and what does it rest on?" → `argument_map` (`latris
+  argument`).
+- "What do the equations give for these inputs, and how far can I trust
+  it?" → `equation_model` (`latris eq`).
+
+[`llms.txt`](llms.txt) has the commands for each (`latris docs llms`).
 
 The same substrate carries across: factors, links, evidence and
 challenges all stay, and quantifying a CLD as FCM/BN/SD later never means
