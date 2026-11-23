@@ -707,16 +707,17 @@ def d_separation(
                     ball_queue.append((p, "up"))
 
         elif direction == "up" and node in z_ids:
-            # Arrived from child, node IS conditioned on.
-            # Conditioned non-collider blocks downstream but allows
-            # passing to parents (explaining away at this node).
-            for p in parents.get(node, []):
-                ball_queue.append((p, "up"))
+            # Arrived from a child, node IS conditioned on: the ball stops.
+            # On any path leaving through a child the node is a chain
+            # (parent → node → child) or a fork (child ← node → child),
+            # and conditioning on it blocks both.
+            continue
 
         elif direction == "down" and node in z_ids:
-            # Arrived from parent, node IS conditioned on.
-            # Conditioned non-collider: blocks the chain/fork.
-            # But collider activation: pass to parents.
+            # Arrived from a parent, node IS conditioned on.
+            # Onward to a child it is a chain: blocked. Back up to another
+            # parent it is a collider (parent → node ← parent), which
+            # conditioning opens: pass to parents.
             for p in parents.get(node, []):
                 ball_queue.append((p, "up"))
 

@@ -329,6 +329,35 @@ class TestDSeparation:
         edges = [E("e1", "a", "b"), E("e2", "c", "d")]
         assert d_separation(edges, {"a"}, {"c"}, set()) is True
 
+    def test_conditioned_node_reached_from_its_child_stops_the_ball(self):
+        """x ← m ← a → y: m blocks the path. The walk reaches m from its child x, and m is a chain
+        there (a → m → x), so the ball must stop — it used to be passed on up to a."""
+        edges = [E("e1", "a", "m"), E("e2", "m", "x"), E("e3", "a", "y")]
+        assert d_separation(edges, {"x"}, {"y"}, set()) is False
+        assert d_separation(edges, {"x"}, {"y"}, {"m"}) is True
+        assert d_separation(edges, {"x"}, {"y"}, {"a"}) is True
+        # ...while a conditioned collider reached from a parent still opens: x → c ← y.
+        assert d_separation([E("e1", "x", "c"), E("e2", "y", "c")], {"x"}, {"y"}, {"c"}) is False
+
+    def test_agrees_with_networkx_on_random_dags(self):
+        import itertools
+        import random
+
+        nx = pytest.importorskip("networkx")
+        rng = random.Random(7)
+        checked = 0
+        for _ in range(150):
+            names = [f"n{i}" for i in range(rng.randint(3, 7))]
+            pairs = [(a, b) for a, b in itertools.combinations(names, 2) if rng.random() < 0.4]
+            edges = [E(f"e{i}", a, b) for i, (a, b) in enumerate(pairs)]
+            graph = nx.DiGraph(pairs)
+            graph.add_nodes_from(names)
+            for x, y in itertools.combinations(names, 2):
+                z = {v for v in names if v not in (x, y) and rng.random() < 0.4}
+                assert d_separation(edges, {x}, {y}, z) is nx.is_d_separator(graph, {x}, {y}, z), (pairs, x, y, z)
+                checked += 1
+        assert checked > 1000
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # DAG: markov_blanket
@@ -433,6 +462,12 @@ class TestAdjustmentSets:
         assert set() in sets
         # m should not appear in any valid adjustment set
         assert not any("m" in s for s in sets)
+
+    def test_a_factor_between_the_confounder_and_the_cause_is_a_valid_set(self):
+        """a → m → x, a → y, x → y: the backdoor path x ← m ← a → y is blocked by m as well as by a."""
+        edges = [E("e1", "a", "m"), E("e2", "m", "x"), E("e3", "a", "y"), E("e4", "x", "y")]
+        sets = adjustment_sets("x", "y", edges)
+        assert {"m"} in sets and {"a"} in sets and len(sets) == 2
 
 
 # ── Loop mechanisms ──────────────────────────────────────────────────────
