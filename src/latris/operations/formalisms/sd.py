@@ -1,9 +1,10 @@
 """System dynamics as a formalism plugin: its result kinds (simulation, options compared, Monte Carlo,
-sensitivity, loop dominance), how the report shows them and how a link replays them, its build-spec
-block, and its outcome (kept with the SD settings, since SD roles are one per factor).
+sensitivity, loop dominance), how the report shows them and how a link replays them, its readiness
+validators, its build-spec block, and its outcome (kept with the SD settings, since SD roles are one
+per factor).
 
-SD's interpretation claims about the live model are still composed in ``operations/interpret.py`` with
-the causal types'; its readiness validators sit in ``readiness._STRUCTURAL_VALIDATORS``.
+SD's interpretation claims about the live model are composed by the generic section extractors in
+``operations/interpret.py`` from the fields declared below, as for every type.
 """
 
 from __future__ import annotations
@@ -509,7 +510,27 @@ class _Problem:
 def _problems(root: Path) -> list[_Problem]:
     from latris.operations import sd as sd_ops
 
-    return [_Problem(g.element_id or None, g.gap_type, g.message) for g in sd_ops.check(root=root)]
+    return [_Problem(g.element_id or None, g.gap_type, g.message) for g in sd_ops.structure_gaps(root=root)]
+
+
+# Readiness validator name → the gap types it reports. The sets are sd_inference's
+# CLASSIFICATION_GAPS, FLOW_GAPS, … written out so importing this plugin stays cheap
+# (sd_inference pulls in the unit machinery); the drift guard in
+# tests/operations/test_sd_formalism.py keeps the two in step.
+_VALIDATORS = {
+    "sd_classification_complete": ("unclassified", "no_stocks"),
+    "sd_flow_connects_stock": ("flow_not_connected", "flow_edge_invalid", "flow_ambiguous", "stock_causal_input"),
+    "sd_no_algebraic_loops": ("algebraic_loop",),
+    "sd_equations_complete": (
+        "missing_equation", "equation_invalid", "unknown_reference", "self_reference",
+        "name_collision", "missing_information_link", "unused_information_link",
+    ),
+    "sd_values_complete": ("missing_initial_value", "missing_constant_value"),
+    "sd_tables_well_formed": ("missing_table", "unused_table"),
+    "sd_dimensional_consistency": (
+        "units_invalid", "flow_units_incompatible", "units_mismatch", "evaluation_error", "settings_invalid",
+    ),
+}
 
 
 def _subtitle(kind: str):  # noqa: ANN202
@@ -624,6 +645,7 @@ register(Formalism(
     outcome_ids=_outcome_ids,
     set_outcome=_set_outcome,
     structure_problems=_problems,
+    validators=_VALIDATORS,
     results=(
         ResultKind(tool=ChatTool(*_TOOLS['sd-simulation']),
                    kind="sd-simulation", title="Simulation", render=_simulation, analysis="simulate",
