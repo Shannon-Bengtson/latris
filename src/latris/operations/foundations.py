@@ -303,7 +303,7 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "Briggs, Claxton & Sculpher (2006), *Decision Modelling for Health Economic Evaluation*, ch. 4–7; "
             "Fenwick, Claxton & Sculpher (2001), \"Representing uncertainty: the role of cost-effectiveness "
             "acceptability curves\", *Health Economics* 10(8); Claxton (1999), \"The irrelevance of inference\", "
-            "*Journal of Health Economics* 18(3); Strong & Oakley (2013), *Medical Decision Making* 33(6); "
+            "*Journal of Health Economics* 18(3); "
             "Strong, Oakley & Brennan (2014), *Medical Decision Making* 34(3); Iman & Conover (1982), "
             "*Communications in Statistics — Simulation and Computation* 11(3); McKay, Beckman & Conover (1979), "
             "*Technometrics* 21(2)"
@@ -313,13 +313,13 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "utility given a range (beta and gamma by mean and sd, Dirichlet sets of probabilities), seeded Latin "
             "hypercube; how often each choice is best; Markov acceptability curves and the expected value of "
             "perfect information over a willingness-to-pay grid; the partial EVPI of each input from the same runs "
-            "(sorted bins for one value, regression for a set); rank correlations between ranges induced by "
+            "(a cross-fitted regression of net benefit on the input: a spline for one value, a quadratic for a set); rank correlations between ranges induced by "
             "Iman–Conover reordering; Spearman rank correlation for what drives the decision"
         ),
         limits=(
             "Correlations are rank correlations between single values (not within or with a Dirichlet set); "
-            "partial EVPI is estimated from the PSA runs (a little high with few runs per bin), one input at a "
-            "time — no sample information (EVSI); probabilities of leaving a Markov state sampled separately "
+            "partial EVPI is estimated from the PSA runs (a little low, and 0 when within the runs' sampling noise "
+            "— a small real value needs more runs to show), one input at a time — no sample information (EVSI); probabilities of leaving a Markov state sampled separately "
             "are scaled down when they sum past 1 (the report counts the runs)."
         ),
     ),
