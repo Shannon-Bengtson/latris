@@ -69,6 +69,34 @@ repository. Start at the repo-root [README](../README.md).
   discounted costs and outcomes with half-cycle correction; incremental
   cost-effectiveness (ICERs, dominance, extended dominance, net benefit) —
   via CLI `markov` + `/api/markov/*`.
+- Probabilistic sensitivity analysis for decision trees and Markov models:
+  ranges on payoffs, probabilities, costs and utilities (beta and gamma by
+  mean and sd, Dirichlet sets of probabilities) sampled through the model —
+  how often each choice is best, acceptability curves, the expected value
+  of perfect information (in total and per input), correlated ranges and
+  what drives the decision — via `dt|markov
+  range` and `psa`.
+- Argument maps: a conclusion, the reasons for it and the objections to
+  them (Toulmin, IBIS), evaluated by grounded labelling — whether the
+  conclusion stands, its linchpins, unanswered objections, and which
+  premises rest on checked sources — via CLI `argument` + `/api/argument/*`
+  ([design](engineering/ARGUMENT_MAP.md)).
+- Equation models: quantities joined by sourced formulas with units and no
+  clock (a physical law, a published parameterisation). Inputs and
+  parameters state the range they are valid over; formulas are checked
+  dimensionally; scenarios, input sweeps and Monte Carlo over the ranges —
+  via CLI `eq` + `/api/eq/*` ([design](engineering/EQUATION_MODEL.md)).
+- Contract and predict: a model declares named inputs and outputs, and can
+  then be run on a caller's values without recording anything, on a pinned
+  version (a milestone or a commit) if asked; `contract diff` says whether a
+  newer version breaks a caller. Equation models, system dynamics and
+  Bayesian networks — via CLI `contract` and `predict`, `/api/contract*`,
+  `/api/predict`, and Python `latris.load()` ([design](engineering/PREDICT.md)).
+- Global sensitivity analysis over the same ranges: Sobol indices (each
+  input's share of a result's variance, alone and with interactions) or
+  Morris screening, for the risk types, decision trees, Markov, SD and
+  Bayesian-network models (a table or any set of probabilities is one
+  grouped input) — via `analyse global-sensitivity` + `/api/analysis/global-sensitivity`.
 
 **Isn't yet (deferred — on the architecture's path):**
 - A *general* quantitative modelling engine. System dynamics (unit-checked

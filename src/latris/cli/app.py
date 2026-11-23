@@ -23,6 +23,7 @@ from latris.cli import (  # noqa: E402
     check_cmd,
     checkpoint_cmd,
     completeness_cmd,
+    contract_cmd,
     data_cmd,
     docs_cmd,
     edge_cmd,
@@ -107,6 +108,8 @@ _add_formalism_commands(app)  # every formalism's own group (sd, bn, fcm, mcda, 
 app.add_typer(results_cmd.app, name="results")
 app.add_typer(data_cmd.app, name="data")
 app.add_typer(lineage_cmd.app, name="version")
+app.add_typer(contract_cmd.app, name="contract")
+app.command("predict")(contract_cmd.predict)
 
 console = Console()
 

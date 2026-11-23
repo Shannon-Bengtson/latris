@@ -49,6 +49,18 @@ on `Formalism`) and its chat surface (`ResultKind.tool`, `Formalism.chat_ops`)
 rather than branching on its name in shared code — `test_no_type_branches.py`
 fails if you do. Full list in ARCHITECTURE.md → "Adding a formalism".
 
+## Public Python API
+
+`src/latris/api.py` (`latris.load`, `latris.Model`) is the only supported
+import surface: a model pinned to a version, its contract, and a stateless
+`predict`. Everything under `operations/` and `schema/` is internal. Adding to
+the public API is a commitment to callers; change it deliberately and say so
+in `docs/engineering/PREDICT.md`.
+
+A model type that computes outputs from inputs declares `Formalism.predictor`
+(a module in `operations/predictors/`); `predict` and `contract` then work for
+it with no other change.
+
 ## Entity resolution
 
 `operations/_resolve.py` resolves entities by: exact ID → label
@@ -88,6 +100,7 @@ injects an explicit path via `Depends(get_project_root)`.
 
 Hermetic: `tmp_path` for filesystem isolation, `git_identity`
 fixture sets `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env vars,
+commit signing is off for every test (`tests/conftest.py`),
 `LATRIS_AI_MOCK=1` stubs all LLM calls. No network, no
 real API keys required. Test directory mirrors package layout.
 Coverage reporting via `pytest-cov` (configured in `pyproject.toml`).

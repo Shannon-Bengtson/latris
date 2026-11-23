@@ -9,6 +9,8 @@ quantities SD models routinely count.
 
 from __future__ import annotations
 
+import re
+
 import pint
 
 # Custom base dimensions for things SD models count but physics doesn't.
@@ -61,6 +63,25 @@ def is_compatible(a: pint.Unit, b: pint.Unit) -> bool:
 def describe(unit: pint.Unit) -> str:
     """Human-readable unit text (``dimensionless`` rather than an empty string)."""
     return str(unit) or "dimensionless"
+
+
+_SUPERSCRIPT = {"2": "²", "3": "³"}
+
+
+def display(spec: str) -> str:
+    """A unit string as a reader sees it: ``m**3/s`` → ``m³/s``, ``s/m**(1/3)`` → ``s/m^(1/3)``, and nothing
+    for ``dimensionless``. For text shown to people; the stored string stays in pint syntax."""
+    text = (spec or "").strip()
+    if text == "dimensionless":
+        return ""
+    text = re.sub(r"\*\*\s*([23])(?![\d.])", lambda m: _SUPERSCRIPT[m.group(1)], text)
+    return text.replace("**", "^")
+
+
+def with_units(number: str, spec: str) -> str:
+    """``number`` followed by its displayed units (just the number when dimensionless)."""
+    shown = display(spec)
+    return f"{number} {shown}" if shown else number
 
 
 def library_version() -> str:

@@ -3,7 +3,8 @@
 Reads :func:`latris.operations.analysis_results.report_results` (the latest
 run of each analysis, minus hidden ones) and writes compact Markdown tables:
 what a reader needs to see the numbers behind the answer. Results computed
-before a later model change are marked out of date.
+before a later model change are marked out of date — or, for a reader
+(``current_only``), left out, with one line saying how many there were.
 
 With ``chart_markers=True`` (the hosted report and Word export pass it) each
 result is preceded by a fenced ``latris-chart`` block naming the run and the
@@ -21,15 +22,10 @@ from latris.operations.carried_results import carried_note
 from latris.repo.layout import ProjectPaths
 
 _HUMAN_VERIFIED = "human-verified"
+# Where a reader is told the results they aren't shown live. The hosted report swaps this sentence for
+# one that points into the app, so keep it a sentence of its own.
+HISTORY_NOTE = "They're kept in the project's analysis history."
 _MAX_ROWS, _esc, _f, _table, _grounding = md.MAX_ROWS, md.esc, md.fmt, md.table, md.grounding
-
-
-
-
-
-
-
-
 
 
 def _marker(run_id: str, chart: str, **extra: Any) -> list[str]:
@@ -80,22 +76,49 @@ def render_results(
     model_types: list[str] | None = None,
     chart_markers: bool = False,
     show_ids: bool = True,
+    current_only: bool = False,
 ) -> list[str]:
-    """The Results section's lines, or ``[]`` when nothing has been recorded."""
+    """The Results section's lines, or ``[]`` when nothing has been recorded.
+
+    ``current_only`` (reader packs): results computed on an earlier version of the model are left out, and
+    so is a repeat of a result already shown (the same question asked again); one line says how many
+    earlier results there are.
+    """
     from latris.operations.analysis_results import report_results
 
     results = report_results(model_types=model_types, root=paths.root)
     if not results:
         return []
-    out = [
-        "## Results",
-        "",
+    earlier = 0
+    if current_only:
+        shown, seen = [], set()
+        for res in results:  # newest first within each kind
+            if res.stale:
+                earlier += 1
+                continue
+            key = (res.run.result_kind, result_heading(res.run.result_kind, res.payload))
+            if key not in seen:
+                seen.add(key)
+                shown.append(res)
+        results = shown
+    out = ["## Results", ""]
+    if not results:
+        return out + [
+            "_These results were computed on an earlier version of the model and haven't been re-run "
+            f"yet. {HISTORY_NOTE}_",
+            "",
+        ]
+    out += [
         "The latest run of each analysis on this model. Every value a run changed or sampled is listed "
         "with where it came from.",
         "",
     ]
     for res in results:
         out += render_result(res.run, res.payload, stale=res.stale, chart_markers=chart_markers, show_ids=show_ids)
+    if earlier:
+        were = "results from earlier versions of this model aren't" if earlier != 1 else (
+            "result from an earlier version of this model isn't")
+        out += [f"_{earlier} {were} shown. {HISTORY_NOTE}_", ""]
     return out
 
 

@@ -7,7 +7,7 @@ work, including types that aren't registered yet.*
 
 ## Where we are
 
-Nine model types are usable today, in five families. The pattern that
+Fifteen model types are usable today, in seven families (updated 2026-11-22). The pattern that
 works is a **ladder** within each family — qualitative → semi-quantitative
 → quantitative, all on one shared substrate — so a model climbs a rung
 without being redrawn.
@@ -15,18 +15,20 @@ without being redrawn.
 | Family | Built | Missing rung |
 |---|---|---|
 | Systems | CLD → FCM → SD | — |
-| Causal inference | DAG → BN | **estimation**: "how big is the effect?" |
+| Causal inference | DAG → effect estimation → BN | structural equation / path models (#11) |
 | Evaluation | Theory of Change → process tracing → impact (ITS / DiD) | — |
-| Risk and safety | Bow-tie → Fault tree / Event tree | live links between them (today: citations) |
-| Decisions | — | **the whole family** |
-| Arguments | evidence checks and challenges, no formalism | **argument / hypothesis structure** |
+| Risk and safety | Bow-tie → Fault tree / Event tree, with Monte Carlo | live links between them (today: citations); GSN |
+| Decisions | MCDA; decision tree → Markov, with PSA, acceptability curves and (partial) EVPI | influence diagram (#10) |
+| Arguments | ACH; argument map | GSN as a vocabulary over the argument map |
+| Across types | Monte Carlo / PSA with correlated ranges; global sensitivity (Sobol, Morris); contract and predict for equation models, SD and BN (#17) | predict for the risk and decision types; uncertainty bands on a prediction |
+| Equations | Equation model: sourced formulas with units, no clock (#18) | time-series forcing for SD (#19); lookup tables, global sensitivity |
 
 The last three types built (fault tree, bow-tie, event tree) came from the
 registered roadmap list, which was assembled to test the schema's
 extensibility rather than from user demand, and they serve the audience
 least likely to adopt Latris (safety engineers have entrenched tools). They
 are done and coherent; the safety track now pauses until a real safety user
-appears. GSN waits for that, and for the argument map below.
+appears. GSN waits for that; the argument map it builds on now exists.
 
 ## Principles for choosing
 
@@ -83,6 +85,48 @@ type in about half a day.
 | 15 | **Realist CMO / outcome mapping** | Structure | Pairs with #6 |
 | 16 | **Survival extrapolation** | `lifelines` (MIT) | Only with the HTA vertical (#4 + #5) |
 
+## Priority — models that can be called (added 2026-11-22)
+
+*High priority, ahead of the remaining Tier B items. Each needs a short design section in
+[ARCHITECTURE.md](ARCHITECTURE.md) before code.*
+
+Every run today is an analysis of the model as stored, and its result is recorded into the project
+for the report. Nothing declares "these are the model's inputs, these are its outputs" or lets
+another program call it. That closes off a whole use: a pipeline that loads one reviewed version of
+a model from git and drives it with its own inputs (forcing). The same gap hides a kind of model
+Latris should hold well: one built from physics or published parameterisations, where every
+equation and coefficient has a source — among the most defensible models there are.
+
+| # | Model / layer | Answers | How | Effort |
+|---|---|---|---|---|
+| 17 | **Predict** — an input/output contract and a stateless run (**first cut done**: `latris contract`, `latris predict`, `latris.load`; design in [PREDICT.md](PREDICT.md)) | Given these inputs, what does this version of the model say? | See below. Equation model, SD (values) and BN | built; follow-ups below |
+| 18 | **Equation model** — quantities joined by sourced formulas, no clock (**done**: `latris eq`; design in [EQUATION_MODEL.md](EQUATION_MODEL.md)) | What does this physics / published parameterisation give for these inputs? | A formalism plugin reusing the SD expression evaluator (`_sd_eval.py`) and unit checker (`_units.py`), without the integrator; each formula and coefficient cites its source and stated range of validity | built |
+| 19 | **Time-series forcing for SD** | What happens under this rainfall / demand / price record? | A series input declared in the contract and interpolated against `TIME`; today the only route is a hand-typed lookup table | 1–2 days after #17 |
+
+**Predict (#17), in three parts:**
+
+1. **A contract, committed with the model.** Named inputs (units, scalar or series, valid range)
+   and named outputs. Derived where the formalism already knows the answer — SD constants and
+   initial values, BN evidence nodes, equation-model inputs — and edited by a person where it
+   doesn't.
+2. **A stateless `predict` operation.** Takes a contract-shaped payload, returns the outputs, and
+   writes nothing to the project. The result carries the model's commit and a hash of the
+   contract, so every number a pipeline emits traces to one exact, reviewed version and the
+   sources behind it.
+3. **Pinned loading.** Load a project at a git ref (a tag, a reviewed checkpoint) and call it:
+   from Python, the CLI and the server. The semantic diff reports a change to the contract
+   separately from a change to the internals, so a pipeline knows whether an upgrade is safe.
+
+**Guardrails:**
+
+- **Out-of-range inputs are reported, not hidden.** A pipeline will send values outside what the
+  evidence supports; predict returns a validity warning beside the number rather than clamping
+  silently.
+- **Forward evaluation only.** Calibration, parameter fitting and data assimilation are out of
+  scope here.
+- **Still inspectable.** This is not the "black-box predictors" of *Not doing*: every formula and
+  parameter stays one a person can source, check and challenge.
+
 ## Tier C — easy, but needs a decision first
 
 - **Vensim / XMILE import via `PySD` (MIT)** — quick, and possibly the
@@ -98,7 +142,8 @@ type in about half a day.
 ## Not doing
 
 Agent-based models (`Mesa`), causal discovery / structure learning,
-black-box predictors.
+black-box predictors. (Predict, #17, runs inspectable models on new inputs; it is not a
+black-box predictor.)
 
 ## Order of work
 
@@ -106,16 +151,30 @@ black-box predictors.
 2. **Quick wins** — #1 effect estimation (done: `latris analyse
    estimate`, an analysis layer on the DAG), #2 MCDA (done: `latris mcda`),
    #3 ACH (done: `latris ach`).
-3. **Decisions + HTA** — #4 decision tree + EVPI (done: `latris dt`; probabilistic sensitivity
-   analysis still to come), #5 Markov (done: `latris markov`; PSA and
-   acceptability curves still to come).
+3. **Decisions + HTA** — #4 decision tree + EVPI (done: `latris dt`, with probabilistic
+   sensitivity analysis: `dt range` and `dt psa`), #5 Markov (done: `latris markov`, with PSA,
+   acceptability curves and EVPI: `markov range` and `markov psa`).
 4. **Evaluation ladder** — #6 process tracing (done: `latris toc prior|test|trace`, an analysis on
    the theory of change), #9 ITS / DiD (done: `latris toc impact`).
 5. **Analysis layers** — #7 Monte Carlo on the risk types (done: `latris ft|bowtie|et uncertainty`
-   and `monte-carlo`), #8 SALib.
-6. **Argument map** (#12), then GSN on top of it — when a safety user appears.
+   and `monte-carlo`), #8 global sensitivity (done: `latris analyse global-sensitivity`, Sobol and
+   Morris over the risk types, decision trees, Markov, SD and BN; a set of probabilities — a BN
+   table, a chance node's branches — is one grouped input). Built on numpy and scipy's Sobol
+   sequence rather than SALib: the estimators are a few dozen lines (checked against the Ishigami
+   function's analytic indices), and SALib would bring matplotlib, pandas and multiprocess.
+6. **Argument map** (#12) (done: `latris argument`; design in
+   [ARGUMENT_MAP.md](ARGUMENT_MAP.md)), then GSN on top of it — when a safety user appears.
+7. **Models that can be called** (high priority) — #18 equation model first (done: `latris eq`, with
+   scenarios, input sweeps and Monte Carlo). It was built ahead of predict because its kernel,
+   `equation_model.compute`, is already the pure "values in, every quantity out" function predict
+   wraps, and its inputs (units, valid ranges) and outputs are the contract in miniature. Then #17
+   predict (first cut done: a contract per model type, a stateless run, pinned versions and the
+   first public Python API, for the equation model, SD values and BN). Next for #17: uncertainty
+   bands on a prediction, the risk and decision types, and the app's "use" view; then #19
+   time-series forcing for SD, which waits until someone needs it. Small follow-ups to #18: lookup
+   tables, and adding it to the global-sensitivity layer (#8).
 
-Registry statuses follow this plan: influence diagram and argument map are
-`roadmap`; GSN stays `roadmap` behind the argument map. MCDA, ACH, decision
-tree and Markov are built. Process tracing is an analysis on the theory of
+Registry statuses follow this plan: influence diagram is `roadmap`; GSN stays `roadmap`, now a
+vocabulary over the argument map (ARGUMENT_MAP.md → "GSN, later"). MCDA, ACH, decision tree,
+Markov, argument map and equation model are built. Process tracing is an analysis on the theory of
 change, not a type of its own, so it isn't registered separately.

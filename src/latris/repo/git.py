@@ -365,6 +365,36 @@ def clone(url: str, dest: Path, *, env: dict[str, str] | None = None) -> None:
     run_git(["clone", url, str(dest)], env=env, timeout=NETWORK_TIMEOUT)
 
 
+def resolve_commit(cwd: Path, ref: str) -> str:
+    """The full sha of the commit *ref* names (a sha, a prefix, a branch or a tag). Raises ``GitError``."""
+    return run_git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=cwd).stdout.strip()
+
+
+def export_commit(cwd: Path, sha: str, dest: Path) -> None:
+    """Write the files of commit *sha* into *dest* (which must not exist), without touching *cwd*.
+
+    A local clone with no checkout, then a detached checkout of the commit: nothing is written to the
+    source repository (a worktree would register itself there). *dest* keeps no ``.git``.
+    """
+    import shutil
+
+    run_git(["clone", "--quiet", "--no-checkout", str(cwd), str(dest)])
+    run_git(["-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", sha], cwd=dest)
+    shutil.rmtree(dest / ".git", ignore_errors=True)
+
+
+def is_dirty(cwd: Path) -> bool:
+    """Does the working tree differ from HEAD (uncommitted or untracked files)? False outside a repository."""
+    done = run_git(["status", "--porcelain"], cwd=cwd, check=False)
+    return done.returncode == 0 and bool(done.stdout.strip())
+
+
+def changed_paths(cwd: Path, base: str, head: str, paths: list[str]) -> list[str]:
+    """The files under *paths* that differ between two commits."""
+    out = run_git(["diff", "--name-only", base, head, "--", *paths], cwd=cwd).stdout
+    return [ln for ln in out.splitlines() if ln.strip()]
+
+
 def fetch(cwd: Path, remote: str = "origin", *, env: dict[str, str] | None = None) -> None:
     run_git(["fetch", remote], cwd=cwd, env=env, timeout=NETWORK_TIMEOUT)
 

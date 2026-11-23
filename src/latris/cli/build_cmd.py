@@ -88,18 +88,32 @@ def build(
     - ``decision_tree``: objective (maximise | minimise), units, nodes (node,
       type: decision | chance | terminal), branches (link "Parent -> Child",
       label, probability, value, source, …), payoffs (node, value, source,
-      …), uncertainties (node, uncertainty)
+      …), uncertainties (node, uncertainty), ranges (target, quantity,
+      distribution, params, reason, …), correlations (target, other, rho, …)
     - ``markov``: elements (node, type: state | strategy), settings
       (cycle_length, num_cycles, time_units, discount_rate,
       outcome_discount_rate, half_cycle_correction, wtp, cost_units,
       outcome_units), transitions (link "From -> To", probability, strategy,
       source, …), rewards (state, strategy, cost, utility, source, …), start
-      (state, proportion)
+      (state, proportion), ranges (target, quantity, strategy, distribution,
+      params, …), correlations (target, other, rho, quantity, strategy, …)
+    - ``argument_map``: elements (node, type: conclusion | claim | question),
+      links (link "Premise -> Claim", relation: supports | attacks, reason,
+      warrant, qualifier: certainly | probably | possibly, source, …), claims
+      (node, assessment: accepted | rejected, rationale)
+    - ``equation_model``: values (node, role: input | parameter, value,
+      units, valid_min, valid_max, source, origin, verified, notes), formulas
+      (node, role: computed | output, expression, units, source, …),
+      uncertainty (node, distribution, params, reason), scenarios (name, set:
+      ["Quantity=value units"], description, reason)
     - ``analyses``: kind (simulate | monte_carlo | sensitivity | loops |
       bn_query | bn_explain | bn_monte_carlo | bn_compare | bn_sensitivity | toc_check |
       ft_analyse | bowtie_analyse | et_analyse | dag_estimate: treatment,
       outcome, dataset, adjust, columns, estimator | mcda_analyse |
-      ach_analyse | dt_analyse | markov_analyse)
+      ach_analyse | dt_analyse | markov_analyse | dt_psa | markov_psa |
+      argument_analyse | ft_gsa | bt_gsa | et_gsa | dt_gsa | markov_gsa |
+      sd_gsa | bn_gsa | eq_evaluate | eq_sweep: input, target, low, high,
+      steps | eq_monte_carlo)
       + its options — run and recorded after building, so the report shows them
 
     Targets are factor labels or links written "From -> To". Quote YAML

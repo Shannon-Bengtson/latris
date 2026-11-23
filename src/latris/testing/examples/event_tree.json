@@ -581,6 +581,12 @@
    "seed": 1234,
    "sampling": "lhs",
    "target": "Jet fire (per year)"
+  },
+  {
+   "kind": "et_gsa",
+   "method": "sobol",
+   "n": 128,
+   "seed": 1234
   }
  ]
 }

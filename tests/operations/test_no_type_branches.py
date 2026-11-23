@@ -18,6 +18,7 @@ SRC = Path(__file__).resolve().parents[2] / "src" / "latris"
 # Modules that legitimately name types, and why.
 ALLOWED = {
     "operations/risk_uncertainty.py": "the Monte Carlo engine the three risk types share (their implementation)",
+    "operations/psa.py": "the probabilistic sensitivity analysis decision trees and Markov models share (theirs)",
     "operations/init.py": "scaffolds each causal type's view files in a new project (data paths)",
 }
 

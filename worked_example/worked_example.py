@@ -1142,6 +1142,12 @@ def build_example(ex: WorkedExample) -> None:
             "--reason", "Learned from 180 monitoring rows"])
     ex.run(["bn", "monte-carlo", "Respiratory Health", "--state", "poor",
             "--evidence", "Transport Policy=strict", "--runs", "300"])
+    ex.note(
+        "Which table's uncertainty matters more for that answer? Global sensitivity treats each table as one "
+        "input — all its rows sampled together — and gives its share of the answer's variance."
+    )
+    ex.run(["analyse", "global-sensitivity", "bn", "--variable", "Respiratory Health", "--state", "poor",
+            "--evidence", "Transport Policy=strict", "-n", "64"])
 
     # ── 7.8c BN interventions and weighted tables ─────────────────────
     ex.section(
@@ -2092,6 +2098,28 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("Licensing is the better bet on today's numbers. Knowing demand first would be worth up to 140: "
             "research costing more isn't worth it. If high demand is likelier than about 42%, launching wins.")
     ex.run(["dt", "analyse"])
+    ex.note("How sure is that choice? Probabilistic sensitivity analysis gives the uncertain inputs a range — the "
+            "survey's estimate of high demand as a beta by its mean and standard error, the launch payoffs the "
+            "finance model's spread — and rolls the tree back for every sample. Demand is one uncertainty, so "
+            "licensing takes the same sampled probability as launching.")
+    ex.run(["dt", "range", "Demand if launched -> Launched, high demand", "beta", "--mean", "0.4", "--sd", "0.1",
+            "--source", "market-survey-2026", "--reason", "survey of 200 firms"])
+    ex.run(["dt", "range", "Launched, high demand", "normal", "--mean", "500", "--sd", "100",
+            "--source", "finance-model", "--reason", "finance model's optimistic and pessimistic cases"])
+    ex.run(["dt", "range", "Launched, low demand", "normal", "--mean", "-200", "--sd", "60",
+            "--source", "finance-model"])
+    ex.note("Both launch payoffs come out of one finance model: if it is optimistic about one, it is about the "
+            "other. Correlating them makes the PSA sample them together.")
+    ex.run(["dt", "correlate", "Launched, high demand", "Launched, low demand", "0.6",
+            "--reason", "both from the same finance model"])
+    ex.note("Licensing stays best on average, but launching wins in about four runs in ten: the evidence doesn't "
+            "settle the choice. The partial EVPI prices each uncertainty on its own: any one of them is worth about "
+            "two thirds of resolving everything, so a single good study would do most of the work.")
+    ex.run(["dt", "psa", "--runs", "2000"])
+    ex.note("Rank correlations say which input moves with the result; global sensitivity apportions the result's "
+            "variance among the inputs, varied together. Sobol indices: each input's share alone and with its "
+            "interactions, so a range that doesn't matter can be left alone.")
+    ex.run(["analyse", "global-sensitivity", "decision_tree", "-n", "256"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "decision_tree"])
     os.chdir(ex.root)
@@ -2128,8 +2156,177 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["markov", "check"])
     ex.run(["markov", "show"])
     ex.run(["markov", "analyse"])
+    ex.note("Each probability, cost and utility is an estimate. Ranges in the conventional families — beta for "
+            "probabilities and utilities, gamma for costs, each by the mean and standard error its study reports — "
+            "go through a probabilistic sensitivity analysis: the cohort reruns for every sample.")
+    ex.run(["markov", "range", "Healthy -> Sick", "beta", "--mean", "0.10", "--sd", "0.02",
+            "--source", "disease-registry"])
+    ex.run(["markov", "range", "Healthy -> Sick", "beta", "--mean", "0.06", "--sd", "0.015", "--strategy", "New drug",
+            "--source", "phase-3-trial", "--reason", "trial arm, 95% CI 0.03–0.09"])
+    ex.run(["markov", "range", "Sick", "gamma", "--quantity", "cost", "--mean", "3000", "--sd", "600"])
+    ex.run(["markov", "range", "Sick", "beta", "--quantity", "utility", "--mean", "0.6", "--sd", "0.05"])
+    ex.note("The two progression rates come from the same registry cohort, so they are sampled together. Then "
+            "their errors largely cancel in the comparison: the drug comes out cost-effective in almost every run, "
+            "and the partial EVPI shows what little value is left lies in the two rates together.")
+    ex.run(["markov", "correlate", "Healthy -> Sick", "Healthy -> Sick", "0.8", "--other-strategy", "New drug",
+            "--reason", "both estimated in the same registry cohort"])
+    ex.note("The acceptability curve gives, at each willingness to pay, the chance each strategy is the most "
+            "cost-effective; the EVPI is the most further research could be worth per person.")
+    ex.run(["markov", "psa", "--runs", "1000"])
+    ex.note("Morris screening ranks the same inputs in far fewer runs: μ* for influence, σ for interaction.")
+    ex.run(["analyse", "global-sensitivity", "markov", "--method", "morris", "-n", "10"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "sensitivity", "--model-type", "markov"])
+    os.chdir(ex.root)
+
+    # ── 11k. Argument map ─────────────────────────────────────────────
+    ex.section(
+        "Argument Map",
+        "A case argued to a board: fund the new drug. The map lays out the reasons offered, the objections to "
+        "them and the answers to those, and evaluates it — each claim stands, is defeated or is undecided — so "
+        "the reader sees whether the conclusion stands, what it rests on, and which objection is still open. "
+        "Shown on a tenth, small project.",
+    )
+    am_root = ex.root.parent / "funding-case"
+    ex.run(["init", str(am_root), "--question", "Should the board fund the new drug?"])
+    os.chdir(am_root)
+    ex.run(["project", "select-models", "argument_map"])
+    _am_claims = ["Fund the new drug", "The drug works", "We can afford it", "Patients want it",
+                  "The trial was small", "A second trial confirmed it", "The budget is overspent"]
+    for _c in _am_claims:
+        ex.run(["node", "add", _c])
+        ex.run(["argument", "element", _c, "conclusion" if _c == "Fund the new drug" else "claim"])
+    ex.note("Two premises that only work together share a reason (value); 'patients want it' is a reason on its "
+            "own. An objection attacks a claim, and an answer to an objection attacks the objection.")
+    for _a, _b, _rel, _reason in (
+        ("The drug works", "Fund the new drug", "supports", "value"),
+        ("We can afford it", "Fund the new drug", "supports", "value"),
+        ("Patients want it", "Fund the new drug", "supports", None),
+        ("The trial was small", "The drug works", "attacks", None),
+        ("A second trial confirmed it", "The trial was small", "attacks", None),
+        ("The budget is overspent", "We can afford it", "attacks", None),
+    ):
+        ex.run(["edge", "add", _a, _b])
+        ex.run(["argument", "link", f"{_a} -> {_b}", "--relation", _rel] + (["--reason", _reason] if _reason else []))
+    ex.run(["argument", "link", "Patients want it -> Fund the new drug", "--warrant",
+            "Patient preference is a funding criterion", "--qualifier", "probably"])
+    ex.note("A premise's grounds are its sources, as anywhere else in Latris.")
+    ex.run(["ref", "add", "trial2", "--title", "Confirmatory trial report (illustrative)", "--year", "2026"])
+    ex.run(["evidence", "add", "A second trial confirmed it", "description", "trial2"])
+    ex.run(["argument", "check"])
+    ex.run(["argument", "show"])
+    ex.note("The value reason fails — the budget objection is unanswered — but the conclusion still stands on "
+            "patient preference alone: a linchpin, and asserted with no source.")
+    ex.run(["argument", "analyse"])
+    ex.note("Objecting to the inference rather than the premise is a challenge on the link. Until it is resolved "
+            "that reason counts for nothing, and the conclusion no longer stands.")
+    ex.run(["challenge", "open", "Patients want it -> Fund the new drug",
+            "Wanting a treatment isn't by itself a reason to fund it."])
+    ex.run(["argument", "analyse"])
+    ex.note("A person can also rule on a premise the map takes as given. Accepting the budget position the "
+            "finance director gave the board answers nothing by itself: the objection to it still stands.")
+    ex.run(["argument", "claim", "We can afford it", "accepted", "--rationale",
+            "Finance director's statement to the board"])
+    ex.run(["argument", "analyse", "--no-record"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "implications", "--model-type", "argument_map"])
+    os.chdir(ex.root)
+
+    # ── 11l. Equation model ───────────────────────────────────────────
+    ex.section(
+        "Equation Model",
+        "A model made of sourced formulas with no clock: how much water a channel carries, by Manning's "
+        "equation. Inputs and parameters carry their units and the range they are valid over; formulas turn "
+        "them into the output, and the units are checked on the way. Shown on an eleventh, small project.",
+    )
+    eq_root = ex.root.parent / "channel-capacity"
+    ex.run(["init", str(eq_root), "--question", "How much water can this channel carry?"])
+    os.chdir(eq_root)
+    ex.run(["project", "select-models", "equation_model"])
+    for _q in ["Flow depth", "Channel width", "Bed slope", "Roughness", "Flow area", "Hydraulic radius",
+               "Velocity", "Discharge", "Bank height"]:
+        ex.run(["node", "add", _q])
+    ex.run(["ref", "add", "manning1891", "--title", "On the flow of water in open channels and pipes",
+            "--year", "1891"])
+    ex.run(["ref", "add", "chow1959", "--title", "Open-Channel Hydraulics", "--year", "1959"])
+    ex.note("An input is something the model is given; a parameter is a coefficient of the method. Each says "
+            "the range it is valid over, usually the range its source covered.")
+    ex.run(["eq", "input", "Flow depth", "1.2", "m", "--min", "0.2", "--max", "3", "--notes", "Survey range."])
+    ex.run(["eq", "input", "Channel width", "8", "m"])
+    ex.run(["eq", "input", "Bed slope", "0.001", "dimensionless", "--min", "0.0001", "--max", "0.01"])
+    ex.run(["eq", "input", "Bank height", "3", "m"])
+    ex.run(["eq", "parameter", "Roughness", "0.035", "s/m**(1/3)", "--min", "0.025", "--max", "0.05",
+            "--source", "chow1959", "--verified", "--notes", "Natural stream, some weeds and stones."])
+    ex.note("Formulas name the other quantities by label, lower case with underscores, and say the units they "
+            "give. Setting one adds the links it reads to the map.")
+    ex.run(["eq", "formula", "Flow area", "channel_width * flow_depth", "m**2"])
+    ex.run(["eq", "formula", "Hydraulic radius", "flow_area / (channel_width + 2 * flow_depth)", "m"])
+    ex.note("Units are checked: this version of Manning's equation leaves out the two-thirds power, so it "
+            "doesn't give a velocity, and the check says so.")
+    ex.run(["eq", "formula", "Velocity", "hydraulic_radius * SQRT(bed_slope) / roughness", "m/s"])
+    ex.run(["eq", "formula", "Discharge", "velocity * flow_area", "m**3/s"])
+    ex.run(["eq", "check"], expect_fail=True)
+    ex.run(["eq", "formula", "Velocity", "hydraulic_radius ** (2/3) * SQRT(bed_slope) / roughness", "m/s",
+            "--source", "manning1891", "--verified", "--notes", "Uniform, fully turbulent flow."])
+    ex.note("The units now agree. What is left: the model doesn't yet say which quantity it is for.")
+    ex.run(["eq", "check"], expect_fail=True)
+    ex.run(["eq", "role", "Discharge", "output"])
+    ex.note("Bank height turned out not to be needed. Taking it out of the equation model removes its role "
+            "and value; the factor itself stays on the map.")
+    ex.run(["eq", "remove", "Bank height"])
+    ex.run(["eq", "check"])
+    ex.run(["eq", "show"])
+    ex.note("A scenario is a named set of input values. The design flood is deeper than the surveyed range, "
+            "and the result says so instead of clamping it.")
+    ex.run(["eq", "scenario", "Design flood", "--set", "Flow depth=3.5 m", "-d",
+            "Bankfull stage in the design event."])
+    ex.run(["eq", "scenario", "Low flow", "--set", "Flow depth=40 cm", "-d", "Late-summer stage."])
+    ex.run(["eq", "scenarios"])
+    ex.run(["eq", "evaluate"])
+    ex.note("How the output responds as one input moves across its valid range, everything else held.")
+    ex.run(["eq", "sweep", "--input", "Flow depth", "--steps", "15"])
+    ex.note("How sure is the result? Give the uncertain values a range and sample them.")
+    ex.run(["eq", "uncertainty", "Roughness", "triangular", "--min", "0.025", "--mode", "0.035", "--max", "0.05",
+            "--reason", "Range for natural streams of this kind.", "--source", "chow1959"])
+    ex.run(["eq", "uncertainty", "Bed slope", "uniform", "--min", "0.0008", "--max", "0.0012",
+            "--reason", "Survey accuracy."])
+    ex.run(["eq", "monte-carlo", "--runs", "1000"])
+    ex.run(["interpret", "initialise"])
+    ex.run(["interpret", "show", "evidence_gaps", "--model-type", "equation_model"])
+
+    # ── 11m. Contract and predict ─────────────────────────────────────
+    ex.section(
+        "Contract and Predict",
+        "A model that is finished can be used outside Latris: a script or a scheduled job gives it inputs "
+        "and reads its outputs. The model first declares a contract (which values a caller may set, which "
+        "results it returns), and `predict` then runs it without recording anything. Shown on the channel "
+        "model above.",
+    )
+    ex.note("The contract is drafted from the model: its inputs go in, its outputs come out. Parameters "
+            "(the roughness) stay inside unless you expose them.")
+    ex.run(["contract", "available", "equation_model"])
+    ex.run(["contract", "init", "equation_model"])
+    ex.run(["contract", "check"])
+    ex.note("Run it. A depth in other units is converted; one outside the valid range is used as given, "
+            "and the result says it is an extrapolation and which commit produced it.")
+    ex.run(["predict", "--set", "flow_depth=2.5"])
+    ex.run(["predict", "--set", "flow_depth=350 cm"])
+    ex.note("Mark the version a pipeline should use, then keep working. The contract is edited like "
+            "anything else: here the roughness is exposed under a caller-friendly name, and the bed slope "
+            "is withdrawn.")
+    ex.run(["version", "milestone", "Signed off", "--maturity", "approved"])
+    ex.run(["contract", "input", "equation_model", "Roughness", "--name", "mannings_n", "-d",
+            "Manning's roughness coefficient"])
+    ex.run(["contract", "output", "equation_model", "Velocity"])
+    ex.run(["contract", "remove", "equation_model", "bed_slope"])
+    ex.run(["contract", "show"])
+    ex.note("Would moving a pipeline from the signed-off version to this one break it? Yes: an input it "
+            "may be sending has gone. The command exits 1, so a pipeline can refuse the upgrade.")
+    ex.run(["contract", "diff", "Signed off"], expect_fail=True)
+    ex.note("The pinned version still runs exactly as it was, and can be required to be approved. With "
+            "`--json` the whole result is one object for a pipeline to read.")
+    ex.run(["predict", "--ref", "Signed off", "--require", "approved", "--set", "bed_slope=0.002"])
+    ex.run(["--json", "predict", "--ref", "Signed off", "--set", "flow_depth=2"])
     os.chdir(ex.root)
 
     # ── 12. Interpret phase ───────────────────────────────────────────

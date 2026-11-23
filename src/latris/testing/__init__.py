@@ -40,6 +40,8 @@ EXAMPLES: dict[str, Example] = {e.name: e for e in (
     Example("ach", ("ach",), "Why did the payments service go down on Tuesday?"),
     Example("decision_tree", ("decision_tree",), "Should we launch now or run a pilot first?"),
     Example("markov", ("markov",), "Is the new drug cost-effective?"),
+    Example("argument_map", ("argument_map",), "Should the board fund the new drug?"),
+    Example("equation_model", ("equation_model",), "How much water can this channel carry?"),
     Example("fault_tree", ("fault_tree",), "How likely is a loss of cooling, and what drives it?"),
     Example("bow_tie", ("bow_tie", "event_tree"), "How well protected are we against a loss of containment?"),
     Example("event_tree", ("event_tree",), "What follows a gas release, and how often?"),

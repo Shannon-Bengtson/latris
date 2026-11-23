@@ -156,6 +156,9 @@ class Formalism:
     polarity_labels: bool = False  # its links are labelled with their polarity (+/−) in diagrams
     whole_map: bool = False  # it is the project's whole map (the causal types), not factors given a role in it
     connected_structure: bool = True  # it lives on links; False for MCDA, ACH, event trees (elements, no links)
+    # Its links are written by its own values (an equation model's formulas add the links they read), so
+    # Build doesn't ask for its factors to be connected before Formalise.
+    links_from_values: bool = False
     # (attribute, how the AI is told to fill it): the value each link carries in this type, e.g. polarity
     link_attribute: tuple[str, str] | None = None
     # (gap type, message): readiness when nothing has joined it yet, for a type sharing the map
@@ -164,6 +167,14 @@ class Formalism:
     # paths → factor id → its states, for a type whose factors have named states (a BN): what a surface
     # offers for an analysis option that is a state (``state``, ``evidence``)
     factor_states: Callable[[Any], dict[str, list[str]]] | None = None
+    # paths → factor id → verified?, for a type whose claims are its own values and formulas, each naming its
+    # source (an equation model): evidence coverage is then measured over those, not over links
+    parameter_sources: Callable[[Any], dict[str, bool]] | None = None
+
+    # ── running on a caller's inputs ──
+    # Module with ``build(paths) -> Predictor`` (``operations/predictors``): what the type offers a contract
+    # and how it computes outputs from inputs. None: no forward calculation, so no contract or predict.
+    predictor: str | None = None
 
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""
@@ -306,7 +317,7 @@ def default_origin(verified_by: str) -> str:
 _MODULES = (
     "sd", "bn",  # first: SD's then BN's results lead the report, as before they registered
     "theory_of_change", "fault_tree", "bow_tie", "event_tree", "dag_estimation", "mcda", "ach", "decision_tree",
-    "markov", "toc_impact", "causal", "fcm_steady_state",
+    "markov", "argument_map", "equation_model", "toc_impact", "causal", "fcm_steady_state", "global_sensitivity",
 )
 
 

@@ -98,3 +98,8 @@ def set_settings(body: SettingsRequest, root: Root) -> dict[str, Any]:
 
 _formalism.add_check_route(router, "decision_tree")
 _formalism.add_analyse_route(router, dt)
+
+
+from latris.server.routes import _psa  # noqa: E402
+
+_psa.add_routes(router, "decision_tree")

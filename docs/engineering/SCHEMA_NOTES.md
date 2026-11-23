@@ -205,7 +205,9 @@ over any parameterized model (BN, regression, SD, …) — it is not itself a
 model type or a parameter file. Built for SD (`sd monte-carlo`,
 `sd sensitivity`), BN tables (`bn monte-carlo`) and the risk types (`ft`/`bowtie`/`et
 monte-carlo`, cells `fault_tree:probability`, `bow_tie:pfd`, `bow_tie:frequency`,
-`event_tree:probability[:<heading>=<answer>,…]`, `event_tree:frequency`). See the PARAMETERS design spec (held in the private design docs).
+`event_tree:probability[:<heading>=<answer>,…]`, `event_tree:frequency`), and decision trees
+and Markov models (`dt`/`markov psa`, cells `decision_tree:payoff|value|probability|probabilities`,
+`markov:transition|cost|utility|leaving[:<strategy id>]`). See the PARAMETERS design spec (held in the private design docs).
 
 ## Maturity ladder
 
@@ -368,8 +370,8 @@ Open backlog items:
   `cell.history()` reconstructed from git. Library-side; no schema
   change.
 - **Model type registry evolution.** The `ModelTypeSpec` registry
-  (built) defines 13 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH,
-  Decision Tree, Markov) + 9 planned
+  (built) defines 15 stable (CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH,
+  Decision Tree, Markov, Argument Map, Equation Model) + 8 planned
   model types. Registry-driven
   activation (`operations/activation.py`) eliminates scattered dicts:
   each model type registers view class, validators, attribute handlers,
@@ -397,12 +399,19 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
-**Registered formalisms** — 13 stable types (CLD, DAG, FCM, BN, SD, Theory
-of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov) and 9 planned types are declared in the `ModelTypeSpec` registry with their
+**Contracts.** A model type that can be run on a caller's values may carry a contract,
+`views/contracts/<model_type>.yaml` (`schema/contract.py`): named inputs (a value with units, or a
+factor's state; optional default, valid range, required) and named outputs (value, series,
+distribution). It is kept out of `views/parameters/` so that editing it doesn't age recorded results,
+and it is not trimmed when a factor is deleted: `contract check` reports the dangling entry. Design in
+[PREDICT.md](PREDICT.md).
+
+**Registered formalisms** — 15 stable types (CLD, DAG, FCM, BN, SD, Theory
+of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov, Argument Map, Equation Model) and 8 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are
 visible for readiness guidance but are not switchable until promoted.
 Being registered is not the same as being on the roadmap: of the planned
-types, influence diagram, argument map and GSN are on it
+types, influence diagram and GSN are on it
 (order in [ROADMAP.md](ROADMAP.md)); causal DAG is being folded into DAG; the rest are not currently
 planned (their fit notes are kept below for reference).
 
@@ -421,11 +430,12 @@ planned (their fit notes are kept below for reference).
 | **Event Tree** | Stable | Initiating event, headings (functional events) and end states as view roles. The tree is *not* substrate edges — one heading is asked on many branches — so heading order and sequences (yes/no answers → end state) are stored as data (`event_tree-structure.yaml`) and checked to form a complete tree. P(yes) per heading, optionally conditional on earlier answers (most specific match wins), and the initiating frequency carry provenance. |
 | **Fishbone / Ishikawa** | Registered — not currently planned | Root cause analysis with categorised cause branches. Acyclic tree. |
 | **Theory of Change** | Stable | Logic-model levels (input, activity, output, short_term_outcome, long_term_outcome, impact) as view roles — no EntityKind change; links stay `causal` edges. The impact is the outcome of interest, so ToC has no separate `outcome` role. Readiness: every factor levelled, no backward links, every impact reached from an activity, no dead ends. `toc check` records a `toc-pathways` result whose fingerprint also covers evidence, assumptions and confidence. Process tracing (`toc prior`/`test`/`trace`) adds priors and tests per link as parameter files and records `toc-process-trace`; `toc impact` records `toc-impact` (ITS or DiD from a dataset; its fingerprint covers the data files). |
-| **Argument Map** | Registered — on the roadmap (before GSN) | Toulmin/IBIS argumentation. Claims, warrants, rebuttals. Partial structural overlap with GSN. |
+| **Argument Map** | Stable | Conclusion, claims and question as view roles; a link from premise to claim stores its relation (supports / attacks), reason group, warrant and qualifier, and a claim a person's assessment, each with provenance (`argument_map-link.yaml`, `argument_map-claim.yaml`). Grounds are ordinary citations; an open challenge on a link is an undercutter. GSN is planned as a vocabulary over it ([ARGUMENT_MAP.md](ARGUMENT_MAP.md)). |
+| **Equation Model** | Stable | Inputs, parameters, computed quantities and outputs as view roles; a formula's references are ordinary causal links, added when the formula is set. Per input or parameter a value, units and an optional valid range (`equation_model-value.yaml`); per computed quantity a formula and its units (`equation_model-formula.yaml`); named scenarios (`equation_model-scenarios.yaml`); each with provenance. Formulas run in the SD sandbox without the clock; ranges live in `parameter-uncertainty.yaml` (cell `equation_model:value`) ([EQUATION_MODEL.md](EQUATION_MODEL.md)). |
 | **Fuzzy Cognitive Map** | Stable | CLD with continuous edge weights in [−1, +1]. Cycles allowed; weight storage and steady-state inference are built. |
 | **Flowchart** | Registered — not currently planned | Activity-decision-outcome process flow. Universal visual modelling tool. |
 | **MCDA** | Stable | Options and criteria as view roles; no edges. Per criterion a swing weight, a direction and an optional worst/best scale (else the options' range, flagged); per option × criterion a score; each value with provenance. Additive linear value model, dominance, one-way weight rank-reversal thresholds. |
-| **ACH** | Stable | Hypotheses and evidence items as view roles; no edges. One CC–II rating per (item, hypothesis) with reasoning, and an item's credibility and relevance, each with provenance; an item's own sources are ordinary citations on it. Partly overlaps the argument map (claims vs evidence), which stays a separate, planned type. |
+| **ACH** | Stable | Hypotheses and evidence items as view roles; no edges. One CC–II rating per (item, hypothesis) with reasoning, and an item's credibility and relevance, each with provenance; an item's own sources are ordinary citations on it. Partly overlaps the argument map (claims vs evidence), a separate type. |
 | **State Machine** | Registered — not currently planned | States and guarded transitions. Qualitative sibling of Markov. |
 
 **Open question if we ever wire GSN.** GSN treats Assumptions and

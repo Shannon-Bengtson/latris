@@ -227,3 +227,9 @@ def analyse(
             console.print(f"\nrecorded · {_sha(sha)}")
 
     emit(payload, human=human, commit_sha=sha)
+
+
+from latris.cli import _psa as _psa_cmds  # noqa: E402
+
+_psa_cmds.register(app, "markov")
+_psa_cmds.register_correlate(app, "markov")

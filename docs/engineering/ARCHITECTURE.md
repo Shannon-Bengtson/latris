@@ -70,7 +70,8 @@ runnable but not inspectable. Monte Carlo / PSA / EVPI is a cross-cutting
 | Event Tree | Initiating event → ordered yes/no headings → end states (roles; tree stored as data and checked complete); conditional branch probabilities, sequence and end-state frequencies | stable (built) |
 | Fishbone / Ishikawa | Categorised cause branches converging on effect | not currently planned |
 | Theory of Change | Input → activity → output → short/long-term outcome → impact levels (view roles); acyclic, forward-only results chain; pathway enumeration with per-link evidence status and assumptions | stable (built) |
-| Argument Map | Toulmin/IBIS claims, warrants, rebuttals | on the roadmap |
+| Argument Map | Conclusion, claims and question (roles); links carry relation, reason, warrant and qualifier; grounded labelling: stands / defeated / undecided, linchpins, unanswered objections | stable (built) |
+| Equation Model | Inputs, parameters, computed quantities and outputs (roles); values with units and a valid range, formulas checked dimensionally (pint, the SD evaluator without the clock); scenarios, input sweeps, Monte Carlo ([design](EQUATION_MODEL.md)) | stable (built) |
 | Fuzzy Cognitive Map | CLD with edge weights in [−1, +1]; steady-state inference | v1 semi-quantitative |
 | Flowchart | Activity-decision-outcome process flow | not currently planned |
 | State Machine | States and guarded transitions | not currently planned |
@@ -284,7 +285,7 @@ src/latris/
 ## Adding a formalism
 
 Every model type (the causal types, SD, BN, Theory of Change, fault tree, bow-tie, event tree, MCDA, ACH,
-decision tree, Markov) plugs in through **one module** in `src/latris/operations/formalisms/`. It
+decision tree, Markov, argument map, equation model) plugs in through **one module** in `src/latris/operations/formalisms/`. It
 declares a `Formalism` with the hooks the shared code calls:
 
 | Hook | Used by |
@@ -304,6 +305,9 @@ declares a `Formalism` with the hooks the shared code calls:
 | `link_attribute` (the value its links carry: CLD polarity, FCM weight) | the AI context; `formalisms.attribute_home("polarity")` tells exporters where polarity is stored |
 | `diagram_direction`, `polarity_labels` | the generic Mermaid and DOT sketches |
 | `scenario_store` | result staleness when a run used saved scenarios |
+| `predictor` (module with `build(paths) -> Predictor`, in `operations/predictors/`) | contract and predict: what the type offers as inputs and outputs and a pure run on a caller's values ([PREDICT.md](PREDICT.md)); a type with no forward calculation leaves it unset |
+| `links_from_values` | the Build → Formalise gate: a type whose formulas add its links (the equation model) needn't be connected in Build |
+| `parameter_sources` | evidence coverage for a type whose claims are its own values and formulas, each naming its source (the equation model), not its links |
 | `ResultKind.superseded_by_wider` | which runs reports show (a newer run over a wider scope replaces an older one) |
 
 Shared code never tests a model type's id: `tests/test_no_type_branches.py` fails on a branch such as
@@ -408,9 +412,10 @@ classifications** (stock, chance, goal, gate, barrier, etc.) live in a
 separate **view role layer** (`schema/roles.py` +
 `operations/view_roles.py`) — not in the substrate. This keeps the
 substrate vocabulary universal while letting each formalism assign its
-own semantic roles to substrate entities. 9 planned model types are
-registered in the `ModelTypeSpec` registry alongside the 13 stable ones
-(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov); the
+own semantic roles to substrate entities. 8 planned model types are
+registered in the `ModelTypeSpec` registry alongside the 15 stable ones
+(CLD, DAG, FCM, BN, SD, Theory of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov,
+Argument Map, Equation Model); the
 Layer-3
 table above gives
 each one's
@@ -608,7 +613,9 @@ docs):
   preserving its existing surface.
 - The GUI's Python API server imports the same
   `latris.operations` — same invariants, same tests.
-- External pipelines and notebooks `import latris`.
+- External pipelines and notebooks `import latris`: `latris.load(path, ref=...)` returns a model
+  pinned to a version, with its contract and a stateless `predict` (`src/latris/api.py`, the only
+  public Python surface so far; design in [PREDICT.md](PREDICT.md)).
 
 All three layers share one core. The CLI is one consumer; it isn't
 the API.

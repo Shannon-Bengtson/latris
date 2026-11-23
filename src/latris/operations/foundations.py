@@ -193,6 +193,28 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
     ),
     Foundation(
+        id="equation-model-evaluation",
+        applies_to=("equation_model",),
+        method="Equation models: sourced formulas with dimensional analysis",
+        citation=(
+            "Buckingham (1914), \"On Physically Similar Systems\", *Physical Review* 4(4); Bridgman (1922), "
+            "*Dimensional Analysis*; Saltelli et al. (2008), *Global Sensitivity Analysis: The Primer*, ch. 1-2; "
+            "JCGM 101:2008, *Propagation of distributions using a Monte Carlo method*"
+        ),
+        used_for=(
+            "evaluating formulas in dependency order with every value carrying its units, so a dimensionally "
+            "inconsistent formula is refused; comparing named scenarios; one-at-a-time sweeps of an input with the "
+            "elasticity at the reference value; and Monte Carlo propagation of the stated ranges through the "
+            "formulas, with rank correlations for what drives the spread"
+        ),
+        limits=(
+            "Explicit formulas only: a circular set is refused, not solved, and there are no lookup tables or "
+            "time-varying inputs. Dimensional consistency does not make a formula right, and an empirical formula "
+            "is only as good as its source: values outside a stated valid range are reported, not corrected. "
+            "Sweeps move one input at a time and miss interactions; Monte Carlo samples the ranges independently."
+        ),
+    ),
+    Foundation(
         id="mcda-additive-value",
         applies_to=("mcda",),
         method="Multi-criteria decision analysis (additive value model)",
@@ -246,10 +268,10 @@ FOUNDATIONS: tuple[Foundation, ...] = (
             "and for all of them together; the probabilities at which the best first choice changes"
         ),
         limits=(
-            "Risk-neutral (expected value, no utility function); point probabilities and payoffs, no "
-            "probabilistic sensitivity analysis yet; EVPI needs an uncertainty to have the same probabilities "
-            "whatever is chosen, and treats separate uncertainties as independent; no imperfect information "
-            "(EVSI); thresholds for two-state uncertainties only."
+            "Risk-neutral (expected value, no utility function); point probabilities and payoffs (ranges on "
+            "them go through the probabilistic sensitivity analysis); EVPI needs an uncertainty to have the same "
+            "probabilities whatever is chosen, and treats separate uncertainties as independent; no imperfect "
+            "information (EVSI); thresholds for two-state uncertainties only."
         ),
     ),
     Foundation(
@@ -269,8 +291,79 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         ),
         limits=(
             "Memoryless: the chance of moving depends only on the current state, not on time in it (no tunnel "
-            "states or time-varying probabilities yet); point estimates only — no probabilistic sensitivity "
-            "analysis or acceptability curves yet; a cohort expectation, not individual-level simulation."
+            "states or time-varying probabilities yet); point estimates (ranges on them go through the "
+            "probabilistic sensitivity analysis); a cohort expectation, not individual-level simulation."
+        ),
+    ),
+    Foundation(
+        id="decision-psa",
+        applies_to=("decision_tree", "markov"),
+        method="Probabilistic sensitivity analysis, acceptability curves and the value of information",
+        citation=(
+            "Briggs, Claxton & Sculpher (2006), *Decision Modelling for Health Economic Evaluation*, ch. 4–7; "
+            "Fenwick, Claxton & Sculpher (2001), \"Representing uncertainty: the role of cost-effectiveness "
+            "acceptability curves\", *Health Economics* 10(8); Claxton (1999), \"The irrelevance of inference\", "
+            "*Journal of Health Economics* 18(3); Strong & Oakley (2013), *Medical Decision Making* 33(6); "
+            "Strong, Oakley & Brennan (2014), *Medical Decision Making* 34(3); Iman & Conover (1982), "
+            "*Communications in Statistics — Simulation and Computation* 11(3); McKay, Beckman & Conover (1979), "
+            "*Technometrics* 21(2)"
+        ),
+        used_for=(
+            "sampling every decision-tree payoff, branch value and probability, or Markov transition, cost and "
+            "utility given a range (beta and gamma by mean and sd, Dirichlet sets of probabilities), seeded Latin "
+            "hypercube; how often each choice is best; Markov acceptability curves and the expected value of "
+            "perfect information over a willingness-to-pay grid; the partial EVPI of each input from the same runs "
+            "(sorted bins for one value, regression for a set); rank correlations between ranges induced by "
+            "Iman–Conover reordering; Spearman rank correlation for what drives the decision"
+        ),
+        limits=(
+            "Correlations are rank correlations between single values (not within or with a Dirichlet set); "
+            "partial EVPI is estimated from the PSA runs (a little high with few runs per bin), one input at a "
+            "time — no sample information (EVSI); probabilities of leaving a Markov state sampled separately "
+            "are scaled down when they sum past 1 (the report counts the runs)."
+        ),
+    ),
+    Foundation(
+        id="global-sensitivity",
+        applies_to=("fault_tree", "bow_tie", "event_tree", "decision_tree", "markov", "sd", "bn"),
+        method="Global sensitivity analysis: Sobol indices and Morris screening",
+        citation=(
+            "Saltelli et al. (2008), *Global Sensitivity Analysis: The Primer*; Sobol (2001), *Mathematics and "
+            "Computers in Simulation* 55; Saltelli et al. (2010), *Computer Physics Communications* 181(2); "
+            "Jansen (1999), *Computer Physics Communications* 117; Morris (1991), *Technometrics* 33(2); "
+            "Campolongo, Cariboni & Saltelli (2007), *Environmental Modelling & Software* 22(10)"
+        ),
+        used_for=(
+            "apportioning the variance of a result among every input with a range, varied together over their "
+            "distributions: first-order and total Sobol indices (Saltelli and Jansen estimators on a scrambled "
+            "Sobol sequence, bootstrap intervals), or Morris elementary effects (μ*, σ) as a cheaper screen"
+        ),
+        limits=(
+            "Inputs are independent (correlations between ranges are ignored here); a set of probabilities "
+            "(a Dirichlet: a chance node's branches, a state's transitions out, a Bayesian-network table) is "
+            "one input, indexed as a group; indices are estimates — with heavy-tailed inputs or few samples "
+            "they can stray below 0 or above 1 (the intervals say how far to trust them); Morris effects are "
+            "per unit of an input's quantile, comparable within one result only."
+        ),
+    ),
+    Foundation(
+        id="argument-map",
+        applies_to=("argument_map",),
+        method="Argument mapping evaluated by grounded labelling",
+        citation=(
+            "Toulmin (1958), *The Uses of Argument*; Kunz & Rittel (1970), \"Issues as Elements of Information "
+            "Systems\" (IBIS); Dung (1995), *Artificial Intelligence* 77(2); Cayrol & Lagasquie-Schiex (2005), "
+            "ECSQARU; Pollock (1987), *Cognitive Science* 11(4)"
+        ),
+        used_for=(
+            "a conclusion, the claims for and against it, linked and independent reasons, warrants and "
+            "qualifiers; each claim in, out or undecided by grounded labelling with support; open challenges on "
+            "links as undercutters; linchpins by leave-one-out; each premise's grounds from its citations"
+        ),
+        limits=(
+            "Qualitative: qualifiers are reported, not weighed — no numeric strengths or probabilities; a "
+            "premise not argued further stands unless rejected or contested by its sources, so the report "
+            "separates checked, unchecked and unsourced premises; one conclusion per map."
         ),
     ),
     Foundation(
@@ -423,8 +516,8 @@ FOUNDATIONS: tuple[Foundation, ...] = (
         method="Probabilistic sensitivity analysis by Monte Carlo",
         citation="sampling practice after McKay, Beckman & Conover (1979), *Technometrics* 21(2)",
         used_for=(
-            "propagating uncertainty in CPT rows to the target's posterior — "
-            "`bn set-uncertainty --n` marks uncertain rows, `bn monte-carlo` samples them"
+            "propagating uncertainty in CPT rows to the target's posterior — the uncertain rows are "
+            "marked with how well each is known, then sampled"
         ),
         limits="Monte Carlo over declared uncertain rows only; EVPI deferred.",
     ),
@@ -465,6 +558,10 @@ _ANALYSIS_KIND_TO_ID = {
     "ft-monte-carlo": "risk-monte-carlo",
     "bt-monte-carlo": "risk-monte-carlo",
     "et-monte-carlo": "risk-monte-carlo",
+    "dt-psa": "decision-psa",
+    "markov-psa": "decision-psa",
+    **{k: "global-sensitivity" for k in ("ft-gsa", "bt-gsa", "et-gsa", "dt-gsa", "markov-gsa", "sd-gsa",
+                                         "bn-gsa")},
 }
 
 

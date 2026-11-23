@@ -64,7 +64,7 @@ Use the process stepper across the top of the app:
 2. **Formalise** by selecting model types and setting their parameters.
 3. **Analyse** each model on its canvas.
 4. **Interpret** findings into claims and prose.
-5. **Communicate** through reports, diagrams, and review packs.
+5. **Communicate & Use**: reports, diagrams and review packs for readers, and a contract for code that runs the model.
 
 Evidence (Data and References) is always available alongside the stepper — it is a persistent resource, not a phase.
 """,
@@ -100,7 +100,7 @@ A Latris project contains:
 1. Create or open a project from the landing page.
 2. Set the modelling question in the project overview.
 3. Build the conceptual model.
-4. Move through Build, Formalise, Analyse, Interpret, and Communicate. Data and References are always available as the evidence basis.
+4. Move through Build, Formalise, Analyse, Interpret, and Communicate & Use. Data and References are always available as the evidence basis.
 """,
     ),
     HelpTopic(
@@ -150,7 +150,7 @@ Every prompt that proposes content the user will live with — node descriptions
         id="workflow-overview",
         title="The Five-Phase Workflow",
         category="workflow",
-        summary="How Build, Formalise, Analyse, Interpret, and Communicate fit together.",
+        summary="How Build, Formalise, Analyse, Interpret, and Communicate & Use fit together.",
         body="""## Evidence basis
 
 Data and References are always available from the header — a persistent resource, not a phase. Import datasets and references whenever they are useful; they inform structure in Build and parameters in Formalise.
@@ -171,11 +171,11 @@ Interrogate a finished model. Pick a model from the Analyse dropdown to see its 
 
 Turn analysis outputs and project evidence into structured interpretation sections. Interpret is per-formalism: pick a model from the Interpret dropdown to see that formalism's sections. These sections are then available to the report builder.
 
-## Communicate
+## Communicate & Use
 
-Use the left-hand strip to switch between Report, Diagram, Review, Story and Explorer. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type. An Explorer is one model as an interactive page a reader can click through.
+The last stage is how the model leaves the workbench: to readers, and to code. Use the left-hand strip to switch between Report, Diagram, Review, Story, Explorer and **Use**. Use is where a model becomes callable from a script: you declare its contract (the inputs a caller may set, the outputs it returns), try it on your own numbers, and copy the code that runs a pinned version (see "Using a Model Elsewhere"). The other five are for readers. Report, Diagram and Review are per-formalism: pick a model from the Communicate dropdown to assemble report sections, export diagrams, create Word or Markdown reports, and send Review Packs to outside reviewers. Stories belong to the whole project: each tells the answer to the project's question for one audience, drawing on every model type. An Explorer is one model as an interactive page a reader can click through.
 
-**Everything here is shared the same way.** Each of the five has *Share by link*: turn it on and you get a link anyone can open, with no account needed. Turn it off and the link stops working; turn it on again and you get a new one. Sharing by link needs the project saved to your Latris account, and only its owner can share. A link always shows the current version of the model. Each also has a download, for a file you can send or keep.
+**Everything for readers is shared the same way.** Each of those five has *Share by link*: turn it on and you get a link anyone can open, with no account needed. Turn it off and the link stops working; turn it on again and you get a new one. Sharing by link needs the project saved to your Latris account, and only its owner can share. A link always shows the current version of the model. Each also has a download, for a file you can send or keep.
 
 ## Readiness gates
 
@@ -223,7 +223,7 @@ Formalise turns your conceptual structure into a complete formal model. Choose t
 Each selected model type appears in the Formalise dropdown. With a model open you work in the representation(s) that type offers:
 
 - **Table** — a parameter grid for setting model-specific attributes (CLD polarity, FCM weights).
-- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector: Bayesian networks (states and probability tables), system dynamics (roles, equations and values), decision trees (decision, chance and payoff nodes; each branch's option or state, probability and value), Markov models (states, moves per cycle, costs, utilities, the starting cohort and the clock) and theories of change (each factor's level; process-tracing priors and evidence tests on links).
+- **Canvas** — the structure, drawn the way the report's figure draws that type, with the selected element's parameters in the inspector: Bayesian networks (states and probability tables), system dynamics (roles, equations and values), decision trees (decision, chance and payoff nodes; each branch's option or state, probability and value), Markov models (states, moves per cycle, costs, utilities, the starting cohort and the clock), equation models (each quantity's role, value or formula, units, valid range and uncertainty) and theories of change (each factor's level; process-tracing priors and evidence tests on links).
   Fault trees (event types, gates — AND, OR, k of n — and basic-event probabilities) and bow-ties (threats and their frequencies, barriers with type, status, owner and failure probability, the top event and consequences) are set here too, with a median and error factor for any value whose uncertainty you know.
 - **Matrix** — MCDA (options, criteria, swing weights and the score grid), ACH (hypotheses, evidence, credibility, relevance and the consistency grid) and event trees (the initiating frequency, the headings in order with their probabilities — conditional ones too — and each sequence's end state). These have no links: Build doesn't ask for their elements to be connected, and the other types' canvases leave them out.
 
@@ -395,9 +395,11 @@ The Analyse canvas mirrors model structure but adds analysis overlays and formal
 - **BN:** observe evidence on nodes and read posterior beliefs, shown as bars inside each node (see the Bayesian Networks topic).
 - **SD:** run the simulation (with saved scenarios to compare), Monte Carlo, sensitivity and loop dominance from the analysis pane; each factor shows its end-of-run value on the canvas (see the System Dynamics topic).
 - **BN, beyond evidence:** *set* a factor (a policy, not an observation), apply a saved scenario, record the query, find the most likely explanation, run sensitivity, Monte Carlo over the tables (after saying how well each table is known) and compare scenarios.
-- **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane.
+- **Decision tree, Markov, theory of change:** roll back the tree, run the cohort, or check the theory and run process tracing from the analysis pane; for decision trees and Markov models, a probabilistic sensitivity analysis over the ranges you set.
+- **Equation model:** evaluate the formulas (with saved scenarios), sweep an input, and run Monte Carlo over the ranges you set, from the analysis pane.
 - **MCDA, ACH:** run the analysis from the matrix page; its charts, tables and the report's figure show there.
 - **Fault tree, bow-tie, event tree:** analyse (cut sets and importance; consequence frequencies through the barriers; end-state frequencies), then Monte Carlo over the ranges you set.
+- **Global sensitivity (fault trees, bow-ties, event trees, decision trees, Markov, SD and Bayesian-network models):** once two or more inputs have a range, see which the result's uncertainty comes from — `latris analyse global-sensitivity <model type>`. **Sobol indices** (the default) give each input's share of the result's variance on its own (S1) and with its interactions (ST), with 95% intervals; an input with ST near 0 could be fixed anywhere in its range without changing the spread, so narrowing its range buys nothing. **Morris screening** (`--method morris`) ranks the inputs in far fewer runs: μ* for influence, σ near or above μ* for interaction or a non-linear effect. The headline result is the model's main one — the top event, the best option's advantage over the runner-up, the net benefit at the willingness to pay — or `--output`; SD takes `--variable` and `--metric`; a Bayesian network takes `--variable`, `--state` and `--evidence`, and treats each probability table you've said how well is known as one input (as it does a chance node's branches or a state's transitions out). Recorded with a chart.
 
 Nodes take the shapes the report figure gives them — stocks as boxes, flows with a valve, sources and sinks as dashed clouds, BN nodes as belief-bar monitors — so the editor and the report read the same.
 
@@ -697,6 +699,10 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 - Methods and foundations — the established methods the model relies on, each cited with its source and stated limits, generated from the foundations registry so it cites only methods the report actually used.
 - Interpret-generated prose sections.
 
+## Reports for readers
+
+The **client** and **publication** packs are written for people outside the modelling work, and are grouped into parts in reading order: **Summary** (the answer, the model's size and approved findings), **The model** (the diagrams), **What the analysis shows** (current results and the findings written up from them), **How confident we are** (confidence, contested links, what the person reviewed at each checkpoint of an AI-built model, assumptions and exclusions) and a **Technical appendix** (links, factors, evidence, methods and references). They show only what's ready for a reader: interpretation sections that have been written up (one section per heading, with a paragraph per model type), results computed on the model as it is now — with one line saying how many earlier ones there are — and approved findings. They leave out internal IDs, who recorded each assumption and when, and the change log. The review, workshop and audit packs keep everything.
+
 ## Export formats
 
 Use Markdown for transparent text output and Word for stakeholder-ready documents. The Markdown report opens with a Mermaid sketch of the model, which GitHub and most chat tools draw as a diagram. **Build spec (.json)** exports the model itself — factors, links, sources, the model type's values and its analyses — as `latris export spec` does; `latris build --spec` (or a chat with the Latris connector) rebuilds it elsewhere.
@@ -734,6 +740,69 @@ Use diagrams when stakeholders need to inspect structure visually. Use reports w
 ## Sharing a diagram by link
 
 On the Diagram tab, *Share by link* gives a link to a page showing the model's diagram as the report draws it, under the project's name and question. Anyone with the link can open it, with no account needed. Each model type has its own link.
+""",
+    ),
+    HelpTopic(
+        id="use-in-a-pipeline",
+        title="Using a Model Elsewhere (Contract and Predict)",
+        category="communicate",
+        summary="Declare a model's inputs and outputs, then run it from a script on a version you pin.",
+        body="""## What this is for
+
+A model you have built and argued for can be used outside Latris: in a script, a notebook, a scheduled job. Two things make that safe.
+
+- A **contract** says which of the model's values a caller may set (its inputs) and which results it returns (its outputs), under names that don't change when a factor is renamed.
+- **Predict** runs the model on the values a caller gives and returns the outputs. Nothing is recorded in the project.
+
+Equation models, system dynamics models and Bayesian networks can have a contract.
+
+## Declaring the contract
+
+`latris contract init equation_model` drafts one from the model: what the model treats as given goes in, what it is for comes out. Then prune it. Every input is a promise to whoever calls the model, so expose only what a caller should set.
+
+- `latris contract available <model type>` lists everything the model could expose.
+- `latris contract input <model type> <factor> --name depth --min 0.2 --max 3` adds or changes an input: its name, units, default and valid range. For a Bayesian network an input is a factor's state, observed (`--observe`) or made so (`--set`).
+- `latris contract output <model type> <factor>` adds an output. A system dynamics variable can be returned as its whole run (`--kind series`) or as one value of it (`--metric final`, `peak`, `mean`…).
+- `latris contract show` prints the contract; `latris contract check` says whether it still fits the model.
+
+## Running it
+
+`latris predict --set depth=2.5` runs the model once. An input you leave out takes its default, or the model's own value. The result gives:
+
+- the **outputs**, with units;
+- the **inputs** it used, and where each came from;
+- **warnings**: a value outside its valid range is used as given, and the result is flagged as an extrapolation;
+- **provenance**: the commit that produced it, the contract's hash, and the review state of that version.
+
+This is different from an analysis. An analysis (a simulation, a query, an evaluation) is recorded for the report. A prediction is a call: make as many as you like.
+
+## Pinning a version
+
+`latris predict --ref "Signed off"` runs the model exactly as it was at that milestone, whatever has changed since. `--ref` takes a milestone's name, a version's name or a commit. Predict never refuses an unreviewed version: it reports the review state. A pipeline that wants a gate adds `--require approved`.
+
+From Python:
+
+```
+import latris
+model = latris.load("path/to/project", ref="Signed off")
+result = model.predict({"depth": 2.5})
+```
+
+## Moving to a newer version
+
+`latris contract diff "Signed off"` compares that version's contract with the latest:
+
+- **Breaking**: an input or output was removed or renamed, its units changed, or an input became required. A caller written against the old version may fail.
+- **Compatible**: something optional was added, or a default or range changed. The caller still works.
+- **Internal only**: the contract is the same but the model behind it changed, so the same inputs may give different outputs.
+
+## In the app
+
+**Communicate & Use → Use** (the last button on the left strip) shows the contract for the model you have open. **Draft the contract** fills it from the model; the tables set each input's default and valid range and add or remove inputs and outputs. **Try it** runs the model on values you type and shows the outputs, any warnings and the commit they came from. The pane on the right gives the Python and command-line code for a pipeline. Choose a milestone there to pin the code to it and to see whether the model as it is now would break a caller written against that milestone.
+
+## Practical caution
+
+A contract doesn't make a model right for a use it wasn't built for. State valid ranges honestly: they are how a caller learns that it has left the ground the evidence covers. Time-series inputs aren't supported yet; a caller who needs one loops over single values.
 """,
     ),
     HelpTopic(
@@ -956,6 +1025,8 @@ Only to models an AI built: when most factors were added by a person, no checkpo
 - **ACH:** best for choosing between competing explanations — which one the evidence fails to rule out, and which pieces of evidence the conclusion turns on. See the dedicated Analysis of Competing Hypotheses topic.
 - **Decision tree:** best for a choice whose outcome depends on chance — the best strategy by expected value, what knowing each uncertainty first would be worth, and the probabilities at which the choice flips. See the dedicated Decision Trees topic.
 - **Markov model:** best for what happens to a group over time — moving between states such as well, ill and dead — and what each strategy costs and achieves, with cost-effectiveness (ICERs, net benefit). See the dedicated Markov Cohort Models topic.
+- **Argument map:** best for a case argued to a board, client or reviewer — whether the conclusion stands, the reasons it stands on, the objections still unanswered and the premises it turns on. See the dedicated Argument Maps topic.
+- **Equation model:** best for a model built on physics or published relationships — what the formulas give for your inputs, with units checked, every coefficient sourced, and values outside their valid range flagged. See the dedicated Equation Models topic.
 
 ## Which factors are in which model type
 
@@ -963,7 +1034,7 @@ A model can be several types at once. Every factor and link is in every chosen t
 
 ## Planned model types
 
-On the roadmap: influence diagrams (for decisions), argument maps, and Goal Structuring Notation (for safety cases) once argument maps exist. Causal identification is being folded into the DAG view rather than offered as a separate model type.
+On the roadmap: influence diagrams (for decisions), and Goal Structuring Notation (for safety cases) as a vocabulary over argument maps. Causal identification is being folded into the DAG view rather than offered as a separate model type.
 
 Other registered types — regression (effect estimation ships as an analysis on DAGs instead: `latris analyse estimate`), fishbone diagrams, flowcharts, state machines and Petri nets — are not currently planned. Any type is admitted only if its reasoning stays inspectable; Monte Carlo / PSA is an analysis layer over parameterized models, not a model type of its own.
 
@@ -1005,6 +1076,11 @@ Selected model types drive readiness checks, Configure suggestions, Analyse view
 - "What does each option cost and achieve over years, and is the better one
   worth its price?" → **Markov model** — a cohort moving between states,
   with cost-effectiveness.
+- "Does the case hold up, and what does it rest on?" → **Argument map** —
+  a conclusion, the reasons for it and the objections to them.
+- "What do the equations give for these inputs, and how far can I trust
+  it?" → **Equation model** — sourced formulas with units, scenarios,
+  sweeps and Monte Carlo.
 
 One substrate carries across: factors, links, evidence and challenges all
 stay when you quantify a CLD as FCM/BN/SD later — nothing is redrawn, and
@@ -1088,6 +1164,7 @@ Each is `latris sd …` on the command line (e.g. `latris sd check`, `latris sd 
 - **`sd set-uncertainty <node> <distribution> …`** — how uncertain a constant or initial value is, in its own units: uniform (`--min --max`), triangular (`--min --mode --max`), normal/lognormal (`--mean --sd`, optional `--min/--max` truncation), beta (`--alpha --beta`, scaled to min..max), gamma (`--shape --scale`); with `--reason`/`--source`/`--origin`. `sd uncertainty`, `sd clear-uncertainty`.
 - **`sd monte-carlo`** — samples every value that has a range (Latin hypercube by default, `--seed` for repeatability, `--runs` up to 1000) and reports each variable's percentile bands over time (50/75/95/100% of runs) and which uncertain values drive the spread (rank correlation).
 - **`sd compare <variable> -s OptionA -s OptionB`** — options under uncertainty: the baseline (the model with no scenario changes) and each saved scenario run on the *same* sampled draws, so each difference is measured draw by draw. Gives each option's median, 95% range and central-value run, the paired difference from its **reference** and the share of draws where it is lower or higher (`--metric`, including `total`, the sum over the run). The reference is named on every row: an option that extends a compared scenario is measured against it (delayed vs undelayed — the cost of waiting), the rest against the baseline; `--reference NAME` sets one reference for every option. A delayed-sounding option measured only against the baseline, or one whose parent isn't compared, gets a warning. Each claim names the result, the metric, the reference and the world it holds in. Shown as an options table in the report.
+- **`analyse global-sensitivity sd --variable <variable> [--metric …] [--method sobol|morris]`** — every ranged value varied at once: each one's share of the result's variance, alone and through interactions (see the Analyse Canvas topic). Needs two or more ranges.
 - **`sd sensitivity <variable>`** — a tornado: each constant and initial value swung across its range's 5th–95th percentile (or ±10%), ranked by how far it moves one result (`--metric final|peak|peak-time|min|mean|total|at:T`); values with a stated range rank apart from ±10% probes, values with no effect in the run are marked inactive, and values that aren't human-verified are flagged.
 - **`--apply-to-all "Variable=value"`** on `sd simulate`, `sd monte-carlo`, `sd compare` and `sd sensitivity` — values that hold in every run, the baseline included (a high-load world, say). `--set` instead adds an unsaved what-if as one more scenario.
 - **`sd loops`** — which feedback loop drives the behaviour, and when (Loops That Matter, with the 2023 flow-to-stock revision): loops through the stocks and equations are scored at each step, and a loop (or the fewest loops) holding half the score dominates. Dominant loops built on unsourced or contested links are flagged. Scores are zero when the stocks stop changing — the method explains change, not equilibrium.
@@ -1432,9 +1509,15 @@ When the same uncertainty appears under several choices — demand if you launch
 
 The result is recorded for the report and goes out of date when the tree or a value changes.
 
+## How sure is the choice? (probabilistic sensitivity analysis)
+
+Give uncertain inputs a range with `latris dt range`: a terminal's payoff (`latris dt range "Launched, high demand" normal --mean 500 --sd 100`), a branch's value (`--quantity value`), the probability of one branch of a two-branch chance node (`latris dt range "Demand if launched -> Launched, high demand" beta --mean 0.4 --sd 0.1` — the other branch takes the rest), or every branch probability of a chance node as a Dirichlet worth n observations (`latris dt range "Demand if launched" dirichlet --n 50`). A beta (probabilities) or gamma (costs) takes the mean and standard error a study reports; uniform, triangular, normal and lognormal take their own parameters. Each range keeps its reason, source and whether a person checked it, and must include the current value. Chance nodes named as one uncertainty take the same sampled probabilities.
+
+`latris dt psa` then samples every range together (seeded Latin hypercube) and rolls the tree back for each sample: each first choice's expected value across the runs (mean, 5th–95th percentile), **how often each option is best**, the **expected value of perfect information on the parameters** — the most it's worth to remove all of this uncertainty before choosing — the **partial EVPI** of each input on its own (what one study of it could at most be worth), and which inputs drive the advantage of the best option over the runner-up (rank correlation). Inputs without a range are held fixed and listed. Two values from the same source can be sampled together: `latris dt correlate "Launched, high demand" "Launched, low demand" 0.6 --reason "one finance model"` (a rank correlation, -0.99 to 0.99; each keeps its own range). It is recorded with a chart, and goes out of date when a value or range changes.
+
 ## Practical caution
 
-Expected value is risk-neutral: a strategy with a small chance of ruin can still come out best. Probabilities and payoffs are point values. Perfect information is an upper bound — real research is imperfect and worth less. Methods: Raiffa (1968), Clemen & Reilly (2014), Howard (1966).
+Expected value is risk-neutral: a strategy with a small chance of ruin can still come out best. Probabilities and payoffs are point values unless given a range, and ranges are sampled independently. Perfect information is an upper bound — real research is imperfect and worth less. Methods: Raiffa (1968), Clemen & Reilly (2014), Howard (1966).
 """,
     ),
     HelpTopic(
@@ -1454,9 +1537,84 @@ Each state can have a **cost** per cycle and a **utility** — a quality-of-life
 
 The result is recorded for the report and goes out of date when any value changes.
 
+## Probabilistic sensitivity analysis and acceptability curves
+
+Every probability, cost and utility is an estimate. Give one a range with `latris markov range`: a transition (`latris markov range "Healthy -> Sick" beta --mean 0.10 --sd 0.02`), a state's cost or utility (`latris markov range Sick gamma --quantity cost --mean 3000 --sd 600`), or all of a state's transitions out as a Dirichlet worth n observations (`--quantity leaving dirichlet --n 200`), so they can't sum past 1. `--strategy "New drug"` puts the range on that strategy's own value. The usual families are beta for probabilities and utilities and gamma for costs, each by the mean and standard error a study reports.
+
+`latris markov psa` samples every range together (seeded Latin hypercube) and reruns the cohort for each sample. It gives each strategy's cost and outcome across the runs (mean, 5th–95th percentile), the incremental analysis on the means (probabilistic ICERs), the **cost-effectiveness acceptability curve** — at each willingness to pay, the probability each strategy is the most cost-effective — and the **expected value of perfect information** per person (the most further research could be worth), with the **partial EVPI** of each input — which single study would be worth most. With a willingness to pay set, it names the strategy to choose, how often it is cost-effective, and which inputs drive its net benefit over the runner-up. Recorded with a chart; it goes out of date when a value or range changes.
+
 ## Practical caution
 
-The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Values are point estimates — probabilistic sensitivity analysis is not yet available. Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015).
+The model is memoryless: the chance of moving depends only on the current state, not on how long someone has been in it. Ranges are sampled independently unless you correlate two of them (`latris markov correlate "Healthy -> Sick" "Healthy -> Sick" 0.8 --other-strategy "New drug"` for two rates from one cohort; `--quantity` / `--other-quantity` for a state's cost or utility); separately sampled probabilities of leaving a state that sum past 1 are scaled down (the report counts the runs — use a Dirichlet to avoid it). The partial EVPI is estimated from the same runs (slightly high with few runs); there is no value of sample information (EVSI). Methods: Sonnenberg & Beck (1993), Briggs, Claxton & Sculpher (2006), Drummond et al. (2015), Fenwick, Claxton & Sculpher (2001).
+""",
+    ),
+    HelpTopic(
+        id="model-type-argument-map",
+        title="Argument Maps",
+        category="model-types",
+        summary="Lay out an argument and see whether its conclusion stands, and what it rests on.",
+        body="""## What an argument map represents
+
+A **conclusion** — what is being argued for — and the **claims** offered for and against it. Give each factor its element (`latris argument element <factor> conclusion|claim|question`; a question is the issue the conclusion answers). A link from a premise to the claim it bears on is an ordinary link (`latris edge add "Premise" "Claim"`); say how it bears with `latris argument link "Premise -> Claim"`:
+
+- `--relation supports` (the default) or `attacks` — an objection. An objection to an objection is an answer to it (a rebuttal): it attacks the objection.
+- `--reason NAME` — premises that only work together ("it works *and* we can afford it") share a reason name; a premise with no reason name is a reason on its own.
+- `--warrant` — why the premise bears on the claim; `--qualifier certainly|probably|possibly` — how strongly the arguer says it does.
+
+A claim's **grounds** are its ordinary sources: `latris evidence add <claim> description <key>`, then `latris evidence check` once read. To object to an **inference** rather than a premise ("even if that's true, it doesn't follow"), open a challenge on the link: `latris challenge open "Premise -> Claim" "…"` — the reason counts for nothing until the challenge is resolved. A person can accept or reject a premise the map doesn't argue further: `latris argument claim <claim> rejected --rationale "…"`.
+
+## What the analysis shows
+
+`latris argument analyse` labels every claim (grounded labelling, Dung 1995): it **stands** when every objection to it is defeated and a reason for it holds — or it is a premise taken as given (not argued further, not rejected, and its sources don't dispute it); it is **defeated** when an objection to it stands or every reason offered for it fails; otherwise it is **undecided** (a premise whose source disputes it, or two claims attacking each other). Then:
+
+- whether the **conclusion stands**, and the reasons it stands on;
+- **unanswered objections** — those still standing, anywhere under the conclusion;
+- **linchpins** — premises whose rejection alone would stop the conclusion standing, with whether their sources are checked;
+- what the premises rest on: checked sources, unchecked ones, a person's acceptance, or nothing — so "it stands" never hides "it stands on assertion";
+- reasons with no warrant, and inferences under challenge.
+
+The result is recorded for the report with a diagram, and goes out of date when the map, a source or a challenge changes.
+
+## Practical caution
+
+The evaluation is qualitative: qualifiers are reported, not weighed, and one strong reason counts as much as several weak ones. A premise you don't argue further stands by default — that is what the report's "no source" list is for. Methods: Toulmin (1958), Kunz & Rittel (1970), Dung (1995), Cayrol & Lagasquie-Schiex (2005), Pollock (1987).
+""",
+    ),
+    HelpTopic(
+        id="model-type-equation-model",
+        title="Equation Models",
+        category="model-types",
+        summary="Compute with sourced formulas: what a physical law or published relationship gives for your inputs.",
+        body="""## What an equation model represents
+
+Quantities joined by formulas, with units and no clock: a physical law, an engineering relationship, a published parameterisation. Each quantity is a factor with one of four roles:
+
+- an **input** is something the model is given (a depth, a dose, a rainfall total): `latris eq input Depth 1.2 m --min 0.2 --max 3`;
+- a **parameter** is a coefficient of the method (a roughness, an emission factor): `latris eq parameter Roughness 0.035 "s/m**(1/3)" --source chow-1959 --min 0.025 --max 0.05`;
+- a **computed** quantity has a formula over the others: `latris eq formula Velocity "hydraulic_radius ** (2/3) * SQRT(slope) / roughness" m/s --source manning-1891`;
+- an **output** is a computed quantity that is a result: add `--output`.
+
+A formula names other quantities by their label in lower case with underscores (Hydraulic radius is `hydraulic_radius`), so work from the inputs up. It can use arithmetic, `**` and `MIN`, `MAX`, `ABS`, `IF_THEN_ELSE`, `EXP`, `LN`, `LOG10`, `SQRT`, `SIN`, `COS`, `TAN` and `MODULO`. Setting a formula adds the links it needs to the map, so the diagram shows what each quantity is computed from.
+
+**Units are checked.** Every value carries its units through the formulas, so a formula that adds metres to seconds, or gives m/s where you declared m, is refused by `latris eq check`. Where an empirical formula hides units in a coefficient, give the coefficient those units (Manning's roughness is in `s/m**(1/3)`).
+
+**Valid ranges.** `--min` and `--max` state the range a value is good for, usually the range its source covered. Every analysis reports a value outside its range as an extrapolation. Nothing is clamped: you see the number and the warning together.
+
+## What the analyses show
+
+- `latris eq evaluate` works the model out: every quantity at the reference values, and under each **scenario** you have saved (`latris eq scenario "Design flood" --set "Depth=2.5 m"`).
+- `latris eq sweep --input Depth` moves one input across a range (by default its valid range), holding the rest, and gives the output's curve, whether it rises or falls throughout, and how many percent the output changes for a one percent change in the input.
+- `latris eq monte-carlo` answers "how sure is the result?": give inputs and parameters a range (`latris eq uncertainty Roughness triangular --min 0.025 --mode 0.035 --max 0.05 --reason "range across the cited channels"`), and it samples them, recomputes, and reports each output's spread and which values drive it.
+
+Each result is recorded for the report with a chart, and goes out of date when a value, formula or range changes.
+
+## In the app
+
+The model is drawn on the Formalise canvas: inputs and parameters as rounded boxes, formulas as square ones (an output in bold), each with its value, and an arrow for each quantity a formula reads. Double-click the canvas to add a quantity, or add the factors in Build: they don't need linking there, because saving a formula adds the links to what it reads. Select a quantity to set its role, value or formula, units, valid range and uncertainty in the inspector. In Analyse, **Evaluate the model** works it out under the reference values and your scenarios (kept in the same pane), and the input sweep and Monte Carlo are under **More analyses**.
+
+## Practical caution
+
+Passing the units check does not make a formula right, and an empirical relationship is only as good as the study behind it: record the source of every formula and coefficient, and state its valid range. Formulas must be explicit; a set that depends on itself is refused, not solved. Temperatures in formulas must be in kelvin. Sweeps move one input at a time, and the Monte Carlo samples ranges independently. Methods: Buckingham (1914) and Bridgman (1922) on dimensional analysis; JCGM 101:2008 on propagating distributions by Monte Carlo.
 """,
     ),
     HelpTopic(
@@ -1808,7 +1966,7 @@ Invite someone by **email** from **People** in the Versions view. They get an ac
 
 ## Report link
 
-Under **People**, the owner can turn on a **report link**: a read-only web page of the project's report (with its diagram) that anyone with the link can open — no account needed, and it isn't indexed by search engines. Pick which report pack it shows. It's off by default. Turning it off and on again issues a new link, so an old one stops working.
+Under **People**, the owner can turn on a **report link**: a read-only web page of the project's report (with its diagram) that anyone with the link can open — no account needed, and it isn't indexed by search engines. Pick which report pack it shows; the page has a contents list beside it (at the top on a phone). It's off by default. Turning it off and on again issues a new link, so an old one stops working.
 
 ## Models made in a chat
 

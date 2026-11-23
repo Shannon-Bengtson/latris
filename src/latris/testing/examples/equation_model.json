@@ -1,0 +1,190 @@
+{
+ "model_type": "equation_model",
+ "factors": [
+  {
+   "label": "Flow depth",
+   "description": "Depth of water in the channel."
+  },
+  {
+   "label": "Channel width",
+   "description": "Bed width of the rectangular channel."
+  },
+  {
+   "label": "Bed slope",
+   "description": "Fall of the channel bed per unit length."
+  },
+  {
+   "label": "Roughness",
+   "description": "Manning's roughness coefficient n for the channel lining."
+  },
+  {
+   "label": "Flow area",
+   "description": "Cross-section of the flow."
+  },
+  {
+   "label": "Hydraulic radius",
+   "description": "Flow area divided by the wetted perimeter."
+  },
+  {
+   "label": "Velocity",
+   "description": "Mean velocity of uniform flow."
+  },
+  {
+   "label": "Discharge",
+   "description": "Volume of water passing per second."
+  }
+ ],
+ "links": [],
+ "sources": [
+  {
+   "key": "manning1891",
+   "title": "On the flow of water in open channels and pipes",
+   "authors": [
+    "Manning, R."
+   ],
+   "year": 1891,
+   "container": "Transactions of the Institution of Civil Engineers of Ireland"
+  },
+  {
+   "key": "chow1959",
+   "title": "Open-Channel Hydraulics",
+   "authors": [
+    "Chow, V. T."
+   ],
+   "year": 1959,
+   "container": "McGraw-Hill"
+  }
+ ],
+ "equation_model": {
+  "values": [
+   {
+    "node": "Flow depth",
+    "role": "input",
+    "value": 1.2,
+    "units": "m",
+    "valid_min": 0.2,
+    "valid_max": 3.0,
+    "origin": "human-direct",
+    "notes": "Survey range for this reach."
+   },
+   {
+    "node": "Channel width",
+    "role": "input",
+    "value": 8.0,
+    "units": "m",
+    "origin": "human-direct"
+   },
+   {
+    "node": "Bed slope",
+    "role": "input",
+    "value": 0.001,
+    "units": "dimensionless",
+    "valid_min": 0.0001,
+    "valid_max": 0.01,
+    "origin": "human-direct"
+   },
+   {
+    "node": "Roughness",
+    "role": "parameter",
+    "value": 0.035,
+    "units": "s/m**(1/3)",
+    "valid_min": 0.025,
+    "valid_max": 0.05,
+    "source": "chow1959",
+    "origin": "human-direct",
+    "verified": true,
+    "notes": "Natural stream, some weeds and stones."
+   }
+  ],
+  "formulas": [
+   {
+    "node": "Flow area",
+    "role": "computed",
+    "expression": "channel_width * flow_depth",
+    "units": "m**2",
+    "origin": "human-direct"
+   },
+   {
+    "node": "Hydraulic radius",
+    "role": "computed",
+    "expression": "flow_area / (channel_width + 2 * flow_depth)",
+    "units": "m",
+    "origin": "human-direct"
+   },
+   {
+    "node": "Velocity",
+    "role": "computed",
+    "expression": "hydraulic_radius ** (2/3) * SQRT(bed_slope) / roughness",
+    "units": "m/s",
+    "source": "manning1891",
+    "origin": "human-direct",
+    "verified": true,
+    "notes": "Uniform, fully turbulent flow."
+   },
+   {
+    "node": "Discharge",
+    "role": "output",
+    "expression": "velocity * flow_area",
+    "units": "m**3/s",
+    "origin": "human-direct"
+   }
+  ],
+  "uncertainty": [
+   {
+    "node": "Roughness",
+    "distribution": "triangular",
+    "params": {
+     "min": 0.025,
+     "mode": 0.035,
+     "max": 0.05
+    },
+    "reason": "Range for natural streams of this kind.",
+    "source": "chow1959",
+    "origin": "human-direct"
+   },
+   {
+    "node": "Bed slope",
+    "distribution": "uniform",
+    "params": {
+     "min": 0.0008,
+     "max": 0.0012
+    },
+    "reason": "Survey accuracy.",
+    "origin": "human-direct"
+   }
+  ],
+  "scenarios": [
+   {
+    "name": "Design flood",
+    "set": [
+     "Flow depth=3.5 m"
+    ],
+    "description": "Bankfull stage in the design event.",
+    "origin": "human-direct"
+   },
+   {
+    "name": "Low flow",
+    "set": [
+     "Flow depth=0.4 m"
+    ],
+    "description": "Late-summer stage.",
+    "origin": "human-direct"
+   }
+  ]
+ },
+ "analyses": [
+  {
+   "kind": "eq_evaluate"
+  },
+  {
+   "kind": "eq_sweep",
+   "input": "Flow depth",
+   "target": "Discharge"
+  },
+  {
+   "kind": "eq_monte_carlo",
+   "runs": 500,
+   "seed": 7
+  }
+ ]
+}

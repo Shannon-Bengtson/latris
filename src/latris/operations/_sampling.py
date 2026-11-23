@@ -133,8 +133,10 @@ def sample(
     *,
     seed: int,
     method: str = "lhs",
+    correlations: dict[tuple[str, str], float] | None = None,
 ) -> list[dict[str, float]]:
-    """``n`` joint draws (independent parameters). ``lhs`` stratifies each parameter into n bins."""
+    """``n`` joint draws. ``lhs`` stratifies each parameter into n bins. Parameters are independent unless
+    ``correlations`` pairs some keys with a rank correlation, induced by :func:`induce_correlation`."""
     if n < 1:
         raise ValueError("need at least one run")
     if method not in ("lhs", "random"):
@@ -151,7 +153,56 @@ def sample(
         else:
             us = [rng.random() for _ in range(n)]
         columns[k] = [samplers[k].ppf(u) for u in us]
+    if correlations:
+        columns = induce_correlation(columns, correlations, seed=seed)
     return [{k: columns[k][i] for k in keys} for i in range(n)]
+
+
+def correlation_matrix(keys: list[str], correlations: dict[tuple[str, str], float]) -> Any:
+    """The target rank-correlation matrix over ``keys``; ValueError if it isn't a possible one."""
+    import numpy as np
+
+    idx = {k: i for i, k in enumerate(keys)}
+    c = np.eye(len(keys))
+    for (a, b), rho in correlations.items():
+        c[idx[a], idx[b]] = c[idx[b], idx[a]] = rho
+    if np.linalg.eigvalsh(c).min() <= 1e-9:
+        raise ValueError("these correlations can't all hold at once (the matrix isn't positive definite): "
+                         "e.g. A and B strongly positive, B and C strongly positive, but A and C negative")
+    return c
+
+
+def induce_correlation(columns: dict[str, list[float]], correlations: dict[tuple[str, str], float], *,
+                       seed: int) -> dict[str, list[float]]:
+    """Reorder each correlated column so the draws carry the target rank correlations (Iman & Conover 1982).
+
+    Only the pairing of values across columns changes, so every parameter keeps exactly the values — and the
+    Latin hypercube strata — it was drawn with. Van der Waerden scores, randomly permuted per column, are
+    given the target correlation by Cholesky factors; each column then takes the ranks of its scores.
+    """
+    from statistics import NormalDist
+
+    import numpy as np
+
+    keys = sorted({k for pair in correlations for k in pair if k in columns})
+    pairs = {p: r for p, r in correlations.items() if p[0] in columns and p[1] in columns}
+    if len(keys) < 2 or not pairs:
+        return columns
+    n = len(columns[keys[0]])
+    target = correlation_matrix(keys, pairs)
+    rng = np.random.default_rng(seed + 104_729)
+    scores = np.array([NormalDist().inv_cdf((i + 1) / (n + 1)) for i in range(n)])
+    r = np.column_stack([rng.permutation(scores) for _ in keys])
+    t = np.corrcoef(r, rowvar=False)
+    q = np.linalg.cholesky(t)
+    p = np.linalg.cholesky(target)
+    s = r @ np.linalg.inv(q).T @ p.T
+    out = dict(columns)
+    for j, k in enumerate(keys):
+        ordered = sorted(columns[k])
+        rank = np.argsort(np.argsort(s[:, j], kind="stable"), kind="stable")
+        out[k] = [ordered[i] for i in rank]
+    return out
 
 
 def percentile(sorted_values: Sequence[float], pct: float) -> float:

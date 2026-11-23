@@ -1,4 +1,8 @@
-"""simpleeval adapter — the ONLY module that evaluates SD equation strings.
+"""simpleeval adapter — the ONLY module that evaluates equation strings.
+
+It serves system dynamics and the equation model (``operations/equation_model.py``): one sandbox and one
+unit check, with a function list per type (:data:`FUNCTIONS` for SD, :data:`ALGEBRAIC_FUNCTIONS` for a
+model with no clock).
 
 Equations are untrusted text (typed by a modeller, or proposed by an agent), so
 they are never handed to Python's ``eval``. They are parsed with ``ast`` and
@@ -43,6 +47,12 @@ FUNCTIONS: tuple[str, ...] = (
     "SMOOTH", "SMOOTH3", "DELAY1", "DELAY3",
 )
 
+# What a model with no clock may call (the equation model): no TIME, no STEP/RAMP/PULSE, no delays, and
+# no TABLE (lookup tables are not part of that type yet). LOG10 and TAN are its own additions.
+ALGEBRAIC_FUNCTIONS: tuple[str, ...] = (
+    "MIN", "MAX", "ABS", "IF_THEN_ELSE", "EXP", "LN", "LOG10", "SQRT", "SIN", "COS", "TAN", "MODULO",
+)
+
 _MAX_EXPONENT = 100
 
 _ALLOWED_NODES: tuple[type[ast.AST], ...] = (
@@ -79,8 +89,11 @@ class ParsedEquation:
     uses_table: bool
 
 
-def parse(expression: str) -> ParsedEquation:
-    """Parse and whitelist-check an equation; collect the variable names it reads."""
+def parse(expression: str, *, functions: tuple[str, ...] = FUNCTIONS, clock: bool = True) -> ParsedEquation:
+    """Parse and whitelist-check an equation; collect the variable names it reads.
+
+    ``functions`` is what it may call (SD's by default); ``clock=False`` refuses ``TIME``.
+    """
     text = (expression or "").strip()
     if not text:
         raise EquationError("equation is empty")
@@ -95,7 +108,7 @@ def parse(expression: str) -> ParsedEquation:
         if not isinstance(node, _ALLOWED_NODES):
             raise EquationError(
                 f"{type(node).__name__} is not allowed in an equation ({text!r}); "
-                f"use arithmetic, comparisons, and the functions {', '.join(FUNCTIONS)}"
+                f"use arithmetic, comparisons, and the functions {', '.join(functions)}"
             )
         if isinstance(node, ast.Constant) and not isinstance(node.value, int | float):
             raise EquationError(f"only numeric literals are allowed in an equation, got {node.value!r}")
@@ -105,15 +118,17 @@ def parse(expression: str) -> ParsedEquation:
             if node.keywords:
                 raise EquationError(f"keyword arguments are not supported in {text!r}")
             fname = node.func.id
-            if fname not in FUNCTIONS:
-                hint = f" (did you mean {fname.upper()}?)" if fname.upper() in FUNCTIONS else ""
-                raise EquationError(f"unknown function {fname!r}{hint}; available: {', '.join(FUNCTIONS)}")
+            if fname not in functions:
+                hint = f" (did you mean {fname.upper()}?)" if fname.upper() in functions else ""
+                raise EquationError(f"unknown function {fname!r}{hint}; available: {', '.join(functions)}")
             calls.add(fname)
 
     called = {n.func.id for n in ast.walk(tree) if isinstance(n, ast.Call)}  # type: ignore[union-attr]
     for node in ast.walk(tree):
         if isinstance(node, ast.Name) and node.id not in called and node.id not in (TIME, PI):
             names.add(node.id)
+        if isinstance(node, ast.Name) and node.id == TIME and not clock:
+            raise EquationError(f"TIME is not available in {text!r}: this model has no clock")
 
     parsed_node = _PARSER.parse(text)
     return ParsedEquation(expression=text, node=parsed_node, names=frozenset(names), uses_table="TABLE" in calls)
@@ -211,6 +226,17 @@ def _sqrt(x: Any) -> Any:
     return math.sqrt(x)
 
 
+def _log10(x: Any) -> Any:
+    v = _dimensionless(x, "LOG10")
+    if v <= 0:
+        raise EquationError("LOG10 of a non-positive number")
+    return Quantity(math.log10(v), "dimensionless")
+
+
+def _tan(x: Any) -> Any:
+    return Quantity(math.tan(_dimensionless(x, "TAN")), "dimensionless")
+
+
 def _sin(x: Any) -> Any:
     return Quantity(math.sin(_dimensionless(x, "SIN")), "dimensionless")
 
@@ -269,6 +295,7 @@ class Evaluator:
                 "MIN": _min, "MAX": _max, "ABS": _abs, "IF_THEN_ELSE": _if_then_else,
                 "STEP": self._step, "RAMP": self._ramp, "PULSE": self._pulse, "TABLE": self._table_lookup,
                 "EXP": _exp, "LN": _ln, "SQRT": _sqrt, "SIN": _sin, "COS": _cos, "MODULO": _modulo,
+                "LOG10": _log10, "TAN": _tan,  # only the equation model's parse lets these through
             },
             names={},
         )

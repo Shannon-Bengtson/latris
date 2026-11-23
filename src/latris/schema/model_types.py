@@ -33,7 +33,8 @@ class ModelFamily:
 # In the order a picker shows them.
 MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ModelFamily("causal", "Causal & Systems Thinking",
-                "Map causal structure, feedback, and accumulation over time; lay out programme logic."),
+                "Map causal structure, feedback, and accumulation over time; compute with sourced formulas; "
+                "lay out programme logic."),
     ModelFamily("risk", "Risk & Safety",
                 "Quantify uncertainty, analyse failures and barriers, and build assurance cases."),
     ModelFamily("decisions", "Decisions & Evidence",
@@ -663,24 +664,65 @@ register_model_type(
         id="argument_map",
         display_name="Argument Map",
         short_name="AM",
-        description="Toulmin/IBIS-style argumentation: claims, warrants, evidence, rebuttals.",
+        description=(
+            "An argument laid out as claims, the reasons for and objections against them, and the answers to "
+            "those: whether the conclusion stands, what it rests on, and which objection is still unanswered."
+        ),
         family="decisions",
         summary=(
-            "A structured representation of argumentation following Toulmin or IBIS frameworks. Claims are "
-            "supported or attacked by evidence, warrants, rebuttals, and qualifiers."
+            "A conclusion and the claims offered for and against it (Toulmin, IBIS). A premise supports or "
+            "attacks a claim; premises in one reason work only together; each link can state its warrant. "
+            "The map is evaluated by grounded labelling: each claim stands, is defeated, or is undecided."
         ),
-        answers="What supports or attacks this claim?",
+        answers="Does the conclusion stand, and what does it rest on?",
         best_for=(
-            "Deliberative reasoning, policy debate analysis, structured evidence review, and critical thinking "
-            "pedagogy."
+            "A case argued to a board, client or reviewer: a policy or business case, a recommendation, a "
+            "structured evidence review, and the objections it has to answer."
         ),
         key_features=(
-            "Claims, warrants, evidence, rebuttals",
-            "Support and attack relationships",
-            "Toulmin / IBIS / argdown compatible",
+            "Supporting reasons (linked or independent) and objections",
+            "Each claim's grounds from its checked sources; challenges as objections to an inference",
+            "Whether the conclusion stands, its linchpins, and unanswered objections",
         ),
-        roadmap="roadmap",
-        availability="planned",
+        roadmap="built",
+        availability="stable",
+        structural_validators=("am_structure", "am_conclusion_argued"),
+        allowed_roles=("conclusion", "claim", "question"),
+        required_roles=("conclusion", "claim"),
+    )
+)
+
+register_model_type(
+    ModelTypeSpec(
+        id="equation_model",
+        display_name="Equation Model",
+        short_name="Equations",
+        description=(
+            "Quantities joined by sourced formulas, with units checked and no clock: what a physical law or "
+            "a published parameterisation gives for these inputs, how an output responds to each input, and "
+            "how sure the result is."
+        ),
+        family="causal",
+        summary=(
+            "Inputs and parameters with units, and formulas that turn them into outputs. Each formula and "
+            "each coefficient names its source and the range it is valid over; the units are checked, and a "
+            "value outside its valid range is reported as an extrapolation."
+        ),
+        answers="What do the equations give for these inputs, and how far can the answer be trusted?",
+        best_for=(
+            "Models built on physics or published relationships: hydraulics, energy and emissions "
+            "calculations, dose-response curves, engineering design checks."
+        ),
+        key_features=(
+            "Formulas with dimensional analysis: a unit error is caught, not computed",
+            "A source and a valid range on every coefficient and input",
+            "Scenarios, input sweeps and Monte Carlo over the ranges",
+        ),
+        roadmap="built",
+        availability="stable",
+        structural_validators=("eq_quantities_complete", "eq_formulas_valid", "eq_links_match"),
+        allowed_roles=("input", "parameter", "computed", "output"),
+        required_roles=("output",),
     )
 )
 

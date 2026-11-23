@@ -390,6 +390,9 @@ def _coverage_ids(substrate, paths=None, model_type: str | None = None) -> tuple
     """
     prefix = f"{_scope_noun(model_type)} " if _scope_noun(model_type) and paths is not None and _is_scoped(
         paths, model_type) else ""
+    if paths is not None and _parameter_sources(paths, model_type) is not None:
+        # The type's claims are its own values and formulas (an equation model), each naming its source.
+        return {e.id for e in substrate.entities}, f"{prefix}quantities"
     edge_ids = {e.id for e in substrate.edges}
     if edge_ids:
         return edge_ids - (_by_definition_ids(paths) if paths is not None else set()), f"{prefix}links"
@@ -424,14 +427,24 @@ def _element_names(substrate, ids: list[str]) -> list[str]:
     return out
 
 
-def _for_ids(evidence) -> set[str]:
+def _parameter_sources(paths, model_type: str | None) -> dict[str, bool] | None:
+    """Factor id → verified?, for a type whose own values name their sources (``Formalism.parameter_sources``);
+    ``None`` for every other type, whose claims are its links."""
+    plugin = formalisms.get(model_type)
+    return plugin.parameter_sources(paths) if plugin and plugin.parameter_sources else None
+
+
+def _for_ids(evidence, paths=None, model_type: str | None = None) -> set[str]:
     """Targets with at least one source *for* them (contradicting sources don't cover a claim)."""
-    return {e.target_id for e in evidence.entries if e.target_id is not None and not e.is_against}
+    own = _parameter_sources(paths, model_type) if paths is not None else None
+    return {e.target_id for e in evidence.entries if e.target_id is not None and not e.is_against} | set(own or {})
 
 
-def _supported_ids(evidence) -> set[str | None]:
+def _supported_ids(evidence, paths=None, model_type: str | None = None) -> set[str | None]:
     """Targets with a source checked and found to support them."""
-    return {e.target_id for e in evidence.entries if e.support_verdict == "supports" and not e.is_against}
+    own = _parameter_sources(paths, model_type) if paths is not None else None
+    return ({e.target_id for e in evidence.entries if e.support_verdict == "supports" and not e.is_against}
+            | {i for i, verified in (own or {}).items() if verified})
 
 
 def _contested(substrate, evidence) -> list[str]:
@@ -521,7 +534,7 @@ def coverage_ratio(model_type: str, paths) -> tuple[int, int, float]:
     if total == 0:
         return 0, 0, 1.0
 
-    cited_targets = _for_ids(evidence)
+    cited_targets = _for_ids(evidence, paths, model_type)
     cited = len(all_ids & cited_targets)
     return cited, total, cited / total
 
@@ -822,8 +835,8 @@ def _extract_evidence_gaps(model_type: str, paths) -> list[str]:
     evidence_path = paths.evidence_links_yaml
     evidence = load_model_or_default(EvidenceLinkSet, evidence_path)
 
-    linked_ids = _for_ids(evidence)
-    supported_ids = _supported_ids(evidence)
+    linked_ids = _for_ids(evidence, paths, model_type)
+    supported_ids = _supported_ids(evidence, paths, model_type)
     all_ids, noun = _coverage_ids(substrate, paths, model_type)
 
     total = len(all_ids)
@@ -860,8 +873,8 @@ def _extract_evidence_coverage(model_type: str, paths) -> list[str]:
     # link with support_verdict != "supports" is a proposed citation, not
     # verified backing; report the two figures separately so the partner
     # reviewer knows what proportion of the model is actually grounded.
-    evidence_target_ids = _for_ids(evidence)
-    supported_target_ids = _supported_ids(evidence)
+    evidence_target_ids = _for_ids(evidence, paths, model_type)
+    supported_target_ids = _supported_ids(evidence, paths, model_type)
     uncited_ids = all_ids - evidence_target_ids
     cited_count = len(all_ids) - len(uncited_ids)
     supported_count = len(all_ids & supported_target_ids)
@@ -1018,8 +1031,8 @@ def _extract_confidence(model_type: str, paths) -> list[str]:
     # Supported coverage requires support_verdict == "supports" — i.e. the
     # source was actually read and the claim was backed. Reporting only the
     # linked-percentage rewards title-only citation stuffing.
-    linked_elements = len(all_ids & _for_ids(evidence))
-    supported_elements = len(all_ids & _supported_ids(evidence))
+    linked_elements = len(all_ids & _for_ids(evidence, paths, model_type))
+    supported_elements = len(all_ids & _supported_ids(evidence, paths, model_type))
     linked_pct = int(100 * linked_elements / max(total_elements, 1))
     supported_pct = int(100 * supported_elements / max(total_elements, 1))
 

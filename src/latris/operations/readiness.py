@@ -834,7 +834,8 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
 
     Requires at least ``_MIN_NODES_FOR_FORMALISE`` nodes and a single
     weakly-connected network — no orphan nodes and no disjoint sub-graphs —
-    unless every selected model type is one without links (MCDA, ACH, event tree). Factors
+    unless every selected model type is one without links (MCDA, ACH, event tree) or one whose links
+    come from its own values (an equation model's formulas add them in Formalise). Factors
     with a role in a selected formal type are left out of the network check.
     """
     from latris.operations.graph_analysis import weakly_connected_components
@@ -858,13 +859,14 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
     from latris.schema import ProjectFoundation
 
     selected = load_model(ProjectFoundation, paths.project_yaml).selected_model_types
-    link_free = [t for t in selected if (f := formalisms.get(t)) is not None and not f.connected_structure]
+    link_free = [t for t in selected if (f := formalisms.get(t)) is not None
+                 and (not f.connected_structure or f.links_from_values)]
     if selected and len(link_free) == len(selected):
         return TransitionStatus(
             from_phase="build",
             to_phase="formalise",
             light="green",
-            summary="Ready to formalise (these model types don't need links between factors).",
+            summary="Ready to formalise (these model types don't need links drawn between factors first).",
         )
     # A factor with a role in a selected formal type isn't an orphan of the Build network: a link-free
     # type's elements (an MCDA option, an event tree's heading) are unlinked by nature, and a factor

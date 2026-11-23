@@ -46,6 +46,7 @@ from latris.server.routes import (
     completeness,
     compose,
     configure,
+    contract,
     datasets,
     edges,
     evidence,
@@ -282,6 +283,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(history.router)
     app.include_router(layout.router)
     app.include_router(lineage.router)
+    app.include_router(contract.router)
     app.include_router(maturity.router)
     app.include_router(datasets.router)
     app.include_router(findings.router)

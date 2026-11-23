@@ -764,6 +764,7 @@ _CHAT_OPS = (
 
 register(Formalism(
     model_type="bn",
+    predictor="latris.operations.predictors.bn",
     outcome_role=None,
     outcome_refusal=("A Bayesian network has no single outcome — query the factor you care about "
                      "(latris bn query <factor> --state …) instead of giving it an 'outcome' role."),

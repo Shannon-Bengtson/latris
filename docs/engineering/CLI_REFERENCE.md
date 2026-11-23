@@ -236,9 +236,13 @@ Mermaid sketch of the model (section `diagram`, in every pack) that
 renders on GitHub and in most chat UIs, with links coloured by polarity and
 the feedback loops listed under it (R1, B1, …; cycles that differ by one
 alternative step count as one loop). Sections appear in the pack's own
-order: `client` and `publication` lead with the interpretation (answer,
-implications, confidence) and leave out the change log (`history`); the
-client pack shows approved findings only and says how many are waiting. `--report-url` adds a link to the
+order: `client` and `publication` are grouped into parts (`##` Summary,
+The model, What the analysis shows, How confident we are, Technical
+appendix, with each section a `###` beneath), lead with the answer and
+leave out the change log (`history`). They show approved findings only,
+interpretation sections only once written up (merged across model types),
+and only results computed on the current model, with a line counting the
+earlier ones. `--report-url` adds a link to the
 hosted copy of the report in the footer; it defaults to the link recorded
 when the project was shared, if any. `--no-ai` writes the narrative
 preamble without attempting an AI call.
@@ -252,6 +256,11 @@ latris analyse d-sep <x> <y> [--given <z1,z2,...>]
 latris analyse blanket <variable>
 latris analyse paths <from-variable> <to-variable>
 latris analyse adjustment-sets <treatment> <outcome>
+latris analyse global-sensitivity <fault_tree|bow_tie|event_tree|decision_tree|markov|sd|bn>
+    [--method sobol|morris] [-n N] [--seed S] [--output R] [--variable V --metric M (SD)]
+    [--variable F --state S -e "Factor=state" ... (BN)] [--no-record]
+    # Sobol S1/ST with bootstrap 95% (n base samples, a power of two) or Morris μ*/σ (n trajectories),
+    # over every input with a range; recorded (ft-gsa, bt-gsa, et-gsa, dt-gsa, markov-gsa, sd-gsa, bn-gsa)
 latris analyse estimate <treatment> <outcome> --dataset NAME [--adjust F ...] [--no-adjust]
                         [--column "Factor=column" ...] [--model auto|linear|logistic] [--no-record]
 ```
@@ -464,7 +473,8 @@ latris ach analyse [--no-record]                      # ranking by evidence agai
 
 Decision, chance and terminal nodes (view roles); branches are ordinary
 links, each node with one parent. Branch labels, probabilities, values and
-payoffs are stored with provenance. `dt analyse` is recorded (`dt-analysis`).
+payoffs are stored with provenance. `dt analyse` is recorded (`dt-analysis`);
+`dt psa` samples the ranges `dt range` sets (`dt-psa`).
 
 ```bash
 latris dt element <node> <decision|chance|terminal>
@@ -475,13 +485,21 @@ latris dt settings [--objective maximise|minimise] [--units U]
 latris dt show                                         # the tree with expected values; → marks best choices
 latris dt check                                        # one root, a tree, payoffs, probabilities sum to 1
 latris dt analyse [--no-record]                        # best strategy, EVPI, probability thresholds
+latris dt range <target> <distribution> [--quantity payoff|value|probability|probabilities] [--mean M --sd S]
+                [--min] [--mode] [--max] [--alpha] [--beta] [--shape] [--scale] [--n N] [--reason] [--source]
+                [--origin] [--verified] [--clear]   # a terminal, a branch "Parent -> Child", or a chance node (dirichlet)
+latris dt correlate <target> <other> <rho> [--quantity Q] [--other-quantity Q] [--reason] [--source] [--verified]
+                    [--clear]                    # two ranged values sampled together (rank correlation)
+latris dt psa [--runs 2000] [--seed 1234] [--sampling lhs|random] [--no-record]   # spread, how often best, EVPI,
+                                                 # partial EVPI per input, drivers
 ```
 
 ## Markov cohort model
 
 States and strategies (view roles); transitions are ordinary links between
 states. Probabilities, costs, utilities and the start are stored with
-provenance. `markov analyse` is recorded (`markov-analysis`).
+provenance. `markov analyse` is recorded (`markov-analysis`); `markov psa`
+samples the ranges `markov range` sets (`markov-psa`).
 
 ```bash
 latris markov element <node> <state|strategy>
@@ -492,7 +510,80 @@ latris markov settings [--cycles N] [--cycle-length L] [--time-units years] [--d
                        [--half-cycle/--no-half-cycle] [--wtp W] [--cost-units U] [--outcome-units U]
 latris markov show | check
 latris markov analyse [--no-record]            # costs, outcomes, ICERs, dominance, the choice at the WTP
+latris markov range <target> <distribution> [--quantity transition|cost|utility|leaving] [--strategy S]
+                    [--mean M --sd S] [--n N] [...as dt range]   # a transition "From -> To", or a state
+latris markov correlate <target> <other> <rho> [--quantity Q] [--other-quantity Q] [--strategy S]
+                        [--other-strategy S] [--reason] [--source] [--verified] [--clear]
+latris markov psa [--runs 1000] [--seed 1234] [--sampling lhs|random] [--no-record]   # CEAC, EVPI, partial
+                                                 # EVPI per input, drivers
 ```
+
+## Argument map
+
+The conclusion, claims and an optional question (view roles); a link from a
+premise to a claim is an ordinary link. Relations, reasons, warrants,
+qualifiers and assessments are stored with provenance; a claim's grounds are
+its citations, an open challenge on a link an objection to the inference.
+`argument analyse` is recorded (`argument-analysis`). Design:
+[ARGUMENT_MAP.md](ARGUMENT_MAP.md).
+
+```bash
+latris argument element <node> <conclusion|claim|question>
+latris argument link "Premise -> Claim" [--relation supports|attacks] [--reason NAME] [--warrant W]
+                     [--qualifier certainly|probably|possibly] [--notes] [--source] [--origin] [--verified]
+latris argument claim <claim> <accepted|rejected|none> [--rationale R] [--source] [--verified]
+latris argument show | check
+latris argument analyse [--no-record]          # stands / defeated / undecided, reasons, objections, linchpins
+```
+
+## Equation model
+
+Quantities joined by sourced formulas, with units and no clock. Inputs,
+parameters, computed quantities and outputs are view roles; a formula names
+other quantities by slugified label and adds the links it reads. Values can
+state a valid range; analyses report values outside it. `evaluate`, `sweep`
+and `monte-carlo` are recorded (`eq-evaluation`, `eq-sweep`,
+`eq-monte-carlo`). Design: [EQUATION_MODEL.md](EQUATION_MODEL.md).
+
+```bash
+latris eq input <node> <value> <units> [--min] [--max] [--source] [--origin] [--verified] [--notes]
+latris eq parameter <node> <value> <units> [--min] [--max] [--source] [--origin] [--verified] [--notes]
+latris eq formula <node> "<formula>" <units> [--output] [--source] [--origin] [--verified] [--notes] [--no-link]
+latris eq role <node> <input|parameter|computed|output>
+latris eq remove <node>                        # out of the equation model; the factor stays
+latris eq show | check
+latris eq scenario <name> --set "Quantity=value [units]" [-d DESCRIPTION] [--reason] [--source] [--remove]
+latris eq scenarios
+latris eq uncertainty <node> [triangular|uniform|normal|lognormal|beta|gamma] [--min --mode --max --mean --sd …]
+                      [--reason] [--source] [--verified] [--clear]
+latris eq evaluate [--scenario NAME …] [--set "Quantity=value"] [--no-record]
+latris eq sweep [--input NODE] [--target OUTPUT] [--low X] [--high X] [--steps 25] [--no-record]
+latris eq monte-carlo [--runs 2000] [--seed 1234] [--sampling lhs|random] [--target OUTPUT] [--no-record]
+```
+
+## Contract and predict
+
+A model's contract names the inputs a caller may set and the outputs it
+returns (`views/contracts/<model_type>.yaml`); `predict` runs the model on
+values for those inputs and records nothing. Equation models, system dynamics
+and Bayesian networks. Design: [PREDICT.md](PREDICT.md).
+
+```bash
+latris contract init <model_type> [--replace]     # draft it from the model
+latris contract show [-m TYPE] [--ref REF]        # inputs, outputs, hash, whether it fits the model
+latris contract available <model_type>            # everything the model could expose
+latris contract input <model_type> <node> [--name] [--units] [--default V|none] [--min] [--max]
+                      [--set|--observe] [--required|--optional] [-d DESCRIPTION]
+latris contract output <model_type> <node> [--name] [--kind value|series|distribution]
+                       [--metric final|peak|peak-time|min|mean|total|at:T] [-d DESCRIPTION]
+latris contract remove <model_type> <name>
+latris contract check [-m TYPE]                   # exit 1 if it no longer fits the model
+latris contract diff <base> [head] [-m TYPE]      # breaking / compatible / internal; exit 1 if breaking
+latris predict [--set name=value …] [--inputs FILE|-] [-m TYPE] [--ref REF] [--require reviewed|approved]
+```
+
+`REF` is a milestone's name, a commit (or prefix, or branch) or a version's
+name. `latris --json predict …` prints the whole result as one JSON object.
 
 ## Results
 
