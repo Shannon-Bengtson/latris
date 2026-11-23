@@ -161,6 +161,15 @@ class ProjectPaths:
         """Return path for a model-specific attribute file."""
         return self.parameters_dir / f"{model_type}-{attribute}.yaml"
 
+    # Contracts (what a caller may give a model and what it returns — ``schema/contract.py``)
+    @property
+    def contracts_dir(self) -> Path:
+        return self.views_dir / "contracts"
+
+    def contract_path(self, model_type: str) -> Path:
+        """Return path for a model type's contract."""
+        return self.contracts_dir / f"{model_type}.yaml"
+
     # Layout (coordinates, colours — git-ignored by default)
     @property
     def layout_dir(self) -> Path:
@@ -375,3 +384,22 @@ ALL_DIRS_TO_CREATE = (
     "analysis_outputs_dir",
 )
 """Directories created during `latris init` (M2)."""
+
+
+def pinned_cache_dir() -> Path:
+    """Where exported copies of pinned versions are kept, one folder per commit (``operations/predict``).
+
+    ``LATRIS_CACHE_DIR`` overrides it; otherwise the user's cache folder. A commit never changes, so a
+    folder here is never stale — it can be deleted at any time and is rebuilt on the next use.
+    """
+    import os
+    import sys
+
+    override = os.environ.get("LATRIS_CACHE_DIR")
+    if override:
+        return Path(override) / "pinned"
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    else:
+        base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+    return base / "latris" / "pinned"

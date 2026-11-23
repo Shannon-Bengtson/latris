@@ -171,6 +171,11 @@ class Formalism:
     # source (an equation model): evidence coverage is then measured over those, not over links
     parameter_sources: Callable[[Any], dict[str, bool]] | None = None
 
+    # ── running on a caller's inputs ──
+    # Module with ``build(paths) -> Predictor`` (``operations/predictors``): what the type offers a contract
+    # and how it computes outputs from inputs. None: no forward calculation, so no contract or predict.
+    predictor: str | None = None
+
     # ── diagram ──
     mermaid: Callable[[Any, list, list], str] | None = None  # (paths, entities, edges) → full source, or ""
     mermaid_groups: Callable[[Any], tuple[list[str], dict[str, str], dict[str, str]]] | None = None

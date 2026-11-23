@@ -305,6 +305,7 @@ declares a `Formalism` with the hooks the shared code calls:
 | `link_attribute` (the value its links carry: CLD polarity, FCM weight) | the AI context; `formalisms.attribute_home("polarity")` tells exporters where polarity is stored |
 | `diagram_direction`, `polarity_labels` | the generic Mermaid and DOT sketches |
 | `scenario_store` | result staleness when a run used saved scenarios |
+| `predictor` (module with `build(paths) -> Predictor`, in `operations/predictors/`) | contract and predict: what the type offers as inputs and outputs and a pure run on a caller's values ([PREDICT.md](PREDICT.md)); a type with no forward calculation leaves it unset |
 | `links_from_values` | the Build → Formalise gate: a type whose formulas add its links (the equation model) needn't be connected in Build |
 | `parameter_sources` | evidence coverage for a type whose claims are its own values and formulas, each naming its source (the equation model), not its links |
 | `ResultKind.superseded_by_wider` | which runs reports show (a newer run over a wider scope replaces an older one) |
@@ -612,7 +613,9 @@ docs):
   preserving its existing surface.
 - The GUI's Python API server imports the same
   `latris.operations` — same invariants, same tests.
-- External pipelines and notebooks `import latris`.
+- External pipelines and notebooks `import latris`: `latris.load(path, ref=...)` returns a model
+  pinned to a version, with its contract and a stateless `predict` (`src/latris/api.py`, the only
+  public Python surface so far; design in [PREDICT.md](PREDICT.md)).
 
 All three layers share one core. The CLI is one consumer; it isn't
 the API.

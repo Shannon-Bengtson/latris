@@ -49,6 +49,18 @@ on `Formalism`) and its chat surface (`ResultKind.tool`, `Formalism.chat_ops`)
 rather than branching on its name in shared code — `test_no_type_branches.py`
 fails if you do. Full list in ARCHITECTURE.md → "Adding a formalism".
 
+## Public Python API
+
+`src/latris/api.py` (`latris.load`, `latris.Model`) is the only supported
+import surface: a model pinned to a version, its contract, and a stateless
+`predict`. Everything under `operations/` and `schema/` is internal. Adding to
+the public API is a commitment to callers; change it deliberately and say so
+in `docs/engineering/PREDICT.md`.
+
+A model type that computes outputs from inputs declares `Formalism.predictor`
+(a module in `operations/predictors/`); `predict` and `contract` then work for
+it with no other change.
+
 ## Entity resolution
 
 `operations/_resolve.py` resolves entities by: exact ID → label

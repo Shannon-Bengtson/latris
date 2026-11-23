@@ -69,6 +69,15 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(skip_slow)
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _pinned_cache_in_tmp(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Exported copies of pinned versions (``latris predict --ref``) go to a temporary folder, never the
+    user's cache."""
+    import os
+
+    os.environ["LATRIS_CACHE_DIR"] = str(tmp_path_factory.mktemp("latris-cache"))
+
+
 _AGENT_ENV_VARS = (
     "LATRIS_AGENT",
     "AI_AGENT",

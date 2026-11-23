@@ -84,12 +84,12 @@ extrapolation is shown as one, beside the number.
 
 A circular set of formulas is refused, not solved: simultaneous equations are out of scope.
 
-## Built for predict (#17)
+## Predict (#17)
 
 `equation_model.compute(model, values)` is a pure function: values in, every quantity out, nothing
-read from or written to the project. The inputs with their units and valid ranges, and the outputs,
-are already the input/output contract predict needs to declare. Predict wraps this; the equation
-model does not need to change for it.
+read from or written to the project. Predict wraps it (`operations/predictors/equation_model.py`):
+the inputs become the drafted contract's inputs, the outputs its outputs, and the valid ranges its
+warnings. See [PREDICT.md](PREDICT.md).
 
 ## Not in the first version
 

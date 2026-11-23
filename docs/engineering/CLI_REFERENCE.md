@@ -561,6 +561,30 @@ latris eq sweep [--input NODE] [--target OUTPUT] [--low X] [--high X] [--steps 2
 latris eq monte-carlo [--runs 2000] [--seed 1234] [--sampling lhs|random] [--target OUTPUT] [--no-record]
 ```
 
+## Contract and predict
+
+A model's contract names the inputs a caller may set and the outputs it
+returns (`views/contracts/<model_type>.yaml`); `predict` runs the model on
+values for those inputs and records nothing. Equation models, system dynamics
+and Bayesian networks. Design: [PREDICT.md](PREDICT.md).
+
+```bash
+latris contract init <model_type> [--replace]     # draft it from the model
+latris contract show [-m TYPE] [--ref REF]        # inputs, outputs, hash, whether it fits the model
+latris contract available <model_type>            # everything the model could expose
+latris contract input <model_type> <node> [--name] [--units] [--default V|none] [--min] [--max]
+                      [--set|--observe] [--required|--optional] [-d DESCRIPTION]
+latris contract output <model_type> <node> [--name] [--kind value|series|distribution]
+                       [--metric final|peak|peak-time|min|mean|total|at:T] [-d DESCRIPTION]
+latris contract remove <model_type> <name>
+latris contract check [-m TYPE]                   # exit 1 if it no longer fits the model
+latris contract diff <base> [head] [-m TYPE]      # breaking / compatible / internal; exit 1 if breaking
+latris predict [--set name=value …] [--inputs FILE|-] [-m TYPE] [--ref REF] [--require reviewed|approved]
+```
+
+`REF` is a milestone's name, a commit (or prefix, or branch) or a version's
+name. `latris --json predict …` prints the whole result as one JSON object.
+
 ## Results
 
 Recorded analysis results and which ones reports show (the latest run of

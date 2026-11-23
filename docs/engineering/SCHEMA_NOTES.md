@@ -399,6 +399,13 @@ barrier, place, transition, etc.) live in a separate **view role layer**
 each formalism assign its own semantic roles. Each future formalism adds
 a role mapping and (if needed) a `ViewX` with its own constraint validator.
 
+**Contracts.** A model type that can be run on a caller's values may carry a contract,
+`views/contracts/<model_type>.yaml` (`schema/contract.py`): named inputs (a value with units, or a
+factor's state; optional default, valid range, required) and named outputs (value, series,
+distribution). It is kept out of `views/parameters/` so that editing it doesn't age recorded results,
+and it is not trimmed when a factor is deleted: `contract check` reports the dangling entry. Design in
+[PREDICT.md](PREDICT.md).
+
 **Registered formalisms** — 15 stable types (CLD, DAG, FCM, BN, SD, Theory
 of Change, Fault Tree, Bow-Tie, Event Tree, MCDA, ACH, Decision Tree, Markov, Argument Map, Equation Model) and 8 planned types are declared in the `ModelTypeSpec` registry with their
 structural validators and required entity/edge kinds. Planned types are

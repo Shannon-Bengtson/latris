@@ -657,6 +657,7 @@ register(Formalism(
     feedback_via_stocks=True,
     parameterised_nodes=_parameterised_nodes,
     scenario_store="latris.operations.sd_scenarios",
+    predictor="latris.operations.predictors.sd",
     spec_field="sd",
     spec_check=_check,
     spec_apply=_apply,

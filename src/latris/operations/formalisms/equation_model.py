@@ -496,6 +496,7 @@ register(Formalism(
     parameterised_nodes=_parameterised_nodes,
     parameter_sources=_parameter_sources,
     links_from_values=True,
+    predictor="latris.operations.predictors.equation_model",
     scenario_store="latris.operations.equation_model_scenarios",
     spec_field="equation_model",
     spec_check=_check,

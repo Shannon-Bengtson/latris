@@ -103,6 +103,36 @@ latris export dot --view cld --output reports/model.dot
 The full command catalogue is in
 [`docs/engineering/CLI_REFERENCE.md`](docs/engineering/CLI_REFERENCE.md).
 
+## Use a model from Python
+
+A model can declare a **contract** (the inputs a caller may give it and the
+outputs it returns) and then be called from a script, a notebook or a
+scheduled job. Nothing is written to the project, and the result says exactly
+which version produced it.
+
+```bash
+latris contract init equation_model   # draft the contract from the model, then prune it
+latris contract show                  # inputs, outputs, units, valid ranges
+latris predict --set flow_depth=2.5   # run it once from the terminal
+```
+
+```python
+import latris
+
+# Pin the version a person signed off: a milestone's name, or a commit.
+model = latris.load("path/to/project", ref="Signed off")
+
+result = model.predict({"flow_depth": 2.5})
+result["outputs"]["discharge"]["value"]   # 21.6
+result["warnings"]                        # e.g. an input outside its valid range
+result["provenance"]["commit"]            # the commit that produced it
+```
+
+Equation models, system dynamics and Bayesian networks can have a contract
+today. `latris contract diff <old> <new>` says whether moving to a newer
+version would break a caller. Design:
+[`docs/engineering/PREDICT.md`](docs/engineering/PREDICT.md).
+
 ## Run the API server
 
 ```bash
@@ -396,6 +426,21 @@ Tips for agents:
   `bn explain -e "Road Closed=yes"` (the most likely combination of causes),
   and `bn set-uncertainty Flood --n 10` + `bn monte-carlo Flood` (how sure
   the probability is when the tables are estimates) — all recorded.
+- **Running a model on someone's numbers: `predict`, not an analysis.** An
+  analysis (`sd simulate`, `bn query`, `eq evaluate`) is recorded for the
+  report. `latris predict --set name=value` runs the model once and records
+  nothing: use it when a person asks "what does the model give for X?" and
+  the answer isn't meant for the report. It needs a contract
+  (`latris contract show`; `latris contract init <model type>` drafts one
+  from the model). Declare or widen a contract only when the person wants the
+  model used outside Latris: every input is a promise to whoever calls it.
+  Use only the input names the contract lists, never invent one, and never
+  widen a valid range to make a warning go away. When you report a
+  prediction, pass on its warnings (a value outside its valid range makes the
+  result an extrapolation) and say which version it came from
+  (`provenance.commit`). For a pipeline, pin a version with
+  `--ref <milestone or commit>` or `latris.load(path, ref=...)`, and check
+  `latris contract diff <old> <new>` before moving to a newer one.
 - **No API key?** Checks and drafting that use AI (e.g. the completeness check)
   can be answered by you: `latris ai task emit <PromptName> --inputs '<json>'`,
   then `latris ai task apply` (see "An agent can act as the model" above).

@@ -20,7 +20,7 @@ without being redrawn.
 | Risk and safety | Bow-tie → Fault tree / Event tree, with Monte Carlo | live links between them (today: citations); GSN |
 | Decisions | MCDA; decision tree → Markov, with PSA, acceptability curves and (partial) EVPI | influence diagram (#10) |
 | Arguments | ACH; argument map | GSN as a vocabulary over the argument map |
-| Across types | Monte Carlo / PSA with correlated ranges; global sensitivity (Sobol, Morris) | **predict** — calling a pinned model with inputs (#17) |
+| Across types | Monte Carlo / PSA with correlated ranges; global sensitivity (Sobol, Morris); contract and predict for equation models, SD and BN (#17) | predict for the risk and decision types; uncertainty bands on a prediction |
 | Equations | Equation model: sourced formulas with units, no clock (#18) | time-series forcing for SD (#19); lookup tables, global sensitivity |
 
 The last three types built (fault tree, bow-tie, event tree) came from the
@@ -99,7 +99,7 @@ equation and coefficient has a source — among the most defensible models there
 
 | # | Model / layer | Answers | How | Effort |
 |---|---|---|---|---|
-| 17 | **Predict** — an input/output contract and a stateless run | Given these inputs, what does this version of the model say? | See below. The equation model first (its kernel is already pure), then SD and BN | about a week |
+| 17 | **Predict** — an input/output contract and a stateless run (**first cut done**: `latris contract`, `latris predict`, `latris.load`; design in [PREDICT.md](PREDICT.md)) | Given these inputs, what does this version of the model say? | See below. Equation model, SD (values) and BN | built; follow-ups below |
 | 18 | **Equation model** — quantities joined by sourced formulas, no clock (**done**: `latris eq`; design in [EQUATION_MODEL.md](EQUATION_MODEL.md)) | What does this physics / published parameterisation give for these inputs? | A formalism plugin reusing the SD expression evaluator (`_sd_eval.py`) and unit checker (`_units.py`), without the integrator; each formula and coefficient cites its source and stated range of validity | built |
 | 19 | **Time-series forcing for SD** | What happens under this rainfall / demand / price record? | A series input declared in the contract and interpolated against `TIME`; today the only route is a hand-typed lookup table | 1–2 days after #17 |
 
@@ -167,9 +167,12 @@ black-box predictor.)
 7. **Models that can be called** (high priority) — #18 equation model first (done: `latris eq`, with
    scenarios, input sweeps and Monte Carlo). It was built ahead of predict because its kernel,
    `equation_model.compute`, is already the pure "values in, every quantity out" function predict
-   wraps, and its inputs (units, valid ranges) and outputs are the contract in miniature. Next: #17
-   predict, on the equation model, SD and BN; then #19 time-series forcing for SD. Small follow-ups
-   to #18: lookup tables, and adding it to the global-sensitivity layer (#8).
+   wraps, and its inputs (units, valid ranges) and outputs are the contract in miniature. Then #17
+   predict (first cut done: a contract per model type, a stateless run, pinned versions and the
+   first public Python API, for the equation model, SD values and BN). Next for #17: uncertainty
+   bands on a prediction, the risk and decision types, and the app's "use" view; then #19
+   time-series forcing for SD, which waits until someone needs it. Small follow-ups to #18: lookup
+   tables, and adding it to the global-sensitivity layer (#8).
 
 Registry statuses follow this plan: influence diagram is `roadmap`; GSN stays `roadmap`, now a
 vocabulary over the argument map (ARGUMENT_MAP.md → "GSN, later"). MCDA, ACH, decision tree,

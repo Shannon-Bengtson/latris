@@ -2293,6 +2293,40 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["eq", "monte-carlo", "--runs", "1000"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "evidence_gaps", "--model-type", "equation_model"])
+
+    # ── 11m. Contract and predict ─────────────────────────────────────
+    ex.section(
+        "Contract and Predict",
+        "A model that is finished can be used outside Latris: a script or a scheduled job gives it inputs "
+        "and reads its outputs. The model first declares a contract (which values a caller may set, which "
+        "results it returns), and `predict` then runs it without recording anything. Shown on the channel "
+        "model above.",
+    )
+    ex.note("The contract is drafted from the model: its inputs go in, its outputs come out. Parameters "
+            "(the roughness) stay inside unless you expose them.")
+    ex.run(["contract", "available", "equation_model"])
+    ex.run(["contract", "init", "equation_model"])
+    ex.run(["contract", "check"])
+    ex.note("Run it. A depth in other units is converted; one outside the valid range is used as given, "
+            "and the result says it is an extrapolation and which commit produced it.")
+    ex.run(["predict", "--set", "flow_depth=2.5"])
+    ex.run(["predict", "--set", "flow_depth=350 cm"])
+    ex.note("Mark the version a pipeline should use, then keep working. The contract is edited like "
+            "anything else: here the roughness is exposed under a caller-friendly name, and the bed slope "
+            "is withdrawn.")
+    ex.run(["version", "milestone", "Signed off", "--maturity", "approved"])
+    ex.run(["contract", "input", "equation_model", "Roughness", "--name", "mannings_n", "-d",
+            "Manning's roughness coefficient"])
+    ex.run(["contract", "output", "equation_model", "Velocity"])
+    ex.run(["contract", "remove", "equation_model", "bed_slope"])
+    ex.run(["contract", "show"])
+    ex.note("Would moving a pipeline from the signed-off version to this one break it? Yes: an input it "
+            "may be sending has gone. The command exits 1, so a pipeline can refuse the upgrade.")
+    ex.run(["contract", "diff", "Signed off"], expect_fail=True)
+    ex.note("The pinned version still runs exactly as it was, and can be required to be approved. With "
+            "`--json` the whole result is one object for a pipeline to read.")
+    ex.run(["predict", "--ref", "Signed off", "--require", "approved", "--set", "bed_slope=0.002"])
+    ex.run(["--json", "predict", "--ref", "Signed off", "--set", "flow_depth=2"])
     os.chdir(ex.root)
 
     # ── 12. Interpret phase ───────────────────────────────────────────

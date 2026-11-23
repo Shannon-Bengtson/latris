@@ -86,6 +86,12 @@ repository. Start at the repo-root [README](../README.md).
   parameters state the range they are valid over; formulas are checked
   dimensionally; scenarios, input sweeps and Monte Carlo over the ranges —
   via CLI `eq` + `/api/eq/*` ([design](engineering/EQUATION_MODEL.md)).
+- Contract and predict: a model declares named inputs and outputs, and can
+  then be run on a caller's values without recording anything, on a pinned
+  version (a milestone or a commit) if asked; `contract diff` says whether a
+  newer version breaks a caller. Equation models, system dynamics and
+  Bayesian networks — via CLI `contract` and `predict`, `/api/contract*`,
+  `/api/predict`, and Python `latris.load()` ([design](engineering/PREDICT.md)).
 - Global sensitivity analysis over the same ranges: Sobol indices (each
   input's share of a result's variance, alone and with interactions) or
   Morris screening, for the risk types, decision trees, Markov, SD and
