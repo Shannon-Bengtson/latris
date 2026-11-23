@@ -375,9 +375,9 @@ dominate?" (FCM), "how does it behave over time?" (SD) — lives at
 - **Lineage.** Briggs, Claxton & Sculpher (2006), *Decision Modelling for
   Health Economic Evaluation*, ch. 4–7; acceptability curves after Fenwick,
   Claxton & Sculpher (2001); the expected value of perfect information over
-  the parameters after Claxton (1999); partial EVPI after Strong, Oakley & Brennan (2014); correlated draws after Iman &
-  Conover (1982); Latin hypercube sampling after McKay, Beckman & Conover
-  (1979).
+  the parameters after Claxton (1999); partial EVPI after Strong, Oakley &
+  Brennan (2014); correlated draws after Iman & Conover (1982); Latin
+  hypercube sampling after McKay, Beckman & Conover (1979).
 - **Implemented.** Ranges on a decision tree's payoffs, branch values and
   probabilities (one branch of a two-branch chance node, or every branch as
   a Dirichlet worth n observations; chance nodes resolving the same

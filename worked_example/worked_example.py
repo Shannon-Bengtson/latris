@@ -2177,7 +2177,8 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["markov", "range", "Sick", "beta", "--quantity", "utility", "--mean", "0.6", "--sd", "0.05"])
     ex.note("The two progression rates come from the same registry cohort, so they are sampled together. Then "
             "their errors largely cancel in the comparison: the drug comes out cost-effective in almost every run, "
-            "and the partial EVPI shows what little value is left lies in the two rates together.")
+            "and so little value is left (an EVPI of a few pounds) that no input's partial EVPI can be told from "
+            "zero.")
     ex.run(["markov", "correlate", "Healthy -> Sick", "Healthy -> Sick", "0.8", "--other-strategy", "New drug",
             "--reason", "both estimated in the same registry cohort"])
     ex.note("The acceptability curve gives, at each willingness to pay, the chance each strategy is the most "
