@@ -641,6 +641,9 @@ At *Everything*, these also recalculate in the page as the reader changes someth
 - **Decision tree**: change the odds, a payoff or a cost along the way, and see the best choice and the plan that follows.
 - **Event tree**: change the odds at a step, or how often it starts, and see how it ends.
 - **Competing hypotheses**: set a piece of evidence aside and see which hypothesis leads, and which evidence the lead rests on.
+- **Fault tree**: change how likely a basic event is, from never to certain, and see the top event, what drives it and the ways it can happen.
+- **Bow-tie**: change how often a barrier fails or a threat arises, and see how often the top event and each consequence follow.
+- **Markov cohort model**: change a chance of moving, a state's cost or quality of life, or what an outcome is worth paying, and see each strategy's cost and outcome and which is the best value.
 
 Other model types show their picture, their reasoning and sources, and their recorded results.
 - **Copy a link to what they are looking at**, so a colleague opens the same view.
