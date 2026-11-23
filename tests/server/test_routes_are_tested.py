@@ -35,11 +35,11 @@ def _named_in(path: str, text: str) -> bool:
 
 
 def _allowed() -> set[str]:
-    return {ln.strip() for ln in ALLOWED.read_text().splitlines() if ln.strip() and not ln.startswith("#")}
+    return {ln.strip() for ln in ALLOWED.read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")}
 
 
 def test_every_route_is_exercised_by_a_test(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    text = "\n".join(p.read_text() for p in TESTS.rglob("*.py") if p.resolve() != Path(__file__).resolve())
+    text = "\n".join(p.read_text(encoding="utf-8") for p in TESTS.rglob("*.py") if p.resolve() != Path(__file__).resolve())
     untested = {f"{m} {p}" for m, p in _routes(tmp_path, monkeypatch) if not _named_in(p, text)}
     allowed = _allowed()
     assert sorted(untested - allowed) == [], "write a test for these routes"
