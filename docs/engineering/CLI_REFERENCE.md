@@ -49,6 +49,7 @@ the prose companion (docs/FOUNDATIONS.md, bundled in the wheel).
 latris init <name> [--question "..."]
 latris project show
 latris project set-question "..."
+latris project set <field> "..."   # name | background | boundary | exclusions | predictions | coverage_dimensions | granularity_level | audience
 latris project select-models <model-types>
 latris project choose <model-type> --why "..."   # choose one and record why (the report's Modelling Approach)
 latris build --spec model.yaml [--verified-by human|ai]   # '-' reads stdin
@@ -99,6 +100,8 @@ latris ref edit <bibkey> [--title ...] [--author ...] [--year ...] [--doi ...] [
 latris ref remove <bibkey> [--with-citations] [--rationale "..."]
 latris ref list
 latris ref import <bibfile>
+latris ref snapshot <bibkey> --url <url> --extract "..." [--kind abstract|landing_page_text|full_text_excerpt]   # keep a fetched passage against a reference
+latris ref fetch <bibkey> [--url <url>]   # fetch a reference's full text (default: its url, or doi.org/<doi>)
 
 latris evidence add <target> <attribute> <bibkey> [--verified-by human|ai] [--notes "..."] [--contradicts]
 latris evidence check <target> <attribute> <bibkey> supports|against|off-topic|too-little|unchecked     --rationale "..." [--quote "..."] [--by human|ai]
@@ -191,7 +194,15 @@ latris version switch <version-id>
 latris version tree
 latris version compare <from> <to>   # a version or a checkpoint on either side
 latris version preferred <version-id>
-latris version update <version-id>
+latris version update [--name ...] [--maturity ...] [--notes ...]   # the current version's metadata
+
+# versions on a shared project (see Sync)
+latris version sync-status                      # per-version sync state: published / local / ahead / behind
+latris version publish <version>                # publish a version so collaborators can see it
+latris version get-latest <version>             # bring a published version up to date with the shared copy
+latris version add <branch>                     # add a collaborator's published version to your workspace
+latris version reconcile-preview <version>      # what changed on the shared copy of a diverged version
+latris version reconcile <version> --keep mine|theirs   # resolve a diverged version: keep one line, archive the other
 ```
 
 ## Elicitation
@@ -307,19 +318,39 @@ learning from data, and sensitivity analysis. Runs are logged as
 latris bn set-state-space <node> <states...>   # define a node's discrete states
 latris bn set-cpt <node> ...                   # set a conditional probability table cell/column
 latris bn set-noisy-or <node> -c "Cause=yes:0.6" [--leak 0.02] [--active yes]   # Noisy-OR; --active = the effect state
+latris bn set-weighted <node> --base 0.02,0.98 -w "Parent=state:3" ... [--toward STATE] [--origin] [--source]
+                                               # a table from a base distribution and a weight (in logits) per parent state
+latris bn remove-states <node>                 # take a factor out of the network (its states and table go; it stays in the loop map)
 latris bn learn <dataset>                      # learn parameters from data (provenance-protecting merge)
 latris bn state-spaces                         # list defined state spaces
 latris bn cpts                                 # list defined CPTs
 latris bn check                                # validate state-space / CPT completeness
 latris bn marginals                            # compute prior marginals (recorded; --no-record)
-latris bn query [-q node] [-e node=state] [-s "node=state:0.8"] [--likelihood "node=a:4,b:1"]
-                                               # posterior query under hard / soft / likelihood evidence (recorded)
+latris bn query [-q node] [-e node=state] [-s "node=state:0.8"] [--likelihood "node=a:4,b:1"] [--set node=state] [--scenario NAME]
+                                               # posterior query under hard / soft / likelihood evidence (recorded);
+                                               # --set is an intervention (do-operator), --scenario a saved BN scenario
 latris bn explain [-e node=state] [-s ...] [--over node ...]   # most likely explanation (MPE / MAP), recorded
 latris bn set-uncertainty <node> --n 20 [--row "Parent=state,..."] [--reason] [--source]
 latris bn uncertainty | clear-uncertainty <node>
-latris bn monte-carlo <target> [--state s] [-e ...] [-s ...] [--runs 500] [--seed 1234] [--max-seconds 60]
+latris bn monte-carlo <target> [--state s] [-e ...] [-s ...] [--runs 500] [--seed 1234] [--max-seconds 60] [--scenario NAME]
 latris bn sensitivity <target>                 # provenance-aware sensitivity analysis
+latris bn set-scenario NAME [-e node=state] [-s ...] [--likelihood ...] [--set node=state] [-t "Node[Parent=state]=0.1,0.9"]
+                            [--extends NAME] [-d DESCRIPTION] [--reason] [--source] [--origin]
+                                               # a named what-if: observations, settings and table overrides; the model is unchanged
+latris bn scenarios | remove-scenario NAME     # list them and what each changes; remove one (not one another extends)
+latris bn compare <target> -S NAME [-S NAME ...] [--state s] [--reference baseline|NAME] [-e ...] [-s ...] [--likelihood ...]
+                            [--runs 500] [--seed 1234] [--max-seconds 60] [--no-record]
+                                               # P(target = state) under the baseline and each scenario, on the same table draws
 ```
+
+A BN scenario tests a barrier upgrade or a policy (`--table`, `--set`) or
+defines a situation (`--observe`) without editing the network. `bn query`
+and `bn monte-carlo` take one with `--scenario`; evidence given in the call
+about a factor replaces the scenario's. A factor can be set or observed, not
+both, and a set factor must be in the network — both commands refuse
+otherwise. `bn compare` measures each option against its reference draw by
+draw: an option that extends a compared scenario against that one, the rest
+against the baseline (`--reference` overrides).
 
 ## SD (System Dynamics)
 
@@ -334,6 +365,7 @@ Simulations are logged as `AnalysisRun` records (`purpose: simulation`).
 latris sd set-settings [--time-units month] [--final-time 36] [--initial-time] [--dt] [--saveper] [--method]
 latris sd settings                             # the stored clock and the defaults for anything unset
 latris sd set-role <node> <stock|flow|auxiliary|constant|source_sink>
+latris sd unset-role <node>                    # take a factor out of the simulation (its role and SD values go; it stays in the loop map)
 latris sd set-initial-value <stock> <value> --units <u> [--non-negative]
 latris sd set-constant <node> <value> --units <u>
 latris sd set-equation <flow|aux> "<expression>" --units <u>   # names = slugified labels; TIME; MIN MAX ABS IF_THEN_ELSE STEP TABLE EXP LN SQRT
@@ -347,10 +379,13 @@ latris sd set-uncertainty <constant|stock> <uniform|triangular|normal|lognormal|
 latris sd uncertainty | clear-uncertainty <node>
 latris sd monte-carlo [--runs 200] [--seed 1234] [--sampling lhs|random] [--var V ...] [--scenario NAME] [--max-seconds 60]
 latris sd sensitivity <variable> [--metric final|peak|peak-time|min|mean|at:T] [--pct 10] [--scenario NAME]
+latris sd compare <variable> -s NAME [-s NAME ...] [--reference baseline|NAME] [--metric final|peak|peak-time|min|mean|total|at:T]
+                            [--apply-to-all "Var=value [units]" ...] [--runs 200] [--seed 1234] [--sampling lhs|random] [--max-seconds 60]
+                                               # the baseline and each scenario on the same sampled draws
 latris sd loops [--scenario NAME] [--from T] [--to T]          # loop dominance (Loops That Matter)
 ```
 
-Simulate, monte-carlo, sensitivity and loops take the run settings
+Simulate, monte-carlo, sensitivity, compare and loops take the run settings
 (`--final-time`, `--dt`, `--method`) and record their result
 (`--no-record` to skip).
 
@@ -699,7 +734,9 @@ latris ai call suggest-citations <target-id> <attribute>
 latris ai call peer-review
 latris ai call research-gaps
 latris ai call steelman
-latris ai call project-view
+latris ai call project-view <view>
+latris ai call find-counter-pathway [--scope-nodes ...]   # the strongest missing counter-mechanism
+latris ai call run <prompt-name> [--inputs '<json>']      # any prompt in the library, by name
 
 latris ai task emit <prompt-name> --inputs '<json>' [--output task.json]  # self-contained task package for an external agent (no API key)
 latris ai task apply --task task.json --from response.json [--actor NAME] [--yes]  # ingest the agent's answer through the standard approval pipeline

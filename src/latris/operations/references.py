@@ -298,7 +298,7 @@ def _resolve_fetch_url(ref: Reference) -> str:
         return f"https://doi.org/{ref.doi.strip()}"
     raise ValueError(
         f"reference {ref.bibkey!r} has no `url` or `doi` to fetch from. "
-        "Set one with `latris ref update`, or pass --url explicitly."
+        "Set one with `latris ref edit`, or pass --url explicitly."
     )
 
 

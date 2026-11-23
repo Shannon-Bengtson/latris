@@ -18,7 +18,7 @@ The code honours five non-negotiables:
    Every auto-commit flows through the identity guard.
 2. **Structured edit proposals, not free-form mutation.** AI returns a
    pydantic-validated proposal; `apply()` is the *only* way it becomes a commit.
-3. **Closed prompt library.** 46 canonical prompts; no open chatbox.
+3. **Closed prompt library.** 45 canonical prompts; no open chatbox.
 4. **Never fabricate citations.** `SuggestCitations` refuses unknown bibkeys
    at the apply layer regardless of what the model returned.
 5. **Rejected proposals are memory.** The interaction log preserves them,
@@ -117,7 +117,7 @@ All pure-Python; wheels for every target OS; no native compilation.
 
 ```
 src/latris/ai/
-├── prompts.py          # 46 PromptSpecs: name, input schema, template, output hint,
+├── prompts.py          # 45 PromptSpecs: name, input schema, template, output hint,
 │                       #   response model, temperature, mode (mutating | read_only | hybrid | server_transformed)
 ├── credentials.py      # env-var + keyring facade, key_in_env() context manager
 ├── config.py           # .graph-tooling/ai_config.yaml (committed)
@@ -128,7 +128,7 @@ src/latris/ai/
 ├── chains.py           # fixed prompt-chain definitions (CHAIN_LIBRARY)
 ├── chain_runner.py     # step-at-a-time chain session execution
 ├── interactions.py     # JSONL log append/read/approval
-├── call.py             # end-to-end orchestrator (RESPONSE_MODELS dict, 46 entries)
+├── call.py             # end-to-end orchestrator (RESPONSE_MODELS dict, 45 entries)
 ├── delegated.py        # bring-your-own-agent: task packages + external-answer ingestion
 └── adapters/
     ├── base.py         # ChatAdapter Protocol + ChatResult dataclass
@@ -214,7 +214,7 @@ existing `operations/*` function that already owns the auto-commit contract.
 
 ## Delegated calls (bring your own agent)
 
-An external terminal agent (Claude Code, Kimi, …) can answer any of the 46
+An external terminal agent (Claude Code, Kimi, …) can answer any of the 45
 closed prompts **without an API key**. Two CLI commands wrap the same
 pipeline:
 

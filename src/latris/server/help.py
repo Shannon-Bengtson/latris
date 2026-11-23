@@ -1296,7 +1296,7 @@ A theory of change is a results chain: what an intervention does (**activities**
 - **untested** — no source at all;
 - **contested** — a source argues against it.
 
-A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris provenance assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
+A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
 
 ## Process tracing: how far does the evidence support each link?
 

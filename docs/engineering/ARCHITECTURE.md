@@ -267,15 +267,15 @@ src/latris/
 │   ├── mermaid.py     # Mermaid sketch embedded in the markdown report
 │   ├── narrative.py   # AI-assisted prose narrative
 │   └── packs.py       # pack configuration and assembly
-├── ai/                # 46 canonical prompts, all wired
-│   ├── prompts.py     # PromptSpec library (46 entries)
+├── ai/                # 45 canonical prompts, all wired
+│   ├── prompts.py     # PromptSpec library (45 entries)
 │   ├── call.py        # end-to-end orchestrator
 │   ├── context.py, proposals.py, interactions.py
 │   ├── credentials.py, config.py
 │   └── adapters/      # ChatAdapter protocol + mock + litellm
 ├── server/            # FastAPI + WebSocket backend for the GUI
 │   ├── app.py, deps.py, state.py, watch.py, help.py
-│   └── routes/        # 27 route modules by domain
+│   └── routes/        # 47 route modules by domain
 ├── testing/           # example projects per model type (in the wheel) for apps' contract tests
 └── cli/               # Typer app — thin
     ├── app.py         # root + --version + doctor
@@ -310,8 +310,12 @@ declares a `Formalism` with the hooks the shared code calls:
 | `parameter_sources` | evidence coverage for a type whose claims are its own values and formulas, each naming its source (the equation model), not its links |
 | `ResultKind.superseded_by_wider` | which runs reports show (a newer run over a wider scope replaces an older one) |
 
-Shared code never tests a model type's id: `tests/test_no_type_branches.py` fails on a branch such as
-`model_type == "sd"` outside the type's own modules — add a field here instead.
+Shared code never tests a model type's id. Two guards fail on a branch such as `model_type == "sd"`
+outside the type's own modules — add a field here instead: `tests/test_no_type_branches.py` scans the
+whole package apart from each type's own code (its operations, CLI, routes, schema), and
+`tests/operations/test_no_type_branches.py` scans the shared layers (`operations/`, `exporters/`,
+`server/`, `ai/`, `diff/`) with a wider pattern (`mt`, `in (...)` lists). Both read the type ids from the
+registry, so a new type is covered when it is registered.
 
 Four things stay central on purpose, because each is a single registry or a
 static schema:
