@@ -124,7 +124,7 @@ model's commit.
 `latris contract diff` exits 1 on a breaking change, so a pipeline can refuse to upgrade.
 
 The contract's hash covers the same things: names, the factors they stand for, kinds, units, modes,
-metrics and whether an input is required. (The factor was added after 0.17.0, so a hash
+metrics and whether an input is required. (The factor was added in 0.18.0, so a hash
 recorded by an earlier latris differs from the one computed now for the same contract.)
 
 ## Surfaces
