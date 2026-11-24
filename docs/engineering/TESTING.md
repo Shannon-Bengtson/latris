@@ -42,18 +42,22 @@ what to do.
 | `tests/test_no_type_branches.py`, `tests/operations/test_no_type_branches.py` | Shared code doesn't branch on a model type's name (the first scans the whole package outside each type's own modules; the second the shared layers — operations, exporters, server, ai, diff — with a wider pattern). Both take the type ids from the registry. |
 | `tests/operations/test_methods_register.py` | Every analysis names the method it stands on. |
 | `tests/schema/test_model_types.py` | Model-type text is about the method, never the GUI's status. |
+| `tests/test_complexity_guard.py` | No function is more complex than the limit (cyclomatic complexity 30, counted as `radon cc` counts it). |
 
 ### Ratchets
 
-Two guards started with existing gaps. Rather than fail from day one, each lists today's gaps in a file
+Three guards started with existing gaps. Rather than fail from day one, each lists today's gaps in a file
 that **only shrinks**:
 
 - `tests/server/untested_routes.txt` — routes with no test yet.
 - `worked_example/not_in_worked_example.txt` — commands not in the worked example yet (some can't be:
   they need real keys or a network).
+- `tests/complexity_exceptions.txt` — functions past the complexity limit, each with its score. A listed
+  function must not grow; split it into smaller ones and take it off.
 
-A new route or command can't join the list: write its test or add it to the worked example. A listed one
-that gets a test (or is removed) must come off — the guard fails until it does, so the list stays true.
+A new route, command or over-complex function can't join a list: write the test, add the command to the
+worked example, or split the function. A listed one that is put right (or removed) must come off — the
+guard fails until it does, so the list stays true.
 
 The coverage floor works the same way: `fail_under` in `pyproject.toml` sits a point under measured
 coverage and only goes up. When coverage rises, raise it.
