@@ -65,6 +65,10 @@ removed) must come off — the guard fails until it does, so the list stays true
 The coverage floor works the same way: `fail_under` in `pyproject.toml` sits a point under measured
 coverage and only goes up. When coverage rises, raise it.
 
+Coverage is measured on the suite without the worked example, which runs in its own CI job. The CLI's
+modules therefore read lower than they are tested: most of their commands run end to end there. A
+command's own branches (its flags, its error messages) still want a test under `tests/cli/`.
+
 ## Done means
 
 A change to latris is done when:
