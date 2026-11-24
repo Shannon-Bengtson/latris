@@ -13,10 +13,7 @@ ai prompts show
 bn clear-uncertainty
 bn remove-scenario
 bn uncertainty
-challenge show
 check coherence
-completeness dismiss
-completeness mark-added
 data list
 diff
 doctor
@@ -24,12 +21,7 @@ edge remove
 et remove-sequence
 et show
 fcm set-weight
-finding check-stale
-finding list
-finding show
-interpret generate-all
 mapping approve
-mature propose
 node rename
 project set-question
 ref fetch
@@ -48,5 +40,4 @@ sync login
 sync pull
 sync share
 version add
-version restore
 view project

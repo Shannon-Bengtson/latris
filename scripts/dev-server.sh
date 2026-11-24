@@ -12,7 +12,8 @@ set -euo pipefail
 # this is a no-op. Use --force to restart regardless.
 #
 # Starts the FastAPI server with:
-#   - Auto-reload on Python file changes (via watchfiles)
+#   - Auto-reload on Python file changes (via watchfiles), and on the help
+#     topics' Markdown (server/help_topics/)
 #   - AI mocking off by default (real AI); export LATRIS_AI_MOCK=1 to stub
 #     AI responses
 #   - All output logged to logs/server-<port>.log
@@ -86,6 +87,8 @@ uvicorn latris.server.app:create_app \
     --port "$PORT" \
     --reload \
     --reload-dir "$REPO_ROOT/src" \
+    --reload-include '*.md' \
+    --reload-include '_order.txt' \
     --log-level info \
     >> "$LOG_FILE" 2>&1 &
 

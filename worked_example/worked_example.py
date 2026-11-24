@@ -497,6 +497,21 @@ def _register_mock_responses(node_ids: dict[str, str], edge_ids: dict[str, str])
                         severity="recommended",
                         confidence="medium",
                     ),
+                    MissingVariableProposal(
+                        name="Indoor exposure",
+                        rationale=("People spend most of their time indoors, where outdoor AQI "
+                                   "is only part of the dose."),
+                        required_for=["Answer to the modelling question"],
+                        severity="optional",
+                        confidence="low",
+                    ),
+                    MissingVariableProposal(
+                        name="Urban greening",
+                        rationale="Trees and parks take up particulates; the question asks what a city can change.",
+                        required_for=["Implications and interventions"],
+                        severity="recommended",
+                        confidence="medium",
+                    ),
                 ],
             ),
             raw="(mock completeness gate)", model_id="mock-model",
@@ -753,6 +768,9 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["attr", "set", em_to_aqi, "confidence", "high"])
     ex.run(["mature", "review", em_to_aqi])
     ex.note("Marked the Emissions→AQI edge as reviewed (entity-level maturity).")
+    ex.run(["mature", "review", aqi_to_health])
+    ex.run(["mature", "propose", aqi_to_health])
+    ex.note("A review can be taken back: the AQI→Health edge goes back to proposed.")
 
     # ── 4. Research base ──────────────────────────────────────────────
     ex.section("Research Base", "Add references and attach evidence to attributes.")
@@ -950,6 +968,7 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["challenge", "resolve", ch_id, "--state", "retained-with-caveat",
             "--rationale", "Negative polarity retained for city-annual scale; spatial heterogeneity noted as caveat."])
     ex.run(["challenge", "list"])
+    ex.run(["challenge", "show", ch_id])
 
     # ── 7. Sign-off ───────────────────────────────────────────────────
     ex.section("Sign-off", "Record a formal review sign-off.")
@@ -1619,6 +1638,13 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["finding", "add", "Transport policy reaches respiratory health only through emissions and air quality.",
             "--category", "structure", "--target", "Transport Policy",
             "--detail", "From `latris analyse paths`: every path runs via Vehicle Emissions."])
+    ex.run(["finding", "list", "--category", "structure"])
+    from latris.operations.findings import list_findings
+    finding_id = next(f.id for f in list_findings(model_type=None, root=ex.root)
+                      if f.statement.startswith("Transport policy reaches"))
+    ex.run(["finding", "show", finding_id])
+    ex.note("A finding goes stale when the model it describes changes; this checks every active one.")
+    ex.run(["finding", "check-stale"])
 
     # ── 11. Fuzzy Cognitive Map ─────────────────────────────────────────
     ex.section("Fuzzy Cognitive Map",
@@ -1809,6 +1835,9 @@ def build_example(ex: WorkedExample) -> None:
             "The supplies have no range, so they are held fixed and listed.")
     ex.run(["ft", "monte-carlo", "--runs", "5000"])
     ex.run(["interpret", "initialise"])
+    ex.note("Draft every section's prose in one go (an AI call per section; each is marked as AI-written "
+            "until a person edits it).")
+    ex.run(["interpret", "generate-all"])
     ex.run(["interpret", "show", "sensitivity", "--model-type", "fault_tree"])
     os.chdir(ex.root)
 
@@ -2370,6 +2399,12 @@ def build_example(ex: WorkedExample) -> None:
             "--rationale",
             "Out of scope for Phase 1: weather variables tracked separately.",
         ])
+        by_name = {mv.name: mv.id for mv in report.entries}
+        ex.note("An entry that isn't worth an exclusion can be dismissed; one the model already covers is "
+                "marked as added, naming the factor that covers it.")
+        ex.run(["completeness", "dismiss", "cld", by_name["Indoor exposure"]])
+        ex.run(["completeness", "mark-added", "cld", by_name["Urban greening"],
+                "--entity-id", nids["Green Infrastructure"]])
         ex.run(["completeness", "list", "cld", "--disposition", "open"])
 
     ex.note(
@@ -2592,6 +2627,10 @@ def build_example(ex: WorkedExample) -> None:
 
     ex.note("Tag the original as the preferred (canonical) model.")
     ex.run(["version", "preferred", "main"])
+    ex.note("Start a new version from a milestone's state, then return to the original.")
+    ex.run(["version", "restore", "Baseline CLD", "Restart from baseline",
+            "--notes", "Back to the baseline to try a different boundary."])
+    ex.run(["version", "switch", "main"])
     ex.run(["version", "tree"])
 
     # ── Collaboration (sync) ──────────────────────────────────────────

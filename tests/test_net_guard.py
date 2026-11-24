@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from latris import _net_guard
-from latris._net_guard import BlockedURLError, check_public_url, safe_get
+from latris._net_guard import BlockedURLError, check_public_url, safe_get, safe_status
 
 _DNS = {
     "public.example": "93.184.216.34",
@@ -118,3 +118,30 @@ def test_safe_get_redirect_loop(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_transport(monkeypatch, handler)
     with pytest.raises(ValueError, match="redirects"):
         safe_get("https://public.example/loop")
+
+
+def test_safe_status_checks_every_hop_and_reads_no_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/start":
+            return httpx.Response(302, headers={"location": "/final"})
+        if request.url.path == "/inward":
+            return httpx.Response(302, headers={"location": "http://loopback.example/admin"})
+        return httpx.Response(204)
+
+    _patch_transport(monkeypatch, handler)
+    assert safe_status("https://public.example/start") == 204
+    assert [r.method for r in seen] == ["HEAD", "HEAD"]
+    seen.clear()
+    with pytest.raises(BlockedURLError):
+        safe_status("https://public.example/inward", method="GET")
+    assert [r.url.host for r in seen] == ["public.example"]
+
+
+def test_safe_status_redirect_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_transport(monkeypatch, lambda request: httpx.Response(302, headers={"location": "/again"}))
+    with pytest.raises(ValueError, match="redirects"):
+        safe_status("https://public.example/loop")
+

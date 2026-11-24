@@ -263,7 +263,7 @@ def key(runs: list[ScenarioRun]) -> str:
     names = []
     for r in runs[1:]:
         if r.name == WHAT_IF and r.scenario is not None:
-            digest = hashlib.sha1(r.scenario.model_dump_json().encode()).hexdigest()[:8]
+            digest = hashlib.sha1(r.scenario.model_dump_json().encode(), usedforsecurity=False).hexdigest()[:8]
             names.append(f"{WHAT_IF}-{digest}")
         else:
             names.append(r.name)

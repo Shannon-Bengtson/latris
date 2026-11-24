@@ -1,114 +1,142 @@
 """Tests for post-hoc URL validation of AI-proposed references.
 
-Network is never touched: ``urlopen`` is patched for ``check_url`` unit
-tests, and ``check_url`` itself is patched for the parallel
+Network is never touched: DNS is faked and HTTP goes to an ``httpx.MockTransport``
+for ``check_url`` unit tests, and ``check_url`` itself is patched for the parallel
 ``validate_reference_urls`` orchestration tests.
 """
 
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
-from urllib.error import HTTPError, URLError
+from unittest.mock import patch
 
+import httpx
 import pytest
 
 from latris.ai.validate_urls import check_url, validate_reference_urls
 
+_DNS = {"metadata.example": "169.254.169.254", "intranet.example": "10.0.0.7"}
+_REAL_CLIENT = httpx.Client
+
 
 @pytest.fixture(autouse=True)
 def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hermetic DNS: every host resolves to a public address (the SSRF
+    """Hermetic DNS: every host resolves to a public address but the two private ones above (the SSRF
     guard resolves before fetching). Guard behaviour is in test_net_guard."""
     monkeypatch.setattr(
         "latris._net_guard.socket.getaddrinfo",
-        lambda host, port, **_: [(2, 1, 6, "", ("93.184.216.34", port))],
+        lambda host, port, **_: [(2, 1, 6, "", (_DNS.get(host, "93.184.216.34"), port))],
     )
+    monkeypatch.delenv("LATRIS_ALLOW_PRIVATE_FETCH", raising=False)
 
 
-def _http_error(code: int) -> HTTPError:
-    return HTTPError("http://example.com", code, f"status {code}", {}, None)  # type: ignore[arg-type]
+def _serve(monkeypatch: pytest.MonkeyPatch, *answers) -> list[httpx.Request]:  # noqa: ANN002
+    """Answer requests in turn: a status, a (status, headers) pair, or an exception to raise.
+    Returns the requests made."""
+    seen: list[httpx.Request] = []
+    queue = list(answers)
 
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        answer = queue.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        status, headers = answer if isinstance(answer, tuple) else (answer, {})
+        return httpx.Response(status, headers=headers)
 
-def _resp(status: int) -> MagicMock:
-    return MagicMock(status=status)
+    monkeypatch.setattr(httpx, "Client", lambda **kw: _REAL_CLIENT(transport=httpx.MockTransport(handler), **kw))
+    return seen
 
 
 # ── check_url ────────────────────────────────────────────────────────
 
 
 def test_check_url_blocks_non_http_and_private(monkeypatch: pytest.MonkeyPatch) -> None:
-    opened = MagicMock(return_value=_resp(200))
-    monkeypatch.setattr("latris.ai.validate_urls.urlopen", opened)
+    seen = _serve(monkeypatch)
     assert check_url("file:///etc/passwd") is False
-    monkeypatch.setattr(
-        "latris._net_guard.socket.getaddrinfo",
-        lambda host, port, **_: [(2, 1, 6, "", ("169.254.169.254", port))],
-    )
-    assert check_url("http://metadata.example") is False
-    opened.assert_not_called()
+    assert check_url("http://metadata.example/latest/meta-data") is False
+    assert seen == []  # refused before any request
 
 
-def test_check_url_head_success() -> None:
-    with patch("latris.ai.validate_urls.urlopen", return_value=_resp(200)):
-        assert check_url("http://example.com") is True
+def test_check_url_refuses_a_redirect_to_a_private_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A public URL that redirects inward is refused at the redirect, and the inner address never asked."""
+    seen = _serve(monkeypatch, (302, {"location": "http://metadata.example/latest/meta-data"}))
+    assert check_url("http://public.example/paper") is False
+    assert [str(r.url) for r in seen] == ["http://public.example/paper"]
+
+    seen = _serve(monkeypatch, (301, {"location": "/moved"}), (307, {"location": "http://intranet.example/"}))
+    assert check_url("http://public.example/paper") is False
+    assert [r.url.host for r in seen] == ["public.example", "public.example"]
 
 
-def test_check_url_head_error_status_is_false() -> None:
-    # A response object reporting a 4xx status (no exception) is rejected.
-    with patch("latris.ai.validate_urls.urlopen", return_value=_resp(404)):
-        assert check_url("http://example.com") is False
+def test_check_url_follows_public_redirects(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _serve(monkeypatch, (301, {"location": "https://doi.example/landing"}), 200)
+    assert check_url("https://doi.org/10.1/abc") is True
+    assert [str(r.url) for r in seen] == ["https://doi.org/10.1/abc", "https://doi.example/landing"]
+    assert all(r.method == "HEAD" and r.headers["user-agent"].endswith("(Latris reference checker)") for r in seen)
 
 
-def test_check_url_405_retries_with_get_and_succeeds() -> None:
+def test_check_url_too_many_redirects_is_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    _serve(monkeypatch, *[(302, {"location": "/again"})] * 10)
+    assert check_url("http://public.example/loop") is False
+
+
+def test_check_url_head_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    _serve(monkeypatch, 200)
+    assert check_url("http://example.com") is True
+
+
+def test_check_url_head_error_status_is_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    _serve(monkeypatch, 404)
+    assert check_url("http://example.com") is False
+
+
+def test_check_url_405_retries_with_get_and_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
     # HEAD blocked (405) → GET-with-range succeeds.
-    with patch(
-        "latris.ai.validate_urls.urlopen",
-        side_effect=[_http_error(405), _resp(206)],
-    ):
-        assert check_url("http://example.com") is True
+    seen = _serve(monkeypatch, 405, 206)
+    assert check_url("http://example.com") is True
+    assert [r.method for r in seen] == ["HEAD", "GET"] and seen[1].headers["range"] == "bytes=0-0"
 
 
-def test_check_url_403_retries_with_get_and_succeeds() -> None:
-    with patch(
-        "latris.ai.validate_urls.urlopen",
-        side_effect=[_http_error(403), _resp(200)],
-    ):
-        assert check_url("http://example.com") is True
+def test_check_url_403_retries_with_get_and_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    _serve(monkeypatch, 403, 200)
+    assert check_url("http://example.com") is True
 
 
-def test_check_url_403_then_get_fails_treats_as_existing() -> None:
+def test_check_url_403_then_get_fails_treats_as_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     # 403 often means access control, not a missing page → treat as valid.
-    with patch(
-        "latris.ai.validate_urls.urlopen",
-        side_effect=[_http_error(403), URLError("blocked")],
-    ):
-        assert check_url("http://example.com") is True
+    _serve(monkeypatch, 403, httpx.ConnectError("blocked"))
+    assert check_url("http://example.com") is True
+    _serve(monkeypatch, 403, 403)
+    assert check_url("http://example.com") is True
 
 
-def test_check_url_405_then_get_fails_is_false() -> None:
+def test_check_url_405_then_get_fails_is_false(monkeypatch: pytest.MonkeyPatch) -> None:
     # 405 with a failing GET retry is not a 403, so it is rejected.
-    with patch(
-        "latris.ai.validate_urls.urlopen",
-        side_effect=[_http_error(405), URLError("nope")],
-    ):
-        assert check_url("http://example.com") is False
+    _serve(monkeypatch, 405, httpx.ConnectError("nope"))
+    assert check_url("http://example.com") is False
+    _serve(monkeypatch, 405, 404)
+    assert check_url("http://example.com") is False
 
 
-def test_check_url_other_http_error_is_false() -> None:
-    with patch("latris.ai.validate_urls.urlopen", side_effect=_http_error(500)):
-        assert check_url("http://example.com") is False
+def test_check_url_other_http_error_is_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _serve(monkeypatch, 500)
+    assert check_url("http://example.com") is False
+    assert len(seen) == 1  # no retry
 
 
-def test_check_url_url_error_is_false() -> None:
-    with patch("latris.ai.validate_urls.urlopen", side_effect=URLError("dns")):
-        assert check_url("http://nonexistent.invalid") is False
+def test_check_url_network_error_is_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    _serve(monkeypatch, httpx.ConnectError("dns"))
+    assert check_url("http://nonexistent.invalid") is False
+    _serve(monkeypatch, httpx.ReadTimeout("slow"))
+    assert check_url("http://example.com") is False
 
 
-def test_check_url_value_error_is_false() -> None:
-    # e.g. a malformed/unsupported URL.
-    with patch("latris.ai.validate_urls.urlopen", side_effect=ValueError("bad url")):
-        assert check_url("not-a-url") is False
+def test_check_url_malformed_is_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _serve(monkeypatch)
+    assert check_url("not-a-url") is False
+    assert check_url("http://example.com:notaport/") is False
+    assert seen == []
 
 
 # ── validate_reference_urls ──────────────────────────────────────────

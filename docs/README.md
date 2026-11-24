@@ -147,6 +147,10 @@ agents: read these before changing code.
 8. [`SHARE_LINK.md`](engineering/SHARE_LINK.md) — open issue: `latris link`
    copies drop the evidence trail but keep prose that describes it; the
    planned fix.
+9. [`ELICITATION_REPORTS.md`](engineering/ELICITATION_REPORTS.md) — open
+   issue: recorded elicitation sessions never appear in reports (the
+   exporters resolve their files against the wrong folder); the fix, for
+   when elicitation is built out.
 
 ### The worked example (`../worked_example/`)
 

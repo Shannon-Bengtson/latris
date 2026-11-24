@@ -2,7 +2,7 @@
 
 Every prompt registered in `PROMPT_LIBRARY` must build a non-empty
 `ContextPack` against a small populated fixture project. This catches
-silent schema drift in `ai/context.py` builders the moment a substrate
+silent schema drift in the `ai/context/` builders the moment a substrate
 or attribute field is renamed — long before the broken prompt ships
 to a user.
 
@@ -69,8 +69,8 @@ def _mock_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Force the mock adapter at import-time so any incidental adapter
     lookups during context building hit the no-op stub.
 
-    `build_context` itself does not invoke the adapter (verified at
-    `context.py:2453-2462`), but a few builders import `call`-side
+    `build_context` itself does not invoke the adapter (see
+    `ai/context/__init__.py`), but a few builders import `call`-side
     helpers and we keep the env-var consistent with the rest of the AI
     test suite.
     """
