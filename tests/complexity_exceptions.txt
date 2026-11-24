@@ -2,8 +2,6 @@
 # their score. This list only shrinks: split a function, then take it off (or lower its score).
 operations/sd_inference.py::_analyse_core 134
 operations/sd_loops.py::loop_dominance 91
-operations/build.py::build_from_spec 76
-operations/build.py::_check 72
 operations/bow_tie.py::analyse 59
 operations/equation_model.py::load 57
 operations/share_link.py::export_spec 54

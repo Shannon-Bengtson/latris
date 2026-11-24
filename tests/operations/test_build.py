@@ -126,3 +126,63 @@ def test_route(project: Path) -> None:
     resp = client.post("/api/build", json={"spec": pyyaml.safe_load(SPEC), "verified_by": "ai"})
     assert resp.status_code == 200, resp.text
     assert resp.json()["result"]["citations"] == 2
+
+
+def test_every_problem_is_listed_in_order(project: Path) -> None:
+    bad = """
+outcome: Nowhere
+factors:
+  - label: Workload
+  - label: Workload
+  - label: Burnout
+links:
+  - {from: Workload, to: Workload, polarity: "+"}
+  - {from: Workload, to: Burnout, polarity: "+", sources: [nobody2020]}
+  - {from: Workload, to: Burnout, polarity: "+"}
+  - {from: Burnout, to: Morale, polarity: "-"}
+sources:
+  - {key: long2020, title: Too long, url: "https://example.org/a", extract: "%s"}
+  - {key: bare2021, title: No address, extract: A passage.}
+  - {key: self2022, title: Cites itself, cited_via: self2022}
+assumptions:
+  - {text: Hours are comparable., target: Recognition}
+findings:
+  - {statement: Burnout follows workload., category: dynamics, targets: ["Burnout -> Workload"]}
+interpretation:
+  - {section: no_such_section, prose: Words.}
+""" % ("x" * 2001)
+    with pytest.raises(ValueError) as exc:
+        build_ops.build_from_spec(build_ops.load_spec(bad), root=project)
+    lines = str(exc.value).splitlines()
+    assert lines[:12] == [
+        "the spec has problems, nothing was changed:",
+        "- source 'long2020': extract is 2001 characters (limit 2000); keep the passage that bears on the claim",
+        "- source 'bare2021': an extract needs extract_url (or the source's url or doi)",
+        "- source 'self2022': cited_via 'self2022' isn't another source",
+        "- factor listed twice: Workload",
+        "- link 1: a factor can't link to itself",
+        "- link 4: no factor named 'Morale'",
+        "- link 3: Workload -> Burnout (causal) is already a link",
+        "- link 2: no source with key 'nobody2020' (add it under sources)",
+        "- outcome: no factor named 'Nowhere'",
+        "- assumption 1: no factor named 'Recognition'",
+        "- finding 1: no link 'Burnout -> Workload'",
+    ]
+    assert lines[12].startswith("- interpretation: no section 'no_such_section' (one of: answer_to_question, ")
+    assert len(lines) == 13
+
+
+def test_building_the_same_spec_again_reusing_adds_nothing(project: Path) -> None:
+    spec = build_ops.load_spec(SPEC)
+    build_ops.build_from_spec(spec, root=project)
+    paths = ProjectPaths(project)
+    before = (paths.conceptual_yaml.read_text(encoding="utf-8"), paths.evidence_links_yaml.read_text(encoding="utf-8"))
+
+    with pytest.raises(ValueError, match="factor already in the project"):
+        build_ops.build_from_spec(spec, root=project)
+    result = build_ops.build_from_spec(spec, existing="reuse", root=project)
+
+    assert (result.reused_factors, result.reused_links, result.reused_sources) == (3, 3, 2)
+    assert (result.factors, result.links, result.sources, result.citations) == (0, [], 0, 0)
+    after = (paths.conceptual_yaml.read_text(encoding="utf-8"), paths.evidence_links_yaml.read_text(encoding="utf-8"))
+    assert after == before  # the links keep their values and each source is cited once
