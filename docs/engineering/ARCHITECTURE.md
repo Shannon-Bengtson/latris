@@ -270,7 +270,7 @@ src/latris/
 ├── ai/                # 45 canonical prompts, all wired
 │   ├── prompts.py     # PromptSpec library (45 entries)
 │   ├── call.py        # end-to-end orchestrator
-│   ├── context.py, proposals.py, interactions.py
+│   ├── context/, proposals.py, interactions.py
 │   ├── credentials.py, config.py
 │   └── adapters/      # ChatAdapter protocol + mock + litellm
 ├── server/            # FastAPI + WebSocket backend for the GUI

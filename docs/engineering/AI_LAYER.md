@@ -121,7 +121,10 @@ src/latris/ai/
 │                       #   response model, temperature, mode (mutating | read_only | hybrid | server_transformed)
 ├── credentials.py      # env-var + keyring facade, key_in_env() context manager
 ├── config.py           # .graph-tooling/ai_config.yaml (committed)
-├── context.py          # per-prompt context builders → ContextPack
+├── context/            # per-prompt context builders → ContextPack: build_context and the builder
+│                       #   registry in __init__, shared helpers in _shared, builders by family
+│                       #   (elements, model, references, provenance, compose, configure, interpret,
+│                       #   interrogation)
 ├── proposals.py        # pydantic proposal schemas + apply() dispatchers
 ├── render.py           # proposal/result rendering
 ├── validate_urls.py    # URL sanity-checks on AI-proposed references
@@ -333,7 +336,8 @@ Three proposal kinds for the first cut:
 
 ## Context assembler
 
-Each prompt has a bespoke builder in `context.py`. Goal: **relevant context,
+Each prompt has a bespoke builder in the `context/` package (one module per family of prompts; the
+helpers they share are in `context/_shared.py`). Goal: **relevant context,
 not all context**. A big project's full state would blow the context window
 and waste tokens.
 

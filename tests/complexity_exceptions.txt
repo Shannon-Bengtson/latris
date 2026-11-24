@@ -27,8 +27,8 @@ cli/sd_cmd.py::simulate 35
 exporters/markdown.py::_render_interpretation 35
 operations/predict.py::LoadedModel.predict 35
 operations/risk_uncertainty.py::_target 35
-ai/context.py::_build_suggest_edge_polarities 34
-ai/context.py::_project_activity_summary 34
+ai/context/configure.py::_build_suggest_edge_polarities 34
+ai/context/_shared.py::_project_activity_summary 34
 operations/fault_tree.py::load_tree 34
 operations/process_tracing.py::analyse 34
 operations/sd_montecarlo.py::compare_options 34
