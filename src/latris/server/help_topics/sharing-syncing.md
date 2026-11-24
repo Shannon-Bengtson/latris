@@ -23,7 +23,7 @@ Each project's **⋯** menu offers what your role allows ("owner" below also mea
 - **Move to folder…** (owner) — files it in one of the workspace's folders, or takes it out.
 - **Move to workspace…** (owner) — moves it to another workspace you are in. The people on it stay on it; the admins of the workspace it leaves stop seeing it, and the admins of the one it joins start.
 - **Archive** (owner) — moves the project to **Archived**, below the list, out of the way. An archived project can't be opened, or edited from a chat, until you **Restore** it; its report and shared links keep working. Anyone working in it is closed out (their last changes are saved).
-- **Move to trash…** (owner) — hides the project from everyone else, closes out anyone working in it, and stops its report and shared links. It waits in **Trash** (which only you see) for **30 days**: **Restore** brings it back as it was, links and all. After 30 days it is deleted for good.
+- **Move to trash…** (owner) — hides the project from everyone but its owner and its workspace's admins, closes out anyone working in it, and stops its report and shared links. It waits in **Trash** for **30 days**: **Restore** brings it back as it was, links and all. After 30 days it is deleted for good.
 - **Leave project…** (anyone but the owner) — takes you off the project. The owner can add you again. An owner who wants to leave transfers ownership first.
 
 On a phone the list shows each open project's report; manage projects from a computer.
