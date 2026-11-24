@@ -94,3 +94,28 @@ def test_window_and_scenario_on_a_project(sd_bathtub_root):
     from latris.operations import analysis_results as ar
 
     assert run_id in {r.run.id for r in ar.report_results(root=root)}
+
+
+def test_a_weak_link_says_why_and_a_supported_one_is_not_listed():
+    model = build_model(*logistic().args(final_time=5))
+    info_links = [lk for lk in loop_links(model) if lk.kind == "info"]
+    lookup = {(lk.from_id, lk.to_id): f"edge-{i}" for i, lk in enumerate(info_links)}
+    described = {
+        "edge-0": {"against": 1, "sources": 2, "confidence": "low"},
+        "edge-1": {"sources": 1, "confidence": "medium"},  # sourced: not weak
+    }
+    out = loop_dominance(model, edge_lookup=lookup, edge_info=described)
+    weak = {w["edge_id"]: w["why"] for lp in out["loops"] for w in lp["weak_links"]}
+    assert weak["edge-0"] == "evidence against it, low confidence"
+    assert "edge-1" not in weak
+    assert all(why == "no source" for edge, why in weak.items() if edge != "edge-0")
+
+
+def test_a_window_with_no_steps_and_a_model_at_rest():
+    model = build_model(*logistic().args(final_time=5))
+    with pytest.raises(ValueError, match="must have --from before --to"):
+        loop_dominance(model, start=3, end=3)
+    with pytest.raises(ValueError, match="no simulated steps between 1.001 and 1.002"):
+        loop_dominance(model, start=1.001, end=1.002)
+    still = loop_dominance(build_model(*logistic(p0=0.0).args(final_time=5)))  # nothing ever changes
+    assert describe(still) == "No loop dominates (the stocks barely change)."
