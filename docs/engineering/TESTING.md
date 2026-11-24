@@ -69,7 +69,7 @@ A change to latris is done when:
 1. **Schema** changes have a round-trip test; **operations** a test in `tests/operations/`; **routes** a
    test in `tests/server/` (the route guard checks); **CLI commands** a step in the worked example (the
    coverage guard checks), with the transcript regenerated and committed.
-2. A user-facing change updates its **help topic** (`src/latris/server/help.py`).
+2. A user-facing change updates its **help topic** (its file in `src/latris/server/help_topics/`).
 3. `python -m ruff check src tests` is clean and the full suite passes (`python -m pytest`).
 4. If the API changed, the app's types are regenerated there (`scripts/gen-api-types.sh` in the app repo)
    and the app typechecks.

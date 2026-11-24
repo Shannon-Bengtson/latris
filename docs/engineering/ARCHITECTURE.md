@@ -275,6 +275,7 @@ src/latris/
 │   └── adapters/      # ChatAdapter protocol + mock + litellm
 ├── server/            # FastAPI + WebSocket backend for the GUI
 │   ├── app.py, deps.py, state.py, watch.py, help.py
+│   ├── help_topics/   # the help topics' text: one Markdown file each, read by help.py
 │   └── routes/        # 47 route modules by domain
 ├── testing/           # example projects per model type (in the wheel) for apps' contract tests
 └── cli/               # Typer app — thin
@@ -326,7 +327,7 @@ static schema:
    (`schema/build_spec.py`), and a model per analysis kind (only its own options), added to the
    `SpecAnalysis` union;
 3. its entry in the foundations registry (`operations/foundations.py`);
-4. its help topic (`server/help.py`), and its keys in `latris build --help`.
+4. its help topic (a file in `server/help_topics/`), and its keys in `latris build --help`.
 
 The steps for a new type: schema for its parameters (with round-trip tests)
 → its operations module (setters, structure check, analysis, `record`; storage through

@@ -10,7 +10,7 @@ shared code reads :data:`FORMALISMS`.
 
 Adding a type: register its :class:`~latris.schema.model_types.ModelTypeSpec`
 (schema), its foundations entry (``operations/foundations.py``), its help
-topic (``server/help.py``) and its build-spec block (``schema/build_spec.py``,
+topic (``server/help_topics/``) and its build-spec block (``schema/build_spec.py``,
 a static pydantic field), then write one module here and add it to the
 imports at the bottom. ``tests/operations/test_formalisms.py`` checks every
 stable type is fully wired.
