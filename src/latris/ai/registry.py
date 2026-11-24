@@ -1,6 +1,6 @@
 """Registering prompts from outside the library.
 
-The built-in prompts are defined in ``prompts.py`` and wired at import. A
+The built-in prompts are defined in ``prompts/`` and wired at import. A
 server plugin (``latris.server_plugins``) that brings its own AI feature
 registers its prompts here, once, when it loads. A registered prompt then
 works like a built-in one: ``ai.call.run_call`` finds it by name, the

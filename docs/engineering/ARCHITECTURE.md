@@ -268,7 +268,7 @@ src/latris/
 │   ├── narrative.py   # AI-assisted prose narrative
 │   └── packs.py       # pack configuration and assembly
 ├── ai/                # 45 canonical prompts, all wired
-│   ├── prompts.py     # PromptSpec library (45 entries)
+│   ├── prompts/       # PromptSpec library (45 entries)
 │   ├── call.py        # end-to-end orchestrator
 │   ├── context/, proposals/, interactions.py
 │   ├── credentials.py, config.py
