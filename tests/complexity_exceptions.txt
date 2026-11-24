@@ -1,7 +1,6 @@
 # Functions past the complexity limit when the guard arrived (tests/test_complexity_guard.py), with
 # their score. This list only shrinks: split a function, then take it off (or lower its score).
 operations/sd_inference.py::_analyse_core 134
-operations/integrity.py::check_integrity 101
 operations/sd_loops.py::loop_dominance 91
 operations/build.py::build_from_spec 76
 operations/build.py::_check 72
