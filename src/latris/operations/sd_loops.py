@@ -164,9 +164,9 @@ def loop_dominance(
 
     sets_out = []
     for k in sorted(set(sets)):
-        members = [i for i, s in enumerate(sets) if s == k]
-        periods = _dominant_periods(members, relative, window, times, labels)
-        sets_out.append({"id": k, "loops": [labels[i] for i in members], "dominant_periods": periods})
+        in_set = [i for i, s in enumerate(sets) if s == k]
+        periods = _dominant_periods(in_set, relative, window, times, labels)
+        sets_out.append({"id": k, "loops": [labels[i] for i in in_set], "dominant_periods": periods})
 
     return {
         "times": [_r(times[t]) for t in idx],

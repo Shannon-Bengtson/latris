@@ -43,10 +43,11 @@ what to do.
 | `tests/operations/test_methods_register.py` | Every analysis names the method it stands on. |
 | `tests/schema/test_model_types.py` | Model-type text is about the method, never the GUI's status. |
 | `tests/test_complexity_guard.py` | No function is more complex than the limit (cyclomatic complexity 30, counted as `radon cc` counts it). |
+| `tests/test_type_check_guard.py` | The type annotations are checked: `mypy` (settings in `pyproject.toml`, version pinned in the `dev` extra) finds no more errors in any file than it had. |
 
 ### Ratchets
 
-Three guards started with existing gaps. Rather than fail from day one, each lists today's gaps in a file
+Four guards started with existing gaps. Rather than fail from day one, each lists today's gaps in a file
 that **only shrinks**:
 
 - `tests/server/untested_routes.txt` — routes with no test yet.
@@ -54,9 +55,11 @@ that **only shrinks**:
   they need real keys or a network).
 - `tests/complexity_exceptions.txt` — functions past the complexity limit, each with its score. A listed
   function must not grow; split it into smaller ones and take it off.
+- `tests/type_errors.txt` — type errors per file. A file not listed has none; a listed file must not
+  gain any, and when its errors are fixed its count comes down.
 
-A new route, command or over-complex function can't join a list: write the test, add the command to the
-worked example, or split the function. A listed one that is put right (or removed) must come off — the
+A new route, command, over-complex function or type error can't join a list: write the test, add the command
+to the worked example, split the function, or fix the types. A listed one that is put right (or removed) must come off — the
 guard fails until it does, so the list stays true.
 
 The coverage floor works the same way: `fail_under` in `pyproject.toml` sits a point under measured
@@ -84,6 +87,7 @@ python -m pytest tests/server/test_build_routes.py  # one file (the inner loop)
 python -m pytest --cov --cov-report=term-missing    # with coverage (CI enforces the floor)
 python -m pytest tests/test_worked_example.py --slow  # regenerate the worked-example transcript
 python -m ruff check src tests                      # lint, as CI does
+python -m mypy                                      # type-check (the guard runs it in the suite)
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, the suite with coverage, and the worked example.
