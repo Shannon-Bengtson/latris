@@ -33,7 +33,8 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
 - [`docs/`](./docs/) — engineering reference. Start at
   [docs/README.md](./docs/README.md).
 - [`scripts/`](./scripts/) — `dev-server.sh` / `dev-stop.sh` (backend
-  process lifecycle for dev), `bump-version.sh` (version + tag).
+  process lifecycle for dev), `bump-version.sh` (version + tag),
+  `health_report.py` (the weekly health check; see TESTING.md → "Weekly").
 
 ## Working principles
 

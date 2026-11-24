@@ -98,6 +98,24 @@ CI (`.github/workflows/ci.yml`) runs lint, the suite with coverage, and the work
 error (`GitError`: git can trip over itself on a busy runner) is run again, up to twice; any other failure
 fails the first time, so a flaky test shows up instead of passing on a retry.
 
+## Weekly
+
+Two scheduled runs look at what a push doesn't:
+
+- **Health check** (`.github/workflows/health.yml`, Monday morning in Australia): `scripts/health_report.py`
+  runs the suite against today's releases of every dependency, audits the dependencies for known
+  vulnerabilities (pip-audit), and measures risky patterns (bandit), complexity and maintainability
+  (radon), size, dead code (vulture), duplication (jscpd), lint beyond the project's rules, and the length
+  of each ratchet list. The report is the run's summary page, kept as an artifact for 90 days. It fails
+  only on a known vulnerability or a failing test; then it opens an issue labelled `health-check` (or
+  comments on the open one) and closes it when a run passes. Try it locally with
+  `python scripts/health_report.py --src src/latris --skip-tests` (the tools are listed in the workflow).
+- **The full matrix**: CI (`ci.yml`) runs on all three operating systems and both Python versions on the
+  same morning, which pushes don't.
+
+Scheduled runs start from the default branch, and GitHub pauses them in a repository with no activity for
+60 days; re-enable them from the Actions tab.
+
 ## Keeping this current
 
 This file is read by every agent that works here (Claude via `CLAUDE.md`, others via `AGENTS.md`). When
