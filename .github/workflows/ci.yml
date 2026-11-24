@@ -68,12 +68,14 @@ jobs:
       - name: Run tests with coverage
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         # --reruns guards against transient git-under-parallel flakes on the
-        # runner (e.g. "unable to create temporary file" during git add).
-        run: python -m pytest -n auto --cov --cov-report=term-missing --reruns 2 --reruns-delay 1 -q
+        # runner (e.g. "unable to create temporary file" during git add), and
+        # --only-rerun keeps it to those: only a test that failed with a git
+        # error is run again. Any other failure fails the first time.
+        run: python -m pytest -n auto --cov --cov-report=term-missing --reruns 2 --reruns-delay 1 --only-rerun GitError -q
 
       - name: Run tests
         if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.12'
-        run: python -m pytest -n auto --reruns 2 --reruns-delay 1 -q
+        run: python -m pytest -n auto --reruns 2 --reruns-delay 1 --only-rerun GitError -q
 
   worked-example:
     # Acceptance test: runs the full CLI workflow end-to-end and regenerates

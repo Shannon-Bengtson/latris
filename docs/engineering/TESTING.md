@@ -90,7 +90,9 @@ python -m ruff check src tests                      # lint, as CI does
 python -m mypy                                      # type-check (the guard runs it in the suite)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, the suite with coverage, and the worked example.
+CI (`.github/workflows/ci.yml`) runs lint, the suite with coverage, and the worked example. A test that fails with a git
+error (`GitError`: git can trip over itself on a busy runner) is run again, up to twice; any other failure
+fails the first time, so a flaky test shows up instead of passing on a retry.
 
 ## Keeping this current
 
