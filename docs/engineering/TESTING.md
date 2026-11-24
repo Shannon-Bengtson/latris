@@ -58,9 +58,9 @@ that **only shrinks**:
 - `tests/type_errors.txt` — type errors per file. A file not listed has none; a listed file must not
   gain any, and when its errors are fixed its count comes down.
 
-A new route, command, over-complex function or type error can't join a list: write the test, add the command
-to the worked example, split the function, or fix the types. A listed one that is put right (or removed) must come off — the
-guard fails until it does, so the list stays true.
+A new route, command, over-complex function or type error can't join a list: write the test, add the
+command to the worked example, split the function, or fix the types. A listed one that is put right (or
+removed) must come off — the guard fails until it does, so the list stays true.
 
 The coverage floor works the same way: `fail_under` in `pyproject.toml` sits a point under measured
 coverage and only goes up. When coverage rises, raise it.
