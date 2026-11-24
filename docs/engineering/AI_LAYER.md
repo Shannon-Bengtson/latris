@@ -125,7 +125,8 @@ src/latris/ai/
 │                       #   registry in __init__, shared helpers in _shared, builders by family
 │                       #   (elements, model, references, provenance, compose, configure, interpret,
 │                       #   interrogation)
-├── proposals.py        # pydantic proposal schemas + apply() dispatchers
+├── proposals/          # pydantic proposal schemas + apply() dispatchers, by the same families as
+│                       #   context/; the entry types and helpers they share are in _shared
 ├── render.py           # proposal/result rendering
 ├── validate_urls.py    # URL sanity-checks on AI-proposed references
 ├── chains.py           # fixed prompt-chain definitions (CHAIN_LIBRARY)
