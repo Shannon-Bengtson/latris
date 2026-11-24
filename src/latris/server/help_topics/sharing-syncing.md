@@ -1,7 +1,7 @@
 ---
 title: Sharing & Syncing Projects
 category: collaboration
-summary: Share a project online, invite collaborators by email, and publish versions so others can see them.
+summary: Your projects page (new, rename, people, archive, trash, leave), inviting collaborators, and publishing versions.
 ---
 
 ## Where collaboration lives
@@ -12,15 +12,19 @@ Open the **Versions** view (top-right). Everything about working with other peop
 
 In the Versions view, under **People**, enter a name and click **Share**. Latris creates a private online copy of the project. From then on you choose which versions collaborators can see.
 
-## The project list
+## Your projects
 
-The landing page shows all your projects in one list, each with a status:
+After you sign in, **Your projects** lists every project you own or that has been shared with you, with your role on each. **Open** starts working in it. **New project** names a new one and opens it.
 
-- **Local** — exists only on this machine; not shared.
-- **Synced** — your local copy is linked to an online project. Open it as usual.
-- **Available** — a project shared *with you* online that you haven't downloaded yet. Click it to clone a local copy, then it becomes Synced.
+Each project's **⋯** menu offers what your role allows:
 
-The list is deduplicated: a project that is both local and online shows as **one** row, not two.
+- **People…** — who is on the project. The owner invites by email, changes roles, removes people, and can **transfer ownership** to someone who has joined (the old owner stays on as a collaborator).
+- **Rename…** (owner) — changes the name only; its shared links don't change.
+- **Archive** (owner) — moves the project to **Archived**, below the list, out of the way. An archived project can't be opened, or edited from a chat, until you **Restore** it; its report and shared links keep working. Anyone working in it is closed out (their last changes are saved).
+- **Move to trash…** (owner) — hides the project from everyone else, closes out anyone working in it, and stops its report and shared links. It waits in **Trash** (which only you see) for **30 days**: **Restore** brings it back as it was, links and all. After 30 days it is deleted for good.
+- **Leave project…** (anyone but the owner) — takes you off the project. The owner can add you again. An owner who wants to leave transfers ownership first.
+
+On a phone the list shows each open project's report; manage projects from a computer.
 
 ## Keeping in sync (turn-based, per version)
 
@@ -36,10 +40,10 @@ Each version on the tree shows its state at a glance (Local, Shared, changes to 
 
 The project owner manages who can access a shared project:
 
-- **Owner** — controls membership and can delete the project.
+- **Owner** — controls membership, renames, archives and can move the project to the trash.
 - **Collaborator** — can change the model.
 
-Invite someone by **email** from **People** in the Versions view. They get an account the first time they sign in, then the project appears as **Available** for them to open. (Until you publish a version, a collaborator who opens the project sees nothing yet.)
+Invite someone by **email** from **People** (in a project's **⋯** menu on Your projects, or in the Versions view). They get an account the first time they sign in, then the project appears in their list. (Until you publish a version, a collaborator who opens the project sees nothing yet.)
 
 ## Report link
 
