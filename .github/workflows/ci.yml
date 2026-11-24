@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "47 19 * * 0"  # weekly, beside the health check: the full matrix, which pushes don't run
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,8 +15,9 @@ concurrency:
 
 jobs:
   # Routine push/PR runs a slim matrix (1 job) to save Actions minutes; a
-  # manual "Run workflow" (workflow_dispatch) runs the full 3-OS × 2-py matrix
-  # when you want full cross-platform coverage before a release.
+  # manual "Run workflow" (workflow_dispatch) and the weekly scheduled run
+  # use the full 3-OS × 2-py matrix, so cross-platform breakage shows up
+  # within a week rather than at release.
   setup:
     name: choose matrix
     runs-on: ubuntu-latest
@@ -24,7 +27,7 @@ jobs:
       - id: m
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "schedule" ]; then
             echo 'matrix={"os":["ubuntu-latest","macos-latest","windows-latest"],"python-version":["3.11","3.12"]}' >> "$GITHUB_OUTPUT"
           else
             echo 'matrix={"os":["ubuntu-latest"],"python-version":["3.12"]}' >> "$GITHUB_OUTPUT"
@@ -68,12 +71,14 @@ jobs:
       - name: Run tests with coverage
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         # --reruns guards against transient git-under-parallel flakes on the
-        # runner (e.g. "unable to create temporary file" during git add).
-        run: python -m pytest -n auto --cov --cov-report=term-missing --reruns 2 --reruns-delay 1 -q
+        # runner (e.g. "unable to create temporary file" during git add), and
+        # --only-rerun keeps it to those: only a test that failed with a git
+        # error is run again. Any other failure fails the first time.
+        run: python -m pytest -n auto --cov --cov-report=term-missing --reruns 2 --reruns-delay 1 --only-rerun GitError -q
 
       - name: Run tests
         if: matrix.os != 'ubuntu-latest' || matrix.python-version != '3.12'
-        run: python -m pytest -n auto --reruns 2 --reruns-delay 1 -q
+        run: python -m pytest -n auto --reruns 2 --reruns-delay 1 --only-rerun GitError -q
 
   worked-example:
     # Acceptance test: runs the full CLI workflow end-to-end and regenerates

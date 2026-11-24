@@ -203,3 +203,78 @@ def test_over_long_extract_on_disk_is_a_warning(project: Path) -> None:
     dump_raw(lib, paths.references_yaml)
     report = check_integrity(root=project)
     assert report.ok and {p.kind for p in report.problems} == {"extract_too_long"}
+
+
+def test_mappings_views_and_data_links_pointing_at_nothing(project: Path) -> None:
+    paths = ProjectPaths(project)
+    gone = "node_01J0000000000000000000000Z"
+    dump_raw({"entries": [{"l2_id": gone}], "left_out": [{"l2_id": "edge_01J0000000000000000000000Z"}]},
+             paths.mappings_yaml)
+    view = load_raw(paths.view_yaml("cld"))
+    view["entity_ids"] = [*(view.get("entity_ids") or []), gone]
+    dump_raw(view, paths.view_yaml("cld"))
+    dump_raw(["not", "a", "view"], paths.view_yaml("fcm"))  # not a mapping: nothing to check
+    dump_raw({"entries": [{"target_id": gone, "dataset_id": "dataset_01J0000000000000000000000Z"}]},
+             paths.data_links_yaml)
+
+    problems = check_integrity(root=project).problems
+    dangling = {p.where: p.ids for p in problems if p.kind == "dangling_target"}
+    assert dangling["substrate/mappings.yaml"] == ["edge_01J0000000000000000000000Z", gone]
+    assert dangling["views/cld.yaml"] == [gone]
+    assert dangling["substrate/attributes/data-links.yaml"] == [gone]
+    assert "views/fcm.yaml" not in dangling
+    unknown = next(p for p in problems if p.kind == "unknown_dataset")
+    assert unknown.ids == ["dataset_01J0000000000000000000000Z"] and unknown.severity == "error"
+
+
+def test_files_that_are_not_there_are_not_checked(project: Path) -> None:
+    import shutil
+
+    paths = ProjectPaths(project)
+    paths.mappings_yaml.unlink()
+    paths.challenges_yaml.unlink(missing_ok=True)
+    shutil.rmtree(paths.views_dir)
+    assert check_integrity(root=project).ok
+
+
+def test_an_id_used_twice(project: Path) -> None:
+    paths = ProjectPaths(project)
+    sub = load_raw(paths.conceptual_yaml)
+    sub["entities"].append(dict(sub["entities"][0], label="Another"))
+    dump_raw(sub, paths.conceptual_yaml)
+    problem = next(p for p in check_integrity(root=project).problems if p.kind == "duplicate_id")
+    assert problem.ids == [sub["entities"][0]["id"]] and "used 2 times" in problem.message
+
+
+def test_a_finding_that_supersedes_one_not_recorded(project: Path) -> None:
+    import json
+
+    from latris.operations.findings import record_new_finding
+
+    record_new_finding("Workload drives departures.", "dynamics", "cld", root=project)
+    path = ProjectPaths(project).findings_jsonl
+    record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    record["supersedes"] = ["finding_01J0000000000000000000000Z"]
+    record["target_ids"] = ["node_01J0000000000000000000000Z"]
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    report = check_integrity(root=project)
+    problem = next(p for p in report.problems if p.kind == "dangling_supersedes")
+    assert problem.severity == "warning" and problem.ids == ["finding_01J0000000000000000000000Z"]
+    removed = next(p for p in report.problems if p.kind == "audit_target_removed")
+    assert removed.severity == "info" and removed.ids == ["node_01J0000000000000000000000Z"]
+    assert report.ok  # neither blocks handover
+
+
+def test_source_id_naming_the_wrong_kind_of_record(project: Path) -> None:
+    from latris.operations.analysis_runs import record_run
+
+    run, _ = record_run(purpose="structure-learning", algorithm="loops", library_version="1", root=project)
+    paths = ProjectPaths(project)
+    sub = load_raw(paths.conceptual_yaml)
+    sub["entities"][0].update(origin="ai-proposed", source_id=run.id)
+    sub["entities"][1].update(origin="data-derived", source_id=run.id)  # the right kind: no problem
+    dump_raw(sub, paths.conceptual_yaml)
+    (problem,) = check_integrity(root=project).problems
+    assert problem.kind == "source_mismatch" and problem.ids == [run.id]
+    assert problem.message.endswith(f"is ai-proposed but its source_id is an analysis run ({run.id})")

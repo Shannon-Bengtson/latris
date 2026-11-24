@@ -217,3 +217,30 @@ def test_choosing_a_model_type_with_a_reason_clears_its_item(project: Path) -> N
     out = CliRunner().invoke(app, ["project", "choose", "cld", "--why", "Feedback between workload and departures."])
     assert out.exit_code == 0, out.output
     assert "missing_rationale" not in _kinds(project)
+
+
+def test_a_description_that_contradicts_its_polarity_is_on_the_list(tmp_path: Path, git_identity) -> None:
+    root = tmp_path / "vol"
+    init_project(root, statement="Why do volunteers leave?")
+    update_selected_models(["cld"], root=root)
+    spec = """
+factors:
+  - label: Support
+  - label: Stress
+links:
+  - {from: Support, to: Stress, polarity: "+", reason: Peers help., description: Good support reduces stress.}
+"""
+    build_ops.build_from_spec(build_ops.load_spec(spec), root=root)
+    item = next(i for i in handover_check(root=root).items if i.kind == "contradictions")
+    assert item.count == 1 and item.area == "links" and len(item.target_ids) == 1
+    assert item.examples == ["Support → Stress"]
+
+
+def test_writing_every_section_clears_missing_prose(project: Path) -> None:
+    from latris.operations.interpret import initialise_sections, update_prose
+
+    store, _, _ = initialise_sections(root=project)
+    assert _kinds(project)["missing_prose"] == len(store.sections)
+    for section in store.sections:
+        update_prose(section.id, "What the model says.", root=project)
+    assert "missing_prose" not in _kinds(project)

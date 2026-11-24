@@ -33,7 +33,8 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
 - [`docs/`](./docs/) — engineering reference. Start at
   [docs/README.md](./docs/README.md).
 - [`scripts/`](./scripts/) — `dev-server.sh` / `dev-stop.sh` (backend
-  process lifecycle for dev), `bump-version.sh` (version + tag).
+  process lifecycle for dev), `bump-version.sh` (version + tag),
+  `health_report.py` (the weekly health check; see TESTING.md → "Weekly").
 
 ## Working principles
 
@@ -58,10 +59,11 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
   `ai_config.yaml` is committed but rejects key-shaped fields
   defensively.
 - **Keep help topics current.** User-facing help lives in
-  `src/latris/server/help.py` (served at `/api/help/topics`). When you
-  add, rename, or change a workflow phase, model type, or user-facing
-  concept, update the relevant help topic body so documentation stays
-  accurate.
+  `src/latris/server/help_topics/` — one Markdown file per topic, listed
+  in `_order.txt`, loaded by `server/help.py` and served at
+  `/api/help/topics`. When you add, rename, or change a workflow phase,
+  model type, or user-facing concept, update the relevant topic's file so
+  documentation stays accurate.
 - **Commit after changes.** Commit work before finishing a session;
   don't leave modified or untracked work uncommitted.
 - **Frozen constants.** The per-project state directory `.graph-tooling`

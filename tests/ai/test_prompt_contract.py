@@ -1,6 +1,6 @@
 """Structural guard tests for the prompt contract — "one prompt per button".
 
-A prompt is defined by a ``PromptSpec`` (prompts.py) that now owns its
+A prompt is defined by a ``PromptSpec`` (prompts/) that now owns its
 response model and per-op temperature. These tests enforce that the spec
 registry, the derived response-model map, and the context builders stay in
 bijection, and that the behaviour-classification sets in call.py reference only

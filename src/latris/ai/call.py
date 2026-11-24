@@ -59,7 +59,7 @@ class CallOutcome:
 
 
 # Map prompt_name → expected response pydantic class. The source of truth is
-# now ``PromptSpec.response_model`` (see prompts.py); this is a derived alias
+# now ``PromptSpec.response_model`` (see prompts/); this is a derived alias
 # kept for backwards compatibility with importers (server/routes/ai.py,
 # cli/ai_cmd.py). Do not hand-edit — add the response model on the spec.
 RESPONSE_MODELS: dict[str, type[BaseModel]] = {

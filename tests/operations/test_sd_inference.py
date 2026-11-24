@@ -371,3 +371,51 @@ def test_model_boundary_ignores_unrelated_causal_edges():
 
     m.edge("health", "outflow", "causal")  # points into the model: must be classified + used
     assert m.problems() == {"unclassified"}
+
+
+def test_every_problem_is_reported_in_phase_order():
+    """One model with a gap of nearly every kind: the problems come out phase by phase, in a fixed order."""
+    m = M()
+    w = m.stock("Water", 100.0, "liter")
+    m.var("Tank", "stock")  # no initial value
+    m.var("Leak Rate", "constant")  # no value
+    r = m.const("Inflow Rate", 5.0, "liter/yeer")  # a unit that doesn't parse
+    m.var("Mystery", None)  # unclassified
+    m.flow("Inflow", "inflow_rate + ghost + inflow", "liter", to=w, inputs=[r])  # unknown, itself, wrong units
+    m.flow("Outflow", "water * TABLE(water)", "liter/year", frm=w)  # no table
+    m.flow("Drift", "1", "liter/year")  # fills and drains nothing
+    m.var("Seep", "flow")  # no equation
+    a = m.aux("Pressure", "water", "liter", inputs=["leak_rate"])  # reads water unlinked; its link is unused
+    m.edge("mystery", "water", "causal")  # an information link pointed at a stock
+    m.edge("water", "tank", "flow")  # stock to stock
+    m.var("Pressure ", "auxiliary")  # the same equation name as Pressure
+    m.tables.append(SDTableEntry(target_id=a, points=[TablePoint(x=0, y=0), TablePoint(x=1, y=1)],
+                                 x_units="dimensionless", y_units="dimensionless"))
+
+    model, problems = analyse(*m.args())
+    assert model is None
+    assert [(p.target_id, p.gap_type) for p in problems] == [
+        ("mystery", "unclassified"),
+        ("e5", "flow_edge_invalid"),
+        ("drift", "flow_not_connected"),
+        ("seep", "flow_not_connected"),
+        ("e4", "stock_causal_input"),
+        ("pressure", "name_collision"),
+        ("pressure_", "name_collision"),
+        ("inflow", "unknown_reference"),
+        ("inflow", "self_reference"),
+        ("pressure", "missing_information_link"),
+        ("pressure_", "missing_equation"),
+        ("seep", "missing_equation"),
+        ("e3", "unused_information_link"),
+        ("outflow", "missing_table"),
+        ("pressure", "unused_table"),
+        ("leak_rate", "missing_constant_value"),
+        ("tank", "missing_initial_value"),
+        ("inflow_rate", "units_invalid"),
+        ("inflow", "flow_units_incompatible"),
+    ]
+    assert all(p.severity == "gap" for p in problems)
+    # Sharing its map with a loop map, the diagram-only links are advisories, listed after the gaps.
+    _, lenient = analyse(*m.args(), lenient=True)
+    assert [(p.gap_type, p.severity) for p in lenient[-1:]] == [("unused_information_link", "advisory")]

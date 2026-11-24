@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from latris.operations import formalisms
 from latris.operations.batch import batch
@@ -25,6 +25,10 @@ from latris.repo.yaml_io import load_model, load_model_from_string, load_model_o
 from latris.schema import ProjectFoundation, ReferenceLibrary, Substrate
 from latris.schema.build_spec import LINK_ARROWS, BuildSpec, SpecAssumption, SpecCitation
 from latris.schema.references import SNAPSHOT_EXTRACT_MAX
+
+if TYPE_CHECKING:
+    from latris.repo.layout import ProjectPaths
+    from latris.schema.build_spec import SpecLink
 
 
 @dataclass
@@ -78,109 +82,153 @@ def split_link(name: str) -> tuple[str, str] | None:
 def _check(spec: BuildSpec, substrate: Substrate, ref_keys: set[str], model_type: str, *, reuse: bool = False) -> None:
     """Raise ValueError listing every reference the spec can't resolve. With ``reuse``, a factor, link or
     source already in the project is fine (it is used as it is); otherwise it is refused."""
-    from latris.operations.interpret_registry import INTERPRET_SECTION_REGISTRY
+    check = _SpecCheck(spec, substrate, ref_keys, reuse)
+    check.sources()
+    check.factors()
+    check.links()
+    check.citations()
+    check.outcome(model_type)
+    for plugin in formalisms.all_formalisms():
+        block = getattr(spec, plugin.spec_field) if plugin.spec_field else None
+        if block is not None:
+            check.problems += plugin.spec_check(block, check.known_factor, spec.outcome)
+    check.targets()
+    check.interpretation()
+    if check.problems:
+        raise ValueError("the spec has problems, nothing was changed:\n- " + "\n- ".join(check.problems))
 
-    existing = {e.label.casefold() for e in substrate.entities} | {e.id for e in substrate.entities}
-    spec_labels = [f.label for f in spec.factors]
-    dupes = sorted({x for x in spec_labels if spec_labels.count(x) > 1})
-    known = existing | {label.casefold() for label in spec_labels}
-    keys = ref_keys | {s.key for s in spec.sources}
-    labels = {e.id: e.label.casefold() for e in substrate.entities}
-    link_pairs = {(labels.get(e.from_id), labels.get(e.to_id)) for e in substrate.edges} | {
-        (link.from_.casefold(), link.to.casefold()) for link in spec.links
-    }
-    problems: list[str] = []
-    from latris.operations.references import _clean_doi
 
-    for s in spec.sources:
-        if s.extract and len(s.extract) > SNAPSHOT_EXTRACT_MAX:
-            problems.append(
-                f"source {s.key!r}: extract is {len(s.extract)} characters (limit {SNAPSHOT_EXTRACT_MAX}); "
-                "keep the passage that bears on the claim"
-            )
-        if s.extract and not (s.extract_url or s.url or s.doi):
-            problems.append(f"source {s.key!r}: an extract needs extract_url (or the source's url or doi)")
-        if s.cited_via and (s.cited_via == s.key or s.cited_via not in keys):
-            problems.append(f"source {s.key!r}: cited_via {s.cited_via!r} isn't another source")
-        try:
-            _clean_doi(s.doi)
-        except ValueError as exc:
-            problems.append(f"source {s.key!r}: {exc}")
-    if dupes:
-        problems.append(f"factor listed twice: {', '.join(dupes)}")
-    clash = sorted(label for label in spec_labels if label.casefold() in existing)
-    if clash and not reuse:
-        problems.append(f"factor already in the project: {', '.join(clash)}")
-    have = sorted(s.key for s in spec.sources if s.key in ref_keys)
-    if have and not reuse:
-        problems.append(f"source already in the project: {', '.join(have)}")
+class _SpecCheck:
+    """The checks of a spec against the project, each adding to ``problems`` in the order it is run."""
 
-    def _known(name: str) -> bool:
-        return name.casefold() in known or name in known
+    def __init__(self, spec: BuildSpec, substrate: Substrate, ref_keys: set[str], reuse: bool) -> None:
+        self.spec = spec
+        self.substrate = substrate
+        self.ref_keys = ref_keys
+        self.reuse = reuse
+        self.problems: list[str] = []
+        self.existing = {e.label.casefold() for e in substrate.entities} | {e.id for e in substrate.entities}
+        self.spec_labels = [f.label for f in spec.factors]
+        self._known = self.existing | {label.casefold() for label in self.spec_labels}
+        self.keys = ref_keys | {s.key for s in spec.sources}
+        self.labels = {e.id: e.label.casefold() for e in substrate.entities}
+        self.link_pairs = {(self.labels.get(e.from_id), self.labels.get(e.to_id)) for e in substrate.edges} | {
+            (link.from_.casefold(), link.to.casefold()) for link in spec.links
+        }
 
-    def _target(where: str, name: str | None) -> None:
+    def known_factor(self, name: str) -> bool:
+        """Is *name* a factor in the project or the spec (by label, any case, or by id)?"""
+        return name.casefold() in self._known or name in self._known
+
+    def _target(self, where: str, name: str | None) -> None:
+        """*name* must be a factor, or a link written ``A -> B``."""
         if name is None:
             return
         ends = split_link(name)
         if ends is None:
-            if not _known(name):
-                problems.append(f"{where}: no factor named {name!r}")
-        elif (ends[0].casefold(), ends[1].casefold()) not in link_pairs:
-            problems.append(f"{where}: no link {name!r}")
+            if not self.known_factor(name):
+                self.problems.append(f"{where}: no factor named {name!r}")
+        elif (ends[0].casefold(), ends[1].casefold()) not in self.link_pairs:
+            self.problems.append(f"{where}: no link {name!r}")
 
-    for i, link in enumerate(spec.links, 1):
-        for end in (link.from_, link.to):
-            if not _known(end):
-                problems.append(f"link {i}: no factor named {end!r}")
-        if link.from_.casefold() == link.to.casefold():
-            problems.append(f"link {i}: a factor can't link to itself")
-    # Reusing, a link already in the project is fine; only one listed twice in the spec is a problem.
-    seen_links = set() if reuse else {(labels.get(e.from_id), labels.get(e.to_id), e.kind) for e in substrate.edges}
-    for i, link in enumerate(spec.links, 1):
-        key = (link.from_.casefold(), link.to.casefold(), link.kind)
-        if key in seen_links:
-            problems.append(f"link {i}: {link.from_} -> {link.to} ({link.kind}) is already a link")
-        seen_links.add(key)
-    for where, items in [(f"factor {f.label!r}", f.sources + f.contradicts) for f in spec.factors] + [
-        (f"link {i}", link.sources + link.contradicts) for i, link in enumerate(spec.links, 1)
-    ]:
-        for c in _citations(items):
-            if c.key not in keys:
-                problems.append(f"{where}: no source with key {c.key!r} (add it under sources)")
-    if spec.outcome and not _known(spec.outcome):
-        problems.append(f"outcome: no factor named {spec.outcome!r}")
-    if spec.outcome:
-        from latris.schema.model_types import get_model_type, list_model_types
+    def sources(self) -> None:
+        from latris.operations.references import _clean_doi
 
-        plugin = formalisms.get(model_type)
-        allowed = get_model_type(model_type).allowed_roles
-        if plugin and plugin.outcome_role is None:
-            problems.append(f"outcome: {plugin.outcome_refusal}")
-        elif not plugin and allowed and "outcome" not in allowed:
-            takes = sorted({f.model_type for f in formalisms.all_formalisms() if f.outcome_role}
-                           | {m.id for m in list_model_types() if "outcome" in m.allowed_roles})
-            problems.append(f"outcome: {model_type} has no outcome role ({', '.join(takes)} do)")
-    for plugin in formalisms.all_formalisms():
-        block = getattr(spec, plugin.spec_field) if plugin.spec_field else None
-        if block is not None:
-            problems += plugin.spec_check(block, _known, spec.outcome)
-    for i, a in enumerate(_assumptions(spec.assumptions), 1):
-        _target(f"assumption {i}", a.target)
-    for i, f in enumerate(spec.findings, 1):
-        for t in f.targets:
-            _target(f"finding {i}", t)
-    for i, c in enumerate(spec.challenges, 1):
-        _target(f"challenge {i}", c.target)
-    for i, d in enumerate(spec.decisions, 1):
-        _target(f"decision {i}", d.target)
-    for item in spec.interpretation:
-        if item.section not in INTERPRET_SECTION_REGISTRY:
-            problems.append(
-                f"interpretation: no section {item.section!r} "
-                f"(one of: {', '.join(sorted(INTERPRET_SECTION_REGISTRY))})"
-            )
-    if problems:
-        raise ValueError("the spec has problems, nothing was changed:\n- " + "\n- ".join(problems))
+        problems = self.problems
+        for s in self.spec.sources:
+            if s.extract and len(s.extract) > SNAPSHOT_EXTRACT_MAX:
+                problems.append(
+                    f"source {s.key!r}: extract is {len(s.extract)} characters (limit {SNAPSHOT_EXTRACT_MAX}); "
+                    "keep the passage that bears on the claim"
+                )
+            if s.extract and not (s.extract_url or s.url or s.doi):
+                problems.append(f"source {s.key!r}: an extract needs extract_url (or the source's url or doi)")
+            if s.cited_via and (s.cited_via == s.key or s.cited_via not in self.keys):
+                problems.append(f"source {s.key!r}: cited_via {s.cited_via!r} isn't another source")
+            try:
+                _clean_doi(s.doi)
+            except ValueError as exc:
+                problems.append(f"source {s.key!r}: {exc}")
+
+    def factors(self) -> None:
+        """Factors listed twice, and factors and sources the project already has."""
+        spec_labels = self.spec_labels
+        dupes = sorted({x for x in spec_labels if spec_labels.count(x) > 1})
+        if dupes:
+            self.problems.append(f"factor listed twice: {', '.join(dupes)}")
+        clash = sorted(label for label in spec_labels if label.casefold() in self.existing)
+        if clash and not self.reuse:
+            self.problems.append(f"factor already in the project: {', '.join(clash)}")
+        have = sorted(s.key for s in self.spec.sources if s.key in self.ref_keys)
+        if have and not self.reuse:
+            self.problems.append(f"source already in the project: {', '.join(have)}")
+
+    def links(self) -> None:
+        spec, labels, problems = self.spec, self.labels, self.problems
+        for i, link in enumerate(spec.links, 1):
+            for end in (link.from_, link.to):
+                if not self.known_factor(end):
+                    problems.append(f"link {i}: no factor named {end!r}")
+            if link.from_.casefold() == link.to.casefold():
+                problems.append(f"link {i}: a factor can't link to itself")
+        # Reusing, a link already in the project is fine; only one listed twice in the spec is a problem.
+        seen_links = (
+            set() if self.reuse
+            else {(labels.get(e.from_id), labels.get(e.to_id), e.kind) for e in self.substrate.edges}
+        )
+        for i, link in enumerate(spec.links, 1):
+            key = (link.from_.casefold(), link.to.casefold(), link.kind)
+            if key in seen_links:
+                problems.append(f"link {i}: {link.from_} -> {link.to} ({link.kind}) is already a link")
+            seen_links.add(key)
+
+    def citations(self) -> None:
+        spec = self.spec
+        for where, items in [(f"factor {f.label!r}", f.sources + f.contradicts) for f in spec.factors] + [
+            (f"link {i}", link.sources + link.contradicts) for i, link in enumerate(spec.links, 1)
+        ]:
+            for c in _citations(items):
+                if c.key not in self.keys:
+                    self.problems.append(f"{where}: no source with key {c.key!r} (add it under sources)")
+
+    def outcome(self, model_type: str) -> None:
+        spec, problems = self.spec, self.problems
+        if spec.outcome and not self.known_factor(spec.outcome):
+            problems.append(f"outcome: no factor named {spec.outcome!r}")
+        if spec.outcome:
+            from latris.schema.model_types import get_model_type, list_model_types
+
+            plugin = formalisms.get(model_type)
+            allowed = get_model_type(model_type).allowed_roles
+            if plugin and plugin.outcome_role is None:
+                problems.append(f"outcome: {plugin.outcome_refusal}")
+            elif not plugin and allowed and "outcome" not in allowed:
+                takes = sorted({f.model_type for f in formalisms.all_formalisms() if f.outcome_role}
+                               | {m.id for m in list_model_types() if "outcome" in m.allowed_roles})
+                problems.append(f"outcome: {model_type} has no outcome role ({', '.join(takes)} do)")
+
+    def targets(self) -> None:
+        """What assumptions, findings, challenges and decisions say they are about."""
+        spec = self.spec
+        for i, a in enumerate(_assumptions(spec.assumptions), 1):
+            self._target(f"assumption {i}", a.target)
+        for i, f in enumerate(spec.findings, 1):
+            for t in f.targets:
+                self._target(f"finding {i}", t)
+        for i, c in enumerate(spec.challenges, 1):
+            self._target(f"challenge {i}", c.target)
+        for i, d in enumerate(spec.decisions, 1):
+            self._target(f"decision {i}", d.target)
+
+    def interpretation(self) -> None:
+        from latris.operations.interpret_registry import INTERPRET_SECTION_REGISTRY
+
+        for item in self.spec.interpretation:
+            if item.section not in INTERPRET_SECTION_REGISTRY:
+                self.problems.append(
+                    f"interpretation: no section {item.section!r} "
+                    f"(one of: {', '.join(sorted(INTERPRET_SECTION_REGISTRY))})"
+                )
 
 
 def _existing_citations(paths) -> set[tuple[str, str, str]]:
@@ -222,17 +270,6 @@ def build_from_spec(
     block (roles, equations, tables) are applied as the block gives them; ``preview_build`` shows which.
     ``run_analyses`` false leaves the spec's analyses unrun (a preview).
     """
-    from latris.operations.attributes import get_attribute, set_attribute
-    from latris.operations.challenges import open_challenge
-    from latris.operations.edges import add_edge
-    from latris.operations.evidence import add_evidence
-    from latris.operations.findings import record_new_finding
-    from latris.operations.nodes import add_node
-    from latris.operations.provenance import add_assumption, add_question, log_decision
-    from latris.operations.references import add_reference
-    from latris.operations.view_attributes import set_view_attribute
-    from latris.operations.view_roles import set_role
-
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     library = (
@@ -245,140 +282,204 @@ def build_from_spec(
     _check(spec, substrate, ref_keys, model_type, reuse=reuse)
     result = BuildResult()
     subject = _subject(spec, substrate, reuse)
-
-    node_ids = {e.label.casefold(): e.id for e in substrate.entities}
-    edge_ids = {
-        (next(n.label for n in substrate.entities if n.id == e.from_id).casefold(),
-         next(n.label for n in substrate.entities if n.id == e.to_id).casefold()): e.id
-        for e in substrate.edges
-    }
-    edge_by_kind = {
-        (e.from_id, e.to_id, e.kind): e.id for e in substrate.edges
-    }  # an existing link a reusing spec names (same ends, same kind)
-    cited = _existing_citations(paths) if reuse else set()
-
-    def _target_id(name: str | None) -> str | None:
-        if name is None:
-            return None
-        ends = split_link(name)
-        if ends is None:
-            return node_ids.get(name.casefold(), name)
-        return edge_ids[(ends[0].casefold(), ends[1].casefold())]
+    build = _Build(spec, paths, substrate, ref_keys, model_type, verified_by, reuse, result)
 
     with batch(paths.root, subject=subject):
-        if spec.context:
-            from latris.operations.project import set_foundation_field
-
-            for field, value in (("background", spec.context.background), ("audience", spec.context.audience),
-                                 ("boundary", spec.context.boundary), ("exclusions", spec.context.exclusions),
-                                 ("predictions", spec.context.intuition)):
-                if value and value.strip():
-                    set_foundation_field(field, value.strip(), root=paths.root)
-        # A source read in another goes in after it.
-        for s in sorted(spec.sources, key=lambda s: s.cited_via is not None):
-            if reuse and s.key in ref_keys:
-                result.reused_sources += 1  # the project's own record of it stands
-                continue
-            add_reference(
-                s.key, s.title, authors=s.authors or None, year=s.year, container=s.container,
-                doi=s.doi, url=s.url, notes=s.notes, cited_via=s.cited_via, root=paths.root,
-            )
-            if s.extract and s.extract.strip():
-                from latris.operations.references import set_source_snapshot
-
-                set_source_snapshot(
-                    s.key, retrieval_url=s.extract_url or s.url or (f"https://doi.org/{s.doi}" if s.doi else ""),
-                    extract=s.extract.strip(), kind=s.extract_kind, root=paths.root,
-                )
-            result.sources += 1
-
-        def _cite(target: str, attribute: str, items: list[str | SpecCitation], *, against: bool = False) -> None:
-            for c in _citations(items):
-                if (target, attribute, c.key) in cited:
-                    continue  # already cites it
-                cited.add((target, attribute, c.key))
-                add_evidence(
-                    target, attribute, c.key, verified_by=verified_by, notes=c.notes,  # type: ignore[arg-type]
-                    contradicts=against, root=paths.root,
-                )
-                result.citations += 1
-
-        for f in spec.factors:
-            reused = node_ids.get(f.label.casefold()) if reuse else None
-            node_id = reused or add_node(f.label, kind=f.kind, root=paths.root)[0].id
-            node_ids[f.label.casefold()] = node_id
-            if f.description and not (reused and get_attribute(node_id, "description", root=paths.root)):
-                set_attribute(node_id, "description", f.description, root=paths.root)
-            _cite(node_id, "description", f.sources)
-            _cite(node_id, "description", f.contradicts, against=True)
-            if reused:
-                result.reused_factors += 1
-            else:
-                result.factors += 1
-
-        for link in spec.links:
-            ends = (node_ids[link.from_.casefold()], node_ids[link.to.casefold()]) if reuse else None
-            reused = edge_by_kind.get((*ends, link.kind)) if ends else None
-            edge_id = reused or add_edge(link.from_, link.to, kind=link.kind, root=paths.root)[0].id
-            edge_ids[(link.from_.casefold(), link.to.casefold())] = edge_id
-            has = _link_values(edge_id, paths) if reused else set()
-            if link.polarity and "polarity" not in has:
-                set_view_attribute(edge_id, "cld", "polarity", link.polarity, rationale=link.reason, root=paths.root)
-            if link.weight is not None and "weight" not in has:
-                set_view_attribute(edge_id, "fcm", "weight", str(link.weight), root=paths.root)
-            if link.description and "description" not in has:
-                set_attribute(edge_id, "description", link.description, root=paths.root)
-            if link.confidence and "confidence" not in has:
-                set_attribute(edge_id, "confidence", link.confidence, root=paths.root)
-            claim = "polarity" if link.polarity else "description"
-            _cite(edge_id, claim, link.sources)
-            _cite(edge_id, claim, link.contradicts, against=True)
-            if reused:
-                result.reused_links += 1
-            else:
-                result.links.append({"id": edge_id, "from": link.from_, "to": link.to})
-
-        plugin = formalisms.get(model_type)
-        if spec.outcome and plugin and plugin.set_outcome:
-            plugin.set_outcome(spec.outcome, paths.root)  # before its block, which may set values on it
-            result.outcome = spec.outcome
-        for f in formalisms.all_formalisms():
-            block = getattr(spec, f.spec_field) if f.spec_field else None
-            if block is not None:
-                result.parameters += f.spec_apply(block, verified_by, paths.root)
-                if f.spec_info:
-                    result.info += f.spec_info(block, paths.root)
-        if spec.outcome and not plugin:
-            set_role(spec.outcome, model_type, "outcome", root=paths.root)
-            result.outcome = spec.outcome
-        for a in _assumptions(spec.assumptions):
-            add_assumption(a.text, a.rationale, target_id=_target_id(a.target), root=paths.root)
-            result.assumptions += 1
-        for text in spec.questions:
-            add_question(text, root=paths.root)
-            result.questions += 1
-        for f in spec.findings:
-            record_new_finding(
-                f.statement, f.category, model_type, detail=f.detail,
-                target_ids=[t for t in (_target_id(x) for x in f.targets) if t], root=paths.root,
-            )
-            result.findings += 1
-        for c in spec.challenges:
-            open_challenge(_target_id(c.target), c.argument, root=paths.root)
-            result.challenges += 1
-        for d in spec.decisions:
-            log_decision(d.statement, d.rationale, target_id=_target_id(d.target), root=paths.root)
-            result.decisions += 1
+        build.context()
+        build.sources()
+        build.factors()
+        build.links()
+        build.outcome_and_model_blocks()
+        build.records()
         if spec.interpretation:
             _apply_interpretation(spec, model_type, paths.root, result)
 
     result.commit_sha = git.head_sha(paths.root)
-    # Analyses run after the model is built; each is recorded (its own commit) for the report.
+    _run_analyses(spec, result, paths.root, run_analyses)
+    return result
+
+
+class _Build:
+    """Applying a checked spec to the project, a part at a time; ``result`` counts what each part did."""
+
+    def __init__(
+        self, spec: BuildSpec, paths: ProjectPaths, substrate: Substrate, ref_keys: set[str], model_type: str,
+        verified_by: str, reuse: bool, result: BuildResult,
+    ) -> None:
+        self.spec = spec
+        self.paths = paths
+        self.root = paths.root
+        self.ref_keys = ref_keys
+        self.model_type = model_type
+        self.verified_by = verified_by
+        self.reuse = reuse
+        self.result = result
+        # Where the spec's names lead: factors by label, links by their ends' labels. Filled as they're added.
+        self.node_ids = {e.label.casefold(): e.id for e in substrate.entities}
+        self.edge_ids = {
+            (next(n.label for n in substrate.entities if n.id == e.from_id).casefold(),
+             next(n.label for n in substrate.entities if n.id == e.to_id).casefold()): e.id
+            for e in substrate.edges
+        }
+        self.edge_by_kind = {
+            (e.from_id, e.to_id, e.kind): e.id for e in substrate.edges
+        }  # an existing link a reusing spec names (same ends, same kind)
+        self.cited = _existing_citations(paths) if reuse else set()
+
+    def _target_id(self, name: str | None) -> str | None:
+        if name is None:
+            return None
+        ends = split_link(name)
+        if ends is None:
+            return self.node_ids.get(name.casefold(), name)
+        return self.edge_ids[(ends[0].casefold(), ends[1].casefold())]
+
+    def _cite(self, target: str, attribute: str, items: list[str | SpecCitation], *, against: bool = False) -> None:
+        from latris.operations.evidence import add_evidence
+
+        for c in _citations(items):
+            if (target, attribute, c.key) in self.cited:
+                continue  # already cites it
+            self.cited.add((target, attribute, c.key))
+            add_evidence(
+                target, attribute, c.key, verified_by=self.verified_by, notes=c.notes,  # type: ignore[arg-type]
+                contradicts=against, root=self.root,
+            )
+            self.result.citations += 1
+
+    def context(self) -> None:
+        context = self.spec.context
+        if not context:
+            return
+        from latris.operations.project import set_foundation_field
+
+        for name, value in (("background", context.background), ("audience", context.audience),
+                             ("boundary", context.boundary), ("exclusions", context.exclusions),
+                             ("predictions", context.intuition)):
+            if value and value.strip():
+                set_foundation_field(name, value.strip(), root=self.root)
+
+    def sources(self) -> None:
+        from latris.operations.references import add_reference, set_source_snapshot
+
+        # A source read in another goes in after it.
+        for s in sorted(self.spec.sources, key=lambda s: s.cited_via is not None):
+            if self.reuse and s.key in self.ref_keys:
+                self.result.reused_sources += 1  # the project's own record of it stands
+                continue
+            add_reference(
+                s.key, s.title, authors=s.authors or None, year=s.year, container=s.container,
+                doi=s.doi, url=s.url, notes=s.notes, cited_via=s.cited_via, root=self.root,
+            )
+            if s.extract and s.extract.strip():
+                set_source_snapshot(
+                    s.key, retrieval_url=s.extract_url or s.url or (f"https://doi.org/{s.doi}" if s.doi else ""),
+                    extract=s.extract.strip(), kind=s.extract_kind, root=self.root,
+                )
+            self.result.sources += 1
+
+    def factors(self) -> None:
+        from latris.operations.attributes import get_attribute, set_attribute
+        from latris.operations.nodes import add_node
+
+        for f in self.spec.factors:
+            reused = self.node_ids.get(f.label.casefold()) if self.reuse else None
+            node_id = reused or add_node(f.label, kind=f.kind, root=self.root)[0].id
+            self.node_ids[f.label.casefold()] = node_id
+            if f.description and not (reused and get_attribute(node_id, "description", root=self.root)):
+                set_attribute(node_id, "description", f.description, root=self.root)
+            self._cite(node_id, "description", f.sources)
+            self._cite(node_id, "description", f.contradicts, against=True)
+            if reused:
+                self.result.reused_factors += 1
+            else:
+                self.result.factors += 1
+
+    def links(self) -> None:
+        from latris.operations.edges import add_edge
+
+        node_ids = self.node_ids
+        for link in self.spec.links:
+            ends = (node_ids[link.from_.casefold()], node_ids[link.to.casefold()]) if self.reuse else None
+            reused = self.edge_by_kind.get((*ends, link.kind)) if ends else None
+            edge_id = reused or add_edge(link.from_, link.to, kind=link.kind, root=self.root)[0].id
+            self.edge_ids[(link.from_.casefold(), link.to.casefold())] = edge_id
+            self._set_link_values(link, edge_id, has=_link_values(edge_id, self.paths) if reused else set())
+            claim = "polarity" if link.polarity else "description"
+            self._cite(edge_id, claim, link.sources)
+            self._cite(edge_id, claim, link.contradicts, against=True)
+            if reused:
+                self.result.reused_links += 1
+            else:
+                self.result.links.append({"id": edge_id, "from": link.from_, "to": link.to})
+
+    def _set_link_values(self, link: SpecLink, edge_id: str, *, has: set[str]) -> None:
+        """Set the link's values the spec gives, leaving alone those it already *has*."""
+        from latris.operations.attributes import set_attribute
+        from latris.operations.view_attributes import set_view_attribute
+
+        if link.polarity and "polarity" not in has:
+            set_view_attribute(edge_id, "cld", "polarity", link.polarity, rationale=link.reason, root=self.root)
+        if link.weight is not None and "weight" not in has:
+            set_view_attribute(edge_id, "fcm", "weight", str(link.weight), root=self.root)
+        if link.description and "description" not in has:
+            set_attribute(edge_id, "description", link.description, root=self.root)
+        if link.confidence and "confidence" not in has:
+            set_attribute(edge_id, "confidence", link.confidence, root=self.root)
+
+    def outcome_and_model_blocks(self) -> None:
+        """The outcome, and each model type's own block (roles, equations, tables, …)."""
+        from latris.operations.view_roles import set_role
+
+        spec, result = self.spec, self.result
+        plugin = formalisms.get(self.model_type)
+        if spec.outcome and plugin and plugin.set_outcome:
+            plugin.set_outcome(spec.outcome, self.root)  # before its block, which may set values on it
+            result.outcome = spec.outcome
+        for f in formalisms.all_formalisms():
+            block = getattr(spec, f.spec_field) if f.spec_field else None
+            if block is not None:
+                result.parameters += f.spec_apply(block, self.verified_by, self.root)
+                if f.spec_info:
+                    result.info += f.spec_info(block, self.root)
+        if spec.outcome and not plugin:
+            set_role(spec.outcome, self.model_type, "outcome", root=self.root)
+            result.outcome = spec.outcome
+
+    def records(self) -> None:
+        """Assumptions, questions, findings, challenges and decisions."""
+        from latris.operations.challenges import open_challenge
+        from latris.operations.findings import record_new_finding
+        from latris.operations.provenance import add_assumption, add_question, log_decision
+
+        spec, result, target_id = self.spec, self.result, self._target_id
+        for a in _assumptions(spec.assumptions):
+            add_assumption(a.text, a.rationale, target_id=target_id(a.target), root=self.root)
+            result.assumptions += 1
+        for text in spec.questions:
+            add_question(text, root=self.root)
+            result.questions += 1
+        for f in spec.findings:
+            record_new_finding(
+                f.statement, f.category, self.model_type, detail=f.detail,
+                target_ids=[t for t in (target_id(x) for x in f.targets) if t], root=self.root,
+            )
+            result.findings += 1
+        for c in spec.challenges:
+            open_challenge(target_id(c.target), c.argument, root=self.root)
+            result.challenges += 1
+        for d in spec.decisions:
+            log_decision(d.statement, d.rationale, target_id=target_id(d.target), root=self.root)
+            result.decisions += 1
+
+
+def _run_analyses(spec: BuildSpec, result: BuildResult, root: Path, run_analyses: bool) -> None:
+    """Run the spec's analyses once the model is built; each is recorded (its own commit) for the report."""
     from latris.operations.analysis_replay import run_analysis
 
     for a in spec.analyses if run_analyses else []:
         try:
-            result.analyses.append(run_analysis(a, root=paths.root))
+            result.analyses.append(run_analysis(a, root=root))
         except RuntimeError as exc:  # an optional dependency (pgmpy, scipy) isn't installed
             from latris.operations.capabilities import INSTALL
 
@@ -389,10 +490,9 @@ def build_from_spec(
     if spec.carried_results and run_analyses:
         from latris.operations.carried_results import import_carried
 
-        result.carried = import_carried(spec.carried_results, root=paths.root)
+        result.carried = import_carried(spec.carried_results, root=root)
     if result.analyses or result.carried:
-        result.commit_sha = git.head_sha(paths.root)
-    return result
+        result.commit_sha = git.head_sha(root)
 
 
 def _subject(spec: BuildSpec, substrate: Substrate, reuse: bool) -> str:
