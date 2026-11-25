@@ -1,6 +1,6 @@
 # Predict for the remaining model types — plan
 
-*Status: proposed (roadmap #17 follow-up). Extends [PREDICT.md](PREDICT.md), which covers what is
+*Status: agreed, not started (roadmap #17 follow-up). Extends [PREDICT.md](PREDICT.md), which covers what is
 built: the contract, the stateless run and pinned loading, with predictors for the equation model,
 system dynamics and Bayesian networks.*
 
@@ -76,12 +76,12 @@ Each move is its own commit, and the existing Monte Carlo and PSA tests must pas
 ### 0d. Units that aren't physical
 
 Decision-tree payoffs, Markov costs and MCDA values are in a currency, QALYs, or no unit at all. The
-contract requires units and converts them through `_units` (pint), which has no currencies. **Decide:**
+contract requires units and converts them through `_units` (pint), which has no currencies. **Decided:**
 
-- **(recommended)** Treat a unit pint can't parse as an *opaque* unit. The contract records it
+- **(chosen)** Treat a unit pint can't parse as an *opaque* unit. The contract records it
   verbatim, conversion is identity only, and a mismatch is refused. `GBP → USD` is never converted
   silently.
-- Register currency codes as base dimensions in the unit registry.
+- ~~Register currency codes as base dimensions in the unit registry.~~ Not chosen.
 
 Probabilities and activations are `dimensionless`, with a model valid range of 0–1 (FCM: the
 activation function's range).
@@ -209,7 +209,6 @@ drafts), the outputs, the validation `run` does, and what is deliberately left o
   `formalisms/causal.py`), so add `predictor=` there.
 - **Caveat:** FCM activations are relative and semi-quantitative. The predictor's candidates say so
   in `role`, and the help topic says a caller should compare scenarios, not read absolute levels.
-  Whether `predict` should require a description on FCM contracts is an open question.
 
 ## For every type: the definition of done
 
@@ -244,10 +243,10 @@ Following TESTING.md, each type lands as its own PR with:
 That is about a working week and a half for all seven, with each type shippable on its own once
 step 0 is in.
 
-## Decisions needed before starting
+## Decisions (agreed 2026-11-25)
 
-1. **`cell` on the contract (0a).** Reuse the `parameter_cell_id` vocabulary (recommended), or
-   design contract-specific qualifiers?
-2. **Opaque units (0d).** Treat unparseable units as opaque (recommended), or register currencies?
-3. **The `choice` output kind (0b).** Agreed, or should decision trees and MCDA return only values?
-4. **FCM.** Include it now, or leave it until someone asks, given how hard its numbers are to read?
+1. **`cell` on the contract (0a):** reuse the `parameter_cell_id` vocabulary.
+2. **Units (0d):** a unit pint can't parse is opaque: recorded verbatim, identity conversion only, a
+   mismatch refused.
+3. **`choice` output kind (0b):** added.
+4. **FCM:** included, for completeness, with the caveat on its numbers above.
