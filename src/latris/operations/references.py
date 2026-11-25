@@ -90,6 +90,20 @@ def get_reference(query: str, *, root: Path | None = None) -> Reference:
 # ── Create ───────────────────────────────────────────────────────────
 
 
+class ReferenceInUseError(ValueError):
+    """A reference can't be removed while citations use it."""
+
+
+def _clean_url(url: str | None) -> str | None:
+    """A reference's link opens in a browser, so it is a web address or nothing (never ``javascript:``…)."""
+    if url is None or not url.strip():
+        return None if url is None else ""
+    url = url.strip()
+    if urlsplit(url).scheme.lower() not in {"http", "https"}:
+        raise ValueError("A reference's URL must start with http:// or https://")
+    return url
+
+
 def add_reference(
     bibkey: str,
     title: str,
@@ -115,6 +129,7 @@ def add_reference(
     if any(r.bibkey == bibkey for r in library.entries):
         raise ValueError(f"reference with bibkey {bibkey!r} already exists")
     doi = _clean_doi(doi)
+    url = _clean_url(url)
     _check_cited_via(library, bibkey, cited_via)
 
     ref = Reference(
@@ -437,7 +452,7 @@ def update_reference(
     if doi is not None:
         ref.doi = doi
     if url is not None:
-        ref.url = url
+        ref.url = _clean_url(url) or None
     if notes is not None:
         ref.notes = notes
     if cited_via is not None:
@@ -499,9 +514,10 @@ def remove_reference(
         evidence = load_model(EvidenceLinkSet, evidence_path)
         citing = [e for e in evidence.entries if e.bibkey == ref.bibkey]
         if citing and not with_citations:
-            raise ValueError(
-                f"cannot remove reference {ref.bibkey!r}: {len(citing)} evidence link(s) still cite it "
-                "(remove them with `latris evidence remove`, or pass --with-citations)"
+            raise ReferenceInUseError(
+                f"cannot remove reference {ref.bibkey!r}: {len(citing)} "
+                f"{'citation still uses' if len(citing) == 1 else 'citations still use'} it. "
+                "Remove those citations first."
             )
         if citing:
             evidence.entries = [e for e in evidence.entries if e.bibkey != ref.bibkey]
@@ -527,6 +543,11 @@ def remove_reference(
 # ── BibTeX import ─────────��──────────────────────────────────────────
 
 
+def _unbrace(text: str) -> str:
+    """Drop BibTeX's protective braces (``{PM2.5}``) and tidy the spacing they leave."""
+    return re.sub(r"\s+", " ", text.replace("{", "").replace("}", "")).strip()
+
+
 def import_bibtex(
     bibtex_content: str,
     *,
@@ -534,8 +555,13 @@ def import_bibtex(
 ) -> tuple[list[Reference], str]:
     """Parse a BibTeX string and add new references.  Skips duplicates by bibkey."""
     import bibtexparser
+    from bibtexparser.bparser import BibTexParser
+    from bibtexparser.customization import convert_to_unicode
 
-    bib = bibtexparser.loads(bibtex_content)
+    # LaTeX in a field (``M{\\"u}ller``, ``{PM2.5}``) is decoded: the library holds what a reader sees.
+    parser = BibTexParser(common_strings=True)
+    parser.customization = convert_to_unicode
+    bib = bibtexparser.loads(bibtex_content, parser=parser)
 
     paths = require_project(root)
     library, library_path = load_library(paths)
@@ -552,7 +578,7 @@ def import_bibtex(
             continue  # unsafe key (path separators, '..', ...) — skip like a duplicate
 
         # Map BibTeX fields → Reference fields.
-        raw_author = entry.get("author", "")
+        raw_author = _unbrace(entry.get("author", ""))
         authors = [a.strip() for a in raw_author.split(" and ")] if raw_author else []
 
         year = None
@@ -565,10 +591,10 @@ def import_bibtex(
         for cfield in ("journal", "booktitle", "series"):
             val = entry.get(cfield)
             if val:
-                container = val
+                container = _unbrace(val)
                 break
 
-        title = entry.get("title", key)
+        title = _unbrace(entry.get("title", key)) or key
 
         abstract = entry.get("abstract") or None
 
@@ -675,6 +701,9 @@ def _normalize_doi(raw: str) -> str:
     return match.group(1)
 
 
+_LOOKUP_UNREACHABLE = "Couldn't reach the reference lookup service (OpenAlex). Check the connection and try again."
+
+
 def search_references(
     query: str,
     *,
@@ -694,9 +723,11 @@ def search_references(
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 429:
             return []
-        raise
+        raise ValueError(f"The reference search service answered with an error ({exc.response.status_code}).") from exc
     except httpx.TimeoutException:
         return []
+    except httpx.HTTPError as exc:
+        raise ValueError(_LOOKUP_UNREACHABLE) from exc
 
     results = resp.json().get("results") or []
     return [_openalex_paper_to_reference(paper) for paper in results[:limit]]
@@ -738,9 +769,11 @@ def import_doi(
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
             raise ValueError(f"DOI {doi!r} not found on OpenAlex") from exc
-        raise
+        raise ValueError(f"The reference lookup service answered with an error ({exc.response.status_code}).") from exc
     except httpx.TimeoutException as exc:
         raise ValueError("OpenAlex request timed out") from exc
+    except httpx.HTTPError as exc:
+        raise ValueError(_LOOKUP_UNREACHABLE) from exc
 
     ref = _openalex_paper_to_reference(resp.json())
     ref.imported_from = "doi"

@@ -62,6 +62,8 @@ def open_challenge(
     attribute: str | None = None,
     root: Path | None = None,
 ) -> tuple[Challenge, str]:
+    if not argument or not argument.strip():
+        raise ValueError("A challenge needs some text.")
     paths = require_project(root)
 
     if target:

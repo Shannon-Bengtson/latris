@@ -95,7 +95,10 @@ def remove(
     rationale: str = typer.Option(None, "--rationale", "-r", help="Why (kept in the history)."),
 ) -> None:
     """Remove a reference (refused while it is cited, unless --with-citations)."""
-    ref, sha = ops.remove_reference(bibkey, with_citations=with_citations, rationale=rationale)
+    try:
+        ref, sha = ops.remove_reference(bibkey, with_citations=with_citations, rationale=rationale)
+    except ops.ReferenceInUseError as exc:
+        raise ValueError(f"{exc} (`latris evidence remove`, or pass --with-citations)") from exc
     emit(
         ref,
         commit_sha=sha,

@@ -176,6 +176,8 @@ def set_foundation_field(
         raise ValueError(
             f"field must be one of {_EDITABLE_FOUNDATION_FIELDS}; got {field!r}"
         )
+    if field == "name" and not value.strip():
+        raise ValueError("The project needs a name.")
     paths, existing = load_foundation(root)
     updated = existing.model_copy(update={field: value})
     dump_model(updated, paths.project_yaml)
@@ -204,6 +206,8 @@ def update_foundation(
     they keep their side effects, all inside one batch.
     """
     fields = {k: v for k, v in (fields or {}).items() if v is not None}
+    if "name" in fields and not str(fields["name"]).strip():
+        raise ValueError("The project needs a name.")
     unknown = sorted(set(fields) - set(_EDITABLE_FOUNDATION_FIELDS))
     if unknown:
         raise ValueError(f"field must be one of {_EDITABLE_FOUNDATION_FIELDS}; got {unknown}")

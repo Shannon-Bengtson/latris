@@ -14,6 +14,9 @@ calls ``auto_commit`` once with the accumulated paths.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -30,6 +33,23 @@ RECORDED_BY_AGENT_ENV = "LATRIS_RECORDED_BY_AGENT"
 """Set (by the CLI) to the name of the AI agent running the command."""
 FOR_PERSON_ENV = "LATRIS_FOR_PERSON"
 """Set (by the CLI) when the agent records a person's own review or approval at their request."""
+
+
+BOOKKEEPING_TRAILER = "Bookkeeping"
+"""Trailer on a commit that follows from a person's action rather than being one (a view re-projected,
+the model mapped into a model type as it opens). Undo never stops on such a commit by itself."""
+
+_bookkeeping: ContextVar[bool] = ContextVar("latris_bookkeeping", default=False)
+
+
+@contextmanager
+def bookkeeping() -> Iterator[None]:
+    """Commits made inside are derived bookkeeping, not a person's action (see ``operations/history.py``)."""
+    token = _bookkeeping.set(True)
+    try:
+        yield
+    finally:
+        _bookkeeping.reset(token)
 
 
 def _for_person() -> bool:
@@ -69,8 +89,13 @@ def auto_commit(
     body: str = "",
     provenance: Provenance = "human-authored",
     paths: list[Path] | None = None,
+    trailers: list[str] | None = None,
+    allow_empty: bool = False,
 ) -> str:
     """Stage changes (all by default) and commit with the conventional message shape.
+
+    ``trailers`` are extra ``Key: value`` lines after ``Provenance:``. ``allow_empty`` commits even when
+    nothing is staged (an undo whose content is already gone still has to be recorded as a step).
 
     Returns the new commit SHA. Raises ``IdentityError`` if the git identity
     guard refuses the current configuration.
@@ -102,7 +127,7 @@ def auto_commit(
         # failing with "nothing to commit".
         with span("git_status"):
             staged = git.has_staged_changes(root)
-        if not staged:
+        if not staged and not allow_empty:
             with span("git_head_sha"):
                 return git.head_sha(root)
 
@@ -112,9 +137,13 @@ def auto_commit(
         trailer = f"Provenance: {provenance}"
         if agent_trailer:
             trailer += f"\n{agent_trailer}"
+        if _bookkeeping.get():
+            trailer += f"\n{BOOKKEEPING_TRAILER}: derived"
+        for extra in trailers or []:
+            trailer += f"\n{extra}"
         message = f"{subject}\n\n{body.rstrip()}\n\n{trailer}" if body else f"{subject}\n\n{trailer}"
         with span("git_commit"):
-            sha = git.commit(root, message)
+            sha = git.commit(root, message, allow_empty=allow_empty)
         # Signal the file watcher that the next ~2s of file events are
         # our own write — the API response has already rehydrated the
         # client, so a redundant broadcast would cause a double reload.
