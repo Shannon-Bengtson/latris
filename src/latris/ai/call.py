@@ -21,9 +21,12 @@ on modelling artifacts; see docs/design/MATURITY_LADDER.md.
 
 from __future__ import annotations
 
+import os
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -37,6 +40,8 @@ from latris.ai.context import ContextPack, build_context
 from latris.operations import write_lock
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
+from latris.schema.events import Surface
+from latris.telemetry import emit as telemetry_emit
 
 
 @dataclass
@@ -74,6 +79,46 @@ RESPONSE_MODELS: dict[str, type[BaseModel]] = {
 _SERVER_TRANSFORMED_PROMPTS = {n for n, s in prompt_lib.PROMPT_LIBRARY.items() if s.mode == "server_transformed"}
 HYBRID_PROMPTS = {n for n, s in prompt_lib.PROMPT_LIBRARY.items() if s.mode == "hybrid"}
 READ_ONLY_PROMPTS = {n for n, s in prompt_lib.PROMPT_LIBRARY.items() if s.mode == "read_only"}
+
+
+def _surface_from_env() -> Surface:
+    """Resolve the driving surface from LATRIS_SURFACE, defaulting to cli."""
+    raw = os.environ.get("LATRIS_SURFACE")
+    if raw in ("cli", "gui", "mcp", "server", "broker", "ci"):
+        return cast(Surface, raw)
+    return "cli"
+
+
+def _emit_completed(
+    record: Any,  # AIInteraction — avoid schema import cycles
+    *,
+    paths: ProjectPaths,
+    adoption: str,
+    rejection_reason: str | None = None,
+) -> None:
+    """Mirror a terminal interaction as an ``ai.call.completed`` telemetry event.
+
+    The AIInteraction record stays the audit source of truth; the event is
+    the analytics-ready mirror (docs/engineering/TELEMETRY.md). Emission is
+    best-effort and never raises.
+    """
+    telemetry_emit(
+        "ai.call.completed",
+        {
+            "interaction_id": record.id,
+            "prompt_name": record.prompt_name,
+            "model_id": record.model_id,
+            "adoption": adoption,
+            "latency_ms": record.latency_ms,
+            "token_usage": record.token_usage,
+            "cost_usd": record.cost_usd,
+            "rejection_reason": rejection_reason,
+            "error_class": record.error_class,
+        },
+        surface=cast(Surface, record.surface or "cli"),
+        session_id=record.session_id,
+        root=paths.root,
+    )
 
 
 def _provider_for(model: str) -> str:
@@ -116,8 +161,18 @@ def run_call(
     dry_run: bool = False,
     preview_only: bool = False,
     root: Path | None = None,
+    surface: Surface | None = None,
+    session_id: str | None = None,
+    reject_reason: Callable[[], str | None] | None = None,
 ) -> CallOutcome:
     """Run a single AI call end-to-end.
+
+    ``surface`` names where the call is driven from (cli / gui / mcp /
+    server); defaults to the LATRIS_SURFACE env var, then "cli".
+    ``reject_reason`` is an optional callable invoked on the reject path to
+    capture the human's reason (CLI prompts; tests and the server pass None).
+    Both feed the interaction record and the ai.call.completed telemetry
+    event (docs/engineering/TELEMETRY.md).
 
     ``confirm`` is injected so the CLI can prompt interactively while tests
     pass a lambda that returns True/False directly.
@@ -175,7 +230,10 @@ def run_call(
             token_usage={},
         )
 
+    resolved_surface = surface or _surface_from_env()
+
     adapter = get_adapter()
+    t0 = time.monotonic()
     try:
         with creds.key_in_env([provider]), write_lock.released():
             # Real adapter will actually need the key; mock ignores.
@@ -187,13 +245,15 @@ def run_call(
                 temperature=temperature,
                 max_tokens=cfg.max_tokens,
             )
+        latency_ms = int((time.monotonic() - t0) * 1000)
     except LLMCallError as exc:
+        latency_ms = int((time.monotonic() - t0) * 1000)
         # Record the failure so it survives in the audit trail rather than
         # vanishing with the exception. Re-raise so CLI error handling
         # surfaces the message exactly as before.
         raw_response = getattr(exc, "raw_response", None)
         try:  # noqa: SIM105
-            inter_ops.record_interaction(
+            record, _ = inter_ops.record_interaction(
                 prompt_name=prompt_name,
                 prompt_inputs=inputs,
                 model_id=model,
@@ -205,8 +265,12 @@ def run_call(
                 error_class=type(exc).__name__,
                 error_message=str(exc),
                 raw_response_excerpt=raw_response,
+                surface=resolved_surface,
+                session_id=session_id,
+                latency_ms=latency_ms,
                 root=paths.root,
             )
+            _emit_completed(record, paths=paths, adoption="failed")
         except Exception:
             # If recording the failure itself fails we still want the
             # original error to surface — don't mask the real problem
@@ -229,6 +293,10 @@ def run_call(
         render=render,
         preview_only=preview_only,
         paths=paths,
+        surface=resolved_surface,
+        session_id=session_id,
+        latency_ms=latency_ms,
+        reject_reason=reject_reason,
     )
 
 
@@ -247,6 +315,10 @@ def _finalize_call(
     render: callable,  # def render(parsed: BaseModel) -> str
     preview_only: bool,
     paths: ProjectPaths,
+    surface: Surface | None = None,
+    session_id: str | None = None,
+    latency_ms: int | None = None,
+    reject_reason: Callable[[], str | None] | None = None,
 ) -> CallOutcome:
     """Shared post-parse pipeline: render → preview/read-only/mutating branch
     → record_interaction → set_adoption.
@@ -276,9 +348,13 @@ def _finalize_call(
             related_attributes=context.related_attributes,
             token_usage=token_usage,
             cost_usd=cost_usd,
+            surface=surface or _surface_from_env(),
+            session_id=session_id,
+            latency_ms=latency_ms,
             root=paths.root,
         )
         # Leave adoption as "pending" — no set_adoption call.
+        _emit_completed(record, paths=paths, adoption="pending")
         return CallOutcome(
             prompt_name=prompt_name,
             model=model_id,
@@ -304,6 +380,9 @@ def _finalize_call(
             related_attributes=context.related_attributes,
             token_usage=token_usage,
             cost_usd=cost_usd,
+            surface=surface or _surface_from_env(),
+            session_id=session_id,
+            latency_ms=latency_ms,
             root=paths.root,
         )
         # Read-only results land as "approved" (the content of the log entry
@@ -314,6 +393,7 @@ def _finalize_call(
             approved_by=approver,
             root=paths.root,
         )
+        _emit_completed(record, paths=paths, adoption="approved")
         return CallOutcome(
             prompt_name=prompt_name,
             model=model_id,
@@ -342,6 +422,9 @@ def _finalize_call(
                 response_full=raw or rendered,
                 target_ids=context.target_ids,
                 related_attributes=context.related_attributes,
+                surface=surface or _surface_from_env(),
+                session_id=session_id,
+                latency_ms=latency_ms,
                 root=paths.root,
             )
             inter_ops.set_adoption(
@@ -350,6 +433,7 @@ def _finalize_call(
                 approved_by=approver,
                 root=paths.root,
             )
+            _emit_completed(record, paths=paths, adoption="rejected")
             raise
         record, _ = inter_ops.record_interaction(
             prompt_name=prompt_name,
@@ -362,6 +446,9 @@ def _finalize_call(
             proposal_ids=applied_ids,
             token_usage=token_usage,
             cost_usd=cost_usd,
+            surface=surface or _surface_from_env(),
+            session_id=session_id,
+            latency_ms=latency_ms,
             root=paths.root,
         )
         inter_ops.set_adoption(
@@ -370,6 +457,7 @@ def _finalize_call(
             approved_by=approver,
             root=paths.root,
         )
+        _emit_completed(record, paths=paths, adoption="approved")
         return CallOutcome(
             prompt_name=prompt_name,
             model=model_id,
@@ -381,7 +469,10 @@ def _finalize_call(
             rendered=rendered,
         )
 
-    # Rejected by user — log only, no mutation.
+    # Rejected by user — log only, no mutation. The reason is the useful
+    # part (rejections are signal): capture it when a reject_reason callable
+    # is wired (CLI prompts; tests and the server pass None).
+    reason = reject_reason() if reject_reason is not None else None
     record, _ = inter_ops.record_interaction(
         prompt_name=prompt_name,
         prompt_inputs=inputs,
@@ -390,14 +481,19 @@ def _finalize_call(
         response_full=raw or rendered,
         target_ids=context.target_ids,
         related_attributes=context.related_attributes,
+        surface=surface or _surface_from_env(),
+        session_id=session_id,
+        latency_ms=latency_ms,
         root=paths.root,
     )
     inter_ops.set_adoption(
         record.id,
         adoption="rejected",
         approved_by=approver,
+        rejection_reason=reason,
         root=paths.root,
     )
+    _emit_completed(record, paths=paths, adoption="rejected", rejection_reason=reason)
     return CallOutcome(
         prompt_name=prompt_name,
         model=model_id,

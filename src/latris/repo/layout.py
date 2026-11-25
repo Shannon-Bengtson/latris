@@ -52,6 +52,16 @@ class ProjectPaths:
         return self.root / STATE_DIR_NAME
 
     @property
+    def telemetry_jsonl(self) -> Path:
+        """Local telemetry mirror (docs/engineering/TELEMETRY.md).
+
+        Gitignored: behavioural events are not model content and must never
+        land in shared project history. See ``operations/init.py``'s
+        gitignore template.
+        """
+        return self.state_dir / "telemetry.jsonl"
+
+    @property
     def version_file(self) -> Path:
         return self.state_dir / VERSION_FILE_NAME
 

@@ -90,3 +90,15 @@ class AIInteraction(_Base):
     error_class: str | None = None
     error_message: str | None = None
     raw_response_excerpt: str | None = None
+    # Telemetry fields (2026-11, docs/engineering/TELEMETRY.md). ``at`` is set
+    # at write time; it is None only for records written before this field
+    # existed (the ULID in ``id`` still carries a creation timestamp for
+    # those). ``surface`` names where the call was driven from (cli / gui /
+    # mcp / server); ``rejection_reason`` is the optional human note captured
+    # on the reject path — rejections are signal, and the reason is the
+    # useful part.
+    at: datetime | None = None
+    surface: str | None = None
+    session_id: str | None = None
+    latency_ms: int | None = None
+    rejection_reason: str | None = None

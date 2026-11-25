@@ -569,3 +569,116 @@ def test_dry_run_does_not_call_adapter_or_mutate(project) -> None:
     assert "dry-run" in result.output.lower()
     # No interaction logged
     assert inter_ops.list_interactions(root=root) == []
+
+
+# ---------- telemetry (docs/engineering/TELEMETRY.md) ----------
+
+
+def _telemetry_events(root: Path) -> list[dict]:
+    """Read the local telemetry mirror (.graph-tooling/telemetry.jsonl)."""
+    import json as _json
+
+    path = root / ".graph-tooling" / "telemetry.jsonl"
+    if not path.exists():
+        return []
+    return [_json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def test_approved_call_stamps_telemetry_and_emits_event(project) -> None:
+    root, a, _, _ = project
+    MockAdapter.shared().register_default(
+        response_cls=proposal_module.ExplanationResult,
+        result=ChatResult(
+            parsed=proposal_module.ExplanationResult(
+                explanation="Price is a driver node.",
+                referenced_ids=[a.id],
+            ),
+            raw="Price is a driver node.",
+            model_id="claude-opus-4-6",
+            token_usage={"input_tokens": 50, "output_tokens": 12},
+            cost_usd=0.0012,
+        ),
+    )
+    result = CliRunner().invoke(app, ["ai", "call", "explain", a.id, "--yes"])
+    assert result.exit_code == 0, result.output
+
+    record = inter_ops.list_interactions(root=root)[0]
+    assert record.at is not None
+    assert record.surface == "cli"
+    assert record.latency_ms is not None and record.latency_ms >= 0
+
+    events = _telemetry_events(root)
+    assert len(events) == 1
+    event = events[0]
+    assert event["event_type"] == "ai.call.completed"
+    assert event["surface"] == "cli"
+    assert event["payload"]["interaction_id"] == record.id
+    assert event["payload"]["prompt_name"] == "ExplainThisElement"
+    assert event["payload"]["adoption"] == "approved"
+    assert event["payload"]["cost_usd"] == 0.0012
+
+
+def test_rejected_call_captures_reason_in_record_and_event(project) -> None:
+    root, _, _, edge = project
+    MockAdapter.shared().register_default(
+        response_cls=proposal_module.ChallengeProposal,
+        result=ChatResult(
+            parsed=proposal_module.ChallengeProposal(
+                target_id=edge.id,
+                target_attribute="polarity",
+                argument="Weak argument.",
+                opening_turn=None,
+                recommended_state=None,
+            ),
+            raw="(raw)",
+            model_id="claude-opus-4-6",
+        ),
+    )
+    result = CliRunner().invoke(
+        app,
+        ["ai", "call", "challenge", edge.id, "-a", "polarity"],
+        input="n\nwrong-scope\n",
+    )
+    assert result.exit_code == 0, result.output
+
+    record = inter_ops.list_interactions(root=root)[0]
+    assert record.adoption == "rejected"
+    assert record.rejection_reason == "wrong-scope"
+
+    events = _telemetry_events(root)
+    assert len(events) == 1
+    assert events[0]["payload"]["adoption"] == "rejected"
+    assert events[0]["payload"]["rejection_reason"] == "wrong-scope"
+
+
+def test_rejected_call_without_reason_degrades_cleanly(project) -> None:
+    """Piped stdin that ends after the [y/N] answer → no reason, exit 0."""
+    root, _, _, edge = project
+    MockAdapter.shared().register_default(
+        response_cls=proposal_module.ChallengeProposal,
+        result=ChatResult(
+            parsed=proposal_module.ChallengeProposal(
+                target_id=edge.id,
+                target_attribute="polarity",
+                argument="Weak argument.",
+                opening_turn=None,
+                recommended_state=None,
+            ),
+            raw="(raw)",
+            model_id="claude-opus-4-6",
+        ),
+    )
+    result = CliRunner().invoke(
+        app,
+        ["ai", "call", "challenge", edge.id, "-a", "polarity"],
+        input="n\n",
+    )
+    assert result.exit_code == 0, result.output
+
+    record = inter_ops.list_interactions(root=root)[0]
+    assert record.adoption == "rejected"
+    assert record.rejection_reason is None
+
+    events = _telemetry_events(root)
+    assert len(events) == 1
+    assert events[0]["payload"]["rejection_reason"] is None
