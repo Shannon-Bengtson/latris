@@ -873,6 +873,7 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
     # being formalised (an SD stock just added in Formalise) has its missing links reported by that
     # type's own readiness. Only the causal maps' roles ("outcome") leave a factor in the network check.
     claimed = [t for t in selected if not ((f := formalisms.get(t)) and f.whole_map)]
+    elements: set[str] = set()
     if claimed:
         from latris.schema.roles import RoleSet
 
@@ -882,13 +883,16 @@ def _assess_build_to_formalise(paths) -> TransitionStatus:
             if paths.role_path(t).exists()
             for r in load_model(RoleSet, paths.role_path(t)).entries
         }
-        entities = [e for e in entities if e.id not in elements]
-        edges = [e for e in edges if e.from_id not in elements and e.to_id not in elements]
-        n_nodes = len(entities)
 
     node_ids = [e.id for e in entities]
     label_by_id = {e.id: e.label for e in entities}
-    components = weakly_connected_components(node_ids, edges)
+    # Connectivity is read on the whole map, then a group made only of such elements is set aside. Taking
+    # the elements (and their links) out first would cut a connected map in two wherever one of them sat
+    # between two other factors — giving a stock and a flow their roles used to turn this light red.
+    components = [
+        c for c in weakly_connected_components(node_ids, edges)
+        if not all(nid in elements for nid in c)
+    ]
 
     if len(components) > 1:
         if all(len(c) == 1 for c in components):
