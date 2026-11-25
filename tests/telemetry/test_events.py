@@ -7,6 +7,7 @@ write outside the project, and never commit the local mirror to git.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -217,3 +218,103 @@ def test_upload_failure_keeps_local_event(project: Path, monkeypatch: pytest.Mon
     event = _emit_ai_call(project)
     assert event is not None  # local mirror is primary
     assert len(_read_events(project)) == 1
+
+
+# ---------- emit_envelopes (the server relay path) ----------
+
+
+def _envelope(**overrides) -> TelemetryEvent:
+    fields = {
+        "surface": "gui",
+        "event_type": "gui.feature",
+        "session_id": "session_01J0000000000000000002",
+        "payload": {"feature": "report", "action": "opened"},
+    }
+    return TelemetryEvent(**(fields | overrides))
+
+
+def test_emit_envelopes_preserves_client_fields(project: Path) -> None:
+    event = _envelope()
+    assert emitter_module.emit_envelopes([event], root=project) == 1
+    rows = _read_events(project)
+    assert len(rows) == 1
+    assert rows[0]["id"] == event.id
+    assert datetime.fromisoformat(rows[0]["at"]) == event.at  # client clock kept
+    assert rows[0]["session_id"] == "session_01J0000000000000000002"
+
+
+def test_emit_envelopes_disabled_accepts_nothing(project: Path) -> None:
+    paths = require_project(project)
+    telemetry_config.save(paths, telemetry_config.TelemetryConfig(enabled=False))
+    assert emitter_module.emit_envelopes([_envelope()], root=project) == 0
+    assert _read_events(project) == []
+
+
+def test_emit_envelopes_drops_invalid_payloads(project: Path) -> None:
+    good = _envelope()
+    bad = _envelope(payload={"feature": "report"})  # missing action
+    assert emitter_module.emit_envelopes([bad, good], root=project) == 1
+    rows = _read_events(project)
+    assert [row["id"] for row in rows] == [good.id]
+
+
+def test_emit_envelopes_outside_project_dropped(tmp_path: Path) -> None:
+    assert emitter_module.emit_envelopes([_envelope()], root=tmp_path) == 0
+
+
+def test_emit_envelopes_uploads_batch_once(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, list]] = []
+    monkeypatch.setattr(
+        emitter_module, "_upload_batch", lambda url, events: calls.append((url, events))
+    )
+    paths = require_project(project)
+    telemetry_config.save(
+        paths,
+        telemetry_config.TelemetryConfig(
+            enabled=True, upload_enabled=True, endpoint_url="https://telemetry.example/v1/events"
+        ),
+    )
+    accepted = emitter_module.emit_envelopes([_envelope(), _envelope()], root=project)
+    assert accepted == 2
+    assert len(calls) == 1
+    assert len(calls[0][1]) == 2
+
+
+# ---------- upload transport ----------
+
+
+class _FakeResponse:
+    status = 202
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def _capture_urlopen(monkeypatch: pytest.MonkeyPatch) -> list:
+    sent: list = []
+    monkeypatch.setattr(
+        emitter_module.urllib.request, "urlopen", lambda req, timeout: sent.append(req) or _FakeResponse()
+    )
+    return sent
+
+
+def test_post_events_sends_bearer_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = _capture_urlopen(monkeypatch)
+    monkeypatch.setenv(emitter_module.TOKEN_ENV_VAR, "secret-token")
+    event = _envelope()
+    emitter_module._post_events("https://telemetry.example/v1/events", [event])
+    req = sent[0]
+    assert req.get_header("Authorization") == "Bearer secret-token"
+    body = json.loads(req.data.decode("utf-8"))
+    assert [row["id"] for row in body["events"]] == [event.id]
+    assert body["events"][0]["surface"] == "gui"
+
+
+def test_post_events_without_token_sends_no_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = _capture_urlopen(monkeypatch)
+    monkeypatch.delenv(emitter_module.TOKEN_ENV_VAR, raising=False)
+    emitter_module._post_events("https://telemetry.example/v1/events", [_envelope()])
+    assert sent[0].get_header("Authorization") is None

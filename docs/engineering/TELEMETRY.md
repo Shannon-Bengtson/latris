@@ -148,6 +148,14 @@ Initial event families (v1 payloads):
 
 ## Phase 3 — GUI beacons (T5)
 
+- [x] Relay route `POST /api/telemetry/events` on the latris server (the
+      GUI's only backend): batch-accepts envelopes, stamps
+      `surface="gui"`, validates payloads against the registry atomically
+      (one bad payload 422s the batch), persists through the Phase 1
+      emitter — local JSONL mirror primary, opted-in upload forwards the
+      whole batch in one POST (bearer via `LATRIS_TELEMETRY_TOKEN`, an env
+      var, never the committed config). Self-hosters' events stay in their
+      own deployment; older backends 404, which is the GUI's silent-off cue.
 - [ ] Small beacon module in the GUI: queue + flush every N seconds / on
       unload (`sendBeacon`), session id per tab, silently off when the
       server 404s (self-hosted/older backends).
