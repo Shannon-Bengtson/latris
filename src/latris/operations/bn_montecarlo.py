@@ -136,6 +136,11 @@ def monte_carlo(
     if target in evidence:
         raise ValueError(f"{labels.get(target, target)} is observed; ask about a node that isn't")
     uncertain = sampled_tables(specs, cpts, noisy, fixed_rows, held)
+    if not uncertain and held and any(node in held for node in specs):
+        raise ValueError(
+            "the only tables given an uncertainty belong to factors that are set, and a set factor's table "
+            "no longer counts — so there is nothing left to sample"
+        )
     if not uncertain:
         raise ValueError(
             "no probability table has an uncertainty yet — say how many observations one is worth, "
@@ -235,7 +240,8 @@ def describe(p: dict[str, Any]) -> str:
         f"{labels.get(k, k)} ~ " + "/".join(f"{st} {q:.0%}" for st, q in d.items())
         for k, d in sorted(p["soft"].items())
     )
-    cond = "; ".join(x for x in (given, soft) if x)
+    set_ = ", ".join(f"{labels.get(k, k)} set to {v}" for k, v in sorted((p.get("interventions") or {}).items()))
+    cond = "; ".join(x for x in (given, soft, set_) if x)
     return (
         f"P({labels.get(p['target'], p['target'])} = {s}{' | ' + cond if cond else ''}): {b['point']:.0%} "
         f"(95% of {p['runs']} draws {b['p2.5']:.0%}–{b['p97.5']:.0%})"

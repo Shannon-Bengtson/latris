@@ -461,7 +461,9 @@ def set_output(
     if description is not None or current:
         entry = entry.model_copy(update={"description": description if description is not None
                                          else current.description if current else ""})
-    contract.outputs = [entry if o is current else o for o in contract.outputs] if current else [*contract.outputs, entry]
+    contract.outputs = (
+        [entry if o is current else o for o in contract.outputs] if current else [*contract.outputs, entry]
+    )
     sha = _save(paths, contract, f"Contract for {model_type}: output {entry.name} ({c.label})")
     return entry, sha
 
