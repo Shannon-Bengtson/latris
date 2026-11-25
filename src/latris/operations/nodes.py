@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from latris.operations._cascade import cascade_removed_ids
-from latris.operations._resolve import resolve_entity
+from latris.operations._resolve import resolve_edge, resolve_entity
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
@@ -31,7 +31,7 @@ def _ensure_label_free(label: str, substrate: Substrate, *, except_id: str | Non
     key = _label_key(label)
     for e in substrate.entities:
         if e.id != except_id and _label_key(e.label) == key:
-            raise ValueError(f'a node is already called "{e.label}" ({e.id}); labels must be unique')
+            raise ValueError(f'a node is already called "{e.label}"; labels must be unique')
 
 
 def list_nodes(root: Path | None = None) -> list[Entity]:
@@ -146,3 +146,51 @@ def remove_node(
         paths=[paths.conceptual_yaml, *changed],
     )
     return entity, doomed_edge_ids, sha
+
+
+def remove_many(
+    node_queries: list[str],
+    edge_queries: list[str] | None = None,
+    *,
+    root: Path | None = None,
+) -> tuple[list[str], list[str], str]:
+    """Remove several factors and links as one change (one commit, so one undo puts them all back).
+
+    Links are removed first, except those a removed factor takes with it anyway. Raises ``ValueError``
+    when nothing is named. Returns (removed factor ids, removed link ids, commit sha).
+    """
+    from latris.operations.batch import batch
+    from latris.operations.edges import remove_edge
+    from latris.repo import git as git_ops
+
+    paths, substrate = _load(root)
+    entities = [resolve_entity(q, substrate.entities) for q in dict.fromkeys(node_queries)]
+    node_ids = {e.id for e in entities}
+    edges = [resolve_edge(q, substrate.edges) for q in dict.fromkeys(edge_queries or [])]
+    own_edges = [e for e in edges if e.from_id not in node_ids and e.to_id not in node_ids]
+    if not entities and not edges:
+        raise ValueError("Nothing to remove: select factors or links first.")
+    if len(entities) + len(edges) == 1:
+        # One thing is an ordinary removal, with its ordinary subject.
+        if entities:
+            entity, cascaded, sha = remove_node(entities[0].id, root=paths.root)
+            return [entity.id], cascaded, sha
+        edge, sha = remove_edge(edges[0].id, root=paths.root)
+        return [], [edge.id], sha
+
+    parts = []
+    if entities:
+        parts.append(f"{len(entities)} factor{'s' if len(entities) != 1 else ''}")
+    if own_edges:
+        parts.append(f"{len(own_edges)} link{'s' if len(own_edges) != 1 else ''}")
+    names = ", ".join(f'"{e.label}"' for e in entities[:3]) + (" …" if len(entities) > 3 else "")
+    subject = f"Removed {' and '.join(parts)}" + (f": {names}" if names else "")
+    removed_edges: list[str] = []
+    with batch(paths.root, subject=subject):
+        for e in own_edges:
+            remove_edge(e.id, root=paths.root)
+            removed_edges.append(e.id)
+        for entity in entities:
+            _, cascaded, _ = remove_node(entity.id, root=paths.root)
+            removed_edges.extend(cascaded)
+    return [e.id for e in entities], removed_edges, git_ops.head_sha(paths.root)

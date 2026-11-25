@@ -299,6 +299,28 @@ class TestBuildToFormalise:
         assert assess_transition_readiness(root=root).transitions[1].light == "green"
         assert any(g.element_label == "Rain" for g in sd_ops.check(root=root))  # SD still flags it
 
+    def test_roles_never_disconnect_a_connected_map(self, tmp_path: Path, git_identity, monkeypatch):
+        """Giving two factors of a connected loop their SD roles leaves it connected: the others are still
+        joined through them (taking the role-bearing factors out used to strand the rest and lock Formalise)."""
+        from latris.operations import sd as sd_ops
+
+        root = tmp_path / "proj"
+        init_project(root, statement="Why do people leave?")
+        monkeypatch.chdir(root)
+        ids = {label: node_ops.add_node(label, kind="variable", root=root)[0].id
+               for label in ("Workload", "Burnout", "Departures", "Hiring")}
+        for a, b in (("Workload", "Burnout"), ("Burnout", "Departures"), ("Departures", "Workload"),
+                     ("Departures", "Hiring"), ("Hiring", "Workload")):
+            edge_ops.add_edge(ids[a], ids[b], kind="causal", root=root)
+        for t in ("cld", "dag", "sd"):
+            add_model_choice(t, "", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "green"
+        sd_ops.set_role("Workload", "stock", root=root)
+        assert assess_transition_readiness(root=root).transitions[1].light == "green"
+        sd_ops.set_role("Departures", "flow", root=root)
+        gate = assess_transition_readiness(root=root).transitions[1]
+        assert gate.light == "green", gate.details
+
     def test_green_connected(self, project):
         """Fixture is Price→Demand→Quantity — ≥3 nodes, single network."""
         root, _, _, _ = project

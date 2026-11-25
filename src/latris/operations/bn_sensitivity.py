@@ -52,10 +52,14 @@ def sensitivity(
     target_state: str,
     *,
     evidence: dict[str, str] | None = None,
+    interventions: dict[str, str] | None = None,
     top: int | None = None,
     root: Path | None = None,
 ) -> SensitivityResult:
     """Rank CPT conditionals by their one-way influence on ``P(target=state|evidence)``.
+
+    ``interventions`` SET factors to a state (do-operator): the question is asked of the network with their
+    tables replaced by certainty, and their own tables — which no longer matter — aren't ranked.
 
     Each row's most influential cell is swept across a range: the 5th–95th
     percentile of its uncertainty when the table has one ("worth n observations",
@@ -67,9 +71,17 @@ def sensitivity(
     substrate = load_model(Substrate, paths.conceptual_yaml)
     target_id = resolve_target(target, substrate)
     evidence_ids = {resolve_target(k, substrate): v for k, v in (evidence or {}).items()}
+    do = {resolve_target(k, substrate): v for k, v in (interventions or {}).items()}
 
     ss_map = {e.target_id: e.states for e in bn_ops.get_state_spaces(root=paths.root).entries}
     base_map = bn_ops.effective_cpts(root=paths.root)
+    if do:
+        both = sorted(set(do) & set(evidence_ids))
+        if both:
+            raise ValueError("a factor can be set or observed, not both: " + ", ".join(both))
+        if target_id in do:
+            raise ValueError(f"{target!r} is set, so nothing moves it; ask about a factor that isn't set")
+        base_map = bn_ops.intervene(base_map, ss_map, do)
 
     if target_id not in base_map:
         raise ValueError(f"{target!r} has no CPT to analyse")
@@ -98,8 +110,8 @@ def sensitivity(
     runs = 0
     findings: list[SensitivityFinding] = []
     for node_id, entry in base_map.items():
-        if node_id in evidence_ids:
-            continue  # clamped — perturbing its CPT can't move the posterior
+        if node_id in evidence_ids or node_id in do:
+            continue  # clamped or set — perturbing its CPT can't move the posterior
         for row_idx, row in enumerate(entry.rows):
             best_inf = -1.0
             best_cell = 0
@@ -140,6 +152,7 @@ def sensitivity(
         target_id=target_id,
         target_state=target_state,
         evidence=evidence_ids,
+        interventions=do,
         baseline=baseline,
         inference_runs=runs,
         findings=findings,
@@ -155,6 +168,8 @@ def record_sensitivity(result: SensitivityResult, *, root: Path | None = None) -
     from latris.operations.analysis_results import record_result
 
     evidence = ",".join(f"{k}={v}" for k, v in sorted((result.evidence or {}).items()))
+    if result.interventions:
+        evidence += "|do:" + ",".join(f"{k}={v}" for k, v in sorted(result.interventions.items()))
     payload = result.model_dump(mode="json")
     # Bake labels in: the report renderer and claims hooks see only the payload.
     paths = require_project(root)
@@ -172,7 +187,8 @@ def record_sensitivity(result: SensitivityResult, *, root: Path | None = None) -
         ),
         model_type="bn",
         hyperparameters={"target": result.target_id, "target_state": result.target_state,
-                         "evidence": result.evidence},
+                         "evidence": result.evidence,
+                         **({"interventions": result.interventions} if result.interventions else {})},
         metrics={"inference_runs": result.inference_runs, "baseline": result.baseline},
         affected_target_ids=[result.target_id],
         commit_subject=f"Sensitivity analysis: {result.target_id[:15]}…={result.target_state}",

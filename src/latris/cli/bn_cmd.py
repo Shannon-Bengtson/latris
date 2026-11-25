@@ -420,6 +420,8 @@ def explain(
     likelihood: list[str] | None = typer.Option(None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1'."),
     over: list[str] | None = typer.Option(
         None, "--over", help="Explain only these nodes (MAP); default every unobserved node (MPE)."),
+    set_: list[str] | None = typer.Option(
+        None, "--set", help="An intervention 'Node=state': SET it (do-operator) before asking (repeatable)."),
     record: bool = typer.Option(True, "--record/--no-record", help="Save the result for reports + log a run."),
 ) -> None:
     """The single most likely combination of states, given the evidence.
@@ -427,11 +429,12 @@ def explain(
     "Given the flood, what's the likeliest combination of causes?" Shows the
     combination, how probable it is, how many times likelier each state is than
     its runner-up, and where a node's own favourite differs from the combination.
+    --set makes a factor so: it leaves the explanation, and its causes are explained as if unset.
     """
     from latris.operations import bn as bn_ops
 
     out = bn_ops.explain(over=over or None, evidence=_evidence(evidence) or None, soft=_dists(soft) or None,
-                         likelihood=_dists(likelihood) or None)
+                         likelihood=_dists(likelihood) or None, interventions=_evidence(set_) or None)
     recorded = bn_ops.record_explanation(out) if record else None
     labels = out["labels"]
     if json_mode():
@@ -545,6 +548,8 @@ def monte_carlo(
     evidence: list[str] | None = typer.Option(None, "--evidence", "-e", help="Observed node=state (repeatable)."),
     soft: list[str] | None = typer.Option(None, "--soft", "-s", help="Soft evidence 'Node=state:0.8' (repeatable)."),
     likelihood: list[str] | None = typer.Option(None, "--likelihood", help="Likelihood evidence 'Node=yes:4,no:1'."),
+    set_: list[str] | None = typer.Option(
+        None, "--set", help="An intervention 'Node=state': SET it (do-operator) before asking (repeatable)."),
     runs: int = typer.Option(500, "--runs", "-n", help="Number of draws (2–2000)."),
     seed: int = typer.Option(1234, "--seed", help="Random seed; the same seed gives the same draws."),
     max_seconds: float = typer.Option(60.0, "--max-seconds", help="Stop early if the draws would take longer."),
@@ -563,7 +568,8 @@ def monte_carlo(
     from latris.operations.bn_montecarlo import describe
 
     out = bn_ops.run_monte_carlo(target, state=state, evidence=_evidence(evidence) or None, soft=_dists(soft) or None,
-                                 likelihood=_dists(likelihood) or None, runs=runs, seed=seed,
+                                 likelihood=_dists(likelihood) or None, interventions=_evidence(set_) or None,
+                                 runs=runs, seed=seed,
                                  max_seconds=max_seconds, scenario=scenario)
     recorded = bn_ops.record_monte_carlo(out) if record else None
     if json_mode():
@@ -609,6 +615,8 @@ def sensitivity(
     target: str = typer.Argument(..., help="Target node ID, prefix, or label."),
     state: str = typer.Option(..., "--state", "-s", help="Target state to analyse."),
     evidence: list[str] | None = typer.Option(None, "--evidence", "-e", help="Observed node=state (repeatable)."),
+    set_: list[str] | None = typer.Option(
+        None, "--set", help="An intervention 'Node=state': SET it (do-operator) before asking (repeatable)."),
     top: int = typer.Option(15, "--top", help="Show the N most influential parameters."),
     record: bool = typer.Option(True, "--record/--no-record", help="Log an AnalysisRun + artifact."),
 ) -> None:
@@ -627,7 +635,8 @@ def sensitivity(
         name, st = item.rsplit("=", 1)
         ev[name.strip()] = st.strip()
 
-    result = bn_sensitivity.sensitivity(target, state, evidence=ev or None, top=top)
+    result = bn_sensitivity.sensitivity(target, state, evidence=ev or None, interventions=_evidence(set_) or None,
+                                        top=top)
     labels = _labels()
     if json_mode():
         payload = {

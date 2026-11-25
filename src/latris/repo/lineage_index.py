@@ -47,14 +47,47 @@ def build_lineage_index(root: Path) -> LineageIndex:
 
     edges: list[tuple[str, str]] = []
     all_branches = list(nodes.keys())
+    forks = {b: _fork_point(root, b, nodes[b].id) for b in all_branches if b != "main"}
+    own = {b: _own_commits(root, b, forks.get(b)) for b in all_branches}
     for branch, node in nodes.items():
         if node.relationship == "original" or branch == "main":
             continue
-        parent_branch = _derive_parent_branch(root, branch, all_branches)
+        fork = forks[branch]
+        parent_branch = _owner(fork, branch, own) if fork else None
+        if parent_branch is None:
+            parent_branch = _derive_parent_branch(root, branch, all_branches)
         if parent_branch is not None and parent_branch in nodes:
             edges.append((nodes[parent_branch].id, node.id))
 
     return LineageIndex(nodes=nodes, edges=edges, branch_for_node=branch_for_node)
+
+
+def _fork_point(root: Path, branch: str, version_id: str) -> str | None:
+    """The commit *branch*'s version was made from: the parent of the commit that first wrote its id into
+    ``lineage-node.yaml`` (renaming a version keeps its id). ``None`` when that can't be found."""
+    out = git.run_git(
+        ["log", "--first-parent", "--reverse", "--format=%H %P", f"-S{version_id}", branch,
+         "--", ".graph-tooling/lineage-node.yaml"],
+        cwd=root, check=False,
+    )
+    lines = out.stdout.split("\n") if out.returncode == 0 else []
+    parts = lines[0].split() if lines and lines[0].strip() else []
+    return parts[1] if len(parts) > 1 else None
+
+
+def _own_commits(root: Path, branch: str, fork: str | None) -> set[str]:
+    """The commits made on *branch* itself: its first-parent line, after its fork point for an alternative.
+    Work merged in from another version (getting the latest) is that version's, not this one's."""
+    args = ["rev-list", "--first-parent", branch] + ([f"^{fork}"] if fork else [])
+    out = git.run_git(args, cwd=root, check=False)
+    return set(out.stdout.split()) if out.returncode == 0 else set()
+
+
+def _owner(commit: str, branch: str, own: dict[str, set[str]]) -> str | None:
+    """The version whose own line *commit* was made on (an alternative's before the original's)."""
+    owners = [b for b, commits in own.items() if b != branch and commit in commits]
+    lineage = [b for b in owners if b != "main"]
+    return lineage[0] if lineage else owners[0] if owners else None
 
 
 def _load_node_at_branch(root: Path, branch: str) -> LineageNode | None:
@@ -73,7 +106,8 @@ def _derive_parent_branch(
     branch: str,
     all_branches: list[str],
 ) -> str | None:
-    """Return the branch *branch* was created from, or ``None``.
+    """Return the branch *branch* was created from, or ``None`` — the fallback when its creation commit
+    can't be found (see :func:`_fork_point`).
 
     Strategy: find the first commit unique to *branch* (not reachable
     from any other lineage branch), take its first parent commit, then

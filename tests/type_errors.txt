@@ -7,7 +7,6 @@ src/latris/ai/context/_shared.py 3
 src/latris/ai/context/configure.py 2
 src/latris/ai/context/references.py 1
 src/latris/ai/delegated.py 2
-src/latris/ai/interactions.py 1
 src/latris/ai/proposals/_shared.py 1
 src/latris/ai/proposals/configure.py 1
 src/latris/ai/proposals/model.py 3
@@ -61,7 +60,6 @@ src/latris/operations/equation_model.py 1
 src/latris/operations/estimation.py 6
 src/latris/operations/event_tree.py 5
 src/latris/operations/fault_tree.py 2
-src/latris/operations/findings.py 2
 src/latris/operations/formalisms/_psa.py 4
 src/latris/operations/formalisms/_risk_mc.py 2
 src/latris/operations/formalisms/ach.py 2
@@ -96,7 +94,6 @@ src/latris/operations/sd_loops.py 1
 src/latris/operations/sd_montecarlo.py 2
 src/latris/operations/share_link.py 4
 src/latris/operations/toc.py 5
-src/latris/operations/view_attributes.py 1
 src/latris/operations/view_roles.py 1
 src/latris/operations/views.py 2
 src/latris/repo/yaml_io.py 1

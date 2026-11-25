@@ -76,7 +76,8 @@ def _render_explanation(p: dict[str, Any]) -> list[str]:
 
     labels = p["labels"]
     given = _given(p) or "no evidence"
-    what = "every unobserved factor" if p["kind"] == "MPE" else "the factors asked about"
+    what = ("every factor not observed or set" if p.get("interventions") else "every unobserved factor") \
+        if p["kind"] == "MPE" else "the factors asked about"
     prob = f" Its probability given the evidence: {_pct(p['probability'])}." if p.get("probability") is not None else ""
     out = [f"The single most likely combination of states of {what}, given {given}.{prob}", ""]
     rows = []
@@ -221,7 +222,9 @@ def _render_sensitivity(p: dict[str, Any]) -> list[str]:
 
     labels = p.get("labels", {})  # baked in at record time; runs from before then show ids
     target = labels.get(p["target_id"], p["target_id"])
-    out = [f"Which probabilities move P({target} = {p['target_state']}) (baseline {_pct(p['baseline'])}):", ""]
+    given = _given(p)
+    out = [f"Which probabilities move P({target} = {p['target_state']}{' | ' + given if given else ''}) "
+           f"(baseline {_pct(p['baseline'])}):", ""]
     rows = []
     for f in p["findings"][:md.MAX_ROWS]:
         given = ", ".join(f"{labels.get(k, k)}={v}" for k, v in f["parent_states"].items())
@@ -714,12 +717,15 @@ _TOOLS = {
     'bn-explanation': ('explain_bn',
         'The most likely explanation: the single likeliest combination of states given the evidence '
         '(every unobserved factor, or just over), with its probability, how many times likelier each '
-        "state is than its runner-up, and where a factor's own favourite differs. Recorded with a chart."),
+        "state is than its runner-up, and where a factor's own favourite differs. interventions SET factors "
+        "(an option or policy): they leave the explanation, and their causes are explained as if unset. "
+        "Recorded with a chart."),
     'bn-monte-carlo': ('monte_carlo_bn',
         'How sure is a probability when the tables behind it are estimates? Re-asks P(target = state | '
         "evidence) while sampling every table given an uncertainty ('worth n observations'); gives the "
         'point estimate, median, the ranges 50% and 95% of draws fall in, and which tables drive the '
-        'spread. Seeded. scenario applies a saved BN scenario. Recorded with a chart.'),
+        'spread. Seeded. interventions SET factors (their tables are held); scenario applies a saved BN '
+        'scenario. Recorded with a chart.'),
     'bn-options': ('compare_bn_options',
         'Which Bayesian-network option is better, and how sure is that? Asks P(target = state) under the '
         'baseline network (no scenario changes) and each saved BN scenario; evidence holds for every '
@@ -736,8 +742,8 @@ _TOOLS = {
         'query for each evidence set, against the prior.'),
     'bn-sensitivity': ('bn_sensitivity',
         'Which probability-table entries most move P(target = state), each with its origin and whether a '
-        'person has verified it: shows when a conclusion rests on weakly grounded numbers. Recorded with '
-        'a tornado chart.'),
+        'person has verified it: shows when a conclusion rests on weakly grounded numbers. interventions '
+        'SET factors first (their own tables then no longer count). Recorded with a tornado chart.'),
 }
 
 

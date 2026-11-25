@@ -206,9 +206,9 @@ def has_staged_changes(cwd: Path) -> bool:
     return run_git(["diff", "--cached", "--quiet"], cwd=cwd, check=False).returncode != 0
 
 
-def commit(cwd: Path, message: str) -> str:
+def commit(cwd: Path, message: str, *, allow_empty: bool = False) -> str:
     """Create a commit with ``message``. Returns the new commit SHA."""
-    run_git(["commit", "-m", message], cwd=cwd)
+    run_git(["commit", *(["--allow-empty"] if allow_empty else []), "-m", message], cwd=cwd)
     return run_git(["rev-parse", "HEAD"], cwd=cwd).stdout.strip()
 
 

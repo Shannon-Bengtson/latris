@@ -16,7 +16,6 @@ operations/bn_compare.py::compare_options 43
 operations/bow_tie.py::load_bow_tie 43
 operations/_sd_fast.py::_Compiler.call 42
 operations/mcda.py::analyse 41
-operations/bn_montecarlo.py::monte_carlo 40
 operations/checkpoints.py::_value_rows 37
 operations/equation_model.py::sweep 37
 operations/event_tree.py::load_tree 37

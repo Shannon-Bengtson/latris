@@ -17,7 +17,7 @@ Readiness checks look for the minimum material needed to move from one phase to 
 ## Typical blockers
 
 - Home -> Build: no modelling question defined.
-- Build -> Formalise: fewer than 3 nodes, or the graph is not a single connected network (orphan nodes or separate sub-graphs).
+- Build -> Formalise: fewer than 3 nodes, or the graph is not a single connected network (orphan nodes or separate sub-graphs). A factor that has a role in a formal type (an MCDA option, a system-dynamics stock or flow) still joins the factors on either side of it; a group made only of such factors is not counted as an orphan.
 - Formalise -> Analyse: no model type selected, a selected model is structurally incomplete (e.g. CLD without loops, DAG with a cycle), or required attributes (e.g. polarity for CLD, weights for FCM) are missing.
 - Interpret -> Communicate: no structural summary with claims.
 

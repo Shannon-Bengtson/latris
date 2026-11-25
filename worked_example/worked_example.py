@@ -1190,6 +1190,11 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("Setting it instead leaves the air quality at its prior (shown first): the arrow runs from air to health.")
     ex.run(["bn", "query", "--query", "Air Quality Index", "--no-record"])
     ex.run(["bn", "query", "--set", "Respiratory Health=poor", "--query", "Air Quality Index"])
+    ex.note(
+        "The other analyses (explain, sensitivity, monte-carlo) take --set too. Explaining poor health that "
+        "we *made* so leaves the air and its causes at the states their priors favour."
+    )
+    ex.run(["bn", "explain", "--set", "Respiratory Health=poor", "--no-record"])
     ex.run(["node", "add", "Clinic Visits", "--kind", "variable"])
     ex.run(["edge", "add", "Air Quality Index", "Clinic Visits", "--kind", "causal"])
     ex.run(["edge", "add", "Respiratory Health", "Clinic Visits", "--kind", "causal"])

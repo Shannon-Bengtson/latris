@@ -40,6 +40,13 @@ from latris.schema import (
 from latris.schema.provenance import ModelChoice, ModelChoiceLog
 
 
+def _required(text: str | None, what: str) -> str:
+    """The record's own words, trimmed; a blank one is refused (it would sit in the report saying nothing)."""
+    if text is None or not text.strip():
+        raise ValueError(f"{what} needs some text.")
+    return text.strip()
+
+
 def add_assumption(
     statement: str,
     rationale: str | None = None,
@@ -47,6 +54,7 @@ def add_assumption(
     target_id: str | None = None,
     root: Path | None = None,
 ) -> tuple[Assumption, str]:
+    statement = _required(statement, "An assumption")
     paths = require_project(root)
     if target_id:
         # Accept what evidence accepts: an ID, a prefix, a factor label or a link as "From -> To".
@@ -78,6 +86,7 @@ def log_decision(
     target_id: str | None = None,
     root: Path | None = None,
 ) -> tuple[Decision, str]:
+    statement = _required(statement, "A decision")
     paths = require_project(root)
     entry = Decision(
         id=new_id("decision"),
@@ -199,6 +208,7 @@ def add_question(
     target_id: str | None = None,
     root: Path | None = None,
 ) -> tuple[Question, str]:
+    question = _required(question, "A question")
     paths = require_project(root)
     entry = Question(
         id=new_id("question"),

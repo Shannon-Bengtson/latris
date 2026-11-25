@@ -286,6 +286,13 @@ def _apply_clip(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     col = params["column"]
     lower = params.get("min")
     upper = params.get("max")
+    if lower is None and upper is None:
+        raise ValueError("Give a lowest value, a highest value, or both, as numbers.")
+    for bound in (lower, upper):
+        if bound is not None and (isinstance(bound, bool) or not isinstance(bound, (int, float))):
+            raise ValueError("Give a lowest value, a highest value, or both, as numbers.")
+    if lower is not None and upper is not None and lower > upper:
+        raise ValueError("The lowest value can't be above the highest.")
     if col not in df.columns:
         raise ValueError(f"Column {col!r} not found. Available: {list(df.columns)}")
     result = df.copy()

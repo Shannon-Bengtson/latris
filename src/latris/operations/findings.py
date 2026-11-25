@@ -183,6 +183,76 @@ def set_finding_maturity(
     return target, sha
 
 
+def edit_finding(
+    query: str,
+    *,
+    statement: str | None = None,
+    detail: str | None = None,
+    category: FindingCategory | None = None,
+    root: Path | None = None,
+) -> tuple[Finding, str]:
+    """Change what a finding says. Rewrites the JSONL and commits.
+
+    A finding that was reviewed or approved goes back to ``proposed`` when its
+    words change: the review was of what it said before. Raises ``ValueError``
+    for a blank statement, or when nothing would change.
+    """
+    paths = require_project(root)
+    target = get_finding(query, root=paths.root)
+    if statement is not None:
+        statement = statement.strip()
+        if not statement:
+            raise ValueError("An observation needs a statement.")
+    changes = {
+        k: v
+        for k, v in (("statement", statement), ("detail", detail), ("category", category))
+        if v is not None and getattr(target, k) != v
+    }
+    if not changes:
+        raise ValueError("Nothing to change: the observation already says that.")
+    all_records = list(iter_findings(root=paths.root))
+    for r in all_records:
+        if r.id == target.id:
+            for k, v in changes.items():
+                setattr(r, k, v)
+            if r.maturity != "proposed":
+                r.maturity = "proposed"
+                r.reviewed_by = None
+                r.reviewed_at = None
+            target = r
+            break
+    rewrite_jsonl(all_records, paths.findings_jsonl)
+    sha = auto_commit(
+        paths.root,
+        subject=f"Edited finding: {_truncate(target.statement)}",
+        body=f"id: {target.id}\nchanged: {', '.join(sorted(changes))}",
+        paths=[paths.findings_jsonl],
+    )
+    return target, sha
+
+
+def remove_finding(
+    query: str,
+    *,
+    root: Path | None = None,
+) -> tuple[Finding, str]:
+    """Remove a finding, and any other finding's pointer to it. Rewrites the JSONL and commits."""
+    paths = require_project(root)
+    target = get_finding(query, root=paths.root)
+    kept = [r for r in iter_findings(root=paths.root) if r.id != target.id]
+    for r in kept:
+        if target.id in r.supersedes:
+            r.supersedes = [s for s in r.supersedes if s != target.id]
+    rewrite_jsonl(kept, paths.findings_jsonl)
+    sha = auto_commit(
+        paths.root,
+        subject=f"Removed finding: {_truncate(target.statement)}",
+        body=f"id: {target.id}",
+        paths=[paths.findings_jsonl],
+    )
+    return target, sha
+
+
 def supersede_matching(
     *,
     model_type: str,

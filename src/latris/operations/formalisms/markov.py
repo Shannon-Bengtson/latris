@@ -24,12 +24,12 @@ def _units(p: dict[str, Any]) -> tuple[str | None, str]:
 
 def _render(p: dict[str, Any]) -> list[str]:
     from latris.exporters import md
-    from latris.operations.markov import _money, describe
+    from latris.operations.markov import _money, describe, horizon
 
     cu, ou = _units(p)
     s = p["settings"]
     out = [describe(p) + ".", ""]
-    out += [f"{s['num_cycles']} cycles of {s['cycle_length']:g} {s['time_units']}; discounting "
+    out += [f"{horizon(s)}; discounting "
             f"{s['discount_rate']:.1%} for costs, "
             f"{(s['outcome_discount_rate'] if s['outcome_discount_rate'] is not None else s['discount_rate']):.1%} "
             f"for outcomes; half-cycle correction {'on' if s['half_cycle_correction'] else 'off'}.", ""]
@@ -69,7 +69,7 @@ def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 
 def _claims(paths, section: str) -> list[str]:
     from latris.operations import markov
-    from latris.operations.markov import _money
+    from latris.operations.markov import _money, horizon
 
     p = markov.analyse(root=paths.root)
     if p["problems"]:
@@ -81,7 +81,7 @@ def _claims(paths, section: str) -> list[str]:
     inc = p.get("incremental", [])
     if section == "structure":
         claims.append(f"A cohort model of {len(p['states'])} states ({', '.join(p['states'])}) over "
-                      f"{s['num_cycles']} cycles of {s['cycle_length']:g} {s['time_units']}, comparing "
+                      f"{horizon(s)}, comparing "
                       f"{', '.join(p['strategies'])}.")
     elif section == "answer":
         claims.append(markov.describe(p) + ".")

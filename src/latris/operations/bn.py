@@ -700,6 +700,11 @@ def evidence_description(
     return ", ".join(parts)
 
 
+def _do_key(interventions: dict | None) -> str:
+    """The part of a result's key that says what was set (empty when nothing was, so older keys still match)."""
+    return "|do:" + ",".join(f"{k}={v}" for k, v in sorted(interventions.items())) if interventions else ""
+
+
 def _resolve_block(block, substrate):  # noqa: ANN001, ANN202
     return {resolve_target(k, substrate): v for k, v in block.items()} if block else {}
 
@@ -713,9 +718,11 @@ def explain(
     evidence: dict[str, str] | None = None,
     soft: dict[str, dict[str, float]] | None = None,
     likelihood: dict[str, dict[str, float]] | None = None,
+    interventions: dict[str, str] | None = None,
     root: Path | None = None,
 ) -> dict:
-    """The most likely joint explanation (MPE, or MAP over ``over``) given the evidence; labels accepted."""
+    """The most likely joint explanation (MPE, or MAP over ``over``) given the evidence, in the network with
+    the ``interventions`` factors set (do-operator); labels accepted."""
     from latris.operations import bn_explain
 
     paths = require_project(root)
@@ -725,16 +732,30 @@ def explain(
         ss_map, _effective_cpt_map(paths),
         over=[resolve_target(n, substrate) for n in over] if over else None,
         evidence=_resolve_block(evidence, substrate), soft=_resolve_block(soft, substrate),
-        likelihood=_resolve_block(likelihood, substrate),
+        likelihood=_resolve_block(likelihood, substrate), interventions=_resolve_block(interventions, substrate),
     )
     labels = {e.id: e.label for e in substrate.entities}
-    out["labels"] = {n: labels.get(n, n) for n in {*out["over"], *out["evidence"], *out["soft"], *out["likelihood"]}}
+    out["labels"] = {n: labels.get(n, n) for n in
+                     {*out["over"], *out["evidence"], *out["soft"], *out["likelihood"], *out["interventions"]}}
     return out
+
+
+def set_description(interventions: dict[str, str] | None, labels: dict[str, str]) -> str:
+    """'Sprinkler set to off' — what a what-if sets, for summaries and reports."""
+    return ", ".join(f"{labels.get(k, k)} set to {v}" for k, v in sorted((interventions or {}).items()))
+
+
+def condition_description(evidence: dict, soft: dict | None, likelihood: dict | None,
+                          interventions: dict | None, labels: dict[str, str]) -> str:
+    """Everything a result was conditioned on — what was observed, then what was set — or ''."""
+    parts = [evidence_description(evidence, soft, likelihood, labels), set_description(interventions, labels)]
+    return "; ".join(p for p in parts if p)
 
 
 def describe_explanation(p: dict) -> str:
     labels = p["labels"]
-    cond = evidence_description(p["evidence"], p["soft"], p["likelihood"], labels) or "no evidence"
+    cond = condition_description(p["evidence"], p["soft"], p["likelihood"], p.get("interventions"), labels) \
+        or "no evidence"
     states = ", ".join(f"{labels.get(n, n)} = {p['assignment'][n]}" for n in p["over"])
     prob = f" (P = {p['probability']:.0%})" if p.get("probability") is not None else ""
     return f"Given {cond}, the most likely explanation is {states}{prob}"
@@ -748,7 +769,8 @@ def record_explanation(payload: dict, *, root: Path | None = None) -> tuple[str,
     sha, run = record_result(
         kind="bn-explanation",
         key="bn-explanation|" + ",".join(sorted(payload["over"])) + "|"
-            + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"]),
+            + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"])
+            + _do_key(payload.get("interventions")),
         payload=payload,
         purpose="inference",
         algorithm=f"{payload['kind']}; {payload['method']}",
@@ -756,7 +778,8 @@ def record_explanation(payload: dict, *, root: Path | None = None) -> tuple[str,
         summary=describe_explanation(payload),
         model_type=_MODEL_TYPE,
         hyperparameters={"over": payload["over"] if payload["kind"] == "MAP" else None,
-                         "evidence": payload["evidence"], "soft": payload["soft"], "likelihood": payload["likelihood"]},
+                         "evidence": payload["evidence"], "soft": payload["soft"], "likelihood": payload["likelihood"],
+                         "interventions": payload.get("interventions") or {}},
         affected_target_ids=list(payload["over"]),
         commit_subject=f"BN most likely explanation ({payload['kind']}, {len(payload['over'])} node(s))",
         root=root,
@@ -774,6 +797,7 @@ def run_monte_carlo(
     evidence: dict[str, str] | None = None,
     soft: dict[str, dict[str, float]] | None = None,
     likelihood: dict[str, dict[str, float]] | None = None,
+    interventions: dict[str, str] | None = None,
     runs: int = 500,
     seed: int = 1234,
     max_seconds: float = 60.0,
@@ -793,16 +817,20 @@ def run_monte_carlo(
     noisy = {e.target_id: e for e in _load_noisy_or(paths).entries}
     applied = with_scenario(scenario, paths, _effective_cpt_map(paths), evidence=_resolve_block(evidence, substrate),
                             soft=_resolve_block(soft, substrate), likelihood=_resolve_block(likelihood, substrate),
-                            labels=labels)
+                            interventions=_resolve_block(interventions, substrate), labels=labels)
     tables = _set_factors(applied, ss_map)
+    if resolve_target(target, substrate) in applied.interventions:
+        raise ValueError(f"{target!r} is set, so it has no uncertainty to show; ask about a factor that isn't set")
     out = bn_montecarlo.monte_carlo(
         ss_map, tables, noisy, uncertainty.bn_specs(paths), resolve_target(target, substrate),
         state=state, evidence=applied.evidence, soft=applied.soft, likelihood=applied.likelihood, runs=runs,
         seed=seed, max_seconds=max_seconds, labels=labels, fixed_rows=applied.fixed_rows,
         held=set(applied.interventions),
     )
+    if applied.interventions:
+        out["interventions"] = applied.interventions
     if applied.name:
-        out.update(scenario=applied.name, scenario_changes=applied.changes, interventions=applied.interventions)
+        out.update(scenario=applied.name, scenario_changes=applied.changes)
     return out
 
 
@@ -816,6 +844,7 @@ def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str,
         kind="bn-monte-carlo",
         key=f"bn-monte-carlo|{payload['target']}={payload['focus_state']}|"
             + evidence_key(payload["evidence"], payload["soft"], payload["likelihood"])
+            + ("" if payload.get("scenario") else _do_key(payload.get("interventions")))
             + (f"|scenario:{payload['scenario']}" if payload.get("scenario") else ""),
         payload=payload,
         purpose="sensitivity-analysis",
@@ -826,6 +855,7 @@ def record_monte_carlo(payload: dict, *, root: Path | None = None) -> tuple[str,
         hyperparameters={"target": payload["target"], "state": payload["focus_state"],
                          "evidence": payload["evidence"], "soft": payload["soft"],
                          "likelihood": payload["likelihood"], "runs": payload["runs"],
+                         **({"interventions": payload["interventions"]} if payload.get("interventions") else {}),
                          **({"scenario": payload["scenario"]} if payload.get("scenario") else {})},
         scenarios=[payload["scenario"]] if payload.get("scenario") else None,
         uncertainty=True,

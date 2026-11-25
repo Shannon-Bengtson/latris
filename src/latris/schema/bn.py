@@ -234,6 +234,7 @@ class SensitivityResult(_Base):
     target_id: str
     target_state: str
     evidence: dict[str, str] = Field(default_factory=dict)
+    interventions: dict[str, str] = Field(default_factory=dict)  # factors SET to a state (do-operator)
     baseline: float
     inference_runs: int
     findings: list[SensitivityFinding] = Field(default_factory=list)

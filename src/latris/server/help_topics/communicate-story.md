@@ -17,9 +17,17 @@ A project can have **several stories**: a council briefing, a community explaine
 3. **Correct the outline.** Reorder, retitle, change what a beat draws on, choose its picture, add or remove beats, rewrite the short answer. A beat you change is kept when you re-plan.
 
    Each beat has one picture, drawn from what it cites: the whole model with the beat's factors highlighted; just those factors on their own; a causal path or feedback loop drawn link by link as the reader scrolls; or a chart of an analysis result (a simulation over time, how sure the model is, which option is better), drawn as the reader scrolls. A picture needs its source: a path picture needs a cited path or loop, a chart needs a cited result.
-4. **Approve the outline**, then **write the story**. The AI writes each beat from what it draws on, with the whole story in view. You can rewrite any beat in your own words; the AI never replaces them.
+4. **Approve the outline**, then **write the story**. The AI writes each beat from what it draws on, with the whole story in view. You can rewrite any beat in your own words; *Rewrite with AI* asks before it replaces them. Every text a beat has held is kept: *Earlier versions* under the prose lets you read one and restore it.
 5. **Preview** the page as a reader will see it, and **export** it as one self-contained HTML file.
 6. **Share it by link.** In the story's settings, *Share by link* gives a link anyone can open, with no account needed. It works the same for everything in Communicate (see *Communicate* in the workflow help).
+
+## Your text is safe while you write
+
+What you type (a beat's title, purpose or prose, the story's settings) stays in the box until you save it. Picking another beat, changing the voice, or a save that fails doesn't lose it: the beat is marked *unsaved changes* and the text is there when you come back, even after reloading the page. The browser asks before you leave with unsaved text. *Discard changes* is the only thing that throws it away.
+
+## Stories and versions
+
+A story belongs to the version of the project it was written on. On another version (an alternative, say) the Story tab starts empty and tells you which version holds your stories; switch back in *Share & History* to return to them.
 
 ## Staying honest
 
