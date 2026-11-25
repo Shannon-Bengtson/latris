@@ -153,3 +153,32 @@ def test_update_maturity_unknown_finding_422(client: TestClient) -> None:
 
 
 # ── staleness ────────────────────────────────────────────────────────
+
+
+# ── edit + remove ────────────────────────────────────────────────────
+
+
+def test_edit_changes_the_words_and_sends_a_reviewed_finding_back_to_proposed(client: TestClient) -> None:
+    created = _record(client)
+    client.patch(f"/api/findings/{created['id']}/maturity", json={"maturity": "reviewed", "reviewer_name": "Rita"})
+    resp = client.patch(f"/api/findings/{created['id']}", json={"statement": "Balancing loop caps growth", "detail": "B1"})
+    assert resp.status_code == 200, resp.text
+    f = resp.json()["finding"]
+    assert (f["statement"], f["detail"], f["category"]) == ("Balancing loop caps growth", "B1", "structure")
+    assert f["maturity"] == "proposed" and f["reviewed_by"] is None
+    assert client.get(f"/api/findings/{created['id']}").json()["finding"]["statement"] == "Balancing loop caps growth"
+
+
+def test_edit_refuses_a_blank_statement_or_no_change(client: TestClient) -> None:
+    created = _record(client)
+    assert client.patch(f"/api/findings/{created['id']}", json={"statement": "  "}).status_code == 422
+    assert client.patch(f"/api/findings/{created['id']}", json={"statement": created["statement"]}).status_code == 422
+
+
+def test_remove_takes_the_finding_out(client: TestClient) -> None:
+    keep = _record(client, statement="Keep me")
+    gone = _record(client, statement="Remove me")
+    resp = client.delete(f"/api/findings/{gone['id']}")
+    assert resp.status_code == 200, resp.text
+    assert [f["id"] for f in client.get("/api/findings").json()["findings"]] == [keep["id"]]
+    assert client.delete(f"/api/findings/{gone['id']}").status_code == 422
