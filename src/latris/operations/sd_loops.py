@@ -130,29 +130,89 @@ def loop_dominance(
     if lo >= hi:
         raise ValueError("the analysis window must have --from before --to")
 
-    # Every variable in SI base magnitudes (the fast path's representation).
+    base_vals = _base_values(base, fast, res.series)
+    link_by_id = {lk.id: lk for lk in links}
+    used = {eid for loop in raw_loops for eid in loop.edge_ids}
+    scores = _link_scores(base, fast, [link_by_id[eid] for eid in used], base_vals, times)
+    loop_scores = _loop_scores(raw_loops, scores, n)
+    sets = _components([loop.node_ids for loop in raw_loops])
+    relative = _relative_scores(loop_scores, sets, n)
+
+    window = [t for t in range(1, n) if lo <= times[t] <= hi]
+    if not window:
+        raise ValueError(f"no simulated steps between {lo:g} and {hi:g}")
+
+    stats, labels = _name_loops(relative, window)
+    idx = _thin(n)
+    loops_out = []
+    for i, share, pol, flips in sorted(stats, key=lambda s: -s[1]):
+        members, link_rows, weak = _loop_reading(base, raw_loops[i], link_by_id, edge_lookup or {}, edge_info or {})
+        loops_out.append(
+            {
+                "id": labels[i],
+                "polarity": pol,
+                "polarity_changes": flips,
+                "members": [base.labels[m] for m in members],
+                "member_ids": members,
+                "links": link_rows,
+                "set": sets[i],
+                "average_share": _r(share),
+                "relative_score": [_r(relative[i][t]) for t in idx],
+                "weak_links": weak,
+            }
+        )
+
+    sets_out = []
+    for k in sorted(set(sets)):
+        in_set = [i for i, s in enumerate(sets) if s == k]
+        periods = _dominant_periods(in_set, relative, window, times, labels)
+        sets_out.append({"id": k, "loops": [labels[i] for i in in_set], "dominant_periods": periods})
+
+    return {
+        "times": [_r(times[t]) for t in idx],
+        "time_units": res.time_units,
+        "window": [_r(lo), _r(hi)],
+        "scenario": scenario.name if scenario else None,
+        "loops": loops_out,
+        "sets": sets_out,
+        "variables": len(base.stocks) + len(base.order),
+        "links": len(links),
+        "method": res.method,
+        "algorithm": res.algorithm,
+        "settings": res.settings,
+        "notes": [] if raw_loops else ["The model has no feedback loops: every effect runs one way."],
+    }
+
+
+def _base_values(base: SDModel, fast: Any, series: dict[str, list[float]]) -> dict[str, list[float]]:
+    """Every variable's series in SI base magnitudes (the fast path's representation)."""
     base_vals: dict[str, list[float]] = {}
     for s in base.stocks:
         f = fast.stock_factor[s]
-        base_vals[s] = [x * f for x in res.series[s]]
+        base_vals[s] = [x * f for x in series[s]]
     for v in base.order:
         f = fast.out_factor[v]
-        base_vals[v] = [x * f for x in res.series[v]]
+        base_vals[v] = [x * f for x in series[v]]
+    return base_vals
+
+
+def _link_scores(
+    base: SDModel, fast: Any, used: list[_Link], base_vals: dict[str, list[float]], times: list[float]
+) -> dict[str, list[float]]:
+    """The score of each link in *used* at each step (zero at the first)."""
+    n = len(times)
     consts = dict(zip(fast.const_ids, fast.constants_vector(base), strict=True))
     const_env = {base.slugs[c]: val for c, val in consts.items()}
     tf = fast.time_factor
 
-    link_by_id = {lk.id: lk for lk in links}
-    used = {eid for loop in raw_loops for eid in loop.edge_ids}
-    scores: dict[str, list[float]] = {}
     net: dict[str, list[float]] = {}
     for s in base.stocks:
         ins = [base_vals[f] for f in base.inflows.get(s, [])]
         outs = [base_vals[f] for f in base.outflows.get(s, [])]
         net[s] = [sum(c[t] for c in ins) - sum(c[t] for c in outs) for t in range(n)]
 
-    for eid in used:
-        lk = link_by_id[eid]
+    scores: dict[str, list[float]] = {}
+    for lk in used:
         x, z = lk.from_id, lk.to_id
         out = [0.0] * n
         if lk.kind == "flow":
@@ -173,9 +233,12 @@ def loop_dominance(
                 env[base.slugs[x]] = base_vals[x][t]
                 dxz = eq(times[t - 1] * tf, env) - base_vals[z][t - 1]
                 out[t] = abs(dxz / dz) * _sign(dxz / dx)
-        scores[eid] = out
+        scores[lk.id] = out
+    return scores
 
-    node_lists = [loop.node_ids for loop in raw_loops]
+
+def _loop_scores(raw_loops: list, scores: dict[str, list[float]], n: int) -> list[list[float]]:
+    """A loop's score at each step: the product of its links' scores."""
     loop_scores = []
     for loop in raw_loops:
         series = [0.0] * n
@@ -185,8 +248,12 @@ def loop_dominance(
                 p *= scores[eid][t]
             series[t] = p
         loop_scores.append(series)
-    sets = _components(node_lists)
-    relative: list[list[float]] = [[0.0] * n for _ in raw_loops]
+    return loop_scores
+
+
+def _relative_scores(loop_scores: list[list[float]], sets: list[int], n: int) -> list[list[float]]:
+    """Each loop's score as a share of the |scores| of the loops it interacts with."""
+    relative: list[list[float]] = [[0.0] * n for _ in loop_scores]
     for k in set(sets):
         members = [i for i, s in enumerate(sets) if s == k]
         for t in range(n):
@@ -194,14 +261,18 @@ def loop_dominance(
             if total > 0:
                 for i in members:
                     relative[i][t] = loop_scores[i][t] / total
+    return relative
 
-    window = [t for t in range(1, n) if lo <= times[t] <= hi]
-    if not window:
-        raise ValueError(f"no simulated steps between {lo:g} and {hi:g}")
 
-    # Name loops R1, R2, B1 … by runtime polarity, most influential first.
+def _name_loops(
+    relative: list[list[float]], window: list[int]
+) -> tuple[list[tuple[int, float, str, bool]], dict[int, str]]:
+    """Name loops R1, R2, B1 … by runtime polarity, most influential first.
+
+    Returns each loop's (index, average share, polarity, whether its polarity changes), and the names.
+    """
     stats = []
-    for i in range(len(raw_loops)):
+    for i in range(len(relative)):
         share = sum(abs(relative[i][t]) for t in window) / len(window)
         signed = sum(relative[i][t] for t in window)
         signs = {_sign(relative[i][t]) for t in window if abs(relative[i][t]) > 1e-9}
@@ -211,96 +282,80 @@ def loop_dominance(
         ranked = sorted((s for s in stats if s[2] == pol), key=lambda s: -s[1])
         for rank, (i, *_rest) in enumerate(ranked, start=1):
             labels[i] = f"{pol}{rank}"
+    return stats, labels
 
-    edge_lookup = edge_lookup or {}
-    edge_info = edge_info or {}
-    idx = _thin(n)
-    loops_out = []
-    for i, share, pol, flips in sorted(stats, key=lambda s: -s[1]):
-        loop = raw_loops[i]
-        # Read each loop from a stock (by label), e.g. "Water → Outflow", not from the smallest id.
-        nodes, edges = list(loop.node_ids), list(loop.edge_ids)
-        stocks_in = sorted(
-            (k for k, nd in enumerate(nodes) if nd in base.stock_units), key=lambda k: base.labels[nodes[k]]
+
+def _loop_reading(
+    base: SDModel,
+    loop: Any,
+    link_by_id: dict[str, _Link],
+    edge_lookup: dict[tuple[str, str], str],
+    edge_info: dict[str, dict[str, Any]],
+) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]]]:
+    """A loop as it is read: its members from a stock on, its links, and those links thinly supported."""
+    # Read each loop from a stock (by label), e.g. "Water → Outflow", not from the smallest id.
+    nodes, edges = list(loop.node_ids), list(loop.edge_ids)
+    stocks_in = sorted(
+        (k for k, nd in enumerate(nodes) if nd in base.stock_units), key=lambda k: base.labels[nodes[k]]
+    )
+    k0 = stocks_in[0] if stocks_in else 0
+    members, loop_edges = nodes[k0:] + nodes[:k0], edges[k0:] + edges[:k0]
+    link_rows, weak = [], []
+    for eid in loop_edges:
+        lk = link_by_id[eid]
+        sub = edge_lookup.get((lk.from_id, lk.to_id)) or (
+            edge_lookup.get((lk.to_id, lk.from_id)) if lk.kind == "flow" or lk.from_id in base.stocks else None
         )
-        k0 = stocks_in[0] if stocks_in else 0
-        members, loop_edges = nodes[k0:] + nodes[:k0], edges[k0:] + edges[:k0]
-        link_rows, weak = [], []
-        for eid in loop_edges:
-            lk = link_by_id[eid]
-            sub = edge_lookup.get((lk.from_id, lk.to_id)) or (
-                edge_lookup.get((lk.to_id, lk.from_id)) if lk.kind == "flow" or lk.from_id in base.stocks else None
-            )
-            info = edge_info.get(sub or "", {})
-            text = f"{base.labels[lk.from_id]} → {base.labels[lk.to_id]}"
-            link_rows.append(
-                {"from": base.labels[lk.from_id], "to": base.labels[lk.to_id], "kind": lk.kind, "edge_id": sub}
-            )
-            if lk.kind == "info":  # flow-to-stock links are accounting, true by definition
-                reasons = []
-                if info.get("against"):
-                    reasons.append("evidence against it")
-                if not info.get("sources") and info.get("confidence") not in ("high", "by-definition"):
-                    reasons.append("no source")
-                if info.get("confidence") == "low":
-                    reasons.append("low confidence")
-                if reasons:
-                    weak.append({"link": text, "edge_id": sub, "why": ", ".join(reasons)})
-        loops_out.append(
-            {
-                "id": labels[i],
-                "polarity": pol,
-                "polarity_changes": flips,
-                "members": [base.labels[m] for m in members],
-                "member_ids": members,
-                "links": link_rows,
-                "set": sets[i],
-                "average_share": _r(share),
-                "relative_score": [_r(relative[i][t]) for t in idx],
-                "weak_links": weak,
-            }
+        info = edge_info.get(sub or "", {})
+        text = f"{base.labels[lk.from_id]} → {base.labels[lk.to_id]}"
+        link_rows.append(
+            {"from": base.labels[lk.from_id], "to": base.labels[lk.to_id], "kind": lk.kind, "edge_id": sub}
         )
+        if lk.kind == "info":  # flow-to-stock links are accounting, true by definition
+            reasons = _weak_reasons(info)
+            if reasons:
+                weak.append({"link": text, "edge_id": sub, "why": ", ".join(reasons)})
+    return members, link_rows, weak
 
-    sets_out = []
-    for k in sorted(set(sets)):
-        members = [i for i, s in enumerate(sets) if s == k]
-        periods: list[dict[str, Any]] = []
-        for t in window:
-            ranked = sorted(members, key=lambda i: -abs(relative[i][t]))
-            chosen, cum = [], 0.0
-            for i in ranked:
-                if abs(relative[i][t]) <= 1e-12:
-                    break
-                chosen.append(i)
-                cum += abs(relative[i][t])
-                if cum >= DOMINANT_SHARE:
-                    break
-            key = tuple(sorted(labels[i] for i in chosen)) if cum >= DOMINANT_SHARE else ()
-            if periods and tuple(periods[-1]["loops"]) == key:
-                periods[-1]["end"] = times[t]
-                periods[-1]["_shares"].append(cum)
-            else:
-                periods.append({"start": times[t - 1], "end": times[t], "loops": list(key), "_shares": [cum]})
-        for p in periods:
-            shares = p.pop("_shares")
-            p["share"] = _r(sum(shares) / len(shares)) if p["loops"] else 0.0
-            p["start"], p["end"] = _r(p["start"]), _r(p["end"])
-        sets_out.append({"id": k, "loops": [labels[i] for i in members], "dominant_periods": periods})
 
-    return {
-        "times": [_r(times[t]) for t in idx],
-        "time_units": res.time_units,
-        "window": [_r(lo), _r(hi)],
-        "scenario": scenario.name if scenario else None,
-        "loops": loops_out,
-        "sets": sets_out,
-        "variables": len(base.stocks) + len(base.order),
-        "links": len(links),
-        "method": res.method,
-        "algorithm": res.algorithm,
-        "settings": res.settings,
-        "notes": [] if raw_loops else ["The model has no feedback loops: every effect runs one way."],
-    }
+def _weak_reasons(info: dict[str, Any]) -> list[str]:
+    """Why a link's support is thin, from what the project records about it."""
+    reasons = []
+    if info.get("against"):
+        reasons.append("evidence against it")
+    if not info.get("sources") and info.get("confidence") not in ("high", "by-definition"):
+        reasons.append("no source")
+    if info.get("confidence") == "low":
+        reasons.append("low confidence")
+    return reasons
+
+
+def _dominant_periods(
+    members: list[int], relative: list[list[float]], window: list[int], times: list[float], labels: dict[int, str]
+) -> list[dict[str, Any]]:
+    """Within one interacting set: the stretches of time over which the same loop(s) dominate."""
+    periods: list[dict[str, Any]] = []
+    for t in window:
+        ranked = sorted(members, key=lambda i: -abs(relative[i][t]))
+        chosen, cum = [], 0.0
+        for i in ranked:
+            if abs(relative[i][t]) <= 1e-12:
+                break
+            chosen.append(i)
+            cum += abs(relative[i][t])
+            if cum >= DOMINANT_SHARE:
+                break
+        key = tuple(sorted(labels[i] for i in chosen)) if cum >= DOMINANT_SHARE else ()
+        if periods and tuple(periods[-1]["loops"]) == key:
+            periods[-1]["end"] = times[t]
+            periods[-1]["_shares"].append(cum)
+        else:
+            periods.append({"start": times[t - 1], "end": times[t], "loops": list(key), "_shares": [cum]})
+    for p in periods:
+        shares = p.pop("_shares")
+        p["share"] = _r(sum(shares) / len(shares)) if p["loops"] else 0.0
+        p["start"], p["end"] = _r(p["start"]), _r(p["end"])
+    return periods
 
 
 def describe(payload: dict[str, Any]) -> str:

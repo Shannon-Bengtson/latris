@@ -173,6 +173,7 @@ def generate_prose(section_id: str, root: Root) -> dict[str, Any]:
         render=_render,
         preview_only=False,
         root=root,
+        surface="server",
     )
 
     # outcome.rendered contains the prose (via the render function)

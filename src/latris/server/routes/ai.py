@@ -131,6 +131,7 @@ def ai_call(body: AICallRequest, root: Root) -> dict[str, Any]:
             render=_render,
             preview_only=preview,
             root=root,
+            surface="server",
         )
 
         proposal_json = outcome.proposal_json

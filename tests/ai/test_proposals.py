@@ -1,4 +1,4 @@
-"""Tests for AI proposal apply() dispatchers (ai/proposals.py).
+"""Tests for AI proposal apply() dispatchers (ai/proposals/).
 
 Every AI mutation flows through ``proposal.apply(paths)``. These tests
 verify each proposal type creates the correct operations-layer mutations,

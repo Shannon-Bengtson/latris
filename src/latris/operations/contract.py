@@ -448,6 +448,17 @@ def set_output(
         parse_metric(metric)
     entry = _output_from(c, name, kind or (current.kind if current and not metric else None),
                          metric or (current.metric if current and kind in (None, "value") else None))
+    _check_output(c, entry)
+    entry = _carry_over(c, entry, current, description)
+    contract.outputs = (
+        [entry if o is current else o for o in contract.outputs] if current else [*contract.outputs, entry]
+    )
+    sha = _save(paths, contract, f"Contract for {model_type}: output {entry.name} ({c.label})")
+    return entry, sha
+
+
+def _check_output(c: Any, entry: ContractOutput) -> None:
+    """Refuse an output the factor can't give: the wrong kind, or a metric it doesn't take."""
     if entry.kind not in c.kinds:
         raise ValueError(f"{c.label} can be {' or '.join(c.kinds)}, not a {entry.kind}")
     if entry.metric and not c.needs_metric:
@@ -455,17 +466,20 @@ def set_output(
     bad = _metric_problem(c, entry.metric)
     if bad:
         raise ValueError(f"output {entry.name!r}{bad}")
+
+
+def _carry_over(
+    c: Any, entry: ContractOutput, current: ContractOutput | None, description: str | None
+) -> ContractOutput:
+    """What an output being changed keeps: its units while the model's are still compatible, and its
+    description unless a new one is given."""
     if (current and current.units and entry.units and (current.kind, current.metric) == (entry.kind, entry.metric)
             and _units_problem(c, current) is None):
         entry = entry.model_copy(update={"units": current.units})
     if description is not None or current:
         entry = entry.model_copy(update={"description": description if description is not None
                                          else current.description if current else ""})
-    contract.outputs = (
-        [entry if o is current else o for o in contract.outputs] if current else [*contract.outputs, entry]
-    )
-    sha = _save(paths, contract, f"Contract for {model_type}: output {entry.name} ({c.label})")
-    return entry, sha
+    return entry
 
 
 def remove(model_type: str, name: str, *, root: Path | None = None) -> str:

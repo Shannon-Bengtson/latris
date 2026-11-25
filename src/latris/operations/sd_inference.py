@@ -278,114 +278,171 @@ def _analyse_core(
     edge_ids: list[str] | None = None,
     lenient: bool = False,
 ) -> tuple[SDModel | None, list[SDProblem]]:
-    settings = settings or SDSettings()
-    labels = {e.id: e.label for e in substrate.entities}
-    in_view = set(entity_ids) if entity_ids is not None else set(labels)
-    edge_view = set(edge_ids) if edge_ids is not None else {e.id for e in substrate.edges}
-    edges = [e for e in substrate.edges if e.id in edge_view and e.from_id in in_view and e.to_id in in_view]
-    flow_edges = [e for e in edges if e.kind == "flow"]
-    edge_label = {e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in edges}
+    check = _Analysis(substrate, roles, settings or SDSettings(), entity_ids, edge_ids, lenient)
+    check.classification()
+    check.plumbing()
+    check.names()
+    check.equations(equations)
+    check.tables(tables)
+    check.values(stocks, constants)
+    check.algebraic_loops()
+    check.units()
+    if check.problems:
+        return None, check.problems + check.advisories
+    return check.compile()
 
-    # Model boundary. The SD model is whatever has an SD role, plus anything a
-    # flow edge touches (flow edges are SD-only). Causal edges count only when
-    # they point INTO the model — those are its information links. A causal
-    # edge leaving the model, or one between two non-SD entities (say, the rest
-    # of a CLD on the same substrate), is outside the SD view and ignored.
-    roles_of = {k: v for k, v in role_map(roles).items() if k in in_view}
-    members = set(roles_of) | {n for e in flow_edges for n in (e.from_id, e.to_id)}
-    causal = [e for e in edges if e.kind == "causal" and e.to_id in members]
-    if lenient:  # links from loop-map factors aren't the simulation's (membership.outside_links reports them)
-        causal = [e for e in causal if e.from_id in members]
-    nodes = members | {e.from_id for e in causal}
-    problems: list[SDProblem] = []
 
-    def name(i: str) -> str:
-        return labels.get(i, i)
+class _Analysis:
+    """One analysis of an SD model: the phases in order, each adding the problems it finds.
 
-    advisories: list[SDProblem] = []
+    Each phase leaves what later ones read on the instance (the plumbing's inflows and outflows, the
+    parsed equations, the units); ``compile`` builds the model once no phase has found a problem.
+    """
 
-    def add(target: str, gap: str, msg: str) -> None:
-        if lenient and gap in ADVISORY_WHEN_SHARED:
-            advisories.append(SDProblem(target, gap, msg, "advisory"))
+    def __init__(
+        self,
+        substrate: Substrate,
+        roles: RoleSet,
+        settings: SDSettings,
+        entity_ids: list[str] | None,
+        edge_ids: list[str] | None,
+        lenient: bool,
+    ) -> None:
+        self.settings = settings
+        self.lenient = lenient
+        labels = self.labels = {e.id: e.label for e in substrate.entities}
+        in_view = self.in_view = set(entity_ids) if entity_ids is not None else set(labels)
+        edge_view = set(edge_ids) if edge_ids is not None else {e.id for e in substrate.edges}
+        edges = [e for e in substrate.edges if e.id in edge_view and e.from_id in in_view and e.to_id in in_view]
+        self.flow_edges = [e for e in edges if e.kind == "flow"]
+        self.edge_label = {
+            e.id: f"{labels.get(e.from_id, e.from_id)} → {labels.get(e.to_id, e.to_id)}" for e in edges
+        }
+
+        # Model boundary. The SD model is whatever has an SD role, plus anything a
+        # flow edge touches (flow edges are SD-only). Causal edges count only when
+        # they point INTO the model — those are its information links. A causal
+        # edge leaving the model, or one between two non-SD entities (say, the rest
+        # of a CLD on the same substrate), is outside the SD view and ignored.
+        roles_of = self.roles_of = {k: v for k, v in role_map(roles).items() if k in in_view}
+        members = set(roles_of) | {n for e in self.flow_edges for n in (e.from_id, e.to_id)}
+        causal = [e for e in edges if e.kind == "causal" and e.to_id in members]
+        if lenient:  # links from loop-map factors aren't the simulation's (membership.outside_links reports them)
+            causal = [e for e in causal if e.from_id in members]
+        self.causal = causal
+        self.nodes = members | {e.from_id for e in causal}
+        self.problems: list[SDProblem] = []
+        self.advisories: list[SDProblem] = []
+
+    def name(self, i: str) -> str:
+        return self.labels.get(i, i)
+
+    def add(self, target: str, gap: str, msg: str) -> None:
+        if self.lenient and gap in ADVISORY_WHEN_SHARED:
+            self.advisories.append(SDProblem(target, gap, msg, "advisory"))
         else:
-            problems.append(SDProblem(target, gap, msg))
+            self.problems.append(SDProblem(target, gap, msg))
 
-    # 1. classification
-    for n in sorted(nodes, key=name):
-        if n not in roles_of:
-            add(n, "unclassified",
-                "Not classified for System Dynamics. Set its role: stock, flow, auxiliary, constant, or source_sink.")
-    if "stock" not in roles_of.values():
-        add("", "no_stocks", "The SD model has no stocks yet. Classify at least one with `sd set-role <node> stock`.")
+    def classification(self) -> None:
+        """1. Every node has an SD role, and there is a stock."""
+        add, roles_of = self.add, self.roles_of
+        for n in sorted(self.nodes, key=self.name):
+            if n not in roles_of:
+                add(n, "unclassified",
+                    "Not classified for System Dynamics. "
+                    "Set its role: stock, flow, auxiliary, constant, or source_sink.")
+        if "stock" not in roles_of.values():
+            add("", "no_stocks",
+                "The SD model has no stocks yet. Classify at least one with `sd set-role <node> stock`.")
 
-    # 2. stock-and-flow plumbing
-    inflows: dict[str, list[str]] = {}
-    outflows: dict[str, list[str]] = {}
-    upstream: dict[str, list[str]] = {}
-    downstream: dict[str, list[str]] = {}
-    ends = ("stock", "source_sink")
-    for e in flow_edges:
-        ra, rb = roles_of.get(e.from_id), roles_of.get(e.to_id)
-        if ra is None or rb is None:
-            continue  # classification gap already reported
-        if ra in ends and rb == "flow":
-            upstream.setdefault(e.to_id, []).append(e.from_id)
-            if ra == "stock":
-                outflows.setdefault(e.from_id, []).append(e.to_id)
-        elif ra == "flow" and rb in ends:
-            downstream.setdefault(e.from_id, []).append(e.to_id)
-            if rb == "stock":
-                inflows.setdefault(e.to_id, []).append(e.from_id)
-        else:
-            add(e.id, "flow_edge_invalid",
-                f"Flow edge {edge_label[e.id]} must run between a stock (or source/sink cloud) and a flow "
-                f"({ra} → {rb}). Use a causal edge for information links.")
-    for n in sorted((n for n, r in roles_of.items() if r == "flow"), key=name):
-        ups, downs = upstream.get(n, []), downstream.get(n, [])
-        if not any(roles_of.get(s) == "stock" for s in ups + downs):
-            add(n, "flow_not_connected",
-                "Flow does not fill or drain any stock. Connect it with flow edges (stock → flow → stock).")
-        if len(ups) > 1 or len(downs) > 1:
-            add(n, "flow_ambiguous",
-                "A flow moves material from at most one place to at most one place; split it into separate flows.")
-    for e in causal:
-        if roles_of.get(e.to_id) == "stock":
-            add(e.id, "stock_causal_input",
-                f"Stocks change only through flows; {edge_label[e.id]} points an information link at a stock. "
-                f"Route the influence through a flow's equation instead.")
+    def plumbing(self) -> None:
+        """2. Stock-and-flow plumbing: which flows fill and drain which stocks."""
+        add, roles_of, edge_label, name = self.add, self.roles_of, self.edge_label, self.name
+        inflows: dict[str, list[str]] = {}
+        outflows: dict[str, list[str]] = {}
+        upstream: dict[str, list[str]] = {}
+        downstream: dict[str, list[str]] = {}
+        ends = ("stock", "source_sink")
+        for e in self.flow_edges:
+            ra, rb = roles_of.get(e.from_id), roles_of.get(e.to_id)
+            if ra is None or rb is None:
+                continue  # classification gap already reported
+            if ra in ends and rb == "flow":
+                upstream.setdefault(e.to_id, []).append(e.from_id)
+                if ra == "stock":
+                    outflows.setdefault(e.from_id, []).append(e.to_id)
+            elif ra == "flow" and rb in ends:
+                downstream.setdefault(e.from_id, []).append(e.to_id)
+                if rb == "stock":
+                    inflows.setdefault(e.to_id, []).append(e.from_id)
+            else:
+                add(e.id, "flow_edge_invalid",
+                    f"Flow edge {edge_label[e.id]} must run between a stock (or source/sink cloud) and a flow "
+                    f"({ra} → {rb}). Use a causal edge for information links.")
+        for n in sorted((n for n, r in roles_of.items() if r == "flow"), key=name):
+            ups, downs = upstream.get(n, []), downstream.get(n, [])
+            if not any(roles_of.get(s) == "stock" for s in ups + downs):
+                add(n, "flow_not_connected",
+                    "Flow does not fill or drain any stock. Connect it with flow edges (stock → flow → stock).")
+            if len(ups) > 1 or len(downs) > 1:
+                add(n, "flow_ambiguous",
+                    "A flow moves material from at most one place to at most one place; split it into separate flows.")
+        for e in self.causal:
+            if roles_of.get(e.to_id) == "stock":
+                add(e.id, "stock_causal_input",
+                    f"Stocks change only through flows; {edge_label[e.id]} points an information link at a stock. "
+                    f"Route the influence through a flow's equation instead.")
+        self.inflows, self.outflows = inflows, outflows
 
-    # 3. names
-    named = {n: r for n, r in roles_of.items() if r in _NAMED}
-    slugs = {n: slugify(name(n)) for n in named}
-    by_slug: dict[str, list[str]] = {}
-    for n, s in slugs.items():
-        by_slug.setdefault(s, []).append(n)
-    for s, ids in by_slug.items():
-        if len(ids) > 1:
-            for i in ids:
-                add(i, "name_collision",
-                    f"Equation name '{s}' is shared by {', '.join(name(x) for x in ids)}; rename one of them.")
-    resolve = {s: ids[0] for s, ids in by_slug.items() if len(ids) == 1}
+    def names(self) -> None:
+        """3. Names: the name each variable goes by in equations, and that no two share one."""
+        name = self.name
+        named = self.named = {n: r for n, r in self.roles_of.items() if r in _NAMED}
+        slugs = self.slugs = {n: slugify(name(n)) for n in named}
+        by_slug: dict[str, list[str]] = {}
+        for n, s in slugs.items():
+            by_slug.setdefault(s, []).append(n)
+        for s, ids in by_slug.items():
+            if len(ids) > 1:
+                for i in ids:
+                    self.add(i, "name_collision",
+                             f"Equation name '{s}' is shared by {', '.join(name(x) for x in ids)}; rename one of them.")
+        self.resolve = {s: ids[0] for s, ids in by_slug.items() if len(ids) == 1}
 
-    # 4. equations, references, information links
-    computed = sorted((n for n, r in roles_of.items() if r in _COMPUTED), key=name)
-    eq_entries = {e.target_id: e for e in equations.entries}
-    parsed: dict[str, ParsedEquation] = {}
-    refs: dict[str, set[str]] = {}
-    linked = {(e.from_id, e.to_id) for e in causal} | {
-        pair for e in flow_edges for pair in ((e.from_id, e.to_id), (e.to_id, e.from_id))
-    }
-    for v in computed:
-        entry = eq_entries.get(v)
-        if entry is None:
-            add(v, "missing_equation", f"{roles_of[v].capitalize()} has no equation. Set one with `sd set-equation`.")
-            continue
-        try:
-            p = parse(entry.expression)
-        except EquationError as exc:
-            add(v, "equation_invalid", str(exc))
-            continue
-        parsed[v] = p
+    def equations(self, equations: SDEquationSet) -> None:
+        """4. Equations, what they refer to, and the information links that show it."""
+        add, roles_of, name = self.add, self.roles_of, self.name
+        computed = self.computed = sorted((n for n, r in roles_of.items() if r in _COMPUTED), key=name)
+        eq_entries = self.eq_entries = {e.target_id: e for e in equations.entries}
+        parsed: dict[str, ParsedEquation] = {}
+        refs: dict[str, set[str]] = {}
+        linked = {(e.from_id, e.to_id) for e in self.causal} | {
+            pair for e in self.flow_edges for pair in ((e.from_id, e.to_id), (e.to_id, e.from_id))
+        }
+        for v in computed:
+            entry = eq_entries.get(v)
+            if entry is None:
+                add(v, "missing_equation",
+                    f"{roles_of[v].capitalize()} has no equation. Set one with `sd set-equation`.")
+                continue
+            try:
+                p = parse(entry.expression)
+            except EquationError as exc:
+                add(v, "equation_invalid", str(exc))
+                continue
+            parsed[v] = p
+            refs[v] = self._references(v, p, linked)
+        for e in self.causal:
+            v = e.to_id
+            if v in parsed and roles_of.get(e.from_id) in _NAMED and e.from_id not in refs.get(v, set()):
+                add(e.id, "unused_information_link",
+                    f"The diagram claims {self.edge_label[e.id]}, but {name(v)}'s equation doesn't use "
+                    f"{name(e.from_id)}.")
+        self.parsed, self.refs = parsed, refs
+
+    def _references(self, v: str, p: ParsedEquation, linked: set[tuple[str, str]]) -> set[str]:
+        """The variables *v*'s equation reads; each must exist, not be *v*, and be linked to it."""
+        add, name, resolve = self.add, self.name, self.resolve
         deps: set[str] = set()
         for ref in sorted(p.names):
             target = resolve.get(ref)
@@ -401,122 +458,139 @@ def _analyse_core(
                 add(v, "missing_information_link",
                     f"Equation uses {name(target)} but the diagram has no link {name(target)} → {name(v)}. "
                     f"Add a causal edge so the diagram shows the dependency.")
-        refs[v] = deps
-    for e in causal:
-        v = e.to_id
-        if v in parsed and roles_of.get(e.from_id) in _NAMED and e.from_id not in refs.get(v, set()):
-            add(e.id, "unused_information_link",
-                f"The diagram claims {edge_label[e.id]}, but {name(v)}'s equation doesn't use {name(e.from_id)}.")
+        return deps
 
-    # 5. tables
-    table_map = {t.target_id: t for t in tables.entries}
-    for v, p in parsed.items():
-        if p.uses_table and v not in table_map:
-            add(v, "missing_table", "Equation calls TABLE() but no table is defined. Add one with `sd set-table`.")
-    for t in table_map:
-        if t in in_view and (t not in parsed or not parsed[t].uses_table):
-            add(t, "unused_table", "A table is defined but this variable's equation never calls TABLE().")
+    def tables(self, tables: SDTableSet) -> None:
+        """5. Tables: one for each equation that calls TABLE(), and none unused."""
+        parsed = self.parsed
+        table_map = self.table_map = {t.target_id: t for t in tables.entries}
+        for v, p in parsed.items():
+            if p.uses_table and v not in table_map:
+                self.add(v, "missing_table",
+                         "Equation calls TABLE() but no table is defined. Add one with `sd set-table`.")
+        for t in table_map:
+            if t in self.in_view and (t not in parsed or not parsed[t].uses_table):
+                self.add(t, "unused_table", "A table is defined but this variable's equation never calls TABLE().")
 
-    # 6. values
-    stock_entries = {s.target_id: s for s in stocks.entries}
-    const_entries = {c.target_id: c for c in constants.entries}
-    for n in sorted(named, key=name):
-        if named[n] == "stock" and n not in stock_entries:
-            add(n, "missing_initial_value", "Stock has no initial value. Set one with `sd set-initial-value`.")
-        if named[n] == "constant" and n not in const_entries:
-            add(n, "missing_constant_value", "Constant has no value. Set one with `sd set-constant`.")
+    def values(self, stocks: SDStockSet, constants: SDConstantSet) -> None:
+        """6. Values: each stock's initial value and each constant's value."""
+        named = self.named
+        stock_entries = self.stock_entries = {s.target_id: s for s in stocks.entries}
+        const_entries = self.const_entries = {c.target_id: c for c in constants.entries}
+        for n in sorted(named, key=self.name):
+            if named[n] == "stock" and n not in stock_entries:
+                self.add(n, "missing_initial_value", "Stock has no initial value. Set one with `sd set-initial-value`.")
+            if named[n] == "constant" and n not in const_entries:
+                self.add(n, "missing_constant_value", "Constant has no value. Set one with `sd set-constant`.")
 
-    # 7. algebraic loops among instantaneous variables
-    from latris.operations.graph_analysis import find_all_loops, topological_sort
+    def algebraic_loops(self) -> None:
+        """7. Algebraic loops among instantaneous variables."""
+        from latris.operations.graph_analysis import find_all_loops, topological_sort
 
-    computed_set = set(computed)
-    dep_links = [_Link(f"{d}>{v}", d, v) for v, ds in refs.items() for d in ds if d in computed_set]
-    dep_links += [
-        _Link(e.id, e.from_id, e.to_id) for e in causal if e.from_id in computed_set and e.to_id in computed_set
-    ]
-    try:
-        topological_sort(dep_links)
-    except ValueError:
-        for loop in find_all_loops(dep_links)[:_MAX_LOOPS_REPORTED]:
-            path = " → ".join(name(n) for n in (*loop.node_ids, loop.node_ids[0]))
-            add(loop.node_ids[0], "algebraic_loop",
-                f"Algebraic loop among instantaneous variables: {path}. Break it with a stock "
-                f"(e.g. a perception or smoothing delay).")
+        name = self.name
+        computed_set = set(self.computed)
+        dep_links = [_Link(f"{d}>{v}", d, v) for v, ds in self.refs.items() for d in ds if d in computed_set]
+        dep_links += [
+            _Link(e.id, e.from_id, e.to_id)
+            for e in self.causal if e.from_id in computed_set and e.to_id in computed_set
+        ]
+        try:
+            topological_sort(dep_links)
+        except ValueError:
+            for loop in find_all_loops(dep_links)[:_MAX_LOOPS_REPORTED]:
+                path = " → ".join(name(n) for n in (*loop.node_ids, loop.node_ids[0]))
+                self.add(loop.node_ids[0], "algebraic_loop",
+                         f"Algebraic loop among instantaneous variables: {path}. Break it with a stock "
+                         f"(e.g. a perception or smoothing delay).")
+        self.dep_links = dep_links
 
-    # 8. units + settings
-    problems.extend(_settings_problems(settings))
-    time_unit = None
-    with contextlib.suppress(UnitError):  # reported by _settings_problems above
-        time_unit = parse_unit(settings.time_units)
-
-    def unit_of(target: str, spec: str, what: str) -> Any:
+    def _unit_of(self, target: str, spec: str, what: str) -> Any:
         try:
             return parse_unit(spec)
         except UnitError as exc:
-            add(target, "units_invalid", f"{what}: {exc}")
+            self.add(target, "units_invalid", f"{what}: {exc}")
             return None
 
-    stock_units = {n: unit_of(n, stock_entries[n].units, "initial value units")
-                   for n in named if named[n] == "stock" and n in stock_entries}
-    const_q = {}
-    for n in named:
-        if named[n] == "constant" and n in const_entries:
-            u = unit_of(n, const_entries[n].units, "constant units")
-            if u is not None:
-                const_q[n] = Quantity(const_entries[n].value, u)
-    eq_units = {v: unit_of(v, eq_entries[v].units, "equation units") for v in parsed}
-    for t, entry in table_map.items():
-        unit_of(t, entry.x_units, "table input units")
-        unit_of(t, entry.y_units, "table output units")
-    if time_unit is not None:
+    def units(self) -> None:
+        """8. Units and settings: every declared unit parses, and flows are in stock units per time."""
+        named, unit_of = self.named, self._unit_of
+        stock_entries, const_entries, eq_entries = self.stock_entries, self.const_entries, self.eq_entries
+        self.problems.extend(_settings_problems(self.settings))
+        time_unit = None
+        with contextlib.suppress(UnitError):  # reported by _settings_problems above
+            time_unit = parse_unit(self.settings.time_units)
+
+        stock_units = {n: unit_of(n, stock_entries[n].units, "initial value units")
+                       for n in named if named[n] == "stock" and n in stock_entries}
+        const_q = {}
+        for n in named:
+            if named[n] == "constant" and n in const_entries:
+                u = unit_of(n, const_entries[n].units, "constant units")
+                if u is not None:
+                    const_q[n] = Quantity(const_entries[n].value, u)
+        eq_units = {v: unit_of(v, eq_entries[v].units, "equation units") for v in self.parsed}
+        for t, entry in self.table_map.items():
+            unit_of(t, entry.x_units, "table input units")
+            unit_of(t, entry.y_units, "table output units")
+        self.time_unit, self.stock_units, self.const_q, self.eq_units = time_unit, stock_units, const_q, eq_units
+        if time_unit is not None:
+            self._flow_units()
+
+    def _flow_units(self) -> None:
+        """A flow in or out of a stock is in the stock's units per time unit."""
+        name, time_unit, eq_entries = self.name, self.time_unit, self.eq_entries
+        inflows, outflows = self.inflows, self.outflows
         for s in sorted(set(inflows) | set(outflows), key=name):
-            su = stock_units.get(s)
+            su = self.stock_units.get(s)
             if su is None:
                 continue
             needed = su / time_unit
             for f in inflows.get(s, []) + outflows.get(s, []):
-                fu = eq_units.get(f)
+                fu = self.eq_units.get(f)
                 if fu is not None and not is_compatible(fu, needed):
-                    stock_text = stock_entries[s].units
-                    add(f, "flow_units_incompatible",
-                        f"Flow {name(f)} is in {eq_entries[f].units}, but it moves material in or out of stock "
-                        f"{name(s)} ({stock_text}), so it must be in stock units per time unit, "
-                        f"e.g. ({stock_text})/{describe(time_unit)}.")
+                    stock_text = self.stock_entries[s].units
+                    self.add(f, "flow_units_incompatible",
+                             f"Flow {name(f)} is in {eq_entries[f].units}, but it moves material in or out of stock "
+                             f"{name(s)} ({stock_text}), so it must be in stock units per time unit, "
+                             f"e.g. ({stock_text})/{describe(time_unit)}.")
 
-    if problems:
-        return None, problems + advisories
+    def compile(self) -> tuple[SDModel | None, list[SDProblem]]:
+        """9. Compile, and evaluate once at the initial time."""
+        from latris.operations.graph_analysis import topological_sort
 
-    # 9. compile + trial evaluation at the initial time
-    order = sorted((v for v in computed if not any(v in (lk.from_id, lk.to_id) for lk in dep_links)), key=name)
-    order += [v for v in topological_sort(dep_links) if v not in order]
-    stock_ids = sorted((n for n in named if named[n] == "stock"), key=name)
-    model = SDModel(
-        settings=settings,
-        time_unit=time_unit,
-        labels={n: name(n) for n in named},
-        roles=named,
-        slugs=slugs,
-        stocks=stock_ids,
-        stock_units=stock_units,
-        initial={s: stock_entries[s].initial_value for s in stock_ids},
-        non_negative={s for s in stock_ids if stock_entries[s].non_negative},
-        constants=const_q,
-        order=order,
-        equations=parsed,
-        eq_units=eq_units,
-        unit_text={
-            **{s: stock_entries[s].units for s in stock_ids},
-            **{v: eq_entries[v].units for v in parsed},
-            **{c: const_entries[c].units for c in const_q},
-        },
-        tables={t: e for t, e in table_map.items() if t in parsed},
-        inflows=inflows,
-        outflows=outflows,
-    )
-    problems.extend(_trial(model))
-    if not problems:
-        model.notes.extend(clock_notes(model))
-    return (None, problems + advisories) if problems else (model, advisories)
+        name, named, parsed, dep_links = self.name, self.named, self.parsed, self.dep_links
+        stock_entries, const_entries, eq_entries = self.stock_entries, self.const_entries, self.eq_entries
+        problems, advisories = self.problems, self.advisories
+        order = sorted((v for v in self.computed if not any(v in (lk.from_id, lk.to_id) for lk in dep_links)), key=name)
+        order += [v for v in topological_sort(dep_links) if v not in order]
+        stock_ids = sorted((n for n in named if named[n] == "stock"), key=name)
+        model = SDModel(
+            settings=self.settings,
+            time_unit=self.time_unit,
+            labels={n: name(n) for n in named},
+            roles=named,
+            slugs=self.slugs,
+            stocks=stock_ids,
+            stock_units=self.stock_units,
+            initial={s: stock_entries[s].initial_value for s in stock_ids},
+            non_negative={s for s in stock_ids if stock_entries[s].non_negative},
+            constants=self.const_q,
+            order=order,
+            equations=parsed,
+            eq_units=self.eq_units,
+            unit_text={
+                **{s: stock_entries[s].units for s in stock_ids},
+                **{v: eq_entries[v].units for v in parsed},
+                **{c: const_entries[c].units for c in self.const_q},
+            },
+            tables={t: e for t, e in self.table_map.items() if t in parsed},
+            inflows=self.inflows,
+            outflows=self.outflows,
+        )
+        problems.extend(_trial(model))
+        if not problems:
+            model.notes.extend(clock_notes(model))
+        return (None, problems + advisories) if problems else (model, advisories)
 
 
 _CLOCK_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")

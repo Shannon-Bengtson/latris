@@ -130,7 +130,7 @@ After each migration the hardcoded lists shrink: `KIND_ORDER` /
 guard then covers every stable type.
 
 Watch points: `build.py` (sd outcome special-case), `handover.py`,
-`share_link.py`, `ai/context.py`, `view_roles.py`, `REPORT_LIMIT` for
+`share_link.py`, `ai/context/`, `view_roles.py`, `REPORT_LIMIT` for
 `bn-query`, and `tests/latris_present/test_figure.py` in the app (the
 Mermaid/figure loop-numbering agreement).
 

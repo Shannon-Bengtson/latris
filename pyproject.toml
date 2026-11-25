@@ -88,6 +88,9 @@ dev = [
     "pytest-rerunfailures>=14",
     "ruff>=0.4",
     "build>=1.2",
+    # Exact: the type-check guard (tests/test_type_check_guard.py) counts errors per file, and another
+    # mypy release finds a different set. Bump it on purpose, and update tests/type_errors.txt with it.
+    "mypy==2.4.1",
 ]
 
 [project.scripts]
@@ -137,6 +140,15 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM"]
 "src/latris/server/routes/*.py" = ["B008"]
 # Tests occasionally hit the line-length ceiling in fixture literals; tolerate.
 "tests/**/*.py" = ["E501"]
+
+[tool.mypy]
+# Checked by tests/test_type_check_guard.py, which holds each file to the errors it had (type_errors.txt).
+# The same answer on every machine: one target version and platform, whatever runs it.
+files = ["src/latris"]
+python_version = "3.11"
+platform = "linux"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

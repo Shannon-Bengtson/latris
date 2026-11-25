@@ -117,12 +117,18 @@ All pure-Python; wheels for every target OS; no native compilation.
 
 ```
 src/latris/ai/
-├── prompts.py          # 45 PromptSpecs: name, input schema, template, output hint,
+├── prompts/            # 45 PromptSpecs: name, input schema, template, output hint,
 │                       #   response model, temperature, mode (mutating | read_only | hybrid | server_transformed)
+│                       #   the spec type in _spec, input schemas in inputs, shared guidance in
+│                       #   _guidance, the prompts by family, and the wiring and lookups in __init__
 ├── credentials.py      # env-var + keyring facade, key_in_env() context manager
 ├── config.py           # .graph-tooling/ai_config.yaml (committed)
-├── context.py          # per-prompt context builders → ContextPack
-├── proposals.py        # pydantic proposal schemas + apply() dispatchers
+├── context/            # per-prompt context builders → ContextPack: build_context and the builder
+│                       #   registry in __init__, shared helpers in _shared, builders by family
+│                       #   (elements, model, references, provenance, compose, configure, interpret,
+│                       #   interrogation)
+├── proposals/          # pydantic proposal schemas + apply() dispatchers, by the same families as
+│                       #   context/; the entry types and helpers they share are in _shared
 ├── render.py           # proposal/result rendering
 ├── validate_urls.py    # URL sanity-checks on AI-proposed references
 ├── chains.py           # fixed prompt-chain definitions (CHAIN_LIBRARY)
@@ -136,6 +142,16 @@ src/latris/ai/
     ├── litellm_adapter.py  # real calls via instructor.from_litellm
     └── __init__.py     # get_adapter() picks mock or litellm from env
 ```
+
+## Telemetry
+
+`schema/events.py` defines the telemetry event envelope and the versioned
+payload registry (mirroring ``register_prompt``); `telemetry/` is the
+emitter (local `.graph-tooling/telemetry.jsonl` mirror — gitignored — plus
+optional opt-in upload to the hosted service). Every terminal AI call
+mirrors to an `ai.call.completed` event, and `AIInteraction` carries
+`at` / `surface` / `session_id` / `latency_ms` / `rejection_reason`.
+See `docs/engineering/TELEMETRY.md`.
 
 ## Prompt chains
 
@@ -333,7 +349,8 @@ Three proposal kinds for the first cut:
 
 ## Context assembler
 
-Each prompt has a bespoke builder in `context.py`. Goal: **relevant context,
+Each prompt has a bespoke builder in the `context/` package (one module per family of prompts; the
+helpers they share are in `context/_shared.py`). Goal: **relevant context,
 not all context**. A big project's full state would blow the context window
 and waste tokens.
 

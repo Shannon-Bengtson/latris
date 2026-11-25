@@ -102,3 +102,31 @@ def safe_get(
                 response._content = b"".join(chunks)  # noqa: SLF001 — make .text/.content usable after close
                 return response
     raise ValueError(f"too many redirects (more than {max_redirects})")
+
+
+def safe_status(
+    url: str,
+    *,
+    method: str = "HEAD",
+    timeout: float = 20,
+    headers: dict[str, str] | None = None,
+    max_redirects: int = MAX_REDIRECTS,
+) -> int:
+    """The HTTP status *url* answers *method* with, following redirects with the guard applied to every hop.
+
+    For checking that a URL exists: no body is read. Raises :class:`BlockedURLError` when the URL, or any
+    URL it redirects to, isn't allowed, ``ValueError`` after too many redirects, and ``httpx.HTTPError``
+    when the request fails.
+    """
+    import httpx
+
+    current = url
+    with httpx.Client(timeout=timeout, follow_redirects=False, headers=headers) as client:
+        for _ in range(max_redirects + 1):
+            check_public_url(current)
+            with client.stream(method, current) as response:
+                if response.is_redirect and "location" in response.headers:
+                    current = urljoin(str(response.url), response.headers["location"])
+                    continue
+                return response.status_code
+    raise ValueError(f"too many redirects (more than {max_redirects})")

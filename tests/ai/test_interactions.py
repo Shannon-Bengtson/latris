@@ -225,3 +225,114 @@ def test_response_full_roundtrips(project) -> None:
     )
     fetched = inter_ops.get_interaction(record.id, root=root)
     assert fetched.response_full == body
+
+
+# ---------- telemetry fields (docs/engineering/TELEMETRY.md) ----------
+
+
+def test_record_interaction_stamps_telemetry_fields(project) -> None:
+    root, a, *_ = project
+    record, _ = inter_ops.record_interaction(
+        prompt_name="ExplainThisElement",
+        prompt_inputs={"target_id": a.id},
+        model_id="x",
+        response_summary="y",
+        target_ids=[a.id],
+        surface="server",
+        session_id="sess-1",
+        latency_ms=812,
+        root=root,
+    )
+    assert record.at is not None
+    assert record.surface == "server"
+    assert record.session_id == "sess-1"
+    assert record.latency_ms == 812
+
+    # Round-trips through the JSONL.
+    fetched = inter_ops.get_interaction(record.id, root=root)
+    assert fetched.at is not None
+    assert fetched.surface == "server"
+    assert fetched.session_id == "sess-1"
+    assert fetched.latency_ms == 812
+
+
+def test_legacy_record_without_telemetry_fields_loads(project) -> None:
+    """Records written before the telemetry fields existed stay readable."""
+    root, a, *_ = project
+    import json as _json
+
+    legacy = {
+        "id": "interaction_01J0000000000000000000",
+        "prompt_name": "ExplainThisElement",
+        "prompt_inputs": {},
+        "model_id": "x",
+        "target_ids": [a.id],
+        "related_attributes": [],
+        "response_summary": "old record",
+        "response_full": None,
+        "proposal_ids": [],
+        "adoption": "pending",
+        "approved_by": None,
+        "token_usage": {},
+        "cost_usd": None,
+        "error_class": None,
+        "error_message": None,
+        "raw_response_excerpt": None,
+    }
+    path = root / "ai" / "interactions.jsonl"
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(_json.dumps(legacy) + "\n")
+
+    fetched = inter_ops.get_interaction(legacy["id"], root=root)
+    assert fetched.response_summary == "old record"
+    assert fetched.at is None
+    assert fetched.surface is None
+    assert fetched.session_id is None
+    assert fetched.latency_ms is None
+    assert fetched.rejection_reason is None
+
+
+def test_set_adoption_records_rejection_reason(project) -> None:
+    root, a, *_ = project
+    record, _ = inter_ops.record_interaction(
+        prompt_name="P",
+        prompt_inputs={},
+        model_id="x",
+        response_summary="s",
+        target_ids=[a.id],
+        root=root,
+    )
+    approver = HumanActor(name="Reviewer")
+    inter_ops.set_adoption(
+        record.id,
+        adoption="rejected",
+        approved_by=approver,
+        rejection_reason="wrong-scope",
+        root=root,
+    )
+    fetched = inter_ops.get_interaction(record.id, root=root)
+    assert fetched.adoption == "rejected"
+    assert fetched.rejection_reason == "wrong-scope"
+
+
+def test_rejection_reason_ignored_on_approval(project) -> None:
+    root, a, *_ = project
+    record, _ = inter_ops.record_interaction(
+        prompt_name="P",
+        prompt_inputs={},
+        model_id="x",
+        response_summary="s",
+        target_ids=[a.id],
+        root=root,
+    )
+    approver = HumanActor(name="Reviewer")
+    inter_ops.set_adoption(
+        record.id,
+        adoption="approved",
+        approved_by=approver,
+        rejection_reason="wrong-scope",  # nonsense on an approval — must not stick
+        root=root,
+    )
+    fetched = inter_ops.get_interaction(record.id, root=root)
+    assert fetched.adoption == "approved"
+    assert fetched.rejection_reason is None

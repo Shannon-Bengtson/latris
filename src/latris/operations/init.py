@@ -43,6 +43,10 @@ _GITIGNORE_TEMPLATE = """\
 # latris: generated exports are regenerable output, not source.
 reports/exports/
 
+# latris: the local telemetry mirror is behavioural data, not model
+# content. It must never be committed to shared project history.
+.graph-tooling/telemetry.jsonl
+
 # latris: layout files (coordinates, colours) are excluded from
 # semantic diffs. They can be committed if you want visual continuity
 # across collaborators; delete the following two lines to do so.

@@ -135,17 +135,7 @@ def monte_carlo(
         raise ValueError(f"{labels.get(target, target)!r} is not in the network")
     if target in evidence:
         raise ValueError(f"{labels.get(target, target)} is observed; ask about a node that isn't")
-    uncertain = sampled_tables(specs, cpts, noisy, fixed_rows, held)
-    if not uncertain and held and any(node in held for node in specs):
-        raise ValueError(
-            "the only tables given an uncertainty belong to factors that are set, and a set factor's table "
-            "no longer counts — so there is nothing left to sample"
-        )
-    if not uncertain:
-        raise ValueError(
-            "no probability table has an uncertainty yet — say how many observations one is worth, "
-            "e.g. `latris bn set-uncertainty Flood --n 20`"
-        )
+    uncertain = _uncertain_tables(specs, cpts, noisy, fixed_rows, held)
 
     def query(tables: dict[str, CPTEntry]) -> dict[str, float]:
         network = _bn_engine.build_network(state_spaces, tables)
@@ -184,35 +174,8 @@ def monte_carlo(
     if state is not None and state not in states:
         raise ValueError(f"{state!r} is not a state of {labels.get(target, target)} (states: {states})")
     focus = state or states[0]  # the state asked about; by default the first (usually the event)
-    # A table drives the spread as much as its most influential row (rank correlation with the answer).
-    focus_values = [a[focus] for a in answers]
-    drivers = []
-    for node in order:
-        rhos = [r for r in (spearman(v, focus_values) for v in sampled[node].values()) if r is not None]
-        rho = max(rhos, key=abs) if rhos else None
-        drivers.append({"node": node, "label": labels.get(node, node), "rho": None if rho is None else _r(rho)})
-    drivers.sort(key=lambda d: -abs(d["rho"] or 0.0))
-
-    tables_out = []
-    for node in sorted(cpts, key=lambda k: labels.get(k, k)):
-        node_specs = uncertain.get(node)
-        if not node_specs:
-            tables_out.append({"node": node, "label": labels.get(node, node), "fixed": True})
-            continue
-        whole = node_specs.get(BN_TABLE)
-        tables_out.append(
-            {
-                "node": node,
-                "label": labels.get(node, node),
-                "fixed": False,
-                "n": whole.params["n"] if whole else None,
-                "row_overrides": len([c for c in node_specs if c != BN_TABLE]),
-                "reason": (whole or next(iter(node_specs.values()))).reason,
-                "origin": (whole or next(iter(node_specs.values()))).origin,
-                "verification": (whole or next(iter(node_specs.values()))).verification,
-                "noisy_or": node in noisy,
-            }
-        )
+    drivers = _drivers(order, sampled, [a[focus] for a in answers], labels)
+    tables_out = _tables_report(cpts, noisy, uncertain, labels)
     return {
         "target": target,
         "focus_state": focus,
@@ -228,6 +191,72 @@ def monte_carlo(
         "labels": {**{k: labels.get(k, k) for k in cpts}},
         "seconds": round(seconds, 3),
     }
+
+
+def _uncertain_tables(
+    specs: dict[str, dict[str, ParameterUncertainty]],
+    cpts: dict[str, CPTEntry],
+    noisy: dict[str, NoisyOrEntry],
+    fixed_rows: dict[str, set[int]] | None,
+    held: set[str] | None,
+) -> dict[str, dict[str, ParameterUncertainty]]:
+    """The tables to sample, or why there are none."""
+    uncertain = sampled_tables(specs, cpts, noisy, fixed_rows, held)
+    if not uncertain and held and any(node in held for node in specs):
+        raise ValueError(
+            "the only tables given an uncertainty belong to factors that are set, and a set factor's table "
+            "no longer counts — so there is nothing left to sample"
+        )
+    if not uncertain:
+        raise ValueError(
+            "no probability table has an uncertainty yet — say how many observations one is worth, "
+            "e.g. `latris bn set-uncertainty Flood --n 20`"
+        )
+    return uncertain
+
+
+def _drivers(
+    order: list[str], sampled: dict[str, dict[str, list[float]]], focus_values: list[float], labels: dict[str, str]
+) -> list[dict[str, Any]]:
+    """A table drives the spread as much as its most influential row (rank correlation with the answer)."""
+    drivers = []
+    for node in order:
+        rhos = [r for r in (spearman(v, focus_values) for v in sampled[node].values()) if r is not None]
+        rho = max(rhos, key=abs) if rhos else None
+        drivers.append({"node": node, "label": labels.get(node, node), "rho": None if rho is None else _r(rho)})
+    drivers.sort(key=lambda d: -abs(d["rho"] or 0.0))
+    return drivers
+
+
+def _tables_report(
+    cpts: dict[str, CPTEntry],
+    noisy: dict[str, NoisyOrEntry],
+    uncertain: dict[str, dict[str, ParameterUncertainty]],
+    labels: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Each table: fixed, or the uncertainty it was sampled with and where that came from."""
+    out = []
+    for node in sorted(cpts, key=lambda k: labels.get(k, k)):
+        node_specs = uncertain.get(node)
+        if not node_specs:
+            out.append({"node": node, "label": labels.get(node, node), "fixed": True})
+            continue
+        whole = node_specs.get(BN_TABLE)
+        first = whole or next(iter(node_specs.values()))
+        out.append(
+            {
+                "node": node,
+                "label": labels.get(node, node),
+                "fixed": False,
+                "n": whole.params["n"] if whole else None,
+                "row_overrides": len([c for c in node_specs if c != BN_TABLE]),
+                "reason": first.reason,
+                "origin": first.origin,
+                "verification": first.verification,
+                "noisy_or": node in noisy,
+            }
+        )
+    return out
 
 
 def describe(p: dict[str, Any]) -> str:
