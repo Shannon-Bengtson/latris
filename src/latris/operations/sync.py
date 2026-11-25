@@ -725,6 +725,10 @@ def get_report_link(*, root: Path | None = None) -> dict:
     pid = project_id(root=root)
     if not pid:
         return {"report_url": None, "report_pack": None}
+    if not credentials.get_server_url() or not credentials.get_session_token():
+        # Not signed in: there is no one to ask. Asking about the link is not an error (the app asks whenever
+        # the report opens), so answer with what was last recorded here; turning it on is what needs a sign-in.
+        return {"report_url": report_url(root=root), "report_pack": None}
     try:
         proj = _client().get_project(pid)
     except SyncClientError as exc:
