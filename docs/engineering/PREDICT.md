@@ -70,7 +70,7 @@ model loaded and compiled once, listing what could be an input or an output, wit
 | Bayesian network | a factor's state, observed or set | the probability of each state (`distribution`) |
 
 Not yet: fault trees, bow-ties, event trees, decision trees and Markov models (their Monte Carlo code
-already has an inputs-to-outputs function to build on); MCDA and FCM. Never: theory of change, ACH and
+already has an inputs-to-outputs function to build on); MCDA and FCM. The plan for them is [PREDICT_NEXT.md](PREDICT_NEXT.md). Never: theory of change, ACH and
 argument maps, which have no forward calculation.
 
 ## Predict

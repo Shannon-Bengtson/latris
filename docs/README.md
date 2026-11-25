@@ -92,7 +92,7 @@ repository. Start at the repo-root [README](../README.md).
   version (a milestone or a commit) if asked; `contract diff` says whether a
   newer version breaks a caller. Equation models, system dynamics and
   Bayesian networks — via CLI `contract` and `predict`, `/api/contract*`,
-  `/api/predict`, and Python `latris.load()` ([design](engineering/PREDICT.md)).
+  `/api/predict`, and Python `latris.load()` ([design](engineering/PREDICT.md); [plan for the remaining types](engineering/PREDICT_NEXT.md)).
 - Global sensitivity analysis over the same ranges: Sobol indices (each
   input's share of a result's variance, alone and with interactions) or
   Morris screening, for the risk types, decision trees, Markov, SD and

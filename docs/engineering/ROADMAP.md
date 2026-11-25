@@ -173,8 +173,9 @@ black-box predictor.)
    `equation_model.compute`, is already the pure "values in, every quantity out" function predict
    wraps, and its inputs (units, valid ranges) and outputs are the contract in miniature. Then #17
    predict (first cut done: a contract per model type, a stateless run, pinned versions and the
-   first public Python API, for the equation model, SD values and BN). Next for #17: uncertainty
-   bands on a prediction, the risk and decision types, and the app's "use" view; then #19
+   first public Python API, for the equation model, SD values and BN). Next for #17: the remaining
+   model types (plan: [PREDICT_NEXT.md](PREDICT_NEXT.md)) and uncertainty bands on a prediction (the app's
+   Use view is built); then #19
    time-series forcing for SD, which waits until someone needs it. Small follow-ups to #18: lookup
    tables, and adding it to the global-sensitivity layer (#8).
 
