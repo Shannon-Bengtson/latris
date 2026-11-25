@@ -563,9 +563,10 @@ Black-box machine learning and opaque structure learning (they fail the
 inspectability test — `latris capabilities`, `excluded_by_design`);
 counterfactual estimation, and interventional estimation beyond back-door
 adjusted regression on a DAG and the two quasi-experimental impact designs on
-a theory of change (interrupted time series, difference-in-differences);
-XMILE/Vensim import
-(off the roadmap). See the capability manifest for the living list.
+a theory of change (interrupted time series, difference-in-differences).
+XMILE/Vensim import is no longer excluded — it joined the roadmap on
+2026-11-25 (see [ROADMAP.md](engineering/ROADMAP.md)); it had never been an
+inspectability objection. See the capability manifest for the living list.
 
 ## Machine-readable source of truth
 
