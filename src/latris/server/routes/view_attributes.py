@@ -15,6 +15,8 @@ router = APIRouter(prefix="/api/views", tags=["view-attributes"])
 
 class SetViewAttributeRequest(BaseModel):
     value: str
+    # The reason for the value (a polarity's causal story). Omitted: the stored reason is kept. Blank: removed.
+    rationale: str | None = None
 
 
 @router.put("/{view_kind}/attributes/{target}/{attribute}")
@@ -30,6 +32,7 @@ def set_view_attribute(
         view_kind,
         attribute,
         body.value,
+        rationale=body.rationale,
         root=root,
     )
     return {"target_id": target_id, "commit_sha": sha}

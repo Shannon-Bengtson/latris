@@ -1220,6 +1220,8 @@ A CLD must contain at least one feedback loop. Loops are the defining feature of
 
 CLD analysis depends on edge polarity. Missing polarity weakens readiness and prevents useful loop classification.
 
+A polarity can carry its reason — the causal story for the sign ("more cars, more exhaust"). In the app it sits under the link's polarity in the inspector, where you can edit or remove it. If you change a link's sign and leave a written reason as it was, Latris opens a question on the link: the reason was written for the other sign and may now argue against it. Editing the reason or removing it answers the question, and Latris closes it for you; until then it shows with the link's other open questions and in the report. Undo takes the sign change and its question back together.
+
 ## Analysis outputs
 
 CLD analysis can identify cycles, classify loop polarity, and support polarity propagation through paths.

@@ -121,6 +121,10 @@ class Question(_Base):
     raised_by: HumanActor
     disposition: QuestionDisposition = "open"
     resolution: str | None = None
+    # What raised the question, when latris raised it rather than a person: "polarity_reason" is a link whose
+    # sign changed under a written reason. latris resolves such a question itself once the reason is edited or
+    # removed (operations/view_attributes.py).
+    concerns: Literal["polarity_reason"] | None = None
 
 
 class QuestionLog(_Base):

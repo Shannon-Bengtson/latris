@@ -87,3 +87,30 @@ def test_get_polarity_after_set(client: TestClient, two_nodes_and_edge) -> None:
 # Per-attribute "mature" endpoint was removed when maturity moved to
 # the parent Entity/Edge — see docs/design/MATURITY_LADDER.md.
 # Use POST /api/maturity/{target}/{level} instead (entity-level chokepoint).
+
+
+# ── A polarity's reason ───────────────────────────────────────────────
+
+
+def test_a_reason_sent_with_a_polarity_is_stored_and_a_blank_one_removes_it(
+    client: TestClient, two_nodes_and_edge
+) -> None:
+    _, _, edge = two_nodes_and_edge
+    url = f"/api/views/cld/attributes/{edge.id}/polarity"
+    assert client.put(url, json={"value": "-", "rationale": "Higher price, lower demand."}).status_code == 200
+    entry = client.get("/api/views/cld/attributes/polarity").json()["entries"][0]
+    assert entry["rationale"] == "Higher price, lower demand."
+
+    # Flipping the sign alone keeps the reason and asks whether it still holds.
+    assert client.put(url, json={"value": "+"}).status_code == 200
+    assert (
+        client.get("/api/views/cld/attributes/polarity").json()["entries"][0]["rationale"]
+        == "Higher price, lower demand."
+    )
+    questions = client.get("/api/state").json()["provenance"]["questions"]["entries"]
+    assert [q["concerns"] for q in questions] == ["polarity_reason"]
+
+    assert client.put(url, json={"value": "+", "rationale": ""}).status_code == 200
+    assert client.get("/api/views/cld/attributes/polarity").json()["entries"][0]["rationale"] is None
+    questions = client.get("/api/state").json()["provenance"]["questions"]["entries"]
+    assert questions[0]["disposition"] == "resolved"

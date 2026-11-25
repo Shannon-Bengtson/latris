@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 # Ensure activations are loaded so registries are populated.
 import latris.operations._activations  # noqa: F401
+from latris.operations._actor import author
 from latris.operations._attribute_helpers import upsert_entry
 from latris.operations._resolve import resolve_target
 from latris.operations.activation import (
@@ -30,7 +31,9 @@ from latris.schema import (
     Substrate,
 )
 from latris.schema.common import default_origin
+from latris.schema.ids import new_id
 from latris.schema.model_types import get_model_type
+from latris.schema.provenance import Question, QuestionLog
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -75,6 +78,7 @@ def set_view_attribute(
     if set_model is None:
         raise ValueError(f"No set model for view attribute: {attribute!r}")
 
+    rationale_sent = rationale is not None
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     target_id = resolve_target(target, substrate)
@@ -91,10 +95,16 @@ def set_view_attribute(
         return entry
 
     store = load_model(set_model, file_path)
-    outcome = upsert_entry(
-        store, target_id, attribute, coerced, _make_entry, preserve_existing=preserve_existing
+    # What was there before, copied: the upsert below changes the entry in place.
+    before = next(
+        (e.model_copy() for e in store.entries if e.target_id == target_id and e.attribute == attribute),
+        None,
     )
-    if outcome == "written" and rationale is not None:
+    if rationale is not None:
+        rationale = rationale.strip() or None  # a blank reason removes it
+    outcome = upsert_entry(store, target_id, attribute, coerced, _make_entry, preserve_existing=preserve_existing)
+    reason_given = rationale_sent  # a reason was sent: written, or blank to remove it
+    if outcome == "written" and reason_given:
         # upsert_entry overwrites only the value of an existing entry; a new
         # rationale supplied with it must replace the old one too.
         for entry in store.entries:
@@ -103,14 +113,71 @@ def set_view_attribute(
     if outcome != "written":
         return target_id, ""  # existing value preserved; nothing to commit
     dump_model(store, file_path)
+    touched = [file_path]
+    if attribute == "polarity":
+        touched += _check_polarity_reason(paths, target_id, before, coerced, reason_given, rationale)
 
     sha = auto_commit(
         paths.root,
         subject=f"Set {model_type}/{attribute} on {target_id[:15]}…: {value}",
         body=f"target: {target_id}\nmodel_type: {model_type}\nattribute: {attribute}\nvalue: {value}",
-        paths=[file_path],
+        paths=touched,
     )
     return target_id, sha
+
+
+def _check_polarity_reason(
+    paths,  # noqa: ANN001 — ProjectPaths
+    target_id: str,
+    before: object | None,
+    value: object,
+    reason_given: bool,
+    rationale: str | None,
+) -> list[Path]:
+    """Keep a link's written reason honest about its sign.
+
+    A sign changed under a reason that was left as it was raises an open question on the link — the reason was
+    written for the other sign and may now argue against it. Editing or removing the reason (or writing one with
+    the new sign) answers it, and latris resolves the question itself. Returns the files it changed.
+    """
+    log = load_model(QuestionLog, paths.questions_yaml) if paths.questions_yaml.exists() else QuestionLog()
+    open_ones = [
+        q
+        for q in log.entries
+        if q.target_id == target_id and q.concerns == "polarity_reason" and q.disposition == "open"
+    ]
+    old_reason = getattr(before, "rationale", None) if before is not None else None
+    old_value = getattr(before, "value", None) if before is not None else None
+    changed = False
+    if reason_given:
+        for q in open_ones:
+            q.disposition = "resolved"
+            q.resolution = (
+                "The reason was removed."
+                if not rationale
+                else "The reason was kept: it holds for the new sign."
+                if rationale == old_reason
+                else "The reason was rewritten."
+            )
+            changed = True
+    elif old_reason and old_value is not None and old_value != value and not open_ones:
+        log.entries.append(
+            Question(
+                id=new_id("question"),
+                question=(
+                    f"This link's sign changed from {old_value} to {value}, but its reason was written for "
+                    f"{old_value}: “{old_reason}”. Does it still hold? Edit the reason or remove it."
+                ),
+                target_id=target_id,
+                raised_by=author(paths.root),
+                concerns="polarity_reason",
+            )
+        )
+        changed = True
+    if not changed:
+        return []
+    dump_model(log, paths.questions_yaml)
+    return [paths.questions_yaml]
 
 
 def get_view_attributes(
@@ -132,5 +199,3 @@ def get_view_attributes(
     if set_model is None:
         raise ValueError(f"No set model for view attribute: {attribute!r}")
     return load_model(set_model, file_path)
-
-
