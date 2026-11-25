@@ -262,7 +262,7 @@ def analysis_catalog(model_type: str | None = None) -> list[dict[str, Any]]:
     return [
         {
             "model_type": r.model_type, "kind": r.kind, "title": r.title, "analysis": r.analysis,
-            "analysis_schema": analysis_model(r.analysis).model_json_schema(),
+            "analysis_schema": _options_schema(r.analysis, r.model_type, analysis_model),
             "chart_kinds": list(r.chart_kinds), "needs_dataset": r.needs_dataset,
             "tool": {"name": tools[r.kind].name, "description": tools[r.kind].description} if r.kind in tools else None,
             "method": _method(foundation_for_result(r.kind, r.model_type), asdict),
@@ -270,6 +270,24 @@ def analysis_catalog(model_type: str | None = None) -> list[dict[str, Any]]:
         for r in result_surfaces()
         if model_type is None or r.model_type == model_type
     ]
+
+
+def _options_schema(analysis: str, model_type: str, analysis_model) -> dict[str, Any]:
+    """The JSON schema of an analysis's options, less the ones this model type's run doesn't read: the
+    global-sensitivity spec is one model for seven types, and a form built from it offered a Bayesian
+    network a simulation's "metric"."""
+    from latris.operations.global_sensitivity import unread_options
+
+    model = analysis_model(analysis)
+    schema = model.model_json_schema()
+    if model.__name__ == "GsaAnalysis":
+        unread = unread_options(model_type)
+        schema["properties"] = {k: v for k, v in schema.get("properties", {}).items() if k not in unread}
+        # The spec's own description lists every type's options; here it is one type's.
+        schema["description"] = ("Which inputs' uncertainty moves the result most: Sobol indices (each input's "
+                                 "share of the spread, alone and with the others) or a cheaper Morris screen, "
+                                 "over every input that has a range.")
+    return schema
 
 
 def _method(foundation, asdict) -> dict[str, Any] | None:

@@ -458,6 +458,19 @@ _PROVIDERS: dict[str, Provider] = {
 }
 
 
+_TYPE_OPTIONS = frozenset({"variable", "metric", "state", "evidence"})
+
+
+def unread_options(model_type: str) -> frozenset[str]:
+    """The options of the shared global-sensitivity spec that ``model_type``'s analysis doesn't read, so a
+    form generated from the spec needn't offer them: a fault tree takes no ``variable``, a BN no ``metric``,
+    and a type recorded per question (SD, BN) has one result, so no ``output`` to pick."""
+    provider = _PROVIDERS.get(model_type)
+    if provider is None:
+        return frozenset()
+    return (_TYPE_OPTIONS - provider.options) | (frozenset({"output"}) if provider.keyed_by_output else frozenset())
+
+
 # ── the analysis ────────────────────────────────────────────────────
 
 
