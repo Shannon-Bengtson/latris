@@ -93,7 +93,7 @@ def test_remove_reference_with_evidence_raises(project) -> None:
     ref_ops.add_reference("smith2024", title="Test", root=project)
     evidence_ops.add_evidence(node.id, "description", "smith2024", root=project)
 
-    with pytest.raises(ValueError, match="evidence link"):
+    with pytest.raises(ValueError, match="citation still uses it"):
         ref_ops.remove_reference("smith2024", root=project)
 
 

@@ -210,3 +210,11 @@ def test_routes_and_cli(built):
     out = runner.invoke(app, ["markov", "analyse"])
     assert out.exit_code == 0 and "Discounted per person" in out.output and "recorded" in out.output
     assert runner.invoke(app, ["markov", "check"]).exit_code == 0
+
+
+def test_the_horizon_reads_as_a_person_would_say_it():
+    from latris.operations.markov import horizon
+
+    assert horizon({"num_cycles": 30, "cycle_length": 1, "time_units": "years"}) == "30 cycles of 1 year"
+    assert horizon({"num_cycles": 12, "cycle_length": 3, "time_units": "months"}) == "12 cycles of 3 months"
+    assert horizon({"num_cycles": 1, "cycle_length": 0.5, "time_units": "years"}) == "1 cycle of 0.5 years"

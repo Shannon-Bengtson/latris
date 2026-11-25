@@ -10,7 +10,7 @@ Every project starts with a modelling question or decision statement. This found
 
 ## Requirements
 
-Latris uses Git under the hood for version history and human accountability. You do not need to understand Git commands or workflows; the app presents history as versions, milestones, alternatives, compare, and undo.
+Latris uses Git under the hood for version history and human accountability. You do not need to understand Git commands or workflows; the app presents history as versions, milestones, alternatives, compare, and undo. Undo (Ctrl+Z) takes back your last change and can be repeated to step further back; Redo (Ctrl+Shift+Z or Ctrl+Y) puts a change back. Deleting several selected factors and links is one change, so one undo puts them all back. Both add to the history rather than erasing it, so nothing is ever lost.
 
 ## Project contents
 

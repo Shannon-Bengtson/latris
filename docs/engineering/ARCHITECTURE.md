@@ -567,10 +567,24 @@ in the same session.
 
 ### Undo / redo
 
-Every `operations/` mutation auto-commits to git. Undo = `git revert
-HEAD`. The bridge exposes this as an API endpoint. Ctrl+Z in the
-React frontend calls the undo endpoint; the backend reverts and pushes
-the updated state.
+Every `operations/` mutation auto-commits to git. Undo and redo step through
+a person's actions (`operations/history.py`), and history only grows: an undo
+is a new commit that reverts the last action, a redo a new commit that reverts
+that undo. Nothing is reset or rewritten.
+
+Where the steps are is read from the log, so it needs no state of its own:
+
+- an undo commit carries `Undo-Of: <sha>`, a redo commit `Redo-Of: <undo sha>`;
+- a **bookkeeping** commit (`Bookkeeping: derived` — a view re-projected, the
+  model mapped into a model type as it opens; `commit.bookkeeping()`) is never
+  a step by itself: it belongs to the action before it and is undone with it;
+- any other commit is an action, and a new action leaves nothing to redo;
+- a merge, the commit that created an alternative, and the first commit are
+  floors undo doesn't pass.
+
+The server exposes `GET /api/history` (what undo and redo would do next),
+`POST /api/history/undo` and `POST /api/history/redo`; Ctrl+Z / Ctrl+Shift+Z
+in the app call them and re-read the state.
 
 **Compound operations:** A GUI user dragging a node and connecting an
 edge expects one undo step, not two. The `operations/` layer needs a

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from latris.operations import nodes as node_ops
 from latris.schema import EntityKind
@@ -25,6 +25,13 @@ class RenameNodeRequest(BaseModel):
 
 class RetypeNodeRequest(BaseModel):
     new_kind: EntityKind
+
+
+class RemoveManyRequest(BaseModel):
+    """Factors and links to remove together (ids or labels)."""
+
+    nodes: list[str] = Field(default_factory=list)
+    edges: list[str] = Field(default_factory=list)
 
 
 @router.get("")
@@ -53,6 +60,13 @@ def rename_node(query: str, body: RenameNodeRequest, root: Root) -> dict[str, An
 def retype_node(query: str, body: RetypeNodeRequest, root: Root) -> dict[str, Any]:
     entity, sha = node_ops.retype_node(query, body.new_kind, root=root)
     return {"result": entity.model_dump(mode="json"), "commit_sha": sha}
+
+
+@router.post("/remove")
+def remove_many(body: RemoveManyRequest, root: Root) -> dict[str, Any]:
+    """Remove several factors and links as one change: one commit, one undo."""
+    node_ids, edge_ids, sha = node_ops.remove_many(body.nodes, body.edges, root=root)
+    return {"removed_node_ids": node_ids, "removed_edge_ids": edge_ids, "commit_sha": sha}
 
 
 @router.delete("/{query}")

@@ -19,7 +19,7 @@ from latris.operations.activation import (
     ATTR_SET_MODELS,
     PROJECTION_VALIDATORS,
 )
-from latris.operations.commit import auto_commit
+from latris.operations.commit import auto_commit, bookkeeping
 from latris.operations.mappings import map_to_view
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
@@ -100,13 +100,14 @@ def project_view(
     if view_path.exists() and load_model(View, view_path) == view:
         return view  # unchanged: no write, so a watcher sees no edit and nothing is committed
     dump_model(view, view_path)
-    auto_commit(
-        paths.root,
-        subject=f"Project {view_kind} view ({len(entity_ids)} entities, {len(edge_ids)} edges)",
-        body=None,
-        provenance="human-authored",
-        paths=[view_path],
-    )
+    with bookkeeping():  # a view is derived from the model: never an undo step by itself
+        auto_commit(
+            paths.root,
+            subject=f"Project {view_kind} view ({len(entity_ids)} entities, {len(edge_ids)} edges)",
+            body=None,
+            provenance="human-authored",
+            paths=[view_path],
+        )
     return view
 
 
@@ -129,14 +130,15 @@ def auto_project(
     existing = {(m.l2_id, m.l3_view) for m in registry.entries} | {(x.l2_id, x.l3_view) for x in registry.left_out}
 
     created: list[Mapping] = []
-    for entity in substrate.entities:
-        if (entity.id, view_kind) not in existing:
-            mapping, _ = map_to_view(entity.id, view_kind, root=root)
-            created.append(mapping)
-    for edge in substrate.edges:
-        if (edge.id, view_kind) not in existing:
-            mapping, _ = map_to_view(edge.id, view_kind, root=root)
-            created.append(mapping)
+    with bookkeeping():  # catching a model type up with the model isn't a person's action
+        for entity in substrate.entities:
+            if (entity.id, view_kind) not in existing:
+                mapping, _ = map_to_view(entity.id, view_kind, root=root)
+                created.append(mapping)
+        for edge in substrate.edges:
+            if (edge.id, view_kind) not in existing:
+                mapping, _ = map_to_view(edge.id, view_kind, root=root)
+                created.append(mapping)
 
     # Now project the view
     project_view(view_kind, root=root)

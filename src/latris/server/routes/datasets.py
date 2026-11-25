@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, File, Form, Query, UploadFile
 from pydantic import BaseModel
 
 from latris.operations import datasets as ds_ops
@@ -43,6 +43,14 @@ class CreateVersionRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _free_name(stem: str, root: Path) -> str:
+    taken = {d.name for d in ds_ops.list_datasets(root)}
+    name, n = stem, 2
+    while name in taken:
+        name, n = f"{stem} ({n})", n + 1
+    return name
+
+
 @router.get("")
 def list_datasets(root: Root) -> list[dict[str, Any]]:
     return [d.model_dump(mode="json") for d in ds_ops.list_datasets(root)]
@@ -52,10 +60,14 @@ def list_datasets(root: Root) -> list[dict[str, Any]]:
 async def upload_dataset(
     root: Root,
     file: UploadFile = File(...),
-    name: str | None = None,
-    description: str = "",
+    name: str | None = Form(None),
+    description: str = Form(""),
 ) -> dict[str, Any]:
     # Write the uploaded file to a temp location, then call the operation.
+    # The dataset is named after the file the person chose (never the temp file); a second upload of the
+    # same file name gets a number.
+    if not (name and name.strip()):
+        name = _free_name(Path(file.filename or "upload.csv").stem.strip() or "dataset", root)
     suffix = Path(file.filename or "upload.csv").suffix
     with tempfile.NamedTemporaryFile(
         delete=False,

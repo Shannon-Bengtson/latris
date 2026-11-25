@@ -429,12 +429,21 @@ def _money(x: float, units: str | None) -> str:
     return f"{units or ''}{x:,.0f}" if units and len(units) <= 2 else f"{x:,.0f}" + (f" {units}" if units else "")
 
 
+
+def horizon(settings: dict[str, Any]) -> str:
+    """The run's length in words: '30 cycles of 1 year', '12 cycles of 3 months'."""
+    n, length, unit = settings["num_cycles"], settings["cycle_length"], str(settings["time_units"])
+    if length == 1 and unit.endswith("s"):
+        unit = unit[:-1]
+    return f"{n} cycle{'' if n == 1 else 's'} of {length:g} {unit}"
+
+
 def describe(p: dict[str, Any]) -> str:
     if p["problems"]:
         return f"The Markov model is incomplete ({len(p['problems'])} structure problem(s))"
     s = p["settings"]
     cu, ou = s["cost_units"], s["outcome_units"] or "outcome units"
-    parts = [f"{len(p['states'])} states over {s['num_cycles']} cycles of {s['cycle_length']:g} {s['time_units']}"]
+    parts = [f"{len(p['states'])} states over {horizon(s)}"]
     for r in p["results"]:
         parts.append(f"{r['strategy']}: {_money(r['cost'], cu)}, {r['outcome']:.3f} {ou}")
     for r in p.get("incremental", []):

@@ -1,4 +1,4 @@
-"""Findings routes — list, show, record, advance maturity, staleness."""
+"""Findings routes — list, show, record, edit, remove, advance maturity, staleness."""
 
 from __future__ import annotations
 
@@ -9,9 +9,11 @@ from pydantic import BaseModel, Field
 
 from latris.operations.findings import (
     check_staleness,
+    edit_finding,
     get_finding,
     list_findings,
     record_new_finding,
+    remove_finding,
     set_finding_maturity,
 )
 from latris.schema import HumanActor, Maturity
@@ -33,6 +35,14 @@ class RecordFindingRequest(BaseModel):
     source_type: FindingSourceType = "human-direct"
     target_ids: list[str] = Field(default_factory=list)
     related_attributes: list[str] = Field(default_factory=list)
+
+
+class EditFindingRequest(BaseModel):
+    """What to change; a field left out stays as it is."""
+
+    statement: str | None = None
+    detail: str | None = None
+    category: FindingCategory | None = None
 
 
 class MaturityUpdateRequest(BaseModel):
@@ -117,3 +127,19 @@ def update_maturity_route(
         "finding": updated.model_dump(mode="json"),
         "commit_sha": sha,
     }
+
+
+@router.patch("/{finding_id}")
+def edit_finding_route(finding_id: str, body: EditFindingRequest, root: Root) -> dict[str, Any]:
+    """Change what a finding says (a reviewed or approved one goes back to proposed)."""
+    updated, sha = edit_finding(
+        finding_id, statement=body.statement, detail=body.detail, category=body.category, root=root
+    )
+    return {"finding": updated.model_dump(mode="json"), "commit_sha": sha}
+
+
+@router.delete("/{finding_id}")
+def remove_finding_route(finding_id: str, root: Root) -> dict[str, Any]:
+    """Remove a finding."""
+    removed, sha = remove_finding(finding_id, root=root)
+    return {"finding": removed.model_dump(mode="json"), "commit_sha": sha}

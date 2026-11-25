@@ -176,6 +176,7 @@ class SensitivityRequest(BaseModel):
     target: str
     state: str
     evidence: dict[str, str] | None = None
+    interventions: dict[str, str] | None = None  # factors SET to a state (do-operator)
     top: int | None = 15
     record: bool = True
 
@@ -185,7 +186,7 @@ def sensitivity(body: SensitivityRequest, root: Root) -> dict[str, Any]:
     from latris.operations import bn_sensitivity
 
     result = bn_sensitivity.sensitivity(
-        body.target, body.state, evidence=body.evidence, top=body.top, root=root
+        body.target, body.state, evidence=body.evidence, interventions=body.interventions, top=body.top, root=root
     )
     out = result.model_dump(mode="json")
     if body.record:
@@ -230,10 +231,12 @@ class EvidenceRequest(BaseModel):
 
 class ExplainRequest(EvidenceRequest):
     over: list[str] | None = None
+    interventions: dict[str, str] | None = None  # factors SET to a state (do-operator)
 
 
 class MonteCarloRequest(EvidenceRequest):
     target: str
+    interventions: dict[str, str] | None = None  # factors SET to a state (do-operator)
     state: str | None = None
     runs: int = 500
     seed: int = 1234
@@ -253,7 +256,7 @@ class TableUncertaintyRequest(BaseModel):
 @router.post("/explain")
 def explain(body: ExplainRequest, root: Root) -> dict[str, Any]:
     out = bn_ops.explain(over=body.over, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
-                         root=root)
+                         interventions=body.interventions, root=root)
     resp: dict[str, Any] = {"result": out}
     if body.record:
         resp["commit_sha"], resp["run_id"] = bn_ops.record_explanation(out, root=root)
@@ -264,7 +267,8 @@ def explain(body: ExplainRequest, root: Root) -> dict[str, Any]:
 def monte_carlo(body: MonteCarloRequest, root: Root) -> dict[str, Any]:
     out = bn_ops.run_monte_carlo(
         body.target, state=body.state, evidence=body.evidence, soft=body.soft, likelihood=body.likelihood,
-        runs=body.runs, seed=body.seed, max_seconds=body.max_seconds, scenario=body.scenario, root=root,
+        interventions=body.interventions, runs=body.runs, seed=body.seed, max_seconds=body.max_seconds,
+        scenario=body.scenario, root=root,
     )
     resp: dict[str, Any] = {"result": out}
     if body.record:

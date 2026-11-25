@@ -10,6 +10,13 @@ Alongside the assignment it reports how sure it is: the assignment's posterior
 probability, and for each node how many times likelier its state is than the
 runner-up with everything else held — so a reader sees which parts of the
 explanation are decisive and which are near coin-flips.
+
+Factors SET to a state (``interventions``, Pearl's do-operator) are taken out
+of the explanation: their tables become certainty in the set state, cutting
+the links from their causes (graph surgery), and the rest is explained in that
+changed network. Setting a factor says nothing about why it would have been
+that way, so — unlike observing it — it doesn't move the explanation of its
+causes.
 """
 
 from __future__ import annotations
@@ -31,11 +38,21 @@ def explain(
     evidence: dict[str, str] | None = None,
     soft: dict[str, dict[str, float]] | None = None,
     likelihood: dict[str, dict[str, float]] | None = None,
+    interventions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     evidence = dict(evidence or {})
+    do = dict(interventions or {})
+    if do:
+        from latris.operations.bn import intervene
+
+        observed = set(evidence) | set(soft or {}) | set(likelihood or {})
+        both = sorted(set(do) & observed)
+        if both:
+            raise ValueError("a factor can be set or observed, not both: " + ", ".join(both))
+        cpts = intervene(cpts, state_spaces, do)
     # bn_infer validates the evidence and gives the per-node marginals to compare against.
     marg = bn_infer(state_spaces, cpts, query=over, evidence=evidence, soft=soft, likelihood=likelihood)
-    variables = [n for n in (over or list(cpts)) if n not in evidence]
+    variables = [n for n in (over or list(cpts)) if n not in evidence and n not in do]
     if not variables:
         raise ValueError("every node is observed; there is nothing left to explain")
 
@@ -92,6 +109,7 @@ def explain(
         "evidence": evidence,
         "soft": soft_done,
         "likelihood": dict(likelihood or {}),
+        "interventions": do,
         "note": None
         if joint is not None
         else (f"too many combinations to give the explanation's probability (over {MAX_CELLS}); narrow it with --over"),

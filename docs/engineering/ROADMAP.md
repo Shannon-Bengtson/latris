@@ -1,6 +1,7 @@
 # Roadmap — model types and analysis layers
 
-*Status: plan agreed 2026-11-16. The capability manifest (`latris
+*Status: plan agreed 2026-11-16; amended 2026-11-25 (item 8, XMILE
+import; competitive-gap tasks C1–C6). The capability manifest (`latris
 capabilities`, from `schema/model_types.py`) stays the machine-readable
 truth for registered types; this page is the reasoning and the order of
 work, including types that aren't registered yet.*
@@ -133,9 +134,6 @@ equation and coefficient has a source — among the most defensible models there
 
 ## Tier C — easy, but needs a decision first
 
-- **Vensim / XMILE import via `PySD` (MIT)** — quick, and possibly the
-  biggest adoption lever for SD users, but reverses "off the roadmap" in
-  FOUNDATIONS.md.
 - **`DoWhy` (MIT)** — refutation tests on top of #1; heavy dependency, so
   `statsmodels` first.
 - **MDP value iteration** — trivial maths, narrow audience.
@@ -178,8 +176,75 @@ black-box predictor.)
    Next for #17: uncertainty bands on a prediction (the app's Use view is built); then #19
    time-series forcing for SD, which waits until someone needs it. Small follow-ups to #18: lookup
    tables, and adding it to the global-sensitivity layer (#8).
+8. **XMILE / Vensim import** (decided 2026-11-25 — the "off the roadmap" line in
+   FOUNDATIONS.md is reversed): import SD models via `PySD` (MIT), the adoption
+   lever for SD users with existing Stella/Vensim models. Before committing an
+   implementation, validate real-world export fidelity (arrays/subscripts, lookup
+   tables, units) on genuine Stella and Vensim files — Latris SD is scalar-only
+   today, so the first importer defines the honest subset it accepts and refuses
+   the rest loudly rather than degrading silently.
+9. **SD calibration to data** (gap task C1 — see "Competitive gaps" below): least-squares
+   payoff fitting of SD constants to observed series (`scipy.optimize`, already
+   installed). The design work is the provenance story for fitted values — marked
+   `data-derived`, elicited values protected, the fit recorded as a result. 2–3
+   days for the first cut. The same payoff machinery later serves policy search
+   (C5).
+10. **Correlated uncertainty, generally** (C2): extend the PSA's Iman–Conover
+    pairing to a Gaussian copula over the shared uncertainty schema, so the risk
+    types' Monte Carlo and the PSA sample correlated ranges. 1–2 days on scipy.
+11. **Utility functions on decision trees** (C3): a one-attribute utility
+    transform on payoffs (exponential, power), stated on the model, so DT and
+    Markov evaluations can reflect risk attitude — reported alongside the
+    risk-neutral result, never instead of it. ~1 day.
+12. **Markov time-varying probabilities + tunnel states** (C4): cycle-varying
+    transition matrices (Weibull/hazard helpers; `lifelines` (MIT) optional for
+    fitting to survival data) and tunnel states as time-in-state overrides. 2–3
+    days; the HTA credibility items. Microsimulation stays out until the vertical
+    proves itself.
+13. **Interactive simulation on predict** (C6, app-side): sliders over a model's
+    contract inputs calling the stateless predict API — the SyntheSim-class demo.
+    latris-app work on top of #17, whose "use" view already anticipates it.
 
 Registry statuses follow this plan: influence diagram is `roadmap`; GSN stays `roadmap`, now a
 vocabulary over the argument map (ARGUMENT_MAP.md → "GSN, later"). MCDA, ACH, decision tree,
 Markov, argument map and equation model are built. Process tracing is an analysis on the theory of
 change, not a type of its own, so it isn't registered separately.
+
+## Competitive gaps (added 2026-11-25)
+
+*From the competitor gap analysis (2026-11-25): Stella 4.2, Vensim 11, GeNIe,
+Analytica, TreeAge 2026, PrecisionTree/@RISK, AnyLogic, Insight Maker and the
+per-formalism niche tools, against the capability manifest.*
+
+**Depth parity is not the goal.** The incumbents have decades of features we
+deliberately don't need. The tasks below close the gaps that gate *adoption*
+and *credibility* for the audience we serve, sized to days by leaning on
+libraries already allowed (scipy, PySD, lifelines — all licence-compatible).
+Each is a numbered item in the order of work above unless marked otherwise.
+
+| # | Gap | Task | Effort |
+|---|---|---|---|
+| C1 | Calibration to data (Vensim, Stella and TreeAge all ship it) | #9 above | 2–3 days |
+| C2 | Correlated uncertainty (@RISK correlation modelling; TreeAge 2026 correlated PSA) | #10 above | 1–2 days |
+| C3 | Utility functions (PrecisionTree, GeNIe MAU) | #11 above | ~1 day |
+| C4 | Markov time-varying probabilities, tunnel states (TreeAge Weibull/K-M fitting) | #12 above | 2–3 days |
+| C5 | Policy optimisation (Vensim, Stella, RISKOptimizer) | after C1 — same payoff machinery | 2–3 days then |
+| C6 | Live interactive simulation (SyntheSim, Stella interfaces, Insight Maker) | #13 above (app) | app-side |
+
+**Decision items, not tasks yet:**
+
+- **Arrays / subscripts for SD** (Vensim 8-dim, Stella, Analytica's native
+  arrays): the one architectural gap — Latris SD is scalar-only. Deciding
+  *when* needs the XMILE fidelity check first (item 8): real imported models
+  lean on subscripts, and the check sizes how urgent this is.
+- **Continuous / hybrid BN nodes** (GeNIe equation nodes, AgenaRisk dynamic
+  discretisation): watch, not build — discrete + Noisy-OR is arguably the
+  right scope for elicited, defensible models. The on-brand BN depth is the
+  influence diagram (already #10, Tier B) and BN EVPI.
+
+**Explicitly staying shallow:** structure learning (a position, not a gap —
+see `latris capabilities`, `excluded_by_design`), agent-based models, dynamic
+fault-tree gates and common-cause failure (safety vertical paused), AHP and
+outranking MCDA variants, conjoint analysis (1000minds' other product), and
+Excel-native modelling (the `latris data` round-trip plus predict covers the
+workflow).

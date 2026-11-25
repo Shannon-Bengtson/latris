@@ -207,6 +207,59 @@ def test_get_lineage_tree_with_alternatives(project: Path) -> None:
     assert "Alt B" in names
 
 
+def _edges(root: Path) -> set[tuple[str, str]]:
+    tree = get_lineage_tree(root)
+    name = {n["id"]: n["name"] for n in tree["nodes"]}
+    return {(name[e["source"]], name[e["target"]]) for e in tree["edges"]}
+
+
+def test_alternatives_made_from_the_same_version_are_both_its_children(project: Path) -> None:
+    ensure_root_lineage(project)
+    update_version(name="Original", root=project)
+    create_alternative("Alt A", root=project)
+    git.checkout(project, "main")
+    create_alternative("Alt B", root=project)
+    assert _edges(project) == {("Original", "Alt A"), ("Original", "Alt B")}
+
+
+def test_an_older_alternative_is_not_mistaken_for_a_newer_ones_parent(project: Path) -> None:
+    # Alt A from the original; the original moves on; Alt B from the original's newer state.
+    ensure_root_lineage(project)
+    update_version(name="Original", root=project)
+    create_alternative("Alt A", root=project)
+    git.checkout(project, "main")
+    create_milestone("Later", root=project)
+    create_alternative("Alt B", root=project)
+    assert _edges(project) == {("Original", "Alt A"), ("Original", "Alt B")}
+
+
+def test_an_alternative_of_an_alternative_hangs_from_it(project: Path) -> None:
+    ensure_root_lineage(project)
+    update_version(name="Original", root=project)
+    create_alternative("Alt A", root=project)
+    create_milestone("On A", root=project)
+    create_alternative("Alt A2", root=project)  # from Alt A, where we are
+    git.checkout(project, "main")
+    create_alternative("Alt B", root=project)
+    assert _edges(project) == {("Original", "Alt A"), ("Alt A", "Alt A2"), ("Original", "Alt B")}
+
+
+def test_bringing_the_original_into_an_alternative_does_not_make_it_a_parent(project: Path) -> None:
+    # Alt A merges the original's later work (as getting the latest does); Alt B, made from that later
+    # work, is still the original's child.
+    ensure_root_lineage(project)
+    update_version(name="Original", root=project)
+    create_alternative("Alt A", root=project)
+    git.checkout(project, "main")
+    create_milestone("Later", root=project)
+    branch_a = next(b for b in git.list_branches(project, pattern="lineage/*"))
+    git.checkout(project, branch_a)
+    git.run_git(["merge", "--no-edit", "-X", "ours", "main"], cwd=project)
+    git.checkout(project, "main")
+    create_alternative("Alt B", root=project)
+    assert _edges(project) == {("Original", "Alt A"), ("Original", "Alt B")}
+
+
 # -- pre-lineage compatibility --
 
 

@@ -176,6 +176,12 @@ def interactions_show(
     if r.related_attributes:
         console.print(f"[bold]related_attributes:[/bold] {', '.join(r.related_attributes)}")
     console.print(f"[bold]adoption:[/bold] {r.adoption}")
+    if r.rejection_reason:
+        console.print(f"[bold]rejection_reason:[/bold] {r.rejection_reason}")
+    if r.surface:
+        console.print(f"[bold]surface:[/bold] {r.surface}")
+    if r.latency_ms is not None:
+        console.print(f"[bold]latency_ms:[/bold] {r.latency_ms}")
     if r.approved_by:
         console.print(f"[bold]approved_by:[/bold] {r.approved_by.name}")
     console.print(f"[bold]summary:[/bold] {r.response_summary}")
@@ -332,6 +338,28 @@ def _confirm_fn(assume_yes: bool):
     return ask
 
 
+def _reject_reason_fn():
+    """Capture an optional rejection reason on the reject path.
+
+    Rejections are signal (docs/engineering/TELEMETRY.md) — the reason is
+    the useful part. Free text with the taxonomy suggested; empty = None.
+    """
+
+    def ask() -> str | None:
+        try:
+            text = typer.prompt(
+                "Reason for rejecting? (optional — e.g. wrong-fact, "
+                "wrong-granularity, wrong-scope, style)",
+                default="",
+                show_default=False,
+            )
+        except (typer.Abort, EOFError):
+            return None  # piped stdin ended after the [y/N] answer
+        return text.strip() or None
+
+    return ask
+
+
 def _print_call_outcome(*, prompt_name: str, outcome: call_module.CallOutcome) -> None:
     """Print the shared post-call summary: prose for read-only/hybrid prompts,
     then the adoption line with interaction id, model, and cost."""
@@ -388,6 +416,7 @@ def _run(
         confirm=_confirm_fn(assume_yes),
         render=render_parsed,
         dry_run=dry_run,
+        reject_reason=None if assume_yes else _reject_reason_fn(),
     )
 
     if dry_run:

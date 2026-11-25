@@ -62,5 +62,10 @@ def test_get_report_link_refreshes_local_copy(tmp_path: Path, git_identity, monk
 
     git.set_config(root, sync_ops.SYNC_PROJECT_ID_KEY, "proj_1")
     sync_ops.set_report_url("https://app.test/r/stale", root=root)
+    # Signed out, asking is not an error: the link last recorded here is the answer.
+    monkeypatch.setattr(sync_ops.credentials, "get_server_url", lambda: None)
+    assert sync_ops.get_report_link(root=root) == {"report_url": "https://app.test/r/stale", "report_pack": None}
+    monkeypatch.setattr(sync_ops.credentials, "get_server_url", lambda: "https://sync.test")
+    monkeypatch.setattr(sync_ops.credentials, "get_session_token", lambda: "tok")
     assert sync_ops.get_report_link(root=root) == {"report_url": "https://app.test/r/new", "report_pack": "review"}
     assert sync_ops.report_url(root=root) == "https://app.test/r/new"

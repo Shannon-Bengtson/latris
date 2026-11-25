@@ -22,6 +22,7 @@ from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_jsonl_append
 from latris.schema import AIInteraction, HumanActor, new_id
+from latris.schema.common import now_utc
 
 _RAW_RESPONSE_EXCERPT_LIMIT = 4096
 
@@ -42,6 +43,9 @@ def record_interaction(
     error_class: str | None = None,
     error_message: str | None = None,
     raw_response_excerpt: str | None = None,
+    surface: str | None = None,
+    session_id: str | None = None,
+    latency_ms: int | None = None,
     commit: bool = True,
     root: Path | None = None,
 ) -> tuple[AIInteraction, str | None]:
@@ -52,6 +56,10 @@ def record_interaction(
     Pass ``adoption="failed"`` with the error fields populated to record an
     adapter-level failure (e.g. structured-output parse error). The
     raw-response excerpt is truncated to 4 KB so the JSONL stays manageable.
+
+    ``surface`` / ``session_id`` / ``latency_ms`` are the telemetry fields
+    (docs/engineering/TELEMETRY.md): where the call was driven from and how
+    long the adapter took. ``at`` is stamped here, at write time.
     """
     paths = require_project(root)
     record = AIInteraction(
@@ -74,6 +82,10 @@ def record_interaction(
             if raw_response_excerpt is not None
             else None
         ),
+        at=now_utc(),
+        surface=surface,
+        session_id=session_id,
+        latency_ms=latency_ms,
     )
     dump_jsonl_append(record, paths.interactions_jsonl)
 
@@ -148,6 +160,7 @@ def set_adoption(
     *,
     adoption: Literal["approved", "rejected"],
     approved_by: HumanActor,
+    rejection_reason: str | None = None,
     root: Path | None = None,
 ) -> tuple[AIInteraction, str]:
     """Update an interaction's adoption state. Rewrites the whole JSONL atomically.
@@ -155,6 +168,9 @@ def set_adoption(
     "approved" / "rejected" here mean "the human adopted the AI proposal"
     or "the human rejected it" — distinct from artifact maturity. See
     docs/design/MATURITY_LADDER.md.
+
+    ``rejection_reason`` is the optional human note captured on the reject
+    path (docs/engineering/TELEMETRY.md); ignored for approvals.
     """
     paths = require_project(root)
     target = get_interaction(query, root=paths.root)
@@ -163,6 +179,8 @@ def set_adoption(
         if r.id == target.id:
             r.adoption = adoption
             r.approved_by = approved_by
+            if rejection_reason is not None and adoption == "rejected":
+                r.rejection_reason = rejection_reason
             target = r
             break
 

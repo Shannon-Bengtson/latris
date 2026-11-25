@@ -519,3 +519,14 @@ class TestFindingsFromFCMInference:
         )
         findings = findings_from_fcm_inference(result, scenario_label="High demand")
         assert "Scenario 'High demand'" in findings[0].statement
+
+
+def test_remove_finding_drops_pointers_to_it(two_node_project_root) -> None:
+    from latris.operations.findings import get_finding, record_new_finding, remove_finding, supersede_matching
+
+    old, _ = record_new_finding("Old reading", "structure", "cld", target_ids=["x"], root=two_node_project_root)
+    new, _ = record_new_finding("New reading", "structure", "cld", target_ids=["x"], root=two_node_project_root)
+    supersede_matching(model_type="cld", category="structure", target_ids=["x"], new_finding_id=new.id, root=two_node_project_root)
+    assert new.id in get_finding(old.id, root=two_node_project_root).supersedes
+    remove_finding(new.id, root=two_node_project_root)
+    assert get_finding(old.id, root=two_node_project_root).supersedes == []

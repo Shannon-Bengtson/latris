@@ -18,6 +18,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -111,7 +112,7 @@ def atomic_write_text(path: Path, text: str) -> None:
             tmp.unlink()
 
 
-def rewrite_jsonl(records: list[BaseModel], path: Path) -> None:
+def rewrite_jsonl(records: Sequence[BaseModel], path: Path) -> None:
     """Atomically replace a JSONL file with ``records`` (one per line)."""
     atomic_write_text(
         path, "".join(json.dumps(r.model_dump(mode="json"), ensure_ascii=False) + "\n" for r in records)

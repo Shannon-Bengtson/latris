@@ -43,7 +43,7 @@ The app should translate Git mechanics into modelling language:
 | Branch | Alternative model version |
 | Tag or named checkpoint | Milestone |
 | Diff | What changed in the model |
-| Revert | Undo |
+| Revert | Undo (and redo: a revert of the undo) — see ARCHITECTURE.md → "Undo / redo" |
 | Pull/push | Sync with shared project location |
 
 ### Versions are not scenarios

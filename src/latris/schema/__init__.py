@@ -68,6 +68,7 @@ from latris.schema.elicitation import (
     ExpertResponse,
     TargetAttribute,
 )
+from latris.schema.events import TelemetryEvent
 from latris.schema.findings import (
     FINDING_CATEGORIES,
     Finding,
@@ -157,6 +158,7 @@ from latris.schema.views import View
 __all__ = [
     "AIActor",
     "AIInteraction",
+    "TelemetryEvent",
     "Actor",
     "AnalysisRun",
     "ReportSelection",
