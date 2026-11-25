@@ -11,6 +11,7 @@ rather than hardcoded here.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -94,7 +95,8 @@ def set_view_attribute(
             entry = entry.model_copy(update={"rationale": rationale})
         return entry
 
-    store = load_model(set_model, file_path)
+    # Every attribute set has ``entries``; the registry types it only as a pydantic model.
+    store: Any = load_model(set_model, file_path)
     # What was there before, copied: the upsert below changes the entry in place.
     before = next(
         (e.model_copy() for e in store.entries if e.target_id == target_id and e.attribute == attribute),

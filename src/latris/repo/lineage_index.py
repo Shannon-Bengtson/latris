@@ -52,7 +52,8 @@ def build_lineage_index(root: Path) -> LineageIndex:
     for branch, node in nodes.items():
         if node.relationship == "original" or branch == "main":
             continue
-        parent_branch = _owner(forks[branch], branch, own) if forks[branch] else None
+        fork = forks[branch]
+        parent_branch = _owner(fork, branch, own) if fork else None
         if parent_branch is None:
             parent_branch = _derive_parent_branch(root, branch, all_branches)
         if parent_branch is not None and parent_branch in nodes:
@@ -86,7 +87,7 @@ def _owner(commit: str, branch: str, own: dict[str, set[str]]) -> str | None:
     """The version whose own line *commit* was made on (an alternative's before the original's)."""
     owners = [b for b, commits in own.items() if b != branch and commit in commits]
     lineage = [b for b in owners if b != "main"]
-    return (lineage or owners or [None])[0]
+    return lineage[0] if lineage else owners[0] if owners else None
 
 
 def _load_node_at_branch(root: Path, branch: str) -> LineageNode | None:
