@@ -29,7 +29,7 @@ class FCMPredictor:
         self.weights = {e.target_id: e.value for e in store.entries}
         weighted = [e for e in sub.edges if e.id in self.weights and e.from_id in self.labels
                     and e.to_id in self.labels]
-        self.problems = [] if weighted else ["no link has an FCM weight yet (`latris fcm weight`)"]
+        self.problems = [] if weighted else ["no link has an FCM weight yet (`latris fcm set-weight`)"]
         self.on_map = sorted({x for e in weighted for x in (e.from_id, e.to_id)},
                              key=lambda i: self.labels[i].casefold())
         self.driven = {e.to_id for e in weighted}
