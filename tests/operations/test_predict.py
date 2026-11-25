@@ -312,7 +312,8 @@ def test_a_bayesian_network_takes_states_and_returns_distributions(system):
 def test_only_types_with_a_forward_calculation_have_a_predictor():
     from latris.operations import formalisms
 
-    assert {f.model_type for f in formalisms.all_formalisms() if f.predictor} == {"equation_model", "sd", "bn"}
+    assert {f.model_type for f in formalisms.all_formalisms() if f.predictor} == {
+        "equation_model", "sd", "bn", "fault_tree", "bow_tie", "event_tree"}
 
 
 # ── routes and CLI ───────────────────────────────────────────────────
@@ -324,7 +325,8 @@ def test_routes(project):
     from latris.server.app import create_app
 
     c = TestClient(create_app(project_root=project))
-    assert c.get("/api/contract/types").json() == {"available": ["sd", "bn", "equation_model"], "declared": []}
+    assert c.get("/api/contract/types").json() == {
+        "available": ["sd", "bn", "fault_tree", "bow_tie", "event_tree", "equation_model"], "declared": []}
     assert c.get("/api/contract").status_code == 422  # no contract yet
     cands = c.get("/api/contract/candidates", params={"model_type": "equation_model"}).json()
     assert [x["label"] for x in cands["inputs"]] == ["Depth", "Width", "Velocity"]

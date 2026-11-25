@@ -1834,6 +1834,12 @@ def build_example(ex: WorkedExample) -> None:
             "estimate — skewed ranges pull it up — and the control fault's wide range drives most of the spread. "
             "The supplies have no range, so they are held fixed and listed.")
     ex.run(["ft", "monte-carlo", "--runs", "5000"])
+    ex.note("A quantified fault tree can be called like any model with a contract (see Contract and Predict "
+            "below): the basic events' probabilities go in, the top event's probability comes out. A "
+            "probability above 1 is impossible, so it is refused rather than reported as an extrapolation.")
+    ex.run(["contract", "init", "fault_tree"])
+    ex.run(["predict", "--set", "control_fault=0.005"])
+    ex.run(["predict", "--set", "control_fault=1.5"], expect_fail=True)
     ex.run(["interpret", "initialise"])
     ex.note("Draft every section's prose in one go (an AI call per section; each is marked as AI-written "
             "until a person edits it).")
@@ -1911,6 +1917,13 @@ def build_example(ex: WorkedExample) -> None:
             "--source", "site-incident-log", "--verified"])
     ex.run(["bowtie", "uncertainty", "Gas detection", "--median", "0.1", "--error-factor", "3"])
     ex.run(["bowtie", "monte-carlo", "--runs", "5000"])
+    ex.note("Called through a contract, the bow-tie answers 'what if?' directly. A barrier holds two inputs "
+            "(its failure probability and its status), so the status is named by its cell: here, what if gas "
+            "detection is out?")
+    ex.run(["contract", "init", "bow_tie"])
+    ex.run(["contract", "input", "bow_tie", "Gas detection", "--cell", "bow_tie:status", "--name",
+            "gas_detection_status"])
+    ex.run(["predict", "--set", "gas_detection_status=not_in_place"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "bow_tie"])
 
@@ -1954,6 +1967,11 @@ def build_example(ex: WorkedExample) -> None:
             "--reason", "elicited: 'about 30%, could be 10–60%'"])
     ex.run(["et", "uncertainty", "Loss of containment", "--median", "0.02", "--error-factor", "5"])
     ex.run(["et", "monte-carlo", "--runs", "5000", "--output", "Jet fire"])
+    ex.note("Each branch probability is an input of its own: ignition has one value after detection and "
+            "another when the gas goes undetected. The project now has two contracts, so say which to run.")
+    ex.run(["contract", "init", "event_tree"])
+    ex.run(["contract", "available", "event_tree"])
+    ex.run(["predict", "-m", "event_tree", "--set", "p_ignition_yes_gas_detected_no=0.6"])
     ex.note("The project now uses both views of the same event; selecting both gives each its interpretation.")
     ex.run(["project", "select-models", "bow_tie", "event_tree"])
     ex.run(["interpret", "initialise"])

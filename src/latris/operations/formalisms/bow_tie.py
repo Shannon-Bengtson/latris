@@ -270,6 +270,7 @@ _CHAT_OPS = (
 
 register(Formalism(
     model_type="bow_tie",
+    predictor="latris.operations.predictors.bow_tie",
     outcome_role="top_event",
     outcome_refusal=(
         "A bow-tie's outcome of interest is its top event: give the factor the element 'top_event' "

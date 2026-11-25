@@ -1,6 +1,7 @@
 # Predict for the remaining model types — plan
 
-*Status: agreed, not started (roadmap #17 follow-up). Extends [PREDICT.md](PREDICT.md), which covers what is
+*Status: in progress (roadmap #17 follow-up). Done: step 0 (0c for the risk types; for decision trees
+and Markov it lands with them) and the fault tree, bow-tie and event tree. Next: the decision tree. Extends [PREDICT.md](PREDICT.md), which covers what is
 built: the contract, the stateless run and pinned loading, with predictors for the equation model,
 system dynamics and Bayesian networks.*
 

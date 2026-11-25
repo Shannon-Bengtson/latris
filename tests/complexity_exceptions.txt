@@ -25,7 +25,6 @@ operations/ach.py::analyse 36
 operations/formalisms/bow_tie.py::_claims 36
 cli/sd_cmd.py::simulate 35
 exporters/markdown.py::_render_interpretation 35
-operations/predict.py::LoadedModel.predict 35
 operations/risk_uncertainty.py::_target 35
 ai/context/configure.py::_build_suggest_edge_polarities 34
 ai/context/_shared.py::_project_activity_summary 34

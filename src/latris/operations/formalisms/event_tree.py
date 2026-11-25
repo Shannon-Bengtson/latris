@@ -270,6 +270,7 @@ _CHAT_OPS = (
 register(Formalism(
     connected_structure=False,  # headings and sequences, not links
     model_type="event_tree",
+    predictor="latris.operations.predictors.event_tree",
     outcome_role=None,
     outcome_refusal=(
         "An event tree's outcomes are its end states: give the factor the element 'end_state' "

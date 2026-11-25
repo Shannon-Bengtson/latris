@@ -1,6 +1,6 @@
 # Contract and predict — design
 
-*Status: first cut built (roadmap #17). The code is the truth for details: `schema/contract.py`,
+*Status: built for six model types (roadmap #17); four more planned in [PREDICT_NEXT.md](PREDICT_NEXT.md). The code is the truth for details: `schema/contract.py`,
 `operations/contract.py`, `operations/predict.py`, `operations/predictors/`, `api.py`.*
 
 ## What it is for
@@ -27,8 +27,8 @@ One file per model type, committed with the model: `views/contracts/<model_type>
 
 | | Fields |
 |---|---|
-| Input | `name`, the factor it sets, `kind` (`value`: a number with `units`; `state`: one of a factor's states, observed or `set` as an intervention), optional `default`, valid range, `required`, description |
-| Output | `name`, the factor, `kind` (`value`, `series`, `distribution`), `units`, `metric` (which value of a run: final, peak…), description |
+| Input | `name`, the factor it sets (and its `cell`, when the factor holds several parameters), `kind` (`value`: a number with `units`; `state`: one of a factor's states, observed or `set` as an intervention), optional `default`, valid range, `required`, description |
+| Output | `name`, the factor (and its `cell`), `kind` (`value`, `series`, `distribution`, `choice`: one option's label), `units`, `metric` (which value of a run: final, peak…), description |
 
 **Names are the interface.** A caller writes `flow_depth`, not a factor id or a label, and the name
 stays when the factor is renamed.
@@ -68,10 +68,27 @@ model loaded and compiled once, listing what could be an input or an output, wit
 | Equation model | inputs and parameters (value, units) | any formula's value |
 | System dynamics | constants and stocks' starting values | a variable's whole run (`series`) or a measure of it (`value` with a `metric`) |
 | Bayesian network | a factor's state, observed or set | the probability of each state (`distribution`) |
+| Fault tree | basic events' probabilities | the top event's, or any gate's, probability |
+| Bow-tie | threats' frequencies; barriers' PFDs and status (a state) | the top event's and each consequence's frequency |
+| Event tree | the initiating frequency; each heading's probability on each branch it is asked on | each end state's frequency (or probability) |
 
-Not yet: fault trees, bow-ties, event trees, decision trees and Markov models (their Monte Carlo code
-already has an inputs-to-outputs function to build on); MCDA and FCM. The plan for them is [PREDICT_NEXT.md](PREDICT_NEXT.md). Never: theory of change, ACH and
-argument maps, which have no forward calculation.
+The risk types' predictors are also what their Monte Carlo samples through (`risk_uncertainty` builds
+its model from the predictor), so a prediction and a sampled run can't drift apart.
+
+**A cell.** Where a factor holds several parameters (a barrier's PFD and its status; a heading's
+probability on each branch), each is a candidate of its own, told apart by its `cell`: the address
+uncertainty ranges use (`bow_tie:status`, `event_tree:probability:<given>`). `run` takes values by
+`key(target_id, cell)`. A contract entry without a cell hashes as it did before cells existed.
+
+**Impossible values.** A candidate marked `exact` (a probability; a frequency, which can't be negative)
+refuses a value outside the model's range instead of warning about it.
+
+**Units pint doesn't know** (GBP, QALY) are opaque: compatible only with exactly themselves, never
+converted (`contract.units_compatible`, `contract.convert`).
+
+Not yet: decision trees, Markov models, MCDA and FCM. The plan for them is
+[PREDICT_NEXT.md](PREDICT_NEXT.md). Never: theory of change, ACH and argument maps, which have no forward
+calculation.
 
 ## Predict
 

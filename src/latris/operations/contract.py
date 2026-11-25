@@ -16,15 +16,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+from latris.operations._resolve import resolve_target
 from latris.operations._sd_eval import slugify
 from latris.operations._units import UnitError, is_compatible, parse_unit
-from latris.operations._view_store import resolve_factor
 from latris.operations.commit import auto_commit
-from latris.operations.predictors import Candidate, Predictor
+from latris.operations.predictors import Candidate, Predictor, key
 from latris.repo import git
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model, load_model_from_string
+from latris.schema import Substrate
 from latris.schema.contract import Contract, ContractInput, ContractOutput
 
 _UNSET: Any = object()
@@ -101,15 +102,61 @@ def contract_hash(contract: Contract) -> str:
     It changes exactly when a caller might have to: a default or a description doesn't change it. A name
     pointed at a different factor does: the caller would be setting, or reading, something else.
     """
+    # A cell joins the hash only where there is one, so a contract without cells hashes as it always has.
     interface = {
-        "inputs": sorted([i.name, i.target_id, i.kind, i.units, i.mode, i.required] for i in contract.inputs),
-        "outputs": sorted([o.name, o.target_id, o.kind, o.units, o.metric] for o in contract.outputs),
+        "inputs": sorted([i.name, i.target_id, i.kind, i.units, i.mode, i.required, *([i.cell] if i.cell else [])]
+                         for i in contract.inputs),
+        "outputs": sorted([o.name, o.target_id, o.kind, o.units, o.metric, *([o.cell] if o.cell else [])]
+                          for o in contract.outputs),
     }
     return hashlib.sha256(json.dumps(interface, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def _by_id(items: list[Candidate]) -> dict[str, Candidate]:
-    return {c.target_id: c for c in items}
+def _by_key(items: list[Candidate]) -> dict[str, Candidate]:
+    return {c.key: c for c in items}
+
+
+def entry_key(x: ContractInput | ContractOutput) -> str:
+    return key(x.target_id, x.cell)
+
+
+# ── units ────────────────────────────────────────────────────────────
+# Units pint knows (metres, 1/year, dollar) are checked and converted. Units it doesn't (GBP, QALY) are
+# opaque: kept as written, compatible only with exactly themselves, never converted.
+
+
+def _parsed(units: str) -> Any:
+    try:
+        return parse_unit(units)
+    except UnitError:
+        return None
+
+
+def units_compatible(a: str | None, b: str | None) -> bool:
+    """Whether a value in ``a`` can be given in ``b``."""
+    a, b = (a or "").strip(), (b or "").strip()
+    if a == b:
+        return True
+    pa, pb = _parsed(a), _parsed(b)
+    return pa is not None and pb is not None and is_compatible(pa, pb)
+
+
+def convert(value: float, have: str | None, want: str | None) -> float:
+    """``value`` in ``have`` expressed in ``want``; refused when they aren't compatible."""
+    have, want = (have or "").strip(), (want or "").strip()
+    if not have or not want or have == want:
+        return value
+    a, b = _parsed(have), _parsed(want)
+    if a is None or b is None:
+        raise ValueError(f"a value in {have} can't be given in {want}")
+    if a == b:
+        return value
+    from latris.operations._units import Quantity
+
+    try:
+        return float(Quantity(float(value), a).to(b).magnitude)
+    except Exception as exc:  # pint: another dimension, or units with an offset
+        raise ValueError(f"a value in {have} can't be given in {want}") from exc
 
 
 def describe(model_type: str | None = None, *, root: Path | None = None) -> dict[str, Any]:
@@ -123,22 +170,24 @@ def describe(model_type: str | None = None, *, root: Path | None = None) -> dict
 
 
 def _describe(contract: Contract, predictor: Predictor) -> dict[str, Any]:
-    ins, outs = _by_id(predictor.inputs()), _by_id(predictor.outputs())
+    ins, outs = _by_key(predictor.inputs()), _by_key(predictor.outputs())
     inputs = []
     for i in contract.inputs:
-        c = ins.get(i.target_id)
+        c = ins.get(entry_key(i))
         lo, hi = effective_range(i, c)
         inputs.append({
             "name": i.name, "label": c.label if c else None, "kind": i.kind, "units": i.units, "mode": i.mode,
             "default": i.default if i.default is not None else (_in_units(c.value, c.units, i.units)
                                                                 if c and i.kind == "value" else None),
             "valid_min": lo, "valid_max": hi, "states": list(c.states) if c else [], "required": i.required,
-            "description": i.description, "target_id": i.target_id,
+            "description": i.description, "target_id": i.target_id, "cell": i.cell,
         })
-    outputs = [{"name": o.name, "label": outs[o.target_id].label if o.target_id in outs else None, "kind": o.kind,
-                "units": o.units, "metric": o.metric, "states": list(outs[o.target_id].states)
-                if o.target_id in outs else [], "description": o.description, "target_id": o.target_id}
-               for o in contract.outputs]
+    outputs = []
+    for o in contract.outputs:
+        c = outs.get(entry_key(o))
+        outputs.append({"name": o.name, "label": c.label if c else None, "kind": o.kind, "units": o.units,
+                        "metric": o.metric, "states": list(c.states) if c else [], "description": o.description,
+                        "target_id": o.target_id, "cell": o.cell})
     return {"model_type": contract.model_type, "description": contract.description, "hash": contract_hash(contract),
             "inputs": inputs, "outputs": outputs, "problems": _problems(contract, predictor)}
 
@@ -147,9 +196,7 @@ def _in_units(value: Any, have: str | None, want: str | None) -> Any:
     """A model's own value expressed in the contract's units."""
     if value is None or not have or not want or have == want:
         return value
-    from latris.operations._units import Quantity
-
-    return float(Quantity(float(value), parse_unit(have)).to(parse_unit(want)).magnitude)
+    return convert(float(value), have, want)
 
 
 def effective_range(i: ContractInput, c: Candidate | None) -> tuple[float | None, float | None]:
@@ -167,19 +214,19 @@ def candidates(model_type: str, *, root: Path | None = None) -> dict[str, Any]:
     paths = require_project(root)
     predictor = predictor_for(model_type, paths)
     contract = get(model_type, root=paths.root)
-    used_in = {i.target_id: i.name for i in contract.inputs} if contract else {}
+    used_in = {entry_key(i): i.name for i in contract.inputs} if contract else {}
     used_out: dict[str, list[str]] = {}
     for o in contract.outputs if contract else []:
-        used_out.setdefault(o.target_id, []).append(o.name)
+        used_out.setdefault(entry_key(o), []).append(o.name)
 
     def row(c: Candidate, names: list[str]) -> dict[str, Any]:
-        return {"target_id": c.target_id, "label": c.label, "kinds": list(c.kinds), "units": c.units,
+        return {"target_id": c.target_id, "cell": c.cell, "label": c.label, "kinds": list(c.kinds), "units": c.units,
                 "value": c.value, "valid_min": c.valid_min, "valid_max": c.valid_max, "states": list(c.states),
                 "role": c.role, "needs_metric": c.needs_metric, "in_contract": names}
 
     return {"model_type": model_type, "problems": list(predictor.problems),
-            "inputs": [row(c, [used_in[c.target_id]] if c.target_id in used_in else []) for c in predictor.inputs()],
-            "outputs": [row(c, used_out.get(c.target_id, [])) for c in predictor.outputs()]}
+            "inputs": [row(c, [used_in[c.key]] if c.key in used_in else []) for c in predictor.inputs()],
+            "outputs": [row(c, used_out.get(c.key, [])) for c in predictor.outputs()]}
 
 
 # ── check ────────────────────────────────────────────────────────────
@@ -187,26 +234,23 @@ def candidates(model_type: str, *, root: Path | None = None) -> dict[str, Any]:
 
 def _problems(contract: Contract, predictor: Predictor) -> list[str]:
     problems = [f"the model isn't ready to run: {p}" for p in predictor.problems]
-    ins, outs = _by_id(predictor.inputs()), _by_id(predictor.outputs())
+    ins, outs = _by_key(predictor.inputs()), _by_key(predictor.outputs())
     if not contract.outputs:
         problems.append("the contract has no outputs: a caller would get nothing back")
     for i in contract.inputs:
-        c = ins.get(i.target_id)
+        c = ins.get(entry_key(i))
         if c is None:
             problems.append(f"input {i.name!r}: its factor is no longer something this model takes as an input")
             continue
         if i.kind not in c.kinds:
             problems.append(f"input {i.name!r}: {c.label} is a {c.kinds[0]}, not a {i.kind}")
         elif i.kind == "value":
-            try:
-                if not is_compatible(parse_unit(i.units or ""), parse_unit(c.units or "")):
-                    problems.append(f"input {i.name!r} is in {i.units}, but {c.label} is in {c.units}")
-            except UnitError as exc:
-                problems.append(f"input {i.name!r}: {exc}")
+            if not units_compatible(i.units, c.units):
+                problems.append(f"input {i.name!r} is in {i.units}, but {c.label} is in {c.units}")
         elif i.default is not None and i.default not in c.states:
             problems.append(f"input {i.name!r}: its default {i.default!r} is not a state of {c.label}")
     for o in contract.outputs:
-        c = outs.get(o.target_id)
+        c = outs.get(entry_key(o))
         if c is None:
             problems.append(f"output {o.name!r}: its factor is no longer something this model computes")
         elif o.kind not in c.kinds:
@@ -221,7 +265,7 @@ def _problems(contract: Contract, predictor: Predictor) -> list[str]:
 def model_units(c: Candidate, kind: str, metric: str | None) -> str | None:
     """The units the model gives an output in: the factor's own, except for a measure of a run that isn't in
     them (``peak-time`` is a time; ``total`` is the factor's units times time)."""
-    if kind == "distribution":
+    if kind in ("distribution", "choice"):
         return None
     if kind == "value" and metric and c.time_units:
         from latris.operations.sd_sensitivity import parse_metric
@@ -260,13 +304,8 @@ def _metric_problem(c: Candidate, metric: str | None) -> str | None:
 def _units_problem(c: Candidate, o: ContractOutput) -> str | None:
     """Why the model's value can't be given in the units the contract promises."""
     have = model_units(c, o.kind, o.metric)
-    if not o.units or not have:
+    if not o.units or not have or units_compatible(have, o.units):
         return None
-    try:
-        if is_compatible(parse_unit(o.units), parse_unit(have)):
-            return None
-    except UnitError as exc:
-        return f": {exc}"
     return (f" is in {o.units}, but {c.label} is in {have} now; set the output again to take the model's units "
             "(a caller reading the old ones must change)")
 
@@ -275,17 +314,9 @@ def convert_output(value: Any, have: str | None, want: str | None) -> Any:
     """A computed value (or each value of a run) in the contract's units."""
     if not have or not want or have == want or value is None:
         return value
-    from latris.operations._units import Quantity
-
-    a, b = parse_unit(have), parse_unit(want)
-    if a == b:
-        return value
-    try:
-        if isinstance(value, list):
-            return [float(Quantity(float(x), a).to(b).magnitude) for x in value]
-        return float(Quantity(float(value), a).to(b).magnitude)
-    except Exception as exc:  # pint: another dimension, or units with an offset
-        raise ValueError(f"a value in {have} can't be given in {want}") from exc
+    if isinstance(value, list):
+        return [None if x is None else convert(float(x), have, want) for x in value]
+    return convert(float(value), have, want)
 
 
 def check(model_type: str | None = None, *, root: Path | None = None) -> list[str]:
@@ -314,15 +345,15 @@ def _unique(name: str, taken: set[str]) -> str:
 
 
 def _input_from(c: Candidate, name: str) -> ContractInput:
-    return ContractInput(name=name, target_id=c.target_id, kind=c.kinds[0],  # type: ignore[arg-type]
-                         units=c.units if c.kinds[0] == "value" else None)
+    return ContractInput(name=name, target_id=c.target_id, cell=c.cell, kind=c.kinds[0],  # type: ignore[arg-type]
+                         units=(c.units or "dimensionless") if c.kinds[0] == "value" else None)
 
 
 def _output_from(c: Candidate, name: str, kind: str | None = None, metric: str | None = None) -> ContractOutput:
     kind = kind or ("value" if metric else c.kinds[0])
     if kind == "value" and c.needs_metric and not metric:
         metric = "final"
-    return ContractOutput(name=name, target_id=c.target_id, kind=kind,  # type: ignore[arg-type]
+    return ContractOutput(name=name, target_id=c.target_id, cell=c.cell, kind=kind,  # type: ignore[arg-type]
                           units=model_units(c, kind, metric), metric=metric)
 
 
@@ -360,13 +391,31 @@ def init(model_type: str, *, replace: bool = False, root: Path | None = None) ->
     return contract, sha
 
 
-def _candidate(paths: ProjectPaths, target: str, pool: list[Candidate], what: str) -> Candidate:
-    tid, label = resolve_factor(paths, target, link_error=f"{target!r} is a link; a contract names factors")
-    found = _by_id(pool).get(tid)
-    if found is None:
+def _candidate(paths: ProjectPaths, target: str, pool: list[Candidate], what: str,
+               cell: str | None = None) -> Candidate:
+    """The candidate for ``target`` (a factor, or a link when the model's parameters sit on links), and
+    ``cell`` when the factor has several."""
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    tid = resolve_target(target, substrate)
+    mine = [c for c in pool if c.target_id == tid]
+    label = next((e.label for e in substrate.entities if e.id == tid), None)
+    if label is None:  # a link: only model types that hold parameters on links (a Markov transition) take one
+        if not mine:
+            raise ValueError(f"{target!r} is a link; a contract names factors")
+        label = mine[0].label
+    if not mine:
         raise ValueError(f"{label} can't be {what} of this model. It could be: "
-                         + (", ".join(c.label for c in pool) or "(nothing yet)"))
-    return found
+                         + (", ".join(dict.fromkeys(c.label for c in pool)) or "(nothing yet)"))
+    if cell is not None:
+        found = next((c for c in mine if c.cell == cell), None)
+        if found is None:
+            raise ValueError(f"{label} has no {cell!r} to be {what}; it has: "
+                             + ", ".join(f"{c.cell} ({c.label})" for c in mine if c.cell))
+        return found
+    if len(mine) > 1:
+        raise ValueError(f"{label} holds several things that can be {what}; say which with its cell: "
+                         + "; ".join(f"{c.cell} ({c.label})" for c in mine))
+    return mine[0]
 
 
 def set_input(
@@ -381,13 +430,15 @@ def set_input(
     mode: str | None = None,
     required: bool | None = None,
     description: str | None = None,
+    cell: str | None = None,
     root: Path | None = None,
 ) -> tuple[ContractInput, str]:
-    """Add a factor to the contract as an input, or change the input it already is (only what is given)."""
+    """Add a factor (or, with ``cell``, one of its parameters) to the contract as an input, or change the input
+    it already is (only what is given)."""
     paths = require_project(root)
-    c = _candidate(paths, target, predictor_for(model_type, paths).inputs(), "an input")
+    c = _candidate(paths, target, predictor_for(model_type, paths).inputs(), "an input", cell)
     contract = get(model_type, root=paths.root) or Contract(model_type=model_type)
-    current = next((i for i in contract.inputs if i.target_id == c.target_id), None)
+    current = next((i for i in contract.inputs if entry_key(i) == c.key), None)
     taken = {i.name for i in contract.inputs if i is not current}
     base = current.model_dump() if current else _input_from(c, _unique(slugify(c.label), taken)).model_dump()
     given = {"name": name, "units": units, "mode": mode, "required": required, "description": description}
@@ -395,7 +446,7 @@ def set_input(
     changed |= {k: v for k, v in (("default", default), ("valid_min", valid_min), ("valid_max", valid_max))
                 if v is not _UNSET}
     entry = ContractInput.model_validate({**base, **changed})
-    if entry.kind == "value" and not is_compatible(parse_unit(entry.units or ""), parse_unit(c.units or "")):
+    if entry.kind == "value" and not units_compatible(entry.units, c.units):
         raise ValueError(f"{c.label} is in {c.units}; an input in {entry.units} can't set it")
     if entry.kind == "state" and entry.default is not None and entry.default not in c.states:
         raise ValueError(f"{entry.default!r} is not a state of {c.label} (states: {', '.join(c.states)})")
@@ -412,6 +463,7 @@ def set_output(
     kind: str | None = None,
     metric: str | None = None,
     description: str | None = None,
+    cell: str | None = None,
     root: Path | None = None,
 ) -> tuple[ContractOutput, str]:
     """Add an output to the contract, or change the one called ``name``.
@@ -426,12 +478,12 @@ def set_output(
     """
     paths = require_project(root)
     predictor = predictor_for(model_type, paths)
-    c = _candidate(paths, target, predictor.outputs(), "an output")
+    c = _candidate(paths, target, predictor.outputs(), "an output", cell)
     contract = get(model_type, root=paths.root) or Contract(model_type=model_type)
     name = name or slugify(c.label)
     current = next((o for o in contract.outputs if o.name == name), None)
-    if current is not None and current.target_id != c.target_id:
-        other = _by_id(predictor.outputs()).get(current.target_id)
+    if current is not None and entry_key(current) != c.key:
+        other = _by_key(predictor.outputs()).get(entry_key(current))
         raise ValueError(f"the contract already has an output called {name!r}, for "
                          f"{other.label if other else 'another factor'}; give {c.label}'s another name (--name), "
                          f"or remove that one first (`latris contract remove {model_type} {name}`)")
@@ -530,12 +582,12 @@ def _output_unit_problems(paths: ProjectPaths, model_type: str, sha: str, contra
     from latris.operations.predict import materialise
 
     try:
-        outs = _by_id(predictor_for(model_type, ProjectPaths(materialise(sha, paths))).outputs())
+        outs = _by_key(predictor_for(model_type, ProjectPaths(materialise(sha, paths))).outputs())
     except (ValueError, ValidationError, git.GitError, OSError):
         return None
     found = {}
     for o in contract.outputs:
-        c = outs.get(o.target_id)
+        c = outs.get(entry_key(o))
         problem = _units_problem(c, o) if c else None
         if problem:
             found[o.name] = problem
@@ -564,6 +616,8 @@ def _compare_inputs(old: Contract, new: Contract, breaking: list[str], compatibl
             continue
         if i.target_id != j.target_id:
             breaking.append(f"input {name} now sets a different factor")
+        elif i.cell != j.cell:
+            breaking.append(f"input {name} now sets a different parameter of its factor")
         if (i.kind, i.units, i.mode) != (j.kind, j.units, j.mode):
             breaking.append(f"input {name} changed from {_shape(i)} to {_shape(j)}")
         if j.required and not i.required:
@@ -589,6 +643,8 @@ def _compare_outputs(old: Contract, new: Contract, breaking: list[str], compatib
             continue
         if o.target_id != p.target_id:
             breaking.append(f"output {name} now reports a different factor")
+        elif o.cell != p.cell:
+            breaking.append(f"output {name} now reports a different result of its factor")
         if (o.kind, o.units, o.metric) != (p.kind, p.units, p.metric):
             breaking.append(f"output {name} changed from {_shape(o)} to {_shape(p)}")
     compatible.extend(f"output {name} was added" for name in sorted(after) if name not in before)
@@ -598,4 +654,4 @@ def _shape(x: ContractInput | ContractOutput) -> str:
     if isinstance(x, ContractInput):
         return f"a value in {x.units}" if x.kind == "value" else f"a state ({x.mode})"
     return {"value": f"a value in {x.units}" + (f" ({x.metric})" if x.metric else ""),
-            "series": f"a series in {x.units}", "distribution": "a distribution"}[x.kind]
+            "series": f"a series in {x.units}", "distribution": "a distribution", "choice": "a choice"}[x.kind]

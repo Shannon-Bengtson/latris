@@ -232,117 +232,60 @@ class _Model:
                                                                                 quantity)
 
 
-def _ft_model(paths) -> _Model:
-    from latris.operations import _ft_engine as engine
-    from latris.operations import fault_tree as ft
+def _labels(predictor) -> dict[str, str]:  # noqa: ANN001
+    return {c.key: c.label for c in predictor.inputs() if c.key in predictor.point}
 
-    tree = ft.load_tree(root=paths.root)
-    if tree.problems or not tree.top:
-        raise ValueError("the fault tree is incomplete; `latris ft analyse` lists what's missing")
-    gates = tree.engine_gates()
-    leaves = engine.leaves_under(tree.top, gates)
-    missing = [tree.labels[e] for e in leaves if e not in tree.probabilities]
-    if missing:
-        raise ValueError(f"no probability yet for {', '.join(missing)}; Monte Carlo needs every basic event's value")
-    bdd, root_node = engine.build_bdd(tree.top, gates)
-    cell = "fault_tree:probability"
-    inputs = {f"{e}|{cell}": tree.probabilities[e].probability for e in leaves}
-    labels = {f"{e}|{cell}": tree.labels[e] for e in leaves}
-    top = tree.labels[tree.top]
+
+# The functions themselves are the predictors' (``operations/predictors``): a prediction and a sampled run
+# go through the same code.
+
+
+def _ft_model(paths) -> _Model:
+    from latris.operations.predictors import fault_tree
+
+    p = fault_tree.build(paths)
+    if p.incomplete:
+        raise ValueError(p.problems[0])
+    if p.missing:
+        raise ValueError(f"no probability yet for {', '.join(p.missing)}; Monte Carlo needs every basic event's value")
+    top_id: str = p.top  # type: ignore[assignment]  # a complete tree has one
+    top = p.labels[top_id]
 
     def evaluate(x: dict[str, float]) -> dict[str, float]:
-        return {top: bdd.probability(root_node, {k.split("|", 1)[0]: v for k, v in x.items()})}
+        return {top: p.evaluate(x)[top_id]}
 
-    return _Model(inputs, labels, evaluate, top, "probability")
+    return _Model(dict(p.point), _labels(p), evaluate, top, "probability")
 
 
 def _bt_model(paths) -> _Model:
-    from latris.operations import bow_tie as bt_ops
+    from latris.operations.predictors import bow_tie
 
-    bt = bt_ops.load_bow_tie(root=paths.root)
-    payload = bt_ops.analyse(root=paths.root)
-    if bt.problems:
-        raise ValueError("the bow-tie is incomplete; `latris bowtie analyse` lists what's missing")
-    if not payload["quantified"]:
-        raise ValueError(f"the bow-tie isn't quantified yet (missing: {', '.join(payload['missing'])})")
-    threats = sorted({ln.start for ln in bt.left})
-    on_lines = sorted({b for ln in bt.left + bt.right for b in ln.barriers})
-    fixed_pfd = {b: 1.0 for b in on_lines if bt.barriers.get(b) and bt.barriers[b].status == "not_in_place"}
-    inputs: dict[str, float] = {}
-    labels: dict[str, str] = {}
-    for b in on_lines:
-        if b not in fixed_pfd:
-            inputs[f"{b}|bow_tie:pfd"] = bt_ops._pfd(bt, b)  # type: ignore[assignment]
-            labels[f"{b}|bow_tie:pfd"] = f"{bt.labels[b]} (PFD)"
-    for t in threats:
-        inputs[f"{t}|bow_tie:frequency"] = bt.frequencies[t].frequency
-        labels[f"{t}|bow_tie:frequency"] = f"{bt.labels[t]} (frequency)"
-    top = f"{bt.labels[bt.top]} (per year)" if bt.top else "Top event (per year)"
+    p = bow_tie.build(paths)
+    if p.problems:
+        raise ValueError(p.problems[0])
+    top: str = p.bt.top  # type: ignore[assignment]  # a complete bow-tie has one
+    names = {e: f"{p.labels[e]} (per year)" for e in [top, *(ln.end for ln in p.bt.right)]}
 
     def evaluate(x: dict[str, float]) -> dict[str, float]:
-        pfd = dict(fixed_pfd)
-        freq = {}
-        for k, v in x.items():
-            node, cell = k.split("|", 1)
-            (pfd if cell == "bow_tie:pfd" else freq)[node] = v
-        f_top, f_cons = bt_ops._frequencies(bt, pfd, freq)
-        return {top: f_top, **{f"{bt.labels[c]} (per year)": v for c, v in f_cons.items()}}
+        return {names[e]: v for e, v in p.evaluate(x).items()}
 
-    return _Model(inputs, labels, evaluate, top, "frequency")
+    return _Model(dict(p.point), _labels(p), evaluate, names[top], "frequency")
 
 
 def _et_model(paths) -> _Model:
-    from latris.operations import event_tree as et
+    from latris.operations.predictors import event_tree
 
-    tree = et.load_tree(root=paths.root)
-    payload = et.analyse(root=paths.root)
-    if tree.problems:
-        raise ValueError("the event tree is incomplete; `latris et check` lists what's missing")
-    if not payload["quantified"]:
-        raise ValueError(f"the event tree isn't quantified yet (missing: {'; '.join(payload['missing'])})")
-    lab = tree.labels
-    inputs: dict[str, float] = {}
-    labels: dict[str, str] = {}
-
-    def key(e) -> str:
-        return f"{e.target_id}|{_cell('event_tree', 'probability', _given_key((c.heading, c.answer) for c in e.given))}"
-
-    # Each sequence as a product of (input key, answer) factors, using the entry that applies on its branch.
-    seqs = []
-    for q in tree.structure.sequences:
-        prefix: list[tuple[str, str]] = []
-        factors = []
-        for s in q.path:
-            e = et._lookup(tree, s.heading, prefix)
-            k = key(e)
-            inputs[k] = e.p_yes  # type: ignore[union-attr]
-            given = tree.answer_text([(c.heading, c.answer) for c in e.given]) if e.given else ""  # type: ignore[union-attr]
-            labels[k] = f"P({lab[s.heading]}=yes" + (f" | {given})" if given else ")")
-            factors.append((k, s.answer))
-            prefix.append((s.heading, s.answer))
-        seqs.append((lab[q.end_state], factors))
-    f = tree.frequency
-    fkey = None
-    if f is not None:
-        fkey = f"{f.target_id}|event_tree:frequency"
-        inputs[fkey] = f.frequency
-        labels[fkey] = f"{lab[f.target_id]} (frequency)"
-    unit = " (per year)" if f is not None else " (probability)"
-    ends = list(dict.fromkeys(name for name, _ in seqs))
+    p = event_tree.build(paths)
+    if p.problems:
+        raise ValueError(p.problems[0])
+    unit = " (per year)" if p.fkey else " (probability)"
 
     def evaluate(x: dict[str, float]) -> dict[str, float]:
-        out = dict.fromkeys(ends, 0.0)
-        for name, factors in seqs:
-            p = 1.0
-            for k, ans in factors:
-                p *= x[k] if ans == "yes" else 1.0 - x[k]
-            out[name] += p
-        scale = x[fkey] if fkey else 1.0
-        return {n + unit: v * scale for n, v in out.items()}
+        return {p.labels[e] + unit: v for e, v in p.evaluate(x).items()}
 
-    point = evaluate(inputs)
+    point = evaluate(p.point)
     rarest = min(point, key=lambda n: (point[n], n))  # the usual concern: the rare, bad end state
-    return _Model(inputs, labels, evaluate, rarest, "frequency" if f is not None else "probability")
+    return _Model(dict(p.point), dict(p.input_labels), evaluate, rarest, "frequency" if p.fkey else "probability")
 
 
 _BUILD = {"fault_tree": _ft_model, "bow_tie": _bt_model, "event_tree": _et_model}

@@ -265,6 +265,7 @@ _CHAT_OPS = (
 
 register(Formalism(
     model_type="fault_tree",
+    predictor="latris.operations.predictors.fault_tree",
     outcome_role="top_event",
     outcome_refusal=(
         "A fault tree's outcome of interest is its top event: give the factor the type 'top_event' "

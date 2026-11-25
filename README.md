@@ -146,8 +146,8 @@ result["warnings"]                        # e.g. an input outside its valid rang
 result["provenance"]["commit"]            # the commit that produced it
 ```
 
-Equation models, system dynamics and Bayesian networks can have a contract
-today. `latris contract diff <old> <new>` says whether moving to a newer
+Equation models, system dynamics, Bayesian networks, fault trees, bow-ties
+and event trees can have a contract today. `latris contract diff <old> <new>` says whether moving to a newer
 version would break a caller. Design:
 [`docs/engineering/PREDICT.md`](docs/engineering/PREDICT.md).
 
