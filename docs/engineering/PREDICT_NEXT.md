@@ -1,7 +1,16 @@
 # Predict for the remaining model types — plan
 
-*Status: in progress (roadmap #17 follow-up). Done: step 0 (0c for the risk types; for decision trees
-and Markov it lands with them) and the fault tree, bow-tie and event tree. Next: the decision tree. Extends [PREDICT.md](PREDICT.md), which covers what is
+*Status: done (roadmap #17 follow-up). Kept as the record of how the last seven predictors were added; the
+code and [PREDICT.md](PREDICT.md) are the truth now. Where the build differs from this plan:*
+
+- *Model-level settings (a Markov model's discount rate, horizon and willingness to pay) needed a target
+  that is no factor: `model` (`predictors.MODEL`).*
+- *A decision tree's two-branch chance node offers one probability, not one per branch: the other is
+  implied, so a caller never sees a stale value beside the one it gave.*
+- *MCDA's local-scale caveat is a warning on the run that changes such a score, not a `contract check`
+  problem (a problem would stop the contract running at all).*
+- *Markov's best strategy needs a willingness to pay in the model; settings inputs for the FCM (transfer
+  function, steepness) are left out.* Extends [PREDICT.md](PREDICT.md), which covers what is
 built: the contract, the stateless run and pinned loading, with predictors for the equation model,
 system dynamics and Bayesian networks.*
 

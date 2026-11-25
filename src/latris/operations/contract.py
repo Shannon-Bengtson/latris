@@ -20,7 +20,7 @@ from latris.operations._resolve import resolve_target
 from latris.operations._sd_eval import slugify
 from latris.operations._units import UnitError, is_compatible, parse_unit
 from latris.operations.commit import auto_commit
-from latris.operations.predictors import Candidate, Predictor, key
+from latris.operations.predictors import MODEL, Candidate, Predictor, key
 from latris.repo import git
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
@@ -396,9 +396,10 @@ def _candidate(paths: ProjectPaths, target: str, pool: list[Candidate], what: st
     """The candidate for ``target`` (a factor, or a link when the model's parameters sit on links), and
     ``cell`` when the factor has several."""
     substrate = load_model(Substrate, paths.conceptual_yaml)
-    tid = resolve_target(target, substrate)
+    # What belongs to the whole model (a discount rate) is named "model".
+    tid = MODEL if target == MODEL and any(c.target_id == MODEL for c in pool) else resolve_target(target, substrate)
     mine = [c for c in pool if c.target_id == tid]
-    label = next((e.label for e in substrate.entities if e.id == tid), None)
+    label = next((e.label for e in substrate.entities if e.id == tid), "the model" if tid == MODEL else None)
     if label is None:  # a link: only model types that hold parameters on links (a Markov transition) take one
         if not mine:
             raise ValueError(f"{target!r} is a link; a contract names factors")

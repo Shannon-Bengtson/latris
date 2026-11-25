@@ -260,6 +260,7 @@ _CHAT_OPS = (
 
 register(Formalism(
     model_type="decision_tree",
+    predictor="latris.operations.predictors.decision_tree",
     outcome_role=None,
     outcome_refusal=("A decision tree's result is the best choice and its expected value, not one outcome factor: "
                      "give factors the type 'decision', 'chance' or 'terminal' (latris dt element <factor> decision)."),

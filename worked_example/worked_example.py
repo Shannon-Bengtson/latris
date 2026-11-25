@@ -1660,6 +1660,11 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["fcm", "weights"])
     ex.run(["fcm", "infer"])
     ex.run(["fcm", "infer", "--clamp", "Transport Policy=1.0"])
+    ex.note("The same scenario as a call (see Contract and Predict below): what nothing drives is drafted as "
+            "something a caller holds at a level, what drives nothing as the result. Activations are relative: "
+            "compare scenarios rather than reading the levels as amounts.")
+    ex.run(["contract", "init", "fcm"])
+    ex.run(["predict", "-m", "fcm", "--set", "transport_policy_held_at=1.0"])
 
     # ── 11b. Theory of Change ─────────────────────────────────────────
     ex.section(
@@ -2058,6 +2063,11 @@ def build_example(ex: WorkedExample) -> None:
             "site would shift it. The analysis ranks the sites, names the one no weights could make best, and "
             "says how far each weight would have to move before the choice changes.")
     ex.run(["mcda", "analyse"])
+    ex.note("As a call: the weights go in, each site's overall value and the top site come out. A board member "
+            "who cares only about travel time can see where that leads without changing the model.")
+    ex.run(["contract", "init", "mcda"])
+    ex.run(["predict", "--set", "build_cost_weight=10", "--set", "travel_time_weight=80",
+            "--set", "bed_capacity_weight=10"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
     ex.note("The whole model as a build spec — what `latris link` carries and `latris build --spec` reads back "
@@ -2173,6 +2183,12 @@ def build_example(ex: WorkedExample) -> None:
             "settle the choice. The partial EVPI prices each uncertainty on its own: any one of them is worth about "
             "two thirds of resolving everything, so a single good study would do most of the work.")
     ex.run(["dt", "psa", "--runs", "2000"])
+    ex.note("As a call: payoffs and Demand's probability go in (once, though it recurs under both options), each "
+            "option's expected value and the best option come out. The payoffs are in $k, which has no unit "
+            "conversion, so a value in another currency is refused rather than converted.")
+    ex.run(["contract", "init", "decision_tree"])
+    ex.run(["predict", "--set", "p_demand_high=0.7"])
+    ex.run(["predict", "--set", "launched_low_demand_payoff=-200 EUR"], expect_fail=True)
     ex.note("Rank correlations say which input moves with the result; global sensitivity apportions the result's "
             "variance among the inputs, varied together. Sobol indices: each input's share alone and with its "
             "interactions, so a range that doesn't matter can be left alone.")
@@ -2213,6 +2229,12 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["markov", "check"])
     ex.run(["markov", "show"])
     ex.run(["markov", "analyse"])
+    ex.note("As a call: costs and utilities go in, each strategy's costs, QALYs and ICER and the best strategy "
+            "come out. What belongs to the model as a whole, like the discount rate, is named `model` with its "
+            "cell. Here: would a cheaper drug at a lower discount rate change the answer?")
+    ex.run(["contract", "init", "markov"])
+    ex.run(["contract", "input", "markov", "model", "--cell", "markov:discount_rate", "--name", "discount_rate"])
+    ex.run(["predict", "--set", "healthy_cost_under_new_drug=900", "--set", "discount_rate=0.015"])
     ex.note("Each probability, cost and utility is an estimate. Ranges in the conventional families — beta for "
             "probabilities and utilities, gamma for costs, each by the mean and standard error its study reports — "
             "go through a probabilistic sensitivity analysis: the cohort reruns for every sample.")

@@ -34,7 +34,6 @@ operations/sd_montecarlo.py::compare_options 34
 operations/formalisms/mcda.py::_claims 33
 operations/global_sensitivity.py::_bn 33
 operations/markov.py::load 33
-operations/psa.py::_dt_inputs 33
 operations/argument_map.py::label 32
 operations/event_tree.py::analyse 32
 operations/formalisms/event_tree.py::_claims 31

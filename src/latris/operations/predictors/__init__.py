@@ -18,6 +18,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+# The target of what belongs to the model as a whole rather than to one factor: a Markov model's discount
+# rate, the base case's total cost. A contract entry names it as ``model`` with a cell.
+MODEL = "model"
+
 
 def key(target_id: str, cell: str | None = None) -> str:
     """How ``run`` addresses one parameter: ``target_id``, or ``target_id|cell``."""

@@ -1,6 +1,7 @@
 # Contract and predict — design
 
-*Status: built for six model types (roadmap #17); four more planned in [PREDICT_NEXT.md](PREDICT_NEXT.md). The code is the truth for details: `schema/contract.py`,
+*Status: built for every model type with a forward calculation (roadmap #17; how the last seven were added:
+[PREDICT_NEXT.md](PREDICT_NEXT.md)). The code is the truth for details: `schema/contract.py`,
 `operations/contract.py`, `operations/predict.py`, `operations/predictors/`, `api.py`.*
 
 ## What it is for
@@ -71,9 +72,18 @@ model loaded and compiled once, listing what could be an input or an output, wit
 | Fault tree | basic events' probabilities | the top event's, or any gate's, probability |
 | Bow-tie | threats' frequencies; barriers' PFDs and status (a state) | the top event's and each consequence's frequency |
 | Event tree | the initiating frequency; each heading's probability on each branch it is asked on | each end state's frequency (or probability) |
+| Decision tree | payoffs; values along branches; chance probabilities (one per two-branch node; one input per recurring uncertainty) | each option's expected value; the best option (`choice`); the tree's expected value; EVPI |
+| Markov | transitions, costs and utilities (per strategy where they differ); starting shares; discount rates, cycles and willingness to pay (on `model`) | per strategy: discounted and undiscounted cost and outcome, ICER, net monetary benefit, time in each state, each state's share as a `series`; the best strategy (`choice`, with a willingness to pay) |
+| MCDA | criteria's weights; options' scores | each option's overall value (0–100); the top option (`choice`) |
+| FCM | factors held at an activation, or started from one | each factor's activation at steady state (relative, 0–1) |
 
 The risk types' predictors are also what their Monte Carlo samples through (`risk_uncertainty` builds
-its model from the predictor), so a prediction and a sampled run can't drift apart.
+its model from the predictor), and the decision tree's and Markov model's `apply` is what their PSA
+applies each draw with, so a prediction and a sampled run can't drift apart.
+
+**The model as a whole.** What belongs to no one factor (a Markov model's discount rate, the base case's
+totals, an MCDA's top option) has the target `model` (`predictors.MODEL`) and a cell; `contract input
+markov model --cell markov:discount_rate`.
 
 **A cell.** Where a factor holds several parameters (a barrier's PFD and its status; a heading's
 probability on each branch), each is a candidate of its own, told apart by its `cell`: the address
@@ -86,9 +96,7 @@ refuses a value outside the model's range instead of warning about it.
 **Units pint doesn't know** (GBP, QALY) are opaque: compatible only with exactly themselves, never
 converted (`contract.units_compatible`, `contract.convert`).
 
-Not yet: decision trees, Markov models, MCDA and FCM. The plan for them is
-[PREDICT_NEXT.md](PREDICT_NEXT.md). Never: theory of change, ACH and argument maps, which have no forward
-calculation.
+Never: CLDs, DAGs, theory of change, ACH and argument maps, which have no forward calculation.
 
 ## Predict
 

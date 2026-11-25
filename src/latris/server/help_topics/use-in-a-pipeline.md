@@ -11,7 +11,7 @@ A model you have built and argued for can be used outside Latris: in a script, a
 - A **contract** says which of the model's values a caller may set (its inputs) and which results it returns (its outputs), under names that don't change when a factor is renamed.
 - **Predict** runs the model on the values a caller gives and returns the outputs. Nothing is recorded in the project.
 
-Equation models, system dynamics models, Bayesian networks, fault trees, bow-ties and event trees can have a contract. Decision trees, Markov models, MCDA and fuzzy cognitive maps are planned.
+Every model type that computes something from inputs can have a contract: equation models, system dynamics, Bayesian networks, fuzzy cognitive maps, fault trees, bow-ties, event trees, decision trees, Markov models and MCDA. Theories of change, argument maps, analyses of competing hypotheses and loop maps don't compute anything, so they have none.
 
 ## Declaring the contract
 
@@ -19,7 +19,7 @@ Equation models, system dynamics models, Bayesian networks, fault trees, bow-tie
 
 - `latris contract available <model type>` lists everything the model could expose.
 - `latris contract input <model type> <factor> --name depth --min 0.2 --max 3` adds or changes an input: its name, units, default and valid range. For a Bayesian network an input is a factor's state, observed (`--observe`) or made so (`--set`).
-- Some factors hold several things a caller could set: a bow-tie barrier has a failure probability and a status, and an event-tree heading has a probability on each branch. Each one is named by its **cell** (listed by `contract available`): `latris contract input bow_tie "Gas detection" --cell bow_tie:status`.
+- Some factors hold several things a caller could set: a bow-tie barrier has a failure probability and a status, and an event-tree heading has a probability on each branch. Each one is named by its **cell** (listed by `contract available`): `latris contract input bow_tie "Gas detection" --cell bow_tie:status`. What belongs to the whole model rather than one factor, such as a Markov model's discount rate, is named `model`: `latris contract input markov model --cell markov:discount_rate`.
 - `latris contract output <model type> <factor>` adds an output. A system dynamics variable can be returned as its whole run (`--kind series`) or as one value of it (`--metric final`, `peak`, `mean`…).
 - `latris contract show` prints the contract; `latris contract check` says whether it still fits the model.
 - An output keeps the units the contract promised: if the model's own units change later, `predict` converts the result to the contract's units, and `contract check` says so when they can no longer be converted. An input or output name can stand for only one factor.
@@ -28,7 +28,7 @@ Equation models, system dynamics models, Bayesian networks, fault trees, bow-tie
 
 `latris predict --set depth=2.5` runs the model once. An input you leave out takes its default, or the model's own value. The result gives:
 
-- the **outputs**, with units;
+- the **outputs**, with units. A *choice* output (a decision tree's best option, an MCDA's top option) is the option's name;
 - the **inputs** it used, and where each came from;
 - **warnings**: a value outside its valid range is used as given, and the result is flagged as an extrapolation. A value the model can't take at all, such as a probability above 1, is refused;
 - **provenance**: the commit that produced it, the contract's hash, and the review state of that version.

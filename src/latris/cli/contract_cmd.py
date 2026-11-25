@@ -18,7 +18,8 @@ app = typer.Typer(help="A model's contract: the inputs a caller may give it and 
                   no_args_is_help=True)
 console = Console()
 
-_MODEL_TYPES = "equation_model | sd | bn | fault_tree | bow_tie | event_tree"
+_MODEL_TYPES = ("A model type that computes outputs: equation_model, sd, bn, fcm, fault_tree, bow_tie, event_tree, "
+                "decision_tree, markov or mcda")
 _TYPE = typer.Option(None, "--model-type", "-m", help="Which model, when the project has contracts for several.")
 
 
@@ -132,7 +133,8 @@ def available(model_type: str = typer.Argument(..., help=_MODEL_TYPES)) -> None:
 @handle_cli_errors
 def input_(
     model_type: str = typer.Argument(..., help=_MODEL_TYPES),
-    target: str = typer.Argument(..., help="The factor a caller sets: node ID, ID prefix, or label."),
+    target: str = typer.Argument(..., help="The factor a caller sets: node ID, ID prefix, or label; `model` for a "
+                                           "model-wide setting."),
     name: str = typer.Option(None, "--name", help="What callers call it (default: the label, as flow_depth)."),
     units: str = typer.Option(None, "--units", help="The units a bare number is read in (default: the model's)."),
     default: str = typer.Option(None, "--default", help="Used when the caller gives nothing (default: the "
@@ -296,7 +298,7 @@ def predict(
         t.add_column("Result")
         for name, o in result["outputs"].items():
             if "value" in o:
-                shown = with_units(_g(o["value"]), o["units"] or "dimensionless")
+                shown = "—" if o["value"] is None else with_units(_g(o["value"]), o["units"] or "dimensionless")
             elif "series" in o:
                 s = o["series"]
                 shown = (f"{len(s['values'])} points, {_g(s['values'][0])} → "
