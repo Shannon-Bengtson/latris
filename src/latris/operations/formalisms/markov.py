@@ -267,6 +267,7 @@ _CHAT_OPS = (
 
 register(Formalism(
     model_type="markov",
+    predictor="latris.operations.predictors.markov",
     outcome_role=None,
     outcome_refusal=("A Markov model's results are each strategy's costs and outcomes, not one outcome factor: give "
                      "factors the element 'state' or 'strategy' (latris markov element <factor> state)."),

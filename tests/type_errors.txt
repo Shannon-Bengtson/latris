@@ -82,12 +82,12 @@ src/latris/operations/lineage.py 2
 src/latris/operations/mappings.py 3
 src/latris/operations/markov.py 1
 src/latris/operations/mcda.py 1
-src/latris/operations/predict.py 2
+src/latris/operations/predict.py 1
 src/latris/operations/process_tracing.py 4
 src/latris/operations/provenance.py 1
 src/latris/operations/psa.py 8
 src/latris/operations/readiness.py 21
-src/latris/operations/risk_uncertainty.py 12
+src/latris/operations/risk_uncertainty.py 11
 src/latris/operations/sd.py 1
 src/latris/operations/sd_inference.py 5
 src/latris/operations/sd_loops.py 1

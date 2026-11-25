@@ -21,6 +21,10 @@ A swing weight says how much moving from the worst to the best of the scale matt
 
 The result is recorded for the report and goes out of date when a weight, scale or score changes.
 
+## Calling it from a script (contract and predict)
+
+A complete MCDA can have a contract (see **Using a Model Elsewhere**). `latris contract init mcda` drafts one: the criteria's weights go in, and each option's overall value (0–100) and the top option come out. Weights are relative, so `--set cost_weight=10 --set travel_time_weight=80` means "travel time counts eight times as much". An option's score on a criterion can be an input too (`latris contract available mcda`). On a criterion without a fixed scale, changing one score moves every option's value, and the run warns you. Fix the scale (`--worst`, `--best`) before comparing runs.
+
 ## Practical caution
 
 The model is additive and linear: it assumes criteria can be traded off independently and value rises evenly between worst and best. Weights are judgements — record whose (`--source`). Methods: Keeney & Raiffa (1976), Belton & Stewart (2002), and the UK government's *Multi-criteria analysis: a manual* (DCLG 2009).

@@ -1665,6 +1665,11 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["fcm", "weights"])
     ex.run(["fcm", "infer"])
     ex.run(["fcm", "infer", "--clamp", "Transport Policy=1.0"])
+    ex.note("The same scenario as a call (see Contract and Predict below): what nothing drives is drafted as "
+            "something a caller holds at a level, what drives nothing as the result. Activations are relative: "
+            "compare scenarios rather than reading the levels as amounts.")
+    ex.run(["contract", "init", "fcm"])
+    ex.run(["predict", "-m", "fcm", "--set", "transport_policy_held_at=1.0"])
 
     # ── 11b. Theory of Change ─────────────────────────────────────────
     ex.section(
@@ -1839,6 +1844,12 @@ def build_example(ex: WorkedExample) -> None:
             "estimate — skewed ranges pull it up — and the control fault's wide range drives most of the spread. "
             "The supplies have no range, so they are held fixed and listed.")
     ex.run(["ft", "monte-carlo", "--runs", "5000"])
+    ex.note("A quantified fault tree can be called like any model with a contract (see Contract and Predict "
+            "below): the basic events' probabilities go in, the top event's probability comes out. A "
+            "probability above 1 is impossible, so it is refused rather than reported as an extrapolation.")
+    ex.run(["contract", "init", "fault_tree"])
+    ex.run(["predict", "--set", "control_fault=0.005"])
+    ex.run(["predict", "--set", "control_fault=1.5"], expect_fail=True)
     ex.run(["interpret", "initialise"])
     ex.note("Draft every section's prose in one go (an AI call per section; each is marked as AI-written "
             "until a person edits it).")
@@ -1916,6 +1927,13 @@ def build_example(ex: WorkedExample) -> None:
             "--source", "site-incident-log", "--verified"])
     ex.run(["bowtie", "uncertainty", "Gas detection", "--median", "0.1", "--error-factor", "3"])
     ex.run(["bowtie", "monte-carlo", "--runs", "5000"])
+    ex.note("Called through a contract, the bow-tie answers 'what if?' directly. A barrier holds two inputs "
+            "(its failure probability and its status), so the status is named by its cell: here, what if gas "
+            "detection is out?")
+    ex.run(["contract", "init", "bow_tie"])
+    ex.run(["contract", "input", "bow_tie", "Gas detection", "--cell", "bow_tie:status", "--name",
+            "gas_detection_status"])
+    ex.run(["predict", "--set", "gas_detection_status=not_in_place"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "bow_tie"])
 
@@ -1959,6 +1977,11 @@ def build_example(ex: WorkedExample) -> None:
             "--reason", "elicited: 'about 30%, could be 10–60%'"])
     ex.run(["et", "uncertainty", "Loss of containment", "--median", "0.02", "--error-factor", "5"])
     ex.run(["et", "monte-carlo", "--runs", "5000", "--output", "Jet fire"])
+    ex.note("Each branch probability is an input of its own: ignition has one value after detection and "
+            "another when the gas goes undetected. The project now has two contracts, so say which to run.")
+    ex.run(["contract", "init", "event_tree"])
+    ex.run(["contract", "available", "event_tree"])
+    ex.run(["predict", "-m", "event_tree", "--set", "p_ignition_yes_gas_detected_no=0.6"])
     ex.note("The project now uses both views of the same event; selecting both gives each its interpretation.")
     ex.run(["project", "select-models", "bow_tie", "event_tree"])
     ex.run(["interpret", "initialise"])
@@ -2045,6 +2068,11 @@ def build_example(ex: WorkedExample) -> None:
             "site would shift it. The analysis ranks the sites, names the one no weights could make best, and "
             "says how far each weight would have to move before the choice changes.")
     ex.run(["mcda", "analyse"])
+    ex.note("As a call: the weights go in, each site's overall value and the top site come out. A board member "
+            "who cares only about travel time can see where that leads without changing the model.")
+    ex.run(["contract", "init", "mcda"])
+    ex.run(["predict", "--set", "build_cost_weight=10", "--set", "travel_time_weight=80",
+            "--set", "bed_capacity_weight=10"])
     ex.run(["interpret", "initialise"])
     ex.run(["interpret", "show", "implications", "--model-type", "mcda"])
     ex.note("The whole model as a build spec — what `latris link` carries and `latris build --spec` reads back "
@@ -2160,6 +2188,12 @@ def build_example(ex: WorkedExample) -> None:
             "settle the choice. The partial EVPI prices each uncertainty on its own: any one of them is worth about "
             "two thirds of resolving everything, so a single good study would do most of the work.")
     ex.run(["dt", "psa", "--runs", "2000"])
+    ex.note("As a call: payoffs and Demand's probability go in (once, though it recurs under both options), each "
+            "option's expected value and the best option come out. The payoffs are in $k, which has no unit "
+            "conversion, so a value in another currency is refused rather than converted.")
+    ex.run(["contract", "init", "decision_tree"])
+    ex.run(["predict", "--set", "p_demand_high=0.7"])
+    ex.run(["predict", "--set", "launched_low_demand_payoff=-200 EUR"], expect_fail=True)
     ex.note("Rank correlations say which input moves with the result; global sensitivity apportions the result's "
             "variance among the inputs, varied together. Sobol indices: each input's share alone and with its "
             "interactions, so a range that doesn't matter can be left alone.")
@@ -2200,6 +2234,12 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["markov", "check"])
     ex.run(["markov", "show"])
     ex.run(["markov", "analyse"])
+    ex.note("As a call: costs and utilities go in, each strategy's costs, QALYs and ICER and the best strategy "
+            "come out. What belongs to the model as a whole, like the discount rate, is named `model` with its "
+            "cell. Here: would a cheaper drug at a lower discount rate change the answer?")
+    ex.run(["contract", "init", "markov"])
+    ex.run(["contract", "input", "markov", "model", "--cell", "markov:discount_rate", "--name", "discount_rate"])
+    ex.run(["predict", "--set", "healthy_cost_under_new_drug=900", "--set", "discount_rate=0.015"])
     ex.note("Each probability, cost and utility is an estimate. Ranges in the conventional families — beta for "
             "probabilities and utilities, gamma for costs, each by the mean and standard error its study reports — "
             "go through a probabilistic sensitivity analysis: the cohort reruns for every sample.")

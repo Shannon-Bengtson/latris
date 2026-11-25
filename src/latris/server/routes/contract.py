@@ -34,15 +34,17 @@ class InputRequest(BaseModel):
     mode: Literal["observe", "set"] | None = None
     required: bool | None = None
     description: str | None = None
+    cell: str | None = None  # which of the node's parameters, when it has several
 
 
 class OutputRequest(BaseModel):
     model_type: str
     node: str
     name: str | None = None
-    kind: Literal["value", "series", "distribution"] | None = None
+    kind: Literal["value", "series", "distribution", "choice"] | None = None
     metric: str | None = None
     description: str | None = None
+    cell: str | None = None  # which of the node's results, when it has several
 
 
 class PredictRequest(BaseModel):
@@ -92,7 +94,8 @@ def init(body: InitRequest, root: Root) -> dict[str, Any]:
 @router.post("/contract/input")
 def set_input(body: InputRequest, root: Root) -> dict[str, Any]:
     sent = body.model_dump(exclude={"model_type", "node"}, exclude_unset=True)
-    plain = {k: sent.pop(k) for k in ("name", "units", "mode", "required", "description") if sent.get(k) is not None}
+    plain = {k: sent.pop(k) for k in ("name", "units", "mode", "required", "description", "cell")
+             if sent.get(k) is not None}
     entry, sha = contract.set_input(body.model_type, body.node, **plain,
                                     **{k: v for k, v in sent.items() if k in ("default", "valid_min", "valid_max")},
                                     root=root)
@@ -102,7 +105,7 @@ def set_input(body: InputRequest, root: Root) -> dict[str, Any]:
 @router.post("/contract/output")
 def set_output(body: OutputRequest, root: Root) -> dict[str, Any]:
     entry, sha = contract.set_output(body.model_type, body.node, name=body.name, kind=body.kind, metric=body.metric,
-                                     description=body.description, root=root)
+                                     description=body.description, cell=body.cell, root=root)
     return {"result": entry.model_dump(mode="json"), "commit_sha": sha}
 
 

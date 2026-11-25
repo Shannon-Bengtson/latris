@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations import contract as contract_ops
-from latris.operations._units import Quantity, UnitError, is_compatible, parse_unit, with_units
+from latris.operations._units import with_units
 from latris.operations.predictors import Candidate, Predictor
 from latris.repo import git
 from latris.repo.layout import ProjectPaths, pinned_cache_dir
@@ -38,6 +38,15 @@ def _span(lo: float | None, hi: float | None, units: str) -> str:
     if hi is None:
         return f"at least {with_units(f'{lo:g}', units)}"
     return f"{lo:g} to {with_units(f'{hi:g}', units)}"
+
+
+def _refuse_impossible(i: ContractInput, c: Candidate, shown: float, value: float) -> None:
+    """A value the model can't take at all (a probability above 1) is refused, not warned about."""
+    if c.exact and ((c.valid_min is not None and value < c.valid_min)
+                    or (c.valid_max is not None and value > c.valid_max)):
+        span = _span(c.valid_min, c.valid_max, "")
+        raise ValueError(f"input {i.name!r} = {with_units(f'{shown:g}', i.units or '')} is impossible: {c.label} "
+                         f"must be {span}")
 
 
 # ── which commit ─────────────────────────────────────────────────────
@@ -154,7 +163,7 @@ class LoadedModel:
             raise ValueError("this version of the model can't be read by this version of latris "
                              f"({latris.__version__}): {exc.errors()[0]['msg']}") from exc
         self.problems = contract_ops._problems(self.contract, self.predictor)
-        self._ins = {c.target_id: c for c in self.predictor.inputs()}
+        self._ins = {c.key: c for c in self.predictor.inputs()}
         try:
             commit, dirty = (pinned.commit, False) if pinned else (git.head_sha(source.root), git.is_dirty(source.root))
         except git.GitError:
@@ -192,19 +201,15 @@ class LoadedModel:
             number = float(given)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"input {i.name!r} needs a number, got {given!r}") from exc
-        try:
-            have, want = parse_unit(units), parse_unit(i.units or "")
-        except UnitError as exc:
-            raise ValueError(f"input {i.name!r}: {exc}") from exc
-        if not is_compatible(have, want):
+        if not contract_ops.units_compatible(units, i.units):
             raise ValueError(f"input {i.name!r} is in {i.units}; a value in {units} can't be used")
-        q = Quantity(number, have)
-        return float(q.to(want).magnitude), float(q.to(parse_unit(c.units or "")).magnitude)
+        return (contract_ops.convert(number, units, i.units),
+                contract_ops.convert(number, units, c.units or i.units))
 
     def predict(self, inputs: dict[str, Any] | None = None, *, require: str | None = None) -> dict[str, Any]:
         """Run the model on ``inputs`` (by the contract's input names) and return its outputs.
 
-        Returns ``{"outputs": {name: {value | series | distribution, units, label}}, "inputs": {name: {value,
+        Returns ``{"outputs": {name: {value | series | distribution | choice, units, label}}, "inputs": {name: {value,
         units, source}}, "warnings": [...], "provenance": {...}}``. An input left out takes the contract's
         default, else the model's own value. A value outside its valid range is used as given and reported
         in ``warnings``. ``require`` ("reviewed" or "approved") refuses a version that hasn't reached it.
@@ -218,51 +223,63 @@ class LoadedModel:
         if unknown:
             raise ValueError(f"unknown input(s) {', '.join(unknown)}; this contract takes: "
                              f"{', '.join(sorted(known)) or '(no inputs)'}")
+        values, modes, used, warnings = self._inputs(given)
+        run = self.predictor.run(values, modes, list(self.contract.outputs))
+        declared = {contract_ops.entry_key(i) for i in self.contract.inputs}
+        notes = warnings + [text for target, text in run.warnings if target not in declared]
+        if self.provenance["uncommitted_changes"]:
+            notes.append("the model has changes that aren't saved yet, so this result can't be traced to a commit")
+        return {"outputs": self._outputs(run.outputs), "inputs": used, "warnings": notes,
+                "provenance": dict(self.provenance)}
+
+    def _inputs(self, given: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str], dict[str, Any], list[str]]:
+        """What the run takes (values and modes by key), what was used for each input, and range warnings."""
         values: dict[str, Any] = {}
         modes: dict[str, str] = {}
         used: dict[str, dict[str, Any]] = {}
         warnings: list[str] = []
         for i in self.contract.inputs:
-            c = self._ins[i.target_id]
+            k = contract_ops.entry_key(i)
+            c = self._ins[k]
             raw, source = (given[i.name], "given") if i.name in given and given[i.name] is not None else (
                 (i.default, "default") if i.default is not None else (None, "model"))
             if raw is None and i.required:
                 raise ValueError(f"input {i.name!r} is required")
             if i.kind == "state":
-                modes[i.target_id] = i.mode
+                modes[k] = i.mode
                 if raw is not None:
-                    values[i.target_id] = str(raw)
+                    values[k] = str(raw)
                 used[i.name] = {"value": None if raw is None else str(raw), "units": None, "source": source}
                 continue
             if raw is None:  # the model's own value: nothing to set
                 shown = contract_ops._in_units(c.value, c.units, i.units)
             else:
-                shown, values[i.target_id] = self._number(i, c, raw)
+                shown, values[k] = self._number(i, c, raw)
+                _refuse_impossible(i, c, shown, values[k])
             used[i.name] = {"value": shown, "units": i.units, "source": source}
             lo, hi = contract_ops.effective_range(i, c)
             if shown is not None and ((lo is not None and shown < lo) or (hi is not None and shown > hi)):
                 warnings.append(f"input {i.name} = {with_units(f'{shown:g}', i.units or '')} is outside its valid "
                                 f"range ({_span(lo, hi, i.units or '')}): the result is an extrapolation")
-        run = self.predictor.run(values, modes, list(self.contract.outputs))
-        outs = {c.target_id: c for c in self.predictor.outputs()}
+        return values, modes, used, warnings
+
+    def _outputs(self, computed: dict[str, Any]) -> dict[str, Any]:
+        """Each output in the contract's units (the model computes in its own), under the field of its kind."""
+        outs = {c.key: c for c in self.predictor.outputs()}
         outputs = {}
         for o in self.contract.outputs:
-            key = {"value": "value", "series": "series", "distribution": "distribution"}[o.kind]
-            c, result = outs.get(o.target_id), run.outputs[o.name]
+            c, result = outs.get(contract_ops.entry_key(o)), computed[o.name]
             have = contract_ops.model_units(c, o.kind, o.metric) if c else None
-            try:  # the model computes in its own units; the contract's are what the caller was promised
+            try:
                 if o.kind == "series" and isinstance(result, dict):
                     result = {**result, "values": contract_ops.convert_output(result["values"], have, o.units)}
                 elif o.kind == "value":
                     result = contract_ops.convert_output(result, have, o.units)
             except ValueError as exc:
                 raise ValueError(f"output {o.name!r}: {exc}") from exc
-            outputs[o.name] = {key: result, "units": o.units, "label": c.label if c else None}
-        declared = {i.target_id for i in self.contract.inputs}
-        notes = warnings + [text for target, text in run.warnings if target not in declared]
-        if self.provenance["uncommitted_changes"]:
-            notes.append("the model has changes that aren't saved yet, so this result can't be traced to a commit")
-        return {"outputs": outputs, "inputs": used, "warnings": notes, "provenance": dict(self.provenance)}
+            # value | series | distribution | choice: the field the result is under
+            outputs[o.name] = {o.kind: result, "units": o.units, "label": c.label if c else None}
+        return outputs
 
     def predict_many(self, rows: list[dict[str, Any]], *, require: str | None = None) -> list[dict[str, Any]]:
         """``predict`` for each row of inputs, on the one loaded model."""

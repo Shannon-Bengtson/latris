@@ -28,6 +28,10 @@ Give every threat a frequency per year (`latris bowtie frequency <threat> <f> --
 
 Give barrier failure probabilities and threat frequencies a range (`latris bowtie uncertainty "Pressure relief valve" --median 0.01 --error-factor 10`, or `uniform --min --max` and other distributions), then `latris bowtie monte-carlo`: the top event's and each consequence's frequency as a 5th–95th percentile range, median and mean beside the point estimate, and which ranges drive the spread. A barrier on several lines takes one value per run everywhere it appears, as it should.
 
+## Calling it from a script (contract and predict)
+
+Once it is quantified, a bow-tie can have a contract (see **Using a Model Elsewhere**). `latris contract init bow_tie` drafts one: threat frequencies and barrier failure probabilities go in, the top event's and each consequence's frequency come out (per year). A barrier also has its status as an input, so a caller can ask what happens if it is out without knowing its failure probability. The barrier then holds two inputs, so name the one you want by its cell: `latris contract input bow_tie "Gas detection" --cell bow_tie:status`, then `latris predict --set gas_detection_status=not_in_place`.
+
 ## Readiness
 
 Complete when there is one top event, at most one hazard (linked to the top event), at least one threat and one consequence each on a line, every barrier on a line, every escalation factor linked to the barrier it degrades, and no link that breaks the pattern or loops.

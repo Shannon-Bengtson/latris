@@ -23,6 +23,10 @@ Every probability keeps where it came from; the important ones nobody has verifi
 
 Basic-event probabilities are rarely known exactly. Give them a range — `latris ft uncertainty "Pump A fails" --median 0.01 --error-factor 3` is a lognormal whose 95th percentile is three times its median, the usual way probabilistic risk assessments state it; `uniform --min --max`, `triangular`, `beta` and others also work — then `latris ft monte-carlo`. It recomputes the exact top-event probability for each sample and gives its 5th–95th percentile, median and mean beside the point estimate (with skewed ranges the mean is higher: the point estimate is not the expected value), and ranks the uncertain events by how strongly they drive the spread. Events without a range stay fixed and are listed. Ranges are judgements too: say why with `--reason` and cite with `--source`.
 
+## Calling it from a script (contract and predict)
+
+Once it is quantified, a fault tree can have a contract (see **Using a Model Elsewhere**). `latris contract init fault_tree` drafts one: each basic event's probability goes in, the top event's probability comes out. Any other gate can be an output too (`latris contract output fault_tree "Power lost"`). `latris predict --set pump_a_fails=0.05` then gives the exact top-event probability for those values. A probability below 0 or above 1 is refused: it is impossible, not an extrapolation.
+
 ## Readiness
 
 The tree is complete when it has one top event, every top and intermediate event has a gate and inputs (and a vote gate's k fits), basic and undeveloped events have no inputs, nothing loops, and every event leads to the top event. Probabilities aren't needed to be ready — the cut sets are useful on their own.

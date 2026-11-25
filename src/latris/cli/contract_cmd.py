@@ -18,6 +18,8 @@ app = typer.Typer(help="A model's contract: the inputs a caller may give it and 
                   no_args_is_help=True)
 console = Console()
 
+_MODEL_TYPES = ("A model type that computes outputs: equation_model, sd, bn, fcm, fault_tree, bow_tie, event_tree, "
+                "decision_tree, markov or mcda")
 _TYPE = typer.Option(None, "--model-type", "-m", help="Which model, when the project has contracts for several.")
 
 
@@ -50,7 +52,8 @@ def _print_contract(d: dict) -> None:
     for o in d["outputs"]:
         returns = {"value": (display(o["units"] or "") or "a number") + (f" ({o['metric']})" if o["metric"] else ""),
                    "series": f"a series in {display(o['units'] or '') or 'numbers'}",
-                   "distribution": f"the probability of {' | '.join(o['states'])}"}[o["kind"]]
+                   "distribution": f"the probability of {' | '.join(o['states'])}",
+                   "choice": f"one of {' | '.join(o['states'])}"}[o["kind"]]
         t.add_row(o["name"], escape(o["label"] or "?"), escape(returns))
     console.print(t)
     for p in d["problems"]:
@@ -60,7 +63,7 @@ def _print_contract(d: dict) -> None:
 @app.command("init")
 @handle_cli_errors
 def init(
-    model_type: str = typer.Argument(..., help="equation_model | sd | bn"),
+    model_type: str = typer.Argument(..., help=_MODEL_TYPES),
     replace: bool = typer.Option(False, "--replace", help="Draft it again over the contract that is there."),
 ) -> None:
     """Draft a contract from the model: what it treats as given goes in, what it is for comes out.
@@ -102,7 +105,7 @@ def show(
 
 @app.command("available")
 @handle_cli_errors
-def available(model_type: str = typer.Argument(..., help="equation_model | sd | bn")) -> None:
+def available(model_type: str = typer.Argument(..., help=_MODEL_TYPES)) -> None:
     """List everything this model could expose as an input or an output, and what the contract already has."""
     from latris.operations import contract
 
@@ -111,10 +114,13 @@ def available(model_type: str = typer.Argument(..., help="equation_model | sd | 
     def human() -> None:
         for what in ("inputs", "outputs"):
             t = Table(show_header=True, header_style="bold", title=f"Possible {what}", title_justify="left")
-            for c in ("Factor", "What it is", "Kind", "Units / states", "In the contract as"):
+            cells = any(r["cell"] for r in d[what])
+            for c in ("Factor", *(("Cell",) if cells else ()), "What it is", "Kind", "Units / states",
+                      "In the contract as"):
                 t.add_column(c)
             for r in d[what]:
-                t.add_row(escape(r["label"]), r["role"], " | ".join(r["kinds"]),
+                t.add_row(escape(r["label"]), *((escape(r["cell"] or ""),) if cells else ()), r["role"],
+                          " | ".join(r["kinds"]),
                           escape(r["units"] or " | ".join(r["states"])), ", ".join(r["in_contract"]) or "—")
             console.print(t)
         for p in d["problems"]:
@@ -126,8 +132,9 @@ def available(model_type: str = typer.Argument(..., help="equation_model | sd | 
 @app.command("input")
 @handle_cli_errors
 def input_(
-    model_type: str = typer.Argument(..., help="equation_model | sd | bn"),
-    target: str = typer.Argument(..., help="The factor a caller sets: node ID, ID prefix, or label."),
+    model_type: str = typer.Argument(..., help=_MODEL_TYPES),
+    target: str = typer.Argument(..., help="The factor a caller sets: node ID, ID prefix, or label; `model` for a "
+                                           "model-wide setting."),
     name: str = typer.Option(None, "--name", help="What callers call it (default: the label, as flow_depth)."),
     units: str = typer.Option(None, "--units", help="The units a bare number is read in (default: the model's)."),
     default: str = typer.Option(None, "--default", help="Used when the caller gives nothing (default: the "
@@ -138,6 +145,8 @@ def input_(
                                                             "or sees (evidence, the default)."),
     required: bool = typer.Option(None, "--required/--optional", help="Must the caller always give it?"),
     description: str = typer.Option(None, "--description", "-d"),
+    cell: str = typer.Option(None, "--cell", help="Which of the factor's parameters, when it has several (see "
+                                                  "`contract available`), e.g. markov:transition:<strategy>."),
 ) -> None:
     """Add a factor to the contract as an input, or change the input it already is (only what you give)."""
     from latris.operations import contract
@@ -154,7 +163,7 @@ def input_(
         kwargs["valid_max"] = valid_max
     entry, sha = contract.set_input(model_type, target, name=name, units=units, required=required,
                                     mode=None if set_ is None else "set" if set_ else "observe",
-                                    description=description, **kwargs)
+                                    description=description, cell=cell, **kwargs)
     emit(entry, human=lambda: console.print(f"[green]input[/green] {entry.name} ← {escape(target)} · {_sha(sha)}"),
          commit_sha=sha)
 
@@ -162,13 +171,16 @@ def input_(
 @app.command("output")
 @handle_cli_errors
 def output(
-    model_type: str = typer.Argument(..., help="equation_model | sd | bn"),
+    model_type: str = typer.Argument(..., help=_MODEL_TYPES),
     target: str = typer.Argument(..., help="The factor returned: node ID, ID prefix, or label."),
     name: str = typer.Option(None, "--name", help="What callers call it (default: the label, as peak_demand)."),
-    kind: str = typer.Option(None, "--kind", help="value | series | distribution (default: what the factor gives)."),
+    kind: str = typer.Option(None, "--kind", help="value | series | distribution | choice (default: what the "
+                                                  "factor gives)."),
     metric: str = typer.Option(None, "--metric", help="System dynamics: which value of the run: final | peak | "
                                                       "peak-time | min | mean | total | at:T."),
     description: str = typer.Option(None, "--description", "-d"),
+    cell: str = typer.Option(None, "--cell", help="Which of the factor's results, when it has several (see "
+                                                  "`contract available`)."),
 ) -> None:
     """Add an output to the contract, or change the one with that name.
 
@@ -177,7 +189,8 @@ def output(
     """
     from latris.operations import contract
 
-    entry, sha = contract.set_output(model_type, target, name=name, kind=kind, metric=metric, description=description)
+    entry, sha = contract.set_output(model_type, target, name=name, kind=kind, metric=metric, description=description,
+                                     cell=cell)
     emit(entry, human=lambda: console.print(f"[green]output[/green] {entry.name} ← {escape(target)} "
                                             f"({entry.kind}) · {_sha(sha)}"), commit_sha=sha)
 
@@ -185,7 +198,7 @@ def output(
 @app.command("remove")
 @handle_cli_errors
 def remove(
-    model_type: str = typer.Argument(..., help="equation_model | sd | bn"),
+    model_type: str = typer.Argument(..., help=_MODEL_TYPES),
     name: str = typer.Argument(..., help="The input's or output's name in the contract."),
 ) -> None:
     """Take an input or an output out of the contract. Callers that use it will break: see `contract diff`."""
@@ -285,12 +298,14 @@ def predict(
         t.add_column("Result")
         for name, o in result["outputs"].items():
             if "value" in o:
-                shown = with_units(_g(o["value"]), o["units"] or "dimensionless")
+                shown = "—" if o["value"] is None else with_units(_g(o["value"]), o["units"] or "dimensionless")
             elif "series" in o:
                 s = o["series"]
                 shown = (f"{len(s['values'])} points, {_g(s['values'][0])} → "
                          f"{with_units(_g(s['values'][-1]), o['units'] or 'dimensionless')} over {_g(s['times'][-1])} "
                          f"{s['time_units']}")
+            elif "choice" in o:
+                shown = str(o["choice"])
             else:
                 shown = ", ".join(f"{k} {v:.1%}" for k, v in o["distribution"].items())
             t.add_row(f"{name}\n[dim]{escape(o['label'] or '')}[/dim]", escape(shown))

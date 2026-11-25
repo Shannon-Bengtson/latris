@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import math
 import random
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -562,31 +561,9 @@ def _dt_inputs(t, rs: list[ParameterUncertainty]):
             labels[key] = f"{t.uncertainty[e.target_id]} (branch probabilities)"
             points[key] = None
 
-    def apply(d: dict[str, Any]):
-        payoffs = dict(t.payoffs)
-        branches = dict(t.branches)
-        for key, v in d.items():
-            target, cell = key.split("|", 1)
-            q = describe_cell(cell)[0]
-            if q == "payoff":
-                payoffs[target] = payoffs[target].model_copy(update={"value": v})
-            elif q == "value":
-                branches[target] = branches[target].model_copy(update={"value": v})
-            else:
-                n = target if q == "probabilities" else parent[target]
-                if q == "probabilities":
-                    by_label = {t.branch_label(x, c): p for (x, c), p in zip(t.children[n], v, strict=True)}
-                else:
-                    chosen = t.branch_label(target, dict(t.children[n])[target])
-                    p = min(max(v, 0.0), 1.0)
-                    by_label = {t.branch_label(x, c): (p if t.branch_label(x, c) == chosen else 1.0 - p)
-                                for x, c in t.children[n]}
-                for s in siblings(n):
-                    for x, c in t.children[s]:
-                        lab = t.branch_label(x, c)
-                        if lab in by_label:
-                            branches[x] = branches[x].model_copy(update={"probability": by_label[lab]})
-        return replace(t, payoffs=payoffs, branches=branches)
+    from latris.operations.predictors.decision_tree import DecisionTreePredictor
+
+    apply = DecisionTreePredictor(t).apply  # the same code a prediction runs through
 
     return scalar, sets, labels, points, apply
 
@@ -723,22 +700,12 @@ def _mk_inputs(m, rs: list[ParameterUncertainty]):
                 raise ValueError(f"{labels[clash]} has a range of its own and is also in {labels[key]}'s Dirichlet; "
                                  "keep one")
 
+    from latris.operations.predictors.markov import MarkovPredictor
+
+    predictor = MarkovPredictor(m)  # a draw is applied by the same code a prediction runs through
+
     def apply(d: dict[str, Any]):
-        transitions = dict(m.transitions)
-        rewards = dict(m.rewards)
-        for key, v in d.items():
-            target, cell = key.split("|", 1)
-            q, sid = describe_cell(cell)
-            if q == "transition":
-                transitions[(target, sid)] = transitions[(target, sid)].model_copy(
-                    update={"probability": min(max(v, 0.0), 1.0)})
-            elif q in ("cost", "utility"):
-                rewards[(target, sid)] = rewards[(target, sid)].model_copy(update={q: v})
-            else:
-                for x, p in zip(leaving[key], v, strict=False):
-                    cur = transitions.get((x, sid)) or transitions[(x, None)]
-                    transitions[(x, sid)] = cur.model_copy(update={"probability": p, "strategy": sid})
-        return replace(m, transitions=transitions, rewards=rewards)
+        return predictor.apply(d, leaving)
 
     return scalar, sets, labels, points, leaving, apply
 

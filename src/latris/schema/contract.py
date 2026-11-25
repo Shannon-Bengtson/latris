@@ -5,8 +5,13 @@ pipeline that pins a version of the model pins its contract too (``docs/engineer
 
 An **input** names one thing a caller can set: a number with units (an equation model's input, a system
 dynamics constant or a stock's starting value) or one of a factor's states (a Bayesian network: observed,
-or set as an intervention). An **output** names one thing the run returns: a value, a time series, or a
-probability distribution over a factor's states.
+or set as an intervention). An **output** names one thing the run returns: a value, a time series, a
+probability distribution over a factor's states, or a choice (one option's label).
+
+A factor can hold several parameters (a Markov edge's transition probability under each strategy; a
+decision-tree branch's probability and its value), so an entry may also name a ``cell``: which of the
+factor's parameters it is, in the vocabulary uncertainty ranges use (``markov:transition:<strategy>``,
+``event_tree:probability:<given>``). An entry is identified by its factor and its cell together.
 
 Names are the interface: they are what a caller writes, so they are stable identifiers
 (``flow_depth``), kept when the factor is renamed. Only intrinsic shape is enforced here; whether a target
@@ -23,7 +28,7 @@ from pydantic import Field, field_validator, model_validator
 from latris.schema.attributes import _Base
 
 InputKind = Literal["value", "state"]
-OutputKind = Literal["value", "series", "distribution"]
+OutputKind = Literal["value", "series", "distribution", "choice"]
 StateMode = Literal["observe", "set"]
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -46,6 +51,7 @@ class ContractInput(_Base):
 
     name: str
     target_id: str
+    cell: str | None = None  # which of the factor's parameters (None: the factor's only one)
     kind: InputKind = "value"
     units: str | None = None  # kind "value": the units a bare number is read in
     mode: StateMode = "observe"  # kind "state": seen (evidence) or made so (an intervention)
@@ -81,11 +87,12 @@ class ContractOutput(_Base):
 
     ``metric`` turns a time series into a value (system dynamics): final, peak, peak-time, min, mean,
     total or at:T. A ``series`` output returns the whole run; a ``distribution`` the probability of each
-    state.
+    state; a ``choice`` the label of one option (a decision tree's best option).
     """
 
     name: str
     target_id: str
+    cell: str | None = None  # which of the factor's results (None: the factor's only one)
     kind: OutputKind = "value"
     units: str | None = None
     metric: str | None = None
@@ -99,6 +106,8 @@ class ContractOutput(_Base):
             raise ValueError(f"output {self.name!r}: a metric makes a value of a series, so its kind is 'value'")
         if self.kind == "distribution" and self.units:
             raise ValueError(f"output {self.name!r} is a distribution: probabilities have no units")
+        if self.kind == "choice" and self.units:
+            raise ValueError(f"output {self.name!r} is a choice: an option's name has no units")
         return self
 
 
@@ -117,8 +126,7 @@ class Contract(_Base):
             dup = sorted({n for n in names if names.count(n) > 1})
             if dup:
                 raise ValueError(f"{what} name(s) used twice: {', '.join(dup)}")
-            targets = [i.target_id for i in items] if what == "input" else []
-            twice = sorted({t for t in targets if targets.count(t) > 1})
-            if twice:
-                raise ValueError("a factor can be one input only")
+            targets = [(i.target_id, i.cell) for i in items] if what == "input" else []
+            if len(set(targets)) < len(targets):
+                raise ValueError("a factor (or one of its parameters) can be one input only")
         return self

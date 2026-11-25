@@ -90,9 +90,9 @@ repository. Start at the repo-root [README](../README.md).
 - Contract and predict: a model declares named inputs and outputs, and can
   then be run on a caller's values without recording anything, on a pinned
   version (a milestone or a commit) if asked; `contract diff` says whether a
-  newer version breaks a caller. Equation models, system dynamics and
-  Bayesian networks — via CLI `contract` and `predict`, `/api/contract*`,
-  `/api/predict`, and Python `latris.load()` ([design](engineering/PREDICT.md)).
+  newer version breaks a caller. Every model type that computes outputs
+  from inputs — via CLI `contract` and `predict`, `/api/contract*`,
+  `/api/predict`, and Python `latris.load()` ([design](engineering/PREDICT.md); [plan for the remaining types](engineering/PREDICT_NEXT.md)).
 - Global sensitivity analysis over the same ranges: Sobol indices (each
   input's share of a result's variance, alone and with interactions) or
   Morris screening, for the risk types, decision trees, Markov, SD and

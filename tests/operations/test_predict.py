@@ -80,7 +80,7 @@ def test_a_contract_is_drafted_from_the_model_then_edited(project):
         (lambda: contract.set_output("equation_model", "Discharge", metric="peak", root=project), "has no metric"),
         (lambda: contract.set_output("equation_model", "Discharge", kind="series", root=project), "not a series"),
         (lambda: contract.remove("equation_model", "nope", root=project), "no input or output named"),
-        (lambda: contract.init("mcda", root=project), "has no contract"),
+        (lambda: contract.init("cld", root=project), "has no contract"),
     ):
         with pytest.raises(ValueError, match=message):
             call()
@@ -317,7 +317,8 @@ def test_a_bayesian_network_takes_states_and_returns_distributions(system):
 def test_only_types_with_a_forward_calculation_have_a_predictor():
     from latris.operations import formalisms
 
-    assert {f.model_type for f in formalisms.all_formalisms() if f.predictor} == {"equation_model", "sd", "bn"}
+    assert {f.model_type for f in formalisms.all_formalisms() if f.predictor} == {
+        "equation_model", "sd", "bn", "fcm", "fault_tree", "bow_tie", "event_tree", "decision_tree", "markov", "mcda"}
 
 
 # ── routes and CLI ───────────────────────────────────────────────────
@@ -329,7 +330,9 @@ def test_routes(project):
     from latris.server.app import create_app
 
     c = TestClient(create_app(project_root=project))
-    assert c.get("/api/contract/types").json() == {"available": ["sd", "bn", "equation_model"], "declared": []}
+    assert c.get("/api/contract/types").json() == {
+        "available": ["sd", "bn", "fault_tree", "bow_tie", "event_tree", "mcda", "decision_tree", "markov",
+                      "equation_model", "fcm"], "declared": []}
     assert c.get("/api/contract").status_code == 422  # no contract yet
     cands = c.get("/api/contract/candidates", params={"model_type": "equation_model"}).json()
     assert [x["label"] for x in cands["inputs"]] == ["Depth", "Width", "Velocity"]
