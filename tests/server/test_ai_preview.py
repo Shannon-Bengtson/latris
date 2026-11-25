@@ -254,6 +254,28 @@ def test_reject_marks_interaction_rejected(client: TestClient, project: Path) ->
     assert interactions[0]["adoption"] == "rejected"
 
 
+def test_reject_records_optional_reason(client: TestClient, project: Path) -> None:
+    """The GUI's rejection-reason picker (TELEMETRY.md Phase 3) stores its note."""
+    _register_draft(project)
+
+    resp = client.post(
+        "/api/ai/call",
+        json={
+            "prompt_name": "DraftConceptualModel",
+            "inputs": {"focus": "pricing"},
+            "auto_apply": False,
+        },
+    )
+    interaction_id = resp.json()["interaction_id"]
+
+    resp = client.post(f"/api/ai/reject/{interaction_id}", json={"reason": "wrong-scope"})
+    assert resp.status_code == 200
+
+    interactions = client.get("/api/ai/interactions").json()
+    assert interactions[0]["adoption"] == "rejected"
+    assert interactions[0]["rejection_reason"] == "wrong-scope"
+
+
 # ── Error cases ──────────────────────────────────────────────────────
 
 
