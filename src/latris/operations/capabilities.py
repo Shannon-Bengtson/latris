@@ -283,6 +283,10 @@ def _options_schema(analysis: str, model_type: str, analysis_model) -> dict[str,
     if model.__name__ == "GsaAnalysis":
         unread = unread_options(model_type)
         schema["properties"] = {k: v for k, v in schema.get("properties", {}).items() if k not in unread}
+        # The spec's own description lists every type's options; here it is one type's.
+        schema["description"] = ("Which inputs' uncertainty moves the result most: Sobol indices (each input's "
+                                 "share of the spread, alone and with the others) or a cheaper Morris screen, "
+                                 "over every input that has a range.")
     return schema
 
 
