@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from latris.operations._sd_eval import slugify
 from latris.operations._units import UnitError, is_compatible, parse_unit
 from latris.operations._view_store import resolve_factor
@@ -394,12 +396,17 @@ def set_input(
     changed = {k: v for k, v in given.items() if v is not None}
     changed |= {k: v for k, v in (("default", default), ("valid_min", valid_min), ("valid_max", valid_max))
                 if v is not _UNSET}
-    entry = ContractInput.model_validate({**base, **changed})
+    try:
+        entry = ContractInput.model_validate({**base, **changed})
+    except ValidationError as e:
+        # Say what is wrong in the schema's own words, not pydantic's report of it.
+        raise ValueError("; ".join(err["msg"].removeprefix("Value error, ") for err in e.errors())) from e
     if entry.kind == "value" and not is_compatible(parse_unit(entry.units or ""), parse_unit(c.units or "")):
         raise ValueError(f"{c.label} is in {c.units}; an input in {entry.units} can't set it")
     if entry.kind == "state" and entry.default is not None and entry.default not in c.states:
         raise ValueError(f"{entry.default!r} is not a state of {c.label} (states: {', '.join(c.states)})")
-    contract.inputs = [i for i in contract.inputs if i is not current] + [entry]
+    # An input being changed keeps its place in the list; a new one goes last.
+    contract.inputs = [entry if i is current else i for i in contract.inputs] if current else [*contract.inputs, entry]
     sha = _save(paths, contract, f"Contract for {model_type}: input {entry.name} ({c.label})")
     return entry, sha
 
@@ -454,7 +461,7 @@ def set_output(
     if description is not None or current:
         entry = entry.model_copy(update={"description": description if description is not None
                                          else current.description if current else ""})
-    contract.outputs = [o for o in contract.outputs if o is not current] + [entry]
+    contract.outputs = [entry if o is current else o for o in contract.outputs] if current else [*contract.outputs, entry]
     sha = _save(paths, contract, f"Contract for {model_type}: output {entry.name} ({c.label})")
     return entry, sha
 
@@ -525,8 +532,6 @@ def compare(base: str, head: str | None = None, *, model_type: str | None = None
 def _output_unit_problems(paths: ProjectPaths, model_type: str, sha: str, contract: Contract) -> dict[str, str] | None:
     """Output name → why the model at ``sha`` can't give it in the contract's units; None if that version
     can't be loaded (written by another latris, say), in which case nothing is claimed about it."""
-    from pydantic import ValidationError
-
     from latris.operations.predict import materialise
 
     try:

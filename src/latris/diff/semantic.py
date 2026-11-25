@@ -164,7 +164,7 @@ def _diff_substrate(
             events.append(
                 SemanticEvent(
                     "node_renamed",
-                    f'Renamed node {_id_short(old_e.id)}: "{old_e.label}" → "{new_e.label}"',
+                    f'Renamed "{old_e.label}" → "{new_e.label}"',
                     path,
                     {"id": new_e.id},
                 )

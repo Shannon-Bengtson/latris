@@ -63,7 +63,12 @@ def test_a_contract_is_drafted_from_the_model_then_edited(project):
     speed = next(i for i in contract.describe(root=project)["inputs"] if i["name"] == "speed")
     assert speed["default"] == pytest.approx(3.24)  # the model's 0.9 m/s, in the contract's units
     contract.set_input("equation_model", "Depth", default=2.0, root=project)  # the same input, changed
-    assert [i.name for i in contract.get("equation_model", root=project).inputs] == ["width", "speed", "depth"]
+    # ...and it keeps its place: a table of inputs doesn't reshuffle under the person editing a row.
+    assert [i.name for i in contract.get("equation_model", root=project).inputs] == ["depth", "width", "speed"]
+    # A range the wrong way round is refused in plain words (no pydantic report), and nothing changes.
+    with pytest.raises(ValueError, match="^input 'depth': the valid range needs its minimum below its maximum$"):
+        contract.set_input("equation_model", "Depth", valid_min=5, valid_max=3, root=project)
+    assert contract.get("equation_model", root=project).inputs[0].default == 2.0
     contract.set_output("equation_model", "Flow area", root=project)
     assert {o.name for o in contract.get("equation_model", root=project).outputs} == {"discharge", "flow_area"}
 
@@ -348,7 +353,7 @@ def test_routes(project):
     assert c.delete("/api/contract/equation_model/flow_area").status_code == 422
 
     shown = c.get("/api/contract").json()
-    assert [i["name"] for i in shown["inputs"]] == ["width", "speed", "depth"] and shown["provenance"]["commit"]
+    assert [i["name"] for i in shown["inputs"]] == ["depth", "width", "speed"] and shown["provenance"]["commit"]
     assert [i["name"] for i in c.get("/api/contract", params={"ref": v1}).json()["inputs"]] == ["depth", "width"]
     d = c.get("/api/contract/compare", params={"base": v1}).json()
     assert d["verdict"] == "compatible" and "input speed was added" in d["compatible"]
