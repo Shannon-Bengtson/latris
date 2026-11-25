@@ -143,6 +143,16 @@ src/latris/ai/
     └── __init__.py     # get_adapter() picks mock or litellm from env
 ```
 
+## Telemetry
+
+`schema/events.py` defines the telemetry event envelope and the versioned
+payload registry (mirroring ``register_prompt``); `telemetry/` is the
+emitter (local `.graph-tooling/telemetry.jsonl` mirror — gitignored — plus
+optional opt-in upload to the hosted service). Every terminal AI call
+mirrors to an `ai.call.completed` event, and `AIInteraction` carries
+`at` / `surface` / `session_id` / `latency_ms` / `rejection_reason`.
+See `docs/engineering/TELEMETRY.md`.
+
 ## Prompt chains
 
 Beyond single-shot prompts, `chains.py` defines a small set of fixed
