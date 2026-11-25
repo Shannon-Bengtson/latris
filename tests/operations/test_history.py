@@ -117,3 +117,40 @@ def test_routes(project: Path) -> None:
     r = client.post("/api/history/redo")
     assert r.status_code == 409 and r.json()["detail"] == "Nothing to redo."
     assert sorted(n["label"] for n in client.get("/api/nodes").json()) == ["A", "B"]
+
+
+def test_removing_several_at_once_is_one_step(project: Path) -> None:
+    from latris.operations import edges as edge_ops
+
+    for label in ("A", "B", "C", "D"):
+        node_ops.add_node(label, root=project)
+    ab, _ = edge_ops.add_edge("A", "B", root=project)
+    cd, _ = edge_ops.add_edge("C", "D", root=project)
+    before = _count(project)
+    # Two factors (A takes A→B with it) and a link of two factors that stay.
+    nodes, edges, _ = node_ops.remove_many(["A", "B"], [ab.id, cd.id], root=project)
+    assert _count(project) == before + 1
+    assert _labels(project) == {"C", "D"}
+    assert set(edges) == {ab.id, cd.id} and len(nodes) == 2
+    assert "Removed 2 factors and 1 link" in history_ops.status(project).undo
+    history_ops.undo(project)
+    assert _labels(project) == {"A", "B", "C", "D"}
+    assert {e.id for e in edge_ops.list_edges(root=project)} == {ab.id, cd.id}
+
+
+def test_removing_one_thing_through_remove_many_reads_as_usual(project: Path) -> None:
+    node_ops.add_node("A", root=project)
+    node_ops.remove_many(["A"], root=project)
+    assert history_ops.status(project).undo.startswith("Removed node")
+
+
+def test_remove_many_route(project: Path) -> None:
+    client = TestClient(create_app(project_root=project))
+    for label in ("A", "B"):
+        client.post("/api/nodes", json={"label": label})
+    r = client.post("/api/nodes/remove", json={"nodes": ["A", "B"]})
+    assert r.status_code == 200, r.text
+    assert len(r.json()["removed_node_ids"]) == 2
+    assert client.post("/api/history/undo").status_code == 200
+    assert sorted(n["label"] for n in client.get("/api/nodes").json()) == ["A", "B"]
+    assert client.post("/api/nodes/remove", json={}).status_code == 422
