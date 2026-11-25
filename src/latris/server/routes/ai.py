@@ -320,7 +320,7 @@ class ChainStartRequest(BaseModel):
 
 
 @router.get("/chains")
-def list_chains_endpoint() -> list[dict[str, str | bool]]:
+def list_chains_endpoint() -> list[dict[str, Any]]:
     """List available prompt chains."""
     from latris.ai.chains import list_chains
 
