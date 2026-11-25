@@ -126,21 +126,25 @@ def test_add_turn_to_resolved_challenge_422(client: TestClient, project_with_edg
 # ── T14: Undo edge cases ────────────────────────────────────────────
 
 
-def test_undo_on_initial_commit_succeeds(client: TestClient) -> None:
-    """Modern git can revert even the root commit."""
+def test_undo_with_nothing_to_undo_is_refused(client: TestClient) -> None:
+    """The project's first commit is a floor: undo says there is nothing more, and changes nothing."""
     resp = client.post("/api/history/undo")
-    assert resp.status_code == 200
+    assert resp.status_code == 409
+    assert "Nothing more to undo" in resp.json()["detail"]
 
 
-def test_double_undo_restores_state(client: TestClient, project: Path) -> None:
-    """Undo twice should restore the original state."""
+def test_undo_then_redo_restores_state(client: TestClient, project: Path) -> None:
+    """Undo takes the action away; redo (not a second undo) puts it back."""
     client.post("/api/nodes", json={"label": "Ghost"})
     assert len(client.get("/api/nodes").json()) == 1
 
     client.post("/api/history/undo")  # undo the add
     assert len(client.get("/api/nodes").json()) == 0
 
-    client.post("/api/history/undo")  # undo the undo
+    assert client.post("/api/history/undo").status_code == 409  # nothing before it
+    assert len(client.get("/api/nodes").json()) == 0
+
+    client.post("/api/history/redo")
     assert len(client.get("/api/nodes").json()) == 1
 
 

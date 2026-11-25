@@ -290,7 +290,19 @@ def add_data_link(
     if not any(d.id == dataset_id for d in library.entries):
         raise ValueError(f"unknown dataset {dataset_id!r}. Add a dataset first with `latris data add ...`")
 
+    dataset = next(d for d in library.entries if d.id == dataset_id)
+    column_names = [c.strip() for c in (column_names or []) if c and c.strip()]
+    known = {c.name for c in dataset.columns}
+    unknown = [c for c in column_names if c not in known]
+    if unknown:
+        raise ValueError(
+            f"{dataset.name!r} has no column {', '.join(repr(c) for c in unknown)}. "
+            f"Its columns: {', '.join(sorted(known))}"
+        )
+
     store = load_model_or_default(DataLinkSet, paths.data_links_yaml)
+    if any(_same_data_link(e, target_id, dataset_id, column_names) for e in store.entries):
+        raise ValueError("That data evidence is already attached here.")
 
     link = DataLink(
         target_id=target_id,
@@ -313,3 +325,48 @@ def add_data_link(
         paths=[paths.data_links_yaml],
     )
     return link, sha
+
+
+def _same_data_link(link: DataLink, target_id: str | None, dataset_id: str, column_names: list[str]) -> bool:
+    return (
+        link.target_id == target_id
+        and link.dataset_id == dataset_id
+        and sorted(link.column_names) == sorted(column_names)
+    )
+
+
+def remove_data_link(
+    target: str | None,
+    dataset_id: str,
+    *,
+    column_names: list[str] | None = None,
+    rationale: str | None = None,
+    root: Path | None = None,
+) -> tuple[DataLink, str]:
+    """Detach a data-evidence link, found by (target, dataset, columns). The rationale goes in the commit body."""
+    from latris.operations.errors import NotFoundError
+
+    paths = require_project(root)
+    if target:
+        substrate = load_model(Substrate, paths.conceptual_yaml)
+        target_id: str | None = _resolve_target_id(target, substrate)
+    else:
+        target_id = None
+    store = load_model_or_default(DataLinkSet, paths.data_links_yaml)
+    columns = column_names or []
+    found = next((e for e in store.entries if _same_data_link(e, target_id, dataset_id, columns)), None)
+    if found is None:
+        raise NotFoundError("no such data evidence is attached here")
+    store.entries.remove(found)
+    dump_model(store, paths.data_links_yaml)
+    target_label = f"{target_id[:15]}…" if target_id else "model"
+    body = f"target: {target_id or 'model'}\ndataset: {dataset_id}\ncolumns: {', '.join(columns) or '-'}"
+    if rationale:
+        body += f"\nrationale: {rationale}"
+    sha = auto_commit(
+        paths.root,
+        subject=f"Detached data evidence {dataset_id[:20]} from {target_label}",
+        body=body,
+        paths=[paths.data_links_yaml],
+    )
+    return found, sha

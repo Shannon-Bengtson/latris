@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from latris.operations.evidence import (
     add_data_link,
     add_evidence,
+    remove_data_link,
     remove_evidence,
     set_evidence_support_verdict,
 )
@@ -100,4 +101,24 @@ class RemoveCitationRequest(CitationRef):
 def remove_citation(body: RemoveCitationRequest, root: Root) -> dict[str, Any]:
     """Detach a citation from a claim, as a recorded change."""
     link, sha = remove_evidence(body.target, body.attribute, body.bibkey, rationale=body.rationale, root=root)
+    return {"result": link.model_dump(mode="json"), "commit_sha": sha}
+
+
+class RemoveDataLinkRequest(BaseModel):
+    target: str | None = None
+    dataset_id: str
+    column_names: list[str] = []
+    rationale: str | None = None
+
+
+@router.post("/data-links/remove")
+def detach_data_link(body: RemoveDataLinkRequest, root: Root) -> dict[str, Any]:
+    """Detach data evidence from an element (or the model), found by dataset and columns."""
+    link, sha = remove_data_link(
+        body.target,
+        body.dataset_id,
+        column_names=body.column_names,
+        rationale=body.rationale,
+        root=root,
+    )
     return {"result": link.model_dump(mode="json"), "commit_sha": sha}

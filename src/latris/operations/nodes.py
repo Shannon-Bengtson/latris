@@ -31,7 +31,7 @@ def _ensure_label_free(label: str, substrate: Substrate, *, except_id: str | Non
     key = _label_key(label)
     for e in substrate.entities:
         if e.id != except_id and _label_key(e.label) == key:
-            raise ValueError(f'a node is already called "{e.label}" ({e.id}); labels must be unique')
+            raise ValueError(f'a node is already called "{e.label}"; labels must be unique')
 
 
 def list_nodes(root: Path | None = None) -> list[Entity]:

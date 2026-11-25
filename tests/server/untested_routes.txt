@@ -9,7 +9,6 @@ GET /api/bn/cpts
 GET /api/bowtie/uncertainty
 GET /api/compose/suggest-nodes
 GET /api/mcda/model
-GET /api/references/search
 GET /api/sync/members
 GET /api/sync/projects
 GET /api/sync/report-link
@@ -29,7 +28,6 @@ POST /api/dt/uncertainty
 POST /api/et/element
 POST /api/et/frequency
 POST /api/et/order
-POST /api/evidence/data-links
 POST /api/ft/event
 POST /api/lineage/add-to-workspace
 POST /api/lineage/get-latest
@@ -42,8 +40,6 @@ POST /api/markov/reward
 POST /api/markov/start
 POST /api/markov/transition
 POST /api/mcda/element
-POST /api/references/import-bibtex
-POST /api/references/import-doi
 POST /api/references/{bibkey}/fetch
 POST /api/results/{run_id}/unhide
 POST /api/sync/abort
