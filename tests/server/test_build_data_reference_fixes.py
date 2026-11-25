@@ -83,6 +83,11 @@ def test_a_reference_url_is_a_web_address(client: TestClient) -> None:
     assert bad.status_code == 422 and "http://" in bad.json()["detail"]
     assert client.post("/api/references", json={"bibkey": "x2024", "title": "T", "url": "https://example.org/a"}).status_code == 201
     assert client.put("/api/references/x2024", json={"url": "data:text/html,hi"}).status_code == 422
+    assert client.put("/api/references/x2024", json={"url": "ftp://example.org/a"}).status_code == 422
+    bare = client.put("/api/references/x2024", json={"url": "www.who.int/guidelines"})
+    assert bare.status_code == 200 and bare.json()["result"]["url"] == "https://www.who.int/guidelines"
+    port = client.put("/api/references/x2024", json={"url": "example.org:8080/x"})
+    assert port.json()["result"]["url"] == "https://example.org:8080/x"
 
 
 def test_removing_a_cited_reference_is_refused_in_plain_words(client: TestClient) -> None:
@@ -100,6 +105,12 @@ def test_bibtex_latex_is_decoded(client: TestClient) -> None:
     assert ref["title"] == "Exposure to PM2.5 in Munich"
     assert ref["authors"] == ["Müller, José", "Doe, A."]
     assert ref["container"] == "Air Journal"
+
+
+def test_bibtex_import_drops_a_url_that_is_not_a_web_address(client: TestClient) -> None:
+    bib = "@misc{a1, title={A}, url={javascript:alert(1)}}\n@misc{b1, title={B}, url={https://example.org/b}}"
+    refs = {r["bibkey"]: r for r in client.post("/api/references/import-bibtex", json={"bibtex": bib}).json()["result"]}
+    assert refs["a1"]["url"] is None and refs["b1"]["url"] == "https://example.org/b"
 
 
 def test_a_lookup_that_cannot_reach_the_service_says_so(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

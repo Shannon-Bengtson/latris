@@ -99,9 +99,20 @@ def _clean_url(url: str | None) -> str | None:
     if url is None or not url.strip():
         return None if url is None else ""
     url = url.strip()
-    if urlsplit(url).scheme.lower() not in {"http", "https"}:
-        raise ValueError("A reference's URL must start with http:// or https://")
-    return url
+    if re.match(r"(?i)https?://", url):
+        return url
+    # "www.who.int/guidelines" or "example.org:8080/x": a web address typed without its scheme.
+    if "://" not in url and not re.match(r"[A-Za-z][A-Za-z0-9+.\-]*:(?!\d)", url):
+        return f"https://{url}"
+    raise ValueError("A reference's URL must start with http:// or https://")
+
+
+def _web_url_or_none(url: str | None) -> str | None:
+    """For an import: keep a web address, drop anything else rather than refuse the whole file."""
+    try:
+        return _clean_url(url) or None
+    except ValueError:
+        return None
 
 
 def add_reference(
@@ -605,7 +616,7 @@ def import_bibtex(
             year=year,
             container=container,
             doi=entry.get("doi"),
-            url=entry.get("url"),
+            url=_web_url_or_none(entry.get("url")),
             abstract=abstract,
             imported_from="bibtex",
         )
