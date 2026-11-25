@@ -610,7 +610,7 @@ the code it describes win, and this page is wrong.
 - Campolongo, F., Cariboni, J., & Saltelli, A. (2007). "An effective screening
   design for sensitivity analysis of large models." *Environmental Modelling
   & Software*, 22(10), 1509–1518.
-- Cayrol, G., & Lagasquie-Schiex, M.-C. (2005). "On the acceptability of
+- Cayrol, C., & Lagasquie-Schiex, M.-C. (2005). "On the acceptability of
   arguments in bipolar argumentation frameworks." In *Symbolic and
   Quantitative Approaches to Reasoning with Uncertainty (ECSQARU)*, LNCS
   3571, 378–389. Springer.
