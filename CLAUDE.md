@@ -132,6 +132,6 @@ without their go-ahead. Pushing or merging to `main` is theirs to approve
 too; work on a branch and open a pull request.
 
 **After a release, the sibling repos follow** (each a pull request there):
-latris-app pins it (`scripts/pin-backend.sh <ver>`), latris-examples bumps
+the app repo pins it, latris-examples bumps
 `requirements.txt` (the gallery rebuilds), and latris-site reruns its
 `tools/build.py` commands (changelog, `llms.txt`, generated model-type pages).
