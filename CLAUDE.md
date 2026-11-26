@@ -36,6 +36,18 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
   process lifecycle for dev), `bump-version.sh` (version + tag),
   `health_report.py` (the weekly health check; see TESTING.md → "Weekly").
 
+## This repo is public
+
+Everything here is public: on GitHub, and on PyPI. Never add business or sensitive information: go-to-market or growth
+strategy, pricing, revenue, customers, sales conversations or trial
+participants, competitive positioning, the founder's personal or admin
+details, internal infrastructure (server addresses, how deploys reach them,
+where secrets are kept), secrets or tokens, or the private app's code and
+internal plans.
+Those live in the private app repo. If a change seems to need them, write only
+the engineering or user-facing part, or ask the founder. Commit messages and
+pull-request text are public too.
+
 ## Working principles
 
 - **Design docs are source of truth.** Architectural commitments live in
