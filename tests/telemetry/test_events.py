@@ -183,9 +183,7 @@ def test_local_mirror_is_never_committed(project: Path) -> None:
 
 def test_upload_only_when_opted_in(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, TelemetryEvent]] = []
-    monkeypatch.setattr(
-        emitter_module, "_upload", lambda url, event: calls.append((url, event))
-    )
+    monkeypatch.setattr(emitter_module, "_upload", lambda url, event: calls.append((url, event)))
 
     # Default config: upload_enabled=False → no upload.
     assert _emit_ai_call(project) is not None
@@ -264,9 +262,7 @@ def test_emit_envelopes_outside_project_dropped(tmp_path: Path) -> None:
 
 def test_emit_envelopes_uploads_batch_once(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, list]] = []
-    monkeypatch.setattr(
-        emitter_module, "_upload_batch", lambda url, events: calls.append((url, events))
-    )
+    monkeypatch.setattr(emitter_module, "_upload_batch", lambda url, events: calls.append((url, events)))
     paths = require_project(project)
     telemetry_config.save(
         paths,
@@ -318,3 +314,47 @@ def test_post_events_without_token_sends_no_header(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv(emitter_module.TOKEN_ENV_VAR, raising=False)
     emitter_module._post_events("https://telemetry.example/v1/events", [_envelope()])
     assert sent[0].get_header("Authorization") is None
+
+
+# ---------- hosted containers: configured by environment ----------
+
+
+def test_hosted_env_turns_upload_on_with_actor(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """In a hosted session container the broker sets the endpoint, token and actor."""
+    sent = _capture_urlopen(monkeypatch)
+    monkeypatch.setenv(emitter_module.ENDPOINT_ENV_VAR, "https://telemetry.example/v1/events")
+    monkeypatch.setenv(emitter_module.TOKEN_ENV_VAR, "ingest-token")
+    monkeypatch.setenv(emitter_module.ACTOR_ENV_VAR, "actor_abc")
+
+    event = _emit_ai_call(project)  # default telemetry.yaml: upload_enabled=False
+    assert event is not None and event.actor_ref == "actor_abc"
+    [req] = sent
+    assert req.full_url == "https://telemetry.example/v1/events"
+    assert req.get_header("Authorization") == "Bearer ingest-token"
+    assert json.loads(req.data)["events"][0]["actor_ref"] == "actor_abc"
+
+    # The project can still switch telemetry off entirely.
+    paths = require_project(project)
+    telemetry_config.save(paths, telemetry_config.TelemetryConfig(enabled=False))
+    assert _emit_ai_call(project) is None
+    assert len(sent) == 1
+
+
+def test_hosted_env_relays_envelopes_with_actor(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = _capture_urlopen(monkeypatch)
+    monkeypatch.setenv(emitter_module.ENDPOINT_ENV_VAR, "https://telemetry.example/v1/events")
+    monkeypatch.setenv(emitter_module.ACTOR_ENV_VAR, "actor_abc")
+
+    assert emitter_module.emit_envelopes([_envelope(), _envelope()], root=project) == 2
+    [req] = sent
+    assert [row["actor_ref"] for row in json.loads(req.data)["events"]] == ["actor_abc", "actor_abc"]
+
+
+def test_no_hosted_env_no_upload(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An end user's own install sets none of the variables: nothing leaves the machine."""
+    sent = _capture_urlopen(monkeypatch)
+    for var in (emitter_module.ENDPOINT_ENV_VAR, emitter_module.ACTOR_ENV_VAR, emitter_module.TOKEN_ENV_VAR):
+        monkeypatch.delenv(var, raising=False)
+    event = _emit_ai_call(project)
+    assert event is not None and event.actor_ref is None
+    assert sent == []

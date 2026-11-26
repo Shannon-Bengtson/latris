@@ -41,6 +41,26 @@ _UPLOAD_TIMEOUT_S = 5
 # Bearer token for the hosted ingest, when the deployment sets one. A secret,
 # so an env var — never the committed project config. Empty = no header.
 TOKEN_ENV_VAR = "LATRIS_TELEMETRY_TOKEN"
+# Set by the operator of a hosted surface (the Latris session broker sets them in
+# each session container), never by an end user's own install: where to send
+# events, and the session's pseudonymous actor. A project's telemetry.yaml can
+# still switch telemetry off (``enabled: false``).
+ENDPOINT_ENV_VAR = "LATRIS_TELEMETRY_ENDPOINT"
+ACTOR_ENV_VAR = "LATRIS_TELEMETRY_ACTOR"
+
+
+def upload_endpoint(cfg: telemetry_config.TelemetryConfig) -> str | None:
+    """Where events go: the hosted operator's endpoint, else the project's opt-in one, else nowhere."""
+    hosted = os.environ.get(ENDPOINT_ENV_VAR, "").strip()
+    if hosted:
+        return hosted
+    if cfg.upload_enabled and cfg.endpoint_url:
+        return cfg.endpoint_url
+    return None
+
+
+def _env_actor() -> str | None:
+    return os.environ.get(ACTOR_ENV_VAR, "").strip() or None
 
 
 def emit(
@@ -96,18 +116,19 @@ def _emit(
         surface=surface,
         event_type=event_type,
         type_version=type_version,
-        actor_ref=actor_ref,
+        actor_ref=actor_ref or _env_actor(),
         project_id=project_id,
         session_id=session_id,
         payload=dict(payload),
     )
     dump_jsonl_append(event, paths.telemetry_jsonl)
 
-    if cfg.upload_enabled and cfg.endpoint_url:
+    endpoint = upload_endpoint(cfg)
+    if endpoint:
         # The local mirror is primary; upload is fire-and-forget. A failed
         # upload drops the remote copy, not the event.
         try:  # noqa: SIM105
-            _upload(cfg.endpoint_url, event)
+            _upload(endpoint, event)
         except Exception as exc:  # noqa: BLE001
             log.debug("telemetry upload of %s failed: %s", event.id, exc)
     return event
@@ -140,6 +161,7 @@ def _emit_envelopes(events: list[TelemetryEvent], *, root: Path | None) -> int:
     cfg = telemetry_config.load(paths)
     if not cfg.enabled:
         return 0
+    actor = _env_actor()
     valid: list[TelemetryEvent] = []
     for event in events:
         try:
@@ -147,14 +169,16 @@ def _emit_envelopes(events: list[TelemetryEvent], *, root: Path | None) -> int:
         except (KeyError, ValidationError) as exc:
             log.debug("telemetry event %s dropped: %s", event.id, exc)
             continue
-        valid.append(event)
+        # The GUI doesn't know who it is; the hosted container does.
+        valid.append(event if event.actor_ref or not actor else event.model_copy(update={"actor_ref": actor}))
     for event in valid:
         dump_jsonl_append(event, paths.telemetry_jsonl)
-    if valid and cfg.upload_enabled and cfg.endpoint_url:
+    endpoint = upload_endpoint(cfg)
+    if valid and endpoint:
         # The local mirror is primary; upload is fire-and-forget, one POST
         # for the whole batch. A failed upload drops the remote copies.
         try:  # noqa: SIM105
-            _upload_batch(cfg.endpoint_url, valid)
+            _upload_batch(endpoint, valid)
         except Exception as exc:  # noqa: BLE001
             log.debug("telemetry batch upload failed: %s", exc)
     return len(valid)
