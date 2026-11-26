@@ -20,6 +20,7 @@ from pydantic import Field
 from latris.schema._base import SchemaModel
 from latris.schema.common import now_utc
 from latris.schema.ids import new_id
+from latris.schema.person_input import CheckpointId
 
 Surface = Literal["cli", "gui", "mcp", "server", "broker", "ci"]
 
@@ -95,6 +96,16 @@ class ErrorObservedPayload(SchemaModel):
     context: str | None = None  # route/command key, never a traceback
 
 
+class CheckpointOutcomePayload(SchemaModel):
+    """A chat checkpoint (``operations/checkpoints.py``) offered to an agent, or what came of it:
+    the person's answers recorded, a skip, or the person asking to just build (``all`` checkpoints).
+    Registered for hosted services (an MCP server) that see the agent's calls; the library itself
+    doesn't emit it. The checkpoint and the outcome only, never the questions or the answers."""
+
+    checkpoint: CheckpointId | Literal["all"]
+    outcome: Literal["offered", "answered", "skipped", "paced"]
+
+
 class CliCommandPayload(SchemaModel):
     """Deferred with T3 (CLI telemetry excluded for now); specified so the
     envelope and registry are ready when the decision is revisited."""
@@ -157,6 +168,7 @@ def _register_builtins() -> None:
     register_event_type("session.lifecycle", SessionLifecyclePayload)
     register_event_type("project.lifecycle", ProjectLifecyclePayload)
     register_event_type("error.observed", ErrorObservedPayload)
+    register_event_type("checkpoint.outcome", CheckpointOutcomePayload)
     register_event_type("cli.command", CliCommandPayload)  # deferred with T3
 
 
@@ -166,6 +178,7 @@ _register_builtins()
 __all__ = [
     "AICallCompletedPayload",
     "AIProposalOutcomePayload",
+    "CheckpointOutcomePayload",
     "CliCommandPayload",
     "EVENT_PAYLOADS",
     "ErrorObservedPayload",
