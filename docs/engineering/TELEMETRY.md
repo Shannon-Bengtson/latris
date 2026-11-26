@@ -5,6 +5,28 @@ chapter). 2026-11-25. Covers todos T1–T8 (which fold in U2 and U7). Grounded
 in the 2026-11-25 tracking-surface audit of `Shannon-Bengtson/latris` and
 latris-app.
 
+## Status (2026-11-26)
+
+- **Phase 0 — privacy groundwork:** outstanding. The privacy-policy update
+  is a **user task** and remains the deploy blocker for Phase 2.
+- **Phase 1 — latris core:** COMPLETE — merged as PR #28 (2026-11-26).
+- **Phase 2 — hosted tier:** code COMPLETE — PRs #24 and #25 merged;
+  deploy is gated on the Phase 0 privacy-policy update, and the VM env
+  vars for the telemetry service / MCP middleware are set at deploy time.
+- **Phase 3 — GUI beacons:** relay half COMPLETE — merged as PR #29
+  (2026-11-26). GUI beacon half implemented in latris-app PR #28 (draft,
+  not yet merged): all CI green except the new e2e spec; diagnosis and
+  next step are in the PR body.
+- **Phase 4 — outcomes and read models (T6, T7):** outstanding.
+- **Phase 5 — feeding the loops:** outstanding.
+- Deltas from the plan text below: checkpoint instrumentation
+  (answered/skipped/never-asked) was NOT implemented in Phase 3; the
+  rejection-reason picker landed as `RejectReasonPicker` + `AIPopup` /
+  `TrayItem` (the plan's `AIProposalOverlay` name drifted); the GUI's
+  `postTelemetryEvents` / `aiReject` calls go through the untyped
+  `request` helper until latris v0.19.0 ships and latris-app regenerates
+  `api/generated/latris.d.ts`.
+
 ## Decisions (2026-11-25)
 
 1. **Separate telemetry service from day one.** A small standalone FastAPI
@@ -98,25 +120,27 @@ Initial event families (v1 payloads):
 
 ## Phase 1 — latris core: envelope + richer interactions (T1, T2; T3 deferred)
 
-- [ ] `src/latris/schema/events.py` — `TelemetryEvent` + payload models +
+**Status: COMPLETE — merged as PR #28 (2026-11-26).**
+
+- [x] `src/latris/schema/events.py` — `TelemetryEvent` + payload models +
       registry, with tests.
-- [ ] `src/latris/telemetry/` — emitter with two backends: local JSONL
+- [x] `src/latris/telemetry/` — emitter with two backends: local JSONL
       (`.graph-tooling/telemetry.jsonl`, **gitignored**, not committed —
       behavioural data does not belong in shared project history) and HTTP
       POST to the telemetry service when configured (the in-container server
       path). No-op fast path when disabled.
-- [ ] Extend `AIInteraction` (`src/latris/schema/ai.py`): add `at`
+- [x] Extend `AIInteraction` (`src/latris/schema/ai.py`): add `at`
       (datetime, default now — the audit found the record has no timestamp),
       `surface`, `session_id`, `latency_ms`, and optional
       `rejection_reason` (taxonomy: wrong-fact / wrong-granularity /
       wrong-scope / style / other + free text). Additive change with
       defaults.
-- [ ] Thread the new fields through `ai/interactions.py::record_interaction`
+- [x] Thread the new fields through `ai/interactions.py::record_interaction`
       and `ai/call.py::_finalize_call`; the confirm/reject path prompts
       (optionally, skippable) for a rejection reason.
-- [ ] `latris ai interactions list` gains `--reason` display; no new read
+- [x] `latris ai interactions list` gains `--reason` display; no new read
       commands yet.
-- [ ] ~~CLI instrumentation~~ — deferred (decision 2). The emitter's
+- [x] ~~CLI instrumentation~~ — deferred (decision 2). The emitter's
       `surface="cli"` support lands with the envelope, but no typer wrapper
       ships in v1.
 - **Acceptance:** full suite green; new tests for schema, emitter
@@ -126,21 +150,24 @@ Initial event families (v1 payloads):
 
 ## Phase 2 — hosted tier: the telemetry service + MCP middleware (T4)
 
-- [ ] New service in latris-app (`src/latris_telemetry/`, mirroring the
+**Status: code COMPLETE — PRs #24 and #25 merged; deploy gated on the
+Phase 0 privacy-policy user task.**
+
+- [x] New service in latris-app (`src/latris_telemetry/`, mirroring the
       graph_sync/session_broker layout: `app.py`, `db.py`, `repository.py`,
       `config.py`, routes): own SQLite db with an `events` table `(id,
       receipt_ts, at, surface, event_type, type_version, actor_ref,
       project_id, session_id, payload_json)`, indexes on `(event_type, at)`,
       `(project_id, at)`, `(actor_ref, at)`, and the house `_migrate`
       pattern for additive columns. Deploy on the same VM.
-- [ ] `POST /events` — batched ingest (array of envelopes), payload
+- [x] `POST /events` — batched ingest (array of envelopes), payload
       validation against the vendored registry version, actor
       pseudonymisation at the edge (account id → `actor_ref` before write),
       per-account rate cap reusing the `ai_call_counts` increment pattern.
-- [ ] Broker/MCP middleware: wrap the MCP proxy path to emit `mcp.tool`
+- [x] Broker/MCP middleware: wrap the MCP proxy path to emit `mcp.tool`
       (name, latency, outcome class) to the telemetry service — no tool code
       touched. Cheapest high-value instrument in the whole plan.
-- [ ] Keep `ai_call_counts` for rate limiting; stop treating it as data.
+- [x] Keep `ai_call_counts` for rate limiting; stop treating it as data.
 - **Acceptance:** ingest round-trip test (authed call → row with
       pseudonymous actor, no email); middleware test emits one row per MCP
       call; load sanity (batch of 500 events). Deploy gated on the privacy
@@ -158,7 +185,8 @@ Initial event families (v1 payloads):
       own deployment; older backends 404, which is the GUI's silent-off cue.
 - [ ] Small beacon module in the GUI: queue + flush every N seconds / on
       unload (`sendBeacon`), session id per tab, silently off when the
-      server 404s (self-hosted/older backends).
+      server 404s (self-hosted/older backends). **Implemented in
+      latris-app PR #28 (draft, not yet merged).**
 - [ ] Instrument in priority order: AI panel (prompt run, proposal
       previewed / approved / edited-before-apply / rejected + reason picker),
       chain runner (step advance/abandon), checkpoints
