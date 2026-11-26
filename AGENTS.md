@@ -22,5 +22,7 @@ changed rule — fix it in the same commit. If you find one already wrong, fix t
 ## House rules (from CLAUDE.md, the ones most often missed)
 
 - Commit as the responsible human; record AI involvement in the `Provenance:` trailer, never as author.
+- This repo is public (GitHub, PyPI): never add business or sensitive information (strategy, pricing, customers, competitive positioning, founder details, internal infrastructure, secrets, the private app's code or plans); CLAUDE.md lists it. Commit messages and PR text are public too.
+- Open work (to-dos, bugs, backlog) is GitHub issues, not lists in Markdown; docs link to issues.
 - No secrets on disk. Never rename the frozen constants (`.graph-tooling`, `latris-sync`).
-- Version bumps go through `scripts/bump-version.sh`; confirm the number with the person first.
+- Version bumps go through `scripts/bump-version.sh` — normally via the Publish workflow (`gh workflow run publish.yml -f version=X.Y.Z`), which also tags and publishes. Releasing is the founder's call: never start one without their go-ahead, and confirm the number.

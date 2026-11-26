@@ -36,6 +36,18 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
   process lifecycle for dev), `bump-version.sh` (version + tag),
   `health_report.py` (the weekly health check; see TESTING.md → "Weekly").
 
+## This repo is public
+
+Everything here is public: on GitHub, and on PyPI. Never add business or sensitive information: go-to-market or growth
+strategy, pricing, revenue, customers, sales conversations or trial
+participants, competitive positioning, the founder's personal or admin
+details, internal infrastructure (server addresses, how deploys reach them,
+where secrets are kept), secrets or tokens, or the private app's code and
+internal plans.
+Those live in the private app repo. If a change seems to need them, write only
+the engineering or user-facing part, or ask the founder. Commit messages and
+pull-request text are public too.
+
 ## Working principles
 
 - **Design docs are source of truth.** Architectural commitments live in
@@ -81,6 +93,14 @@ deterministic output ordering — pass `-n0`. Targeted runs
 tested, every command in the worked example — their gap lists only shrink), the coverage floor, and
 **what "done" means** for a change. Follow it.
 
+## Open work lives in GitHub issues
+
+To-dos, bugs and backlog are GitHub issues on this repo (public: engineering
+only, see "This repo is public"). Design docs and the roadmap hold reasoning
+and order, linking to issues; they don't keep their own to-do lists or
+status. When you find a new task, open an issue; when you finish one, close
+it. Scoping a piece of work in a temporary Markdown plan is fine.
+
 ## Keep the notes current
 
 This file, `src/latris/CLAUDE.md`, [`AGENTS.md`](./AGENTS.md) (for other agents, e.g. Kimi — it points
@@ -108,7 +128,18 @@ bash scripts/bump-version.sh 0.3.1        # bump + commit + tag
 bash scripts/bump-version.sh 0.3.1 --no-tag  # bump + commit only
 ```
 
-Pushing a `v*` tag triggers `.github/workflows/publish.yml`, which
-publishes the package to PyPI. Remind the user to push tags after a
-bump; confirm version numbers with them rather than choosing
-unilaterally.
+**Releasing (the normal way, from anywhere):** run the Publish workflow on
+main with the new version — `gh workflow run publish.yml -f version=0.19.0`
+(or Actions → Publish → Run workflow). It runs the bump script, pushes the
+bump commit and the `v*` tag to main, and publishes to PyPI. Watch it with
+`gh run watch`. Pushing a `v*` tag cut locally still publishes too. Either
+way, confirm version numbers with the user rather than choosing
+unilaterally. **Releasing is the founder's call:** a release publishes to
+PyPI and can't be taken back, so never start one (workflow run or tag push)
+without their go-ahead. Pushing or merging to `main` is theirs to approve
+too; work on a branch and open a pull request.
+
+**After a release, the sibling repos follow** (each a pull request there):
+the app repo pins it, latris-examples bumps
+`requirements.txt` (the gallery rebuilds), and latris-site reruns its
+`tools/build.py` commands (changelog, `llms.txt`, generated model-type pages).

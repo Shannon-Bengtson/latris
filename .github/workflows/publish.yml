@@ -1,36 +1,78 @@
 name: Publish
 
-# Build a release from a v* tag and publish it to PyPI. Cut the tag with
-# scripts/bump-version.sh (or by hand), then push it:
+# Build a release and publish it to PyPI. Two ways in:
 #
-#   git tag v0.3.1 && git push --tags
+# 1. From Actions (the normal way): Actions → Publish → Run workflow on main,
+#    with the new version. The run bumps src/latris/__init__.py with
+#    scripts/bump-version.sh, pushes the bump commit and the v<version> tag to
+#    main, then builds and publishes. Or from a terminal:
 #
-# Publishes via PyPI Trusted Publishing (OIDC) — no stored API token.
-# One-time setup on PyPI.org (project owner only):
+#      gh workflow run publish.yml -f version=0.19.0
+#
+# 2. From a tag pushed by hand (cut with scripts/bump-version.sh):
+#
+#      git push origin main v0.3.1
+#
+# (A tag pushed by the Actions run itself doesn't start a second run: GitHub
+# never triggers workflows from GITHUB_TOKEN pushes.)
+#
+# Publishes via PyPI Trusted Publishing (OIDC) — no stored API token. The
+# publisher on PyPI.org is registered against this file (publish.yml), so the
+# release path has to stay in it:
 #   https://pypi.org/manage/project/latris/settings/publishing/
-#   Add a GitHub publisher: owner Shannon-Bengtson, repo latris,
+#   GitHub publisher: owner Shannon-Bengtson, repo latris,
 #   workflow publish.yml, no environment.
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version, e.g. 0.19.0 (no leading v)"
+        required: true
+        type: string
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   publish:
     name: build + publish to PyPI
     runs-on: ubuntu-latest
     permissions:
+      # Push the bump commit and tag (dispatch only).
+      contents: write
       # Allow the pypa publish action to verify the package provenance.
       id-token: write
     steps:
+      - name: Only from main
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run Publish from main (this run is on ${GITHUB_REF})."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+
+      - name: Bump, commit and tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash scripts/bump-version.sh "$VERSION"
+          git push origin HEAD:main "v${VERSION}"
 
       - name: Install build
         run: python -m pip install build
