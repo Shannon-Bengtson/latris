@@ -47,6 +47,12 @@ class AIApplyRequest(BaseModel):
     approved_indices: list[int] | None = None
 
 
+class AIRejectRequest(BaseModel):
+    """The optional rejection note (the GUI's reason picker, TELEMETRY.md Phase 3)."""
+
+    reason: str | None = None
+
+
 def _render(parsed: BaseModel) -> str:
     """Human-readable rendering of any proposal/result."""
     from latris.ai.render import render as ai_render
@@ -281,8 +287,8 @@ def ai_apply(interaction_id: str, body: AIApplyRequest, root: Root) -> dict[str,
 
 
 @router.post("/reject/{interaction_id}")
-def ai_reject(interaction_id: str, root: Root) -> dict[str, Any]:
-    """Reject a pending AI proposal."""
+def ai_reject(interaction_id: str, root: Root, body: AIRejectRequest | None = None) -> dict[str, Any]:
+    """Reject a pending AI proposal, with an optional reason note."""
     _expand_bib_cache.pop(interaction_id, None)  # clean up if ExpandBibliography
     record = get_interaction(interaction_id, root=root)
     if record.adoption != "pending":
@@ -293,7 +299,8 @@ def ai_reject(interaction_id: str, root: Root) -> dict[str, Any]:
 
     name, email = git.ensure_identity(root)
     approver = HumanActor(name=name, email=email)
-    set_adoption(record.id, adoption="rejected", approved_by=approver, root=root)
+    reason = body.reason if body is not None else None
+    set_adoption(record.id, adoption="rejected", approved_by=approver, rejection_reason=reason, root=root)
 
     return {"ok": True, "interaction_id": record.id}
 

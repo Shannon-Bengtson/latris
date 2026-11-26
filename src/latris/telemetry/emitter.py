@@ -4,18 +4,27 @@
 the registry, appends it to the local JSONL mirror, and — only when the
 project config opts in — POSTs it to the hosted telemetry service.
 
+``emit_envelopes()`` is the server relay path: envelopes the GUI built
+(client id, client clock, session id), re-validated here so nothing
+unvalidated enters the stream, mirrored locally, then uploaded as one
+batched POST when configured.
+
 Telemetry is observability, not product logic: every failure mode (no
 project, unknown event type, network down, endpoint 500) degrades to a
-logged-and-dropped event. ``emit`` returns the event on success and ``None``
-otherwise, and never raises.
+logged-and-dropped event. Both entry points never raise; ``emit`` returns
+the event on success and ``None`` otherwise, ``emit_envelopes`` returns
+how many events were accepted.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.request
 from pathlib import Path
+
+from pydantic import ValidationError
 
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_jsonl_append
@@ -29,6 +38,9 @@ from latris.telemetry import config as telemetry_config
 log = logging.getLogger(__name__)
 
 _UPLOAD_TIMEOUT_S = 5
+# Bearer token for the hosted ingest, when the deployment sets one. A secret,
+# so an env var — never the committed project config. Empty = no header.
+TOKEN_ENV_VAR = "LATRIS_TELEMETRY_TOKEN"
 
 
 def emit(
@@ -101,15 +113,70 @@ def _emit(
     return event
 
 
+def emit_envelopes(
+    events: list[TelemetryEvent],
+    *,
+    root: Path | None = None,
+) -> int:
+    """Persist client-built envelopes (the server's GUI relay path).
+
+    Unlike :func:`emit`, these arrive fully formed — client id, client
+    clock, session id — with the surface already stamped by the relay.
+    Every payload is validated against the registry again here: nothing
+    unvalidated enters the stream, whoever the caller is. The local mirror
+    is primary; an opted-in upload forwards the whole batch in one POST.
+    Never raises; returns how many events were accepted (zero when the
+    project config has telemetry off).
+    """
+    try:
+        return _emit_envelopes(events, root=root)
+    except Exception as exc:  # noqa: BLE001 — telemetry must never break the tool
+        log.debug("telemetry batch dropped: %s", exc)
+        return 0
+
+
+def _emit_envelopes(events: list[TelemetryEvent], *, root: Path | None) -> int:
+    paths = require_project(root)
+    cfg = telemetry_config.load(paths)
+    if not cfg.enabled:
+        return 0
+    valid: list[TelemetryEvent] = []
+    for event in events:
+        try:
+            validate_payload(event.event_type, event.type_version, event.payload)
+        except (KeyError, ValidationError) as exc:
+            log.debug("telemetry event %s dropped: %s", event.id, exc)
+            continue
+        valid.append(event)
+    for event in valid:
+        dump_jsonl_append(event, paths.telemetry_jsonl)
+    if valid and cfg.upload_enabled and cfg.endpoint_url:
+        # The local mirror is primary; upload is fire-and-forget, one POST
+        # for the whole batch. A failed upload drops the remote copies.
+        try:  # noqa: SIM105
+            _upload_batch(cfg.endpoint_url, valid)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("telemetry batch upload failed: %s", exc)
+    return len(valid)
+
+
 def _upload(endpoint_url: str, event: TelemetryEvent) -> None:
     """POST one event to the hosted telemetry service. Best-effort."""
-    body = json.dumps({"events": [event.model_dump(mode="json")]}).encode("utf-8")
-    req = urllib.request.Request(
-        endpoint_url,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    _post_events(endpoint_url, [event])
+
+
+def _upload_batch(endpoint_url: str, events: list[TelemetryEvent]) -> None:
+    """POST a batch of events in one request (the relay path). Best-effort."""
+    _post_events(endpoint_url, events)
+
+
+def _post_events(endpoint_url: str, events: list[TelemetryEvent]) -> None:
+    body = json.dumps({"events": [event.model_dump(mode="json") for event in events]}).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    token = os.environ.get(TOKEN_ENV_VAR, "")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(endpoint_url, data=body, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=_UPLOAD_TIMEOUT_S) as resp:  # noqa: S310
         # endpoint_url is operator-configured project config, not user input
         if resp.status >= 400:

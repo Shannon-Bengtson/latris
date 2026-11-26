@@ -7,6 +7,6 @@ telemetry service when the project config enables upload; it is used by the
 in-container server path, not by the CLI (CLI telemetry is deferred).
 """
 
-from latris.telemetry.emitter import emit
+from latris.telemetry.emitter import emit, emit_envelopes
 
-__all__ = ["emit"]
+__all__ = ["emit", "emit_envelopes"]

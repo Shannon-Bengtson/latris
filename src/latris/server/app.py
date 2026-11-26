@@ -68,6 +68,7 @@ from latris.server.routes import (
     report_config,
     results,
     sync,
+    telemetry,
     view_attributes,
     views,
 )
@@ -285,6 +286,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(export.router)
     app.include_router(report_config.router)
     app.include_router(sync.router)
+    app.include_router(telemetry.router)
     _include_formalism_routers(app)
     app.include_router(results.router)
     app.include_router(history.router)
