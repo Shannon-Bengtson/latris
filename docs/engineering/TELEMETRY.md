@@ -183,6 +183,13 @@ Phase 0 privacy-policy user task.**
       whole batch in one POST (bearer via `LATRIS_TELEMETRY_TOKEN`, an env
       var, never the committed config). Self-hosters' events stay in their
       own deployment; older backends 404, which is the GUI's silent-off cue.
+      Hosted containers are configured by environment, not by the project's
+      `telemetry.yaml`: the session broker sets `LATRIS_TELEMETRY_ENDPOINT`
+      (turns upload on), `LATRIS_TELEMETRY_TOKEN` (the bearer) and
+      `LATRIS_TELEMETRY_ACTOR` (the session's pseudonymous `actor_ref`, filled
+      in on events and relayed envelopes that carry none). A project's
+      `enabled: false` still switches everything off; an end user's own
+      install sets none of these and uploads nothing.
 - [ ] Small beacon module in the GUI: queue + flush every N seconds / on
       unload (`sendBeacon`), session id per tab, silently off when the
       server 404s (self-hosted/older backends). **Implemented in
