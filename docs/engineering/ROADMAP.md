@@ -1,10 +1,12 @@
 # Roadmap — model types and analysis layers
 
 *Status: plan agreed 2026-11-16; amended 2026-11-25 (item 8, XMILE
-import; competitive-gap tasks C1–C6). The capability manifest (`latris
+import; items 9–13). The capability manifest (`latris
 capabilities`, from `schema/model_types.py`) stays the machine-readable
 truth for registered types; this page is the reasoning and the order of
-work, including types that aren't registered yet.*
+work, including types that aren't registered yet. **Open work is tracked as
+GitHub issues**, linked from each item below; this page doesn't keep its own
+status or to-do lists.*
 
 ## Where we are
 
@@ -39,8 +41,8 @@ appears. GSN waits for that; the argument map it builds on now exists.
 
 - **Fill missing rungs before adding families.** A rung reuses the family's
   substrate, evidence and reports; a new family starts cold.
-- **Serve the audience we have** — analysts, evaluators, consultants and
-  researchers defending a model to a board, client or reviewer.
+- **Serve people who defend a model** — to a board, a client or a
+  reviewer.
 - **Inspectable only.** Every number a person can source, check and
   challenge. Black-box ML, structure learning and agent-based models stay
   out (agent-based models: runnable, not inspectable — an explicit
@@ -82,13 +84,13 @@ type in about half a day.
 |---|---|---|---|
 | 8 | **Global sensitivity** (Sobol / Morris) across SD, BN, FT | `SALib` (MIT) | Cross-cutting analysis layer |
 | 9 | **Interrupted time series / difference-in-differences** for ToC impact | `statsmodels` | The work is the validity guardrails |
-| 10 | **Influence diagram** | Policy enumeration over a `pgmpy` BN for small models; or `pyAgrum` (check licence) | Follows #4 |
-| 11 | **Structural equation / path models** | `semopy` (check licence) | Extends #1 to latent variables |
+| 10 | **Influence diagram** ([#42](https://github.com/Shannon-Bengtson/latris/issues/42)) | Policy enumeration over a `pgmpy` BN for small models; or `pyAgrum` (check licence) | Follows #4 |
+| 11 | **Structural equation / path models** ([#47](https://github.com/Shannon-Bengtson/latris/issues/47)) | `semopy` (check licence) | Extends #1 to latent variables |
 | 12 | **Argument map** (Toulmin / IBIS) | No library; reuses challenges and evidence | GSN then becomes a specialisation of it, settling GSN's open design question |
-| 13 | **Scenarios**: cross-impact balance + morphological box | numpy | Foresight audience |
-| 14 | **Actor models**: power–interest grid + network analysis | `networkx` | Gives the `actor` kind a use |
-| 15 | **Realist CMO / outcome mapping** | Structure | Pairs with #6 |
-| 16 | **Survival extrapolation** | `lifelines` (MIT) | Only with the HTA vertical (#4 + #5) |
+| 13 | **Scenarios**: cross-impact balance + morphological box ([#48](https://github.com/Shannon-Bengtson/latris/issues/48)) | numpy | Foresight audience |
+| 14 | **Actor models**: power–interest grid + network analysis ([#49](https://github.com/Shannon-Bengtson/latris/issues/49)) | `networkx` | Gives the `actor` kind a use |
+| 15 | **Realist CMO / outcome mapping** ([#50](https://github.com/Shannon-Bengtson/latris/issues/50)) | Structure | Pairs with #6 |
+| 16 | **Survival extrapolation** ([#51](https://github.com/Shannon-Bengtson/latris/issues/51)) | `lifelines` (MIT) | Only alongside #4 and #5 |
 
 ## Priority — models that can be called (added 2026-11-22)
 
@@ -106,7 +108,7 @@ equation and coefficient has a source — among the most defensible models there
 |---|---|---|---|---|
 | 17 | **Predict** — an input/output contract and a stateless run (**built for every type with a forward calculation**: `latris contract`, `latris predict`, `latris.load`; design in [PREDICT.md](PREDICT.md)) | Given these inputs, what does this version of the model say? | See below. Equation model, SD (values) and BN | built; follow-ups below |
 | 18 | **Equation model** — quantities joined by sourced formulas, no clock (**done**: `latris eq`; design in [EQUATION_MODEL.md](EQUATION_MODEL.md)) | What does this physics / published parameterisation give for these inputs? | A formalism plugin reusing the SD expression evaluator (`_sd_eval.py`) and unit checker (`_units.py`), without the integrator; each formula and coefficient cites its source and stated range of validity | built |
-| 19 | **Time-series forcing for SD** | What happens under this rainfall / demand / price record? | A series input declared in the contract and interpolated against `TIME`; today the only route is a hand-typed lookup table | 1–2 days after #17 |
+| 19 | **Time-series forcing for SD** ([#40](https://github.com/Shannon-Bengtson/latris/issues/40)) | What happens under this rainfall / demand / price record? | A series input declared in the contract and interpolated against `TIME`; today the only route is a hand-typed lookup table | 1–2 days after #17 |
 
 **Predict (#17), in three parts:**
 
@@ -132,7 +134,7 @@ equation and coefficient has a source — among the most defensible models there
 - **Still inspectable.** This is not the "black-box predictors" of *Not doing*: every formula and
   parameter stays one a person can source, check and challenge.
 
-## Tier C — easy, but needs a decision first
+## Tier C — easy, but needs a decision first ([#54](https://github.com/Shannon-Bengtson/latris/issues/54))
 
 - **`DoWhy` (MIT)** — refutation tests on top of #1; heavy dependency, so
   `statsmodels` first.
@@ -173,78 +175,52 @@ black-box predictor.)
    predict (first cut done: a contract per model type, a stateless run, pinned versions and the
    first public Python API, for the equation model, SD values and BN; then the fault tree, bow-tie
    and event tree; then the decision tree, Markov, MCDA and FCM: [PREDICT_NEXT.md](PREDICT_NEXT.md)).
-   Next for #17: uncertainty bands on a prediction (the app's Use view is built); then #19
+   Next for #17: uncertainty bands on a prediction ([#41](https://github.com/Shannon-Bengtson/latris/issues/41)) (the app's Use view is built); then #19
    time-series forcing for SD, which waits until someone needs it. Small follow-ups to #18: lookup
    tables, and adding it to the global-sensitivity layer (#8).
-8. **XMILE / Vensim import** (decided 2026-11-25 — the "off the roadmap" line in
+8. **XMILE / Vensim import** ([#39](https://github.com/Shannon-Bengtson/latris/issues/39)) (decided 2026-11-25 — the "off the roadmap" line in
    FOUNDATIONS.md is reversed): import SD models via `PySD` (MIT), the adoption
-   lever for SD users with existing Stella/Vensim models. Before committing an
+   way for SD users to bring existing Stella/Vensim models. Before committing an
    implementation, validate real-world export fidelity (arrays/subscripts, lookup
    tables, units) on genuine Stella and Vensim files — Latris SD is scalar-only
    today, so the first importer defines the honest subset it accepts and refuses
    the rest loudly rather than degrading silently.
-9. **SD calibration to data** (gap task C1 — see "Competitive gaps" below): least-squares
+9. **SD calibration to data** ([#35](https://github.com/Shannon-Bengtson/latris/issues/35)): least-squares
    payoff fitting of SD constants to observed series (`scipy.optimize`, already
    installed). The design work is the provenance story for fitted values — marked
    `data-derived`, elicited values protected, the fit recorded as a result. 2–3
-   days for the first cut. The same payoff machinery later serves policy search
-   (C5).
-10. **Correlated uncertainty, generally** (C2): extend the PSA's Iman–Conover
+   days for the first cut. The same payoff machinery later serves policy search.
+10. **Correlated uncertainty, generally** ([#36](https://github.com/Shannon-Bengtson/latris/issues/36)): extend the PSA's Iman–Conover
     pairing to a Gaussian copula over the shared uncertainty schema, so the risk
     types' Monte Carlo and the PSA sample correlated ranges. 1–2 days on scipy.
-11. **Utility functions on decision trees** (C3): a one-attribute utility
+11. **Utility functions on decision trees** ([#37](https://github.com/Shannon-Bengtson/latris/issues/37)): a one-attribute utility
     transform on payoffs (exponential, power), stated on the model, so DT and
     Markov evaluations can reflect risk attitude — reported alongside the
     risk-neutral result, never instead of it. ~1 day.
-12. **Markov time-varying probabilities + tunnel states** (C4): cycle-varying
+12. **Markov time-varying probabilities + tunnel states** ([#38](https://github.com/Shannon-Bengtson/latris/issues/38)): cycle-varying
     transition matrices (Weibull/hazard helpers; `lifelines` (MIT) optional for
     fitting to survival data) and tunnel states as time-in-state overrides. 2–3
-    days; the HTA credibility items. Microsimulation stays out until the vertical
-    proves itself.
-13. **Interactive simulation on predict** (C6, app-side): sliders over a model's
-    contract inputs calling the stateless predict API — the SyntheSim-class demo.
-    latris-app work on top of #17, whose "use" view already anticipates it.
+    days. Microsimulation stays out for now.
+13. **Interactive simulation on predict** (app-side): sliders over a model's
+    contract inputs calling the stateless predict API, on top of #17.
 
 Registry statuses follow this plan: influence diagram is `roadmap`; GSN stays `roadmap`, now a
 vocabulary over the argument map (ARGUMENT_MAP.md → "GSN, later"). MCDA, ACH, decision tree,
 Markov, argument map and equation model are built. Process tracing is an analysis on the theory of
 change, not a type of its own, so it isn't registered separately.
 
-## Competitive gaps (added 2026-11-25)
+## Not yet decided
 
-*From the competitor gap analysis (2026-11-25): Stella 4.2, Vensim 11, GeNIe,
-Analytica, TreeAge 2026, PrecisionTree/@RISK, AnyLogic, Insight Maker and the
-per-formalism niche tools, against the capability manifest.*
+- **Arrays / subscripts for SD** ([#52](https://github.com/Shannon-Bengtson/latris/issues/52)). Latris SD is scalar-only. The XMILE
+  fidelity check (item 8) comes first: real imported models lean on
+  subscripts, and the check sizes how urgent this is.
+- **Continuous / hybrid BN nodes** ([#53](https://github.com/Shannon-Bengtson/latris/issues/53)). Watching, not building: discrete nodes and
+  Noisy-OR suit elicited, defensible models. The influence diagram (Tier B
+  #10) and BN EVPI come first.
 
-**Depth parity is not the goal.** The incumbents have decades of features we
-deliberately don't need. The tasks below close the gaps that gate *adoption*
-and *credibility* for the audience we serve, sized to days by leaning on
-libraries already allowed (scipy, PySD, lifelines — all licence-compatible).
-Each is a numbered item in the order of work above unless marked otherwise.
+## Out of scope by design
 
-| # | Gap | Task | Effort |
-|---|---|---|---|
-| C1 | Calibration to data (Vensim, Stella and TreeAge all ship it) | #9 above | 2–3 days |
-| C2 | Correlated uncertainty (@RISK correlation modelling; TreeAge 2026 correlated PSA) | #10 above | 1–2 days |
-| C3 | Utility functions (PrecisionTree, GeNIe MAU) | #11 above | ~1 day |
-| C4 | Markov time-varying probabilities, tunnel states (TreeAge Weibull/K-M fitting) | #12 above | 2–3 days |
-| C5 | Policy optimisation (Vensim, Stella, RISKOptimizer) | after C1 — same payoff machinery | 2–3 days then |
-| C6 | Live interactive simulation (SyntheSim, Stella interfaces, Insight Maker) | #13 above (app) | app-side |
-
-**Decision items, not tasks yet:**
-
-- **Arrays / subscripts for SD** (Vensim 8-dim, Stella, Analytica's native
-  arrays): the one architectural gap — Latris SD is scalar-only. Deciding
-  *when* needs the XMILE fidelity check first (item 8): real imported models
-  lean on subscripts, and the check sizes how urgent this is.
-- **Continuous / hybrid BN nodes** (GeNIe equation nodes, AgenaRisk dynamic
-  discretisation): watch, not build — discrete + Noisy-OR is arguably the
-  right scope for elicited, defensible models. The on-brand BN depth is the
-  influence diagram (already #10, Tier B) and BN EVPI.
-
-**Explicitly staying shallow:** structure learning (a position, not a gap —
-see `latris capabilities`, `excluded_by_design`), agent-based models, dynamic
-fault-tree gates and common-cause failure (safety vertical paused), AHP and
-outranking MCDA variants, conjoint analysis (1000minds' other product), and
-Excel-native modelling (the `latris data` round-trip plus predict covers the
-workflow).
+Structure learning (see `latris capabilities`, `excluded_by_design`),
+agent-based models, dynamic fault-tree gates and common-cause failure, AHP
+and outranking MCDA variants, conjoint analysis, and Excel-native modelling
+(the `latris data` round-trip plus predict covers that workflow).

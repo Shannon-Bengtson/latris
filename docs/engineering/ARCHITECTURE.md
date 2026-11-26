@@ -10,7 +10,7 @@ reasoning/evidence workflow, but CLDs, BNs, causal DAGs, system dynamics,
 bow ties, and fault trees have **different formal semantics that matter
 early**.
 
-### Layer 1 — Universal substrate (the actual moat)
+### Layer 1 — Universal substrate
 
 Meta-information *about* modelling, not *of* the model. This layer is
 universal because evidence that "community trust" affects "compliance" is a
@@ -23,7 +23,6 @@ assumptions, decisions, sign-offs, sessions, questions, exclusions,
 predictions register, maturity state per attribute, version history
 (Git-backed), AI interaction history, generated pack content.
 
-Incumbents do not offer this layer at all, in any formalism.
 
 ### Layer 2 — Typed conceptual layer (the lingua franca)
 

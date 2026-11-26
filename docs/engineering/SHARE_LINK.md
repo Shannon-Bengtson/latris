@@ -1,6 +1,6 @@
 # Share links (`latris link`): known issue and fix
 
-*Status: **open issue**, found 2026-11-15. No code change yet. The goal is a
+*Status: **open**, tracked in [#55](https://github.com/Shannon-Bengtson/latris/issues/55); found 2026-11-15. No code change yet. The goal is a
 link that is a faithful copy of the model, or one that says plainly what it
 left behind.*
 

@@ -255,7 +255,7 @@ def test_reject_marks_interaction_rejected(client: TestClient, project: Path) ->
 
 
 def test_reject_records_optional_reason(client: TestClient, project: Path) -> None:
-    """The GUI's rejection-reason picker (TELEMETRY.md Phase 3) stores its note."""
+    """The GUI's rejection-reason picker (TELEMETRY.md) stores its note."""
     _register_draft(project)
 
     resp = client.post(

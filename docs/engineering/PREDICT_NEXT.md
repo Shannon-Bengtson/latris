@@ -233,7 +233,7 @@ Following TESTING.md, each type lands as its own PR with:
 4. the type's row added to the table in PREDICT.md → "What each model type offers", and its entry
    removed from "Not yet";
 5. the help topics updated: `use-in-a-pipeline.md`, plus the type's own model-type topic;
-6. in latris-app, the Use view (`gui/src/components/use/`) rendering what is new. That is `choice`
+6. in the app, the Use view rendering what is new. That is `choice`
    outputs once (step 0b), and the `cell` qualifier in input and output labels once (step 0a). Every
    later type then needs no GUI work beyond a journey test. The MCP `predict` tool is generic and
    needs nothing.

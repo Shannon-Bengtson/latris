@@ -334,7 +334,7 @@ Python library to read efficiently — not for pgmpy-pickle
 compatibility, NetworkX JSON interchange, or XMILE round-trip. Users
 who need an external format get one-way `latris export
 <format>` escape hatches, clearly labelled as dumps. This is a
-deliberate moat decision; rationale in the LIBRARY design spec (held in the private design docs).
+deliberate decision.
 
 ## PDF storage policy
 
@@ -364,7 +364,7 @@ The "data-driven backlog" entries have progressed:
 
 Open backlog items:
 
-- **Per-cell history retrieval API.** On-disk schema records only
+- **Per-cell history retrieval API** ([#59](https://github.com/Shannon-Bengtson/latris/issues/59)). On-disk schema records only
   the *current* origin/source for each cell. The future
   `latris` library exposes `attribute.history()` /
   `cell.history()` reconstructed from git. Library-side; no schema

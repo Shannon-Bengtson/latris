@@ -1,7 +1,7 @@
 """GUI telemetry relay — the server's telemetry ingest.
 
-The GUI beacons batched event envelopes here (docs/engineering/TELEMETRY.md,
-Phase 3). The relay stamps ``surface="gui"`` — a client never names its own
+The GUI beacons batched event envelopes here (docs/engineering/TELEMETRY.md).
+The relay stamps ``surface="gui"`` — a client never names its own
 surface through this route — validates every payload against the registry
 (atomically: one bad payload 422s the whole batch), then persists through
 the emitter: the project's local JSONL mirror is primary, and an opted-in

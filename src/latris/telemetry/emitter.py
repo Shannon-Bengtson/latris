@@ -41,8 +41,8 @@ _UPLOAD_TIMEOUT_S = 5
 # Bearer token for the hosted ingest, when the deployment sets one. A secret,
 # so an env var — never the committed project config. Empty = no header.
 TOKEN_ENV_VAR = "LATRIS_TELEMETRY_TOKEN"
-# Set by the operator of a hosted surface (the Latris session broker sets them in
-# each session container), never by an end user's own install: where to send
+# Set by whoever hosts the server for others (on each session), never by an
+# end user's own install: where to send
 # events, and the session's pseudonymous actor. A project's telemetry.yaml can
 # still switch telemetry off (``enabled: false``).
 ENDPOINT_ENV_VAR = "LATRIS_TELEMETRY_ENDPOINT"

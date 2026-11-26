@@ -151,6 +151,9 @@ agents: read these before changing code.
    issue: recorded elicitation sessions never appear in reports (the
    exporters resolve their files against the wrong folder); the fix, for
    when elicitation is built out.
+10. [`TELEMETRY.md`](engineering/TELEMETRY.md) — what the library records
+    about its use, where it goes (a local file unless upload is turned on),
+    and how to switch it off.
 
 ### The worked example (`../worked_example/`)
 
