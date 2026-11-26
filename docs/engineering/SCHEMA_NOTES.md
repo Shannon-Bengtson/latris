@@ -334,7 +334,7 @@ Python library to read efficiently — not for pgmpy-pickle
 compatibility, NetworkX JSON interchange, or XMILE round-trip. Users
 who need an external format get one-way `latris export
 <format>` escape hatches, clearly labelled as dumps. This is a
-deliberate moat decision; rationale in the LIBRARY design spec (held in the private design docs).
+deliberate decision.
 
 ## PDF storage policy
 

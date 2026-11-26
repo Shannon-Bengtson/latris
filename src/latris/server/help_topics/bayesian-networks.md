@@ -16,7 +16,7 @@ Select **Bayesian Network** as a model type, then open the Formalise phase and s
 2. **CPT table** — click *Edit CPT table* to open the spreadsheet. Each row is one combination of the parents' states; enter the probability of each of the node's states. Each row must sum to 1.0 — the Σ column flags rows that don't and offers one-click normalisation. Root nodes have a single prior row.
 3. **Noisy-OR (optional)** — for a binary node whose parents are all binary, parameterise it compactly as Noisy-OR (a per-cause probability plus a leak) instead of a full table.
 
-Every value carries provenance (where the number came from), so a BN built in Latris stays auditable — something incumbent BN tools can't do.
+Every value carries provenance (where the number came from), so a BN built in Latris stays auditable.
 
 ## Analyse: evidence and beliefs
 

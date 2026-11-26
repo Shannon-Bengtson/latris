@@ -1,6 +1,6 @@
 """Tests for the GUI telemetry relay (POST /api/telemetry/events).
 
-See docs/engineering/TELEMETRY.md, Phase 3. The relay stamps the surface,
+See docs/engineering/TELEMETRY.md. The relay stamps the surface,
 validates atomically against the registry, and persists best-effort through
 the emitter — the local JSONL mirror is primary, upload is opt-in.
 """

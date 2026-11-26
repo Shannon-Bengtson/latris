@@ -2,7 +2,7 @@
 
 Status: agreed direction (2026-11-17), implementation in progress.
 Tracking: latris#5 (charts hook), latris#4 (aggregate diagrams), latris#3
-(legacy migration); app half: latris-app#3.
+(legacy migration).
 
 ## The split
 

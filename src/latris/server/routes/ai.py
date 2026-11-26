@@ -48,7 +48,7 @@ class AIApplyRequest(BaseModel):
 
 
 class AIRejectRequest(BaseModel):
-    """The optional rejection note (the GUI's reason picker, TELEMETRY.md Phase 3)."""
+    """The optional rejection note (the GUI's reason picker, TELEMETRY.md)."""
 
     reason: str | None = None
 

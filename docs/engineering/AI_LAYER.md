@@ -5,8 +5,8 @@ and any future surfaces can wire into the same primitives.
 
 ## Architectural commitments
 
-The AI contract is **not customer-configurable**. It is a product asset,
-thoroughly tested, updated with product releases. Getting it right is
+The AI contract is **not user-configurable**. It is fixed,
+thoroughly tested, and updated with releases. Getting it right is
 non-trivial and is treated as a first-class design artefact alongside the
 schema. See the product workflow spec (held in the private product docs)
 for the product-level workflow rules, gates, and canonical prompt
@@ -202,9 +202,6 @@ incompatible with thinking enabled"). The adapter routes moonshot models
 through its JSON-mode instructor client — the same client Gemini uses —
 so structured output works without tool calling.
 
-Model comparisons across providers are recorded in the evaluations
-archive (held in the private app repo) — see the Flash vs Kimi bake-off
-for the current interim findings and the open arms.
 
 ## Call flow (what `ai call challenge <edge>` does)
 
@@ -322,7 +319,7 @@ values — because an agent skips generic questions it thinks it can guess.
 - **AI-built models only.** None opens when most factors are a person's.
   The CLI prints the open one after `build` and `check handover` only when
   an agent is driving (`cli/_agent.py`); the hosted chat connector returns
-  it with every write (latris-app `docs/design/CHAT_CHECKPOINTS.md`).
+  it with every write.
 - **Recorded, not approved.** `provenance/person-input.yaml`
   (`schema/person_input.py`) keeps the questions, the answers as relayed,
   the relaying agent and the responsible person. It is not a sign-off and
