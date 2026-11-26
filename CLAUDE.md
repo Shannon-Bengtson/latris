@@ -93,6 +93,14 @@ deterministic output ordering — pass `-n0`. Targeted runs
 tested, every command in the worked example — their gap lists only shrink), the coverage floor, and
 **what "done" means** for a change. Follow it.
 
+## Open work lives in GitHub issues
+
+To-dos, bugs and backlog are GitHub issues on this repo (public: engineering
+only, see "This repo is public"). Design docs and the roadmap hold reasoning
+and order, linking to issues; they don't keep their own to-do lists or
+status. When you find a new task, open an issue; when you finish one, close
+it. Scoping a piece of work in a temporary Markdown plan is fine.
+
 ## Keep the notes current
 
 This file, `src/latris/CLAUDE.md`, [`AGENTS.md`](./AGENTS.md) (for other agents, e.g. Kimi — it points
