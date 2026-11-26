@@ -23,4 +23,4 @@ changed rule — fix it in the same commit. If you find one already wrong, fix t
 
 - Commit as the responsible human; record AI involvement in the `Provenance:` trailer, never as author.
 - No secrets on disk. Never rename the frozen constants (`.graph-tooling`, `latris-sync`).
-- Version bumps go through `scripts/bump-version.sh`; confirm the number with the person first.
+- Version bumps go through `scripts/bump-version.sh` — normally via the Publish workflow (`gh workflow run publish.yml -f version=X.Y.Z`), which also tags and publishes; confirm the number with the person first.

@@ -108,7 +108,10 @@ bash scripts/bump-version.sh 0.3.1        # bump + commit + tag
 bash scripts/bump-version.sh 0.3.1 --no-tag  # bump + commit only
 ```
 
-Pushing a `v*` tag triggers `.github/workflows/publish.yml`, which
-publishes the package to PyPI. Remind the user to push tags after a
-bump; confirm version numbers with them rather than choosing
+**Releasing (the normal way, from anywhere):** run the Publish workflow on
+main with the new version — `gh workflow run publish.yml -f version=0.19.0`
+(or Actions → Publish → Run workflow). It runs the bump script, pushes the
+bump commit and the `v*` tag to main, and publishes to PyPI. Watch it with
+`gh run watch`. Pushing a `v*` tag cut locally still publishes too. Either
+way, confirm version numbers with the user rather than choosing
 unilaterally.
