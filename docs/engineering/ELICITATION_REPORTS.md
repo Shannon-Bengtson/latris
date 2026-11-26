@@ -1,6 +1,6 @@
 # Elicitation sessions in reports: known issue
 
-*Status: **open issue**, found 2026-11-24 while adding tests to the app's Word
+*Status: **open**, tracked in [#56](https://github.com/Shannon-Bengtson/latris/issues/56); found 2026-11-24 while adding tests to the app's Word
 exporter. No code change yet: expert elicitation isn't a finished feature,
 so nothing depends on this today. Fix it when elicitation is built out.*
 

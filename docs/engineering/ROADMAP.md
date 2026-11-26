@@ -4,7 +4,9 @@
 import; items 9–13). The capability manifest (`latris
 capabilities`, from `schema/model_types.py`) stays the machine-readable
 truth for registered types; this page is the reasoning and the order of
-work, including types that aren't registered yet.*
+work, including types that aren't registered yet. **Open work is tracked as
+GitHub issues**, linked from each item below; this page doesn't keep its own
+status or to-do lists.*
 
 ## Where we are
 
@@ -82,13 +84,13 @@ type in about half a day.
 |---|---|---|---|
 | 8 | **Global sensitivity** (Sobol / Morris) across SD, BN, FT | `SALib` (MIT) | Cross-cutting analysis layer |
 | 9 | **Interrupted time series / difference-in-differences** for ToC impact | `statsmodels` | The work is the validity guardrails |
-| 10 | **Influence diagram** | Policy enumeration over a `pgmpy` BN for small models; or `pyAgrum` (check licence) | Follows #4 |
-| 11 | **Structural equation / path models** | `semopy` (check licence) | Extends #1 to latent variables |
+| 10 | **Influence diagram** ([#42](https://github.com/Shannon-Bengtson/latris/issues/42)) | Policy enumeration over a `pgmpy` BN for small models; or `pyAgrum` (check licence) | Follows #4 |
+| 11 | **Structural equation / path models** ([#47](https://github.com/Shannon-Bengtson/latris/issues/47)) | `semopy` (check licence) | Extends #1 to latent variables |
 | 12 | **Argument map** (Toulmin / IBIS) | No library; reuses challenges and evidence | GSN then becomes a specialisation of it, settling GSN's open design question |
-| 13 | **Scenarios**: cross-impact balance + morphological box | numpy | Foresight audience |
-| 14 | **Actor models**: power–interest grid + network analysis | `networkx` | Gives the `actor` kind a use |
-| 15 | **Realist CMO / outcome mapping** | Structure | Pairs with #6 |
-| 16 | **Survival extrapolation** | `lifelines` (MIT) | Only alongside #4 and #5 |
+| 13 | **Scenarios**: cross-impact balance + morphological box ([#48](https://github.com/Shannon-Bengtson/latris/issues/48)) | numpy | Foresight audience |
+| 14 | **Actor models**: power–interest grid + network analysis ([#49](https://github.com/Shannon-Bengtson/latris/issues/49)) | `networkx` | Gives the `actor` kind a use |
+| 15 | **Realist CMO / outcome mapping** ([#50](https://github.com/Shannon-Bengtson/latris/issues/50)) | Structure | Pairs with #6 |
+| 16 | **Survival extrapolation** ([#51](https://github.com/Shannon-Bengtson/latris/issues/51)) | `lifelines` (MIT) | Only alongside #4 and #5 |
 
 ## Priority — models that can be called (added 2026-11-22)
 
@@ -106,7 +108,7 @@ equation and coefficient has a source — among the most defensible models there
 |---|---|---|---|---|
 | 17 | **Predict** — an input/output contract and a stateless run (**built for every type with a forward calculation**: `latris contract`, `latris predict`, `latris.load`; design in [PREDICT.md](PREDICT.md)) | Given these inputs, what does this version of the model say? | See below. Equation model, SD (values) and BN | built; follow-ups below |
 | 18 | **Equation model** — quantities joined by sourced formulas, no clock (**done**: `latris eq`; design in [EQUATION_MODEL.md](EQUATION_MODEL.md)) | What does this physics / published parameterisation give for these inputs? | A formalism plugin reusing the SD expression evaluator (`_sd_eval.py`) and unit checker (`_units.py`), without the integrator; each formula and coefficient cites its source and stated range of validity | built |
-| 19 | **Time-series forcing for SD** | What happens under this rainfall / demand / price record? | A series input declared in the contract and interpolated against `TIME`; today the only route is a hand-typed lookup table | 1–2 days after #17 |
+| 19 | **Time-series forcing for SD** ([#40](https://github.com/Shannon-Bengtson/latris/issues/40)) | What happens under this rainfall / demand / price record? | A series input declared in the contract and interpolated against `TIME`; today the only route is a hand-typed lookup table | 1–2 days after #17 |
 
 **Predict (#17), in three parts:**
 
@@ -132,7 +134,7 @@ equation and coefficient has a source — among the most defensible models there
 - **Still inspectable.** This is not the "black-box predictors" of *Not doing*: every formula and
   parameter stays one a person can source, check and challenge.
 
-## Tier C — easy, but needs a decision first
+## Tier C — easy, but needs a decision first ([#54](https://github.com/Shannon-Bengtson/latris/issues/54))
 
 - **`DoWhy` (MIT)** — refutation tests on top of #1; heavy dependency, so
   `statsmodels` first.
@@ -173,29 +175,29 @@ black-box predictor.)
    predict (first cut done: a contract per model type, a stateless run, pinned versions and the
    first public Python API, for the equation model, SD values and BN; then the fault tree, bow-tie
    and event tree; then the decision tree, Markov, MCDA and FCM: [PREDICT_NEXT.md](PREDICT_NEXT.md)).
-   Next for #17: uncertainty bands on a prediction (the app's Use view is built); then #19
+   Next for #17: uncertainty bands on a prediction ([#41](https://github.com/Shannon-Bengtson/latris/issues/41)) (the app's Use view is built); then #19
    time-series forcing for SD, which waits until someone needs it. Small follow-ups to #18: lookup
    tables, and adding it to the global-sensitivity layer (#8).
-8. **XMILE / Vensim import** (decided 2026-11-25 — the "off the roadmap" line in
+8. **XMILE / Vensim import** ([#39](https://github.com/Shannon-Bengtson/latris/issues/39)) (decided 2026-11-25 — the "off the roadmap" line in
    FOUNDATIONS.md is reversed): import SD models via `PySD` (MIT), the adoption
    way for SD users to bring existing Stella/Vensim models. Before committing an
    implementation, validate real-world export fidelity (arrays/subscripts, lookup
    tables, units) on genuine Stella and Vensim files — Latris SD is scalar-only
    today, so the first importer defines the honest subset it accepts and refuses
    the rest loudly rather than degrading silently.
-9. **SD calibration to data**: least-squares
+9. **SD calibration to data** ([#35](https://github.com/Shannon-Bengtson/latris/issues/35)): least-squares
    payoff fitting of SD constants to observed series (`scipy.optimize`, already
    installed). The design work is the provenance story for fitted values — marked
    `data-derived`, elicited values protected, the fit recorded as a result. 2–3
    days for the first cut. The same payoff machinery later serves policy search.
-10. **Correlated uncertainty, generally**: extend the PSA's Iman–Conover
+10. **Correlated uncertainty, generally** ([#36](https://github.com/Shannon-Bengtson/latris/issues/36)): extend the PSA's Iman–Conover
     pairing to a Gaussian copula over the shared uncertainty schema, so the risk
     types' Monte Carlo and the PSA sample correlated ranges. 1–2 days on scipy.
-11. **Utility functions on decision trees**: a one-attribute utility
+11. **Utility functions on decision trees** ([#37](https://github.com/Shannon-Bengtson/latris/issues/37)): a one-attribute utility
     transform on payoffs (exponential, power), stated on the model, so DT and
     Markov evaluations can reflect risk attitude — reported alongside the
     risk-neutral result, never instead of it. ~1 day.
-12. **Markov time-varying probabilities + tunnel states**: cycle-varying
+12. **Markov time-varying probabilities + tunnel states** ([#38](https://github.com/Shannon-Bengtson/latris/issues/38)): cycle-varying
     transition matrices (Weibull/hazard helpers; `lifelines` (MIT) optional for
     fitting to survival data) and tunnel states as time-in-state overrides. 2–3
     days. Microsimulation stays out for now.
@@ -209,10 +211,10 @@ change, not a type of its own, so it isn't registered separately.
 
 ## Not yet decided
 
-- **Arrays / subscripts for SD.** Latris SD is scalar-only. The XMILE
+- **Arrays / subscripts for SD** ([#52](https://github.com/Shannon-Bengtson/latris/issues/52)). Latris SD is scalar-only. The XMILE
   fidelity check (item 8) comes first: real imported models lean on
   subscripts, and the check sizes how urgent this is.
-- **Continuous / hybrid BN nodes.** Watching, not building: discrete nodes and
+- **Continuous / hybrid BN nodes** ([#53](https://github.com/Shannon-Bengtson/latris/issues/53)). Watching, not building: discrete nodes and
   Noisy-OR suit elicited, defensible models. The influence diagram (Tier B
   #10) and BN EVPI come first.
 

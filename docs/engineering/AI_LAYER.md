@@ -476,6 +476,8 @@ approval status.
 
 ## What's NOT yet built
 
+Tracked as issues: boundary prompts [#57](https://github.com/Shannon-Bengtson/latris/issues/57); caching and cost budgets [#58](https://github.com/Shannon-Bengtson/latris/issues/58).
+
 - **Future boundary-related prompts:**
   - `ValidateBoundary` — suggest where the boundary is too vague or
     contradicts the exclusions list.
