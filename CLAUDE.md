@@ -114,4 +114,7 @@ main with the new version — `gh workflow run publish.yml -f version=0.19.0`
 bump commit and the `v*` tag to main, and publishes to PyPI. Watch it with
 `gh run watch`. Pushing a `v*` tag cut locally still publishes too. Either
 way, confirm version numbers with the user rather than choosing
-unilaterally.
+unilaterally. **Releasing is the founder's call:** a release publishes to
+PyPI and can't be taken back, so never start one (workflow run or tag push)
+without their go-ahead. Pushing or merging to `main` is theirs to approve
+too; work on a branch and open a pull request.
