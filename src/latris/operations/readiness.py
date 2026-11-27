@@ -690,7 +690,7 @@ class TransitionStatus:
 
 @dataclass
 class TransitionReadiness:
-    """All phase-transition states (home→build … interpret→communicate)."""
+    """All phase-transition states (frame→build … interpret→communicate)."""
 
     transitions: list[TransitionStatus]
 
@@ -798,11 +798,11 @@ def assess_build_readiness(
 # ---------------------------------------------------------------------------
 
 
-def _assess_home_to_build(paths) -> TransitionStatus:
+def _assess_frame_to_build(paths) -> TransitionStatus:
     """Home → Build: a modelling question must be defined.
 
     Build is the first phase; its only precondition is that the project
-    has a modelling question (set on the home/overview screen). Evidence
+    has a modelling question (set in Frame). Evidence
     is now an always-on resource, not a gate.
     """
     from latris.schema import ProjectFoundation
@@ -812,14 +812,14 @@ def _assess_home_to_build(paths) -> TransitionStatus:
 
     if not has_question:
         return TransitionStatus(
-            from_phase="home",
+            from_phase="frame",
             to_phase="build",
             light="red",
             summary="Define a modelling question to begin.",
-            details=["Set the modelling question on the project home screen."],
+            details=["Set the modelling question in Frame."],
         )
     return TransitionStatus(
-        from_phase="home",
+        from_phase="frame",
         to_phase="build",
         light="green",
         summary="Ready to build.",
@@ -1111,7 +1111,7 @@ def assess_transition_readiness(
     """
     paths = require_project(root)
     assessors = [
-        _assess_home_to_build,
+        _assess_frame_to_build,
         _assess_build_to_formalise,
         _assess_formalise_to_analyse,
         _assess_analyse_to_interpret,
@@ -1119,7 +1119,7 @@ def assess_transition_readiness(
     ]
 
     phase_labels = [
-        ("home", "build"),
+        ("frame", "build"),
         ("build", "formalise"),
         ("formalise", "analyse"),
         ("analyse", "interpret"),

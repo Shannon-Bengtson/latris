@@ -22,10 +22,12 @@ Latris is an evidence-native modelling workbench for building, reviewing, analys
 
 Use the process stepper across the top of the app:
 
-1. **Build** the conceptual model.
-2. **Formalise** by selecting model types and setting their parameters.
-3. **Analyse** each model on its canvas.
-4. **Interpret** findings into claims and prose.
-5. **Communicate & Use**: reports, diagrams and review packs for readers, and a contract for code that runs the model.
+1. **Frame** the question, its audience, and which model types to build.
+2. **Build** the conceptual model.
+3. **Formalise** each model type: its definitions, values, ranges and scenarios.
+4. **Analyse** each model, from structural and base-case analysis to uncertainty and sensitivity.
+5. **Interpret** findings into claims and prose.
+6. **Communicate**: reports, diagrams, review packs, stories and explorers for readers.
+7. **Use**: a contract for code that runs the model.
 
-Evidence (Data and References) is always available alongside the stepper — it is a persistent resource, not a phase.
+Evidence (Data and References) is always available alongside the stepper: it is a track beside every stage, not a stage (see "The Workflow").

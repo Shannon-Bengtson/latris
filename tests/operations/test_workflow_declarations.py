@@ -118,10 +118,10 @@ def test_surfaces_receive_steps_and_the_registry() -> None:
 
 
 def test_readiness_transitions_use_registry_stages(empty_project_root) -> None:
-    """Readiness names stages by registry id. "home" is the app's landing until it shows Frame as a stage."""
+    """Readiness names stages by registry id: the first gate is Frame → Build."""
     from latris.operations.readiness import assess_transition_readiness
 
     phases = {
         p for t in assess_transition_readiness(root=empty_project_root).transitions for p in (t.from_phase, t.to_phase)
     }
-    assert phases <= set(wf.STAGE_IDS) | {"home"}
+    assert phases <= set(wf.STAGE_IDS)
