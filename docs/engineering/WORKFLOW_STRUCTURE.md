@@ -92,25 +92,89 @@ tied to the stage it closes.
 
 Elicitation is left out until it is built.
 
+## Rules: how anything is placed
+
+The lists are mutually exclusive and exhaustive because placement is a fixed
+sequence of tests, not a judgment. Take the tests in order; the first that
+holds decides, and the last in each sequence catches everything left. The
+tests look at what an action reads, writes and varies, never at its name or
+its model type.
+
+**Track or stage.** If the action works on something that can attach to work
+from any stage, it is in that track: a source or citation (Evidence), a
+dataset (Data), a challenge, maturity or sign-off (Review and challenge), a
+version or the history (Versions and history), an AI proposal or checkpoint
+(AI assistance). Otherwise it is in a stage.
+
+**Which stage**, by what the action writes or produces:
+
+1. It serves the model to code (inputs in, outputs out) → Use.
+2. It renders the model for a reader → Communicate.
+3. It writes claims or text about results → Interpret.
+4. It computes a result from the model → Analyse.
+5. It writes a model type's own content → Formalise.
+6. It writes the shared map (factors, links, membership) → Build.
+7. It writes the project's question, scope, audience or choice of model
+   types → Frame.
+
+**Which Analyse step:**
+
+1. It reads a dataset → Estimation from data.
+2. It reads no values (only structure, definitions and evidence) →
+   Structural analysis.
+3. It compares alternatives a person could choose between (options,
+   strategies, scenarios) → Option comparison.
+4. It varies inputs one by one, or attributes the result's variation to each
+   input → Sensitivity analysis.
+5. It samples the uncertain inputs together and reports the spread of the
+   result → Uncertainty analysis.
+6. Anything else: one result from the values as set → Evaluation.
+
+An analysis with secondary outputs (a decision tree's rollback also reports
+thresholds) is placed by the first test it meets, once.
+
+**Which Formalise step:**
+
+1. It stores a named alternative to values already set → Scenarios.
+2. It says how uncertain a value is: a distribution, bounds, a correlation →
+   Ranges.
+3. It sets a quantity on one element of the model (a number, equation,
+   table, rating or assessment on a factor, link, node, state or option) →
+   Values.
+4. Anything else: which elements exist, what kind each is, and model-wide
+   settings → Definitions.
+
+An operation that does two of these (an MCDA criterion's direction and its
+weight) is placed by the first test it meets, once.
+
 ## Classification
+
+Each placement below follows from the rules above.
 
 ### Analyses (38 result kinds, plus three that record nothing)
 
 | Step | Result kinds |
 |---|---|
-| Structural analysis | `sd-loops`, `toc-pathways`, `toc-process-trace`; and, recording no result, find loops, trace effects, causal identification |
-| Evaluation | `sd-simulation`, `bn-query`, `bn-explanation`, `ft-analysis`, `bt-analysis`, `et-analysis`, `ach-analysis`, `argument-analysis`, `eq-evaluation`, `fcm-inference` |
+| Structural analysis | `toc-pathways`; and, recording no result, find loops, trace effects, causal identification |
+| Evaluation | `sd-simulation`, `sd-loops`, `bn-query`, `bn-explanation`, `toc-process-trace`, `ft-analysis`, `bt-analysis`, `et-analysis`, `ach-analysis`, `argument-analysis`, `eq-evaluation`, `fcm-inference` |
 | Option comparison | `mcda-analysis`, `dt-analysis`, `markov-analysis`, `sd-options`, `bn-options` |
 | Uncertainty analysis | `sd-monte-carlo`, `bn-monte-carlo`, `ft-monte-carlo`, `bt-monte-carlo`, `et-monte-carlo`, `eq-monte-carlo`, `dt-psa`, `markov-psa` |
 | Sensitivity analysis | `sd-sensitivity`, `bn-sensitivity`, `eq-sweep`, `sd-gsa`, `bn-gsa`, `ft-gsa`, `bt-gsa`, `et-gsa`, `dt-gsa`, `markov-gsa` |
 | Estimation from data | `dag-estimate`, `toc-impact` |
 
-10 + 5 + 8 + 10 + 3 + 2 = 38.
+1 + 12 + 5 + 8 + 10 + 2 = 38.
 
-Decided: probabilistic sensitivity analysis is uncertainty analysis (it is a
-Monte Carlo over the inputs; its outputs are the spread of the result and
-acceptability curves). Analyses whose result is a choice between options are
-option comparison, whatever the model type.
+What the rules settle:
+
+- Probabilistic sensitivity analysis samples the inputs together and reports
+  the spread, so it is uncertainty analysis, despite its name.
+- MCDA, decision trees and Markov cost-effectiveness compare strategies, so
+  they are option comparison. Competing hypotheses are not choices, so that
+  analysis is evaluation.
+- Loop dominance and process tracing compute from values (equations, priors
+  and test probabilities), so they are evaluation, not structural analysis.
+- The argument-map analysis reads each claim's assessment, a value, so it is
+  evaluation.
 
 ### Formalise operations
 
@@ -129,10 +193,8 @@ option comparison, whatever the model type.
 | Argument map | element, link | claim | | |
 | Equation model | | value, formula | uncertainty | scenario |
 
-An operation that sets both what something is and a number (an MCDA
-criterion's direction and weight, a decision-tree branch's label and
-probability) is filed under Values: the rule is that anything setting a
-number is Values.
+Model-wide settings (a simulation's clock, a discount rate) are Definitions:
+they are not a quantity on one element.
 
 ## How it is enforced
 
@@ -182,16 +244,7 @@ report's Methods section. A step is a label, not a rename.
 
 ## Open questions
 
-- **Theory-of-change evidence tests** (`set_toc_test`) set probabilities, so
-  they are under Values here. They are also evidence about a link. Values,
-  or the Evidence track?
-- **Argument maps** have no numbers. Their element and link operations are
-  under Definitions and a claim's assessment under Values. Would all three
-  be better in Build?
-- **`argument-analysis`** ("does the conclusion stand?") is under
-  Evaluation. Structural analysis is the other candidate.
-- **`bn-explanation`** (most likely explanation) is under Evaluation.
-- **Build has one step.** Splitting it (factors, links) adds little. Is one
-  step acceptable, or does every stage need at least two?
-- **Expected value of information** (#43), when built: sensitivity analysis,
-  or a step of its own?
+- **Expected value of information** (#43), when built as its own analysis:
+  the rules place it under sensitivity analysis (it attributes the decision's
+  uncertainty to each input). Confirm when it is designed.
+- **Steps for Build.** It has one. The rules don't need more.
