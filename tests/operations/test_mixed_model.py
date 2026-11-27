@@ -304,10 +304,10 @@ def test_result_headings_say_which_run_is_which(mixed_root):
     bn_ops.record_query(bn_ops.infer(root=mixed_root), root=mixed_root)
     bn_ops.record_query(bn_ops.infer(evidence={"Hot week": "yes"}, root=mixed_root), root=mixed_root)
     lines = render_results(ProjectPaths(mixed_root))
-    headings = [line for line in lines if line.startswith("### ")]
-    assert "### Simulation: baseline vs unsaved what-if (Release rate=0.3)" in headings
-    assert "### Probabilities: no evidence (prior)" in headings
-    assert "### Probabilities: given Hot week = yes" in headings
+    headings = [line for line in lines if line.startswith("#### ")]
+    assert "#### Simulation: baseline vs unsaved what-if (Release rate=0.3)" in headings
+    assert "#### Probabilities: no evidence (prior)" in headings
+    assert "#### Probabilities: given Hot week = yes" in headings
     assert any(line.startswith("_Run 20") for line in lines)
 
 
@@ -338,8 +338,8 @@ def test_an_intervention_is_recorded_labelled_and_replayed(mixed_root):
     from latris.operations.analysis_replay import definitions
 
     bn_ops.record_query(bn_ops.infer(interventions={"Barrier fails": "no"}, root=mixed_root), root=mixed_root)
-    headings = [h for h in render_results(ProjectPaths(mixed_root)) if h.startswith("### Probabilities")]
-    assert headings == ["### Probabilities: given we set Barrier fails = no"]
+    headings = [h for h in render_results(ProjectPaths(mixed_root)) if h.startswith("#### Probabilities")]
+    assert headings == ["#### Probabilities: given we set Barrier fails = no"]
     [spec] = [d for d in definitions(root=mixed_root) if d.kind == "bn_query"]
     assert spec.interventions == {"Barrier fails": "no"}
 

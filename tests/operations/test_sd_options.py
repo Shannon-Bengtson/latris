@@ -67,7 +67,7 @@ def test_recorded_comparison_reaches_report_and_claims(options_root):
 
     sd_ops.record_compare(_run(options_root), root=options_root)
     lines = render_results(ProjectPaths(options_root))
-    assert "### Options compared under uncertainty: Water, final value" in lines
+    assert "#### Options compared under uncertainty: Water, final value" in lines
     claims = extract_claims("answer_to_question", "sd", root=options_root)
     assert any(c.startswith("Options compared on Water") for c in claims)
     assert any("More inflow — Water, final value:" in c and "higher in the median draw" in c
@@ -100,7 +100,7 @@ def test_a_world_is_named_in_the_heading_and_kept_apart(options_root):
     payload, runs = sd_ops.simulate_scenarios(["Faster drain"], final_time=10, apply_to_all=["Inflow Rate=20"],
                                               root=options_root)
     sd_ops.record_comparison(payload, runs, root=options_root)
-    headings = [h for h in render_results(ProjectPaths(options_root)) if h.startswith("### Simulation")]
+    headings = [h for h in render_results(ProjectPaths(options_root)) if h.startswith("#### Simulation")]
     assert len(headings) == 2
     assert any("in every run: Inflow Rate=20" in h for h in headings)
 
