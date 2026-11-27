@@ -245,21 +245,21 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_markov_settings', ('settings',),
+    ChatOp("formalise.definitions", 'set_markov_settings', ('settings',),
         'Cycles, cycle length, discount rates, half-cycle correction, willingness to pay, and cost '
         'and outcome units.'),
-    ChatOp('set_markov_element', ('elements',),
+    ChatOp("formalise.definitions", 'set_markov_element', ('elements',),
         'Make a factor a health state (or other state) or a strategy.'),
-    ChatOp('set_markov_transition', ('transitions',),
+    ChatOp("formalise.values", 'set_markov_transition', ('transitions',),
         "The probability per cycle of moving 'From -> To' (optionally for one strategy)."),
-    ChatOp('set_markov_reward', ('rewards',),
+    ChatOp("formalise.values", 'set_markov_reward', ('rewards',),
         "A state's cost and utility per cycle (optionally for one strategy)."),
-    ChatOp('set_markov_start', ('start',),
+    ChatOp("formalise.values", 'set_markov_start', ('start',),
         'The share of the cohort starting in a state.'),
-    ChatOp('set_markov_correlation', ('correlations',),
+    ChatOp("formalise.ranges", 'set_markov_correlation', ('correlations',),
         'Two ranged values that move together (e.g. two rates from one cohort): rank correlation rho, -0.99 to '
         '0.99, each end with its quantity and strategy where needed. The PSA samples them together.'),
-    ChatOp('set_markov_range', ('ranges',),
+    ChatOp("formalise.ranges", 'set_markov_range', ('ranges',),
         "How uncertain an input is, for probabilistic sensitivity analysis: a transition ('From -> To'), a "
         "state's cost or utility (quantity), or a state's transitions out as a Dirichlet (quantity 'leaving'); "
         'optionally for one strategy. Beta (probabilities, utilities) and gamma (costs) take a mean and sd.'),
@@ -281,7 +281,7 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the model to see the thresholds at which the choice changes.",
-    results=(ResultKind(tool=ChatTool(*_TOOLS['markov-analysis']),
+    results=(ResultKind(step="analyse.options", tool=ChatTool(*_TOOLS['markov-analysis']),
                         kind="markov-analysis", title="Markov cohort model: costs, outcomes and cost-effectiveness",
                         render=_render, analysis="markov_analyse", run=_run, definition=_definition,
                         charts=_charts, chart_kinds=("markov-trace", "markov-ce")),

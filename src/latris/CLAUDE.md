@@ -49,6 +49,11 @@ on `Formalism`) and its chat surface (`ResultKind.tool`, `Formalism.chat_ops`)
 rather than branching on its name in shared code — `test_no_type_branches.py`
 fails if you do. Full list in ARCHITECTURE.md → "Adding a formalism".
 
+Every result kind and chat op declares its `step` in the workflow structure (`schema/workflow.py`: the
+stages, steps and tracks every surface groups by). Place it by the rules in
+`docs/engineering/WORKFLOW_STRUCTURE.md`, never by its name; `tests/operations/test_workflow_declarations.py`
+pins the classification. Nothing else spells a stage or step name: read them from the registry.
+
 ## Public Python API
 
 `src/latris/api.py` (`latris.load`, `latris.Model`) is the only supported

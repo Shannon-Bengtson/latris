@@ -186,11 +186,11 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_ach_element', ('elements',),
+    ChatOp("formalise.definitions", 'set_ach_element', ('elements',),
         'Make a factor a hypothesis or an evidence item.'),
-    ChatOp('set_ach_item', ('items',),
+    ChatOp("formalise.definitions", 'set_ach_item', ('items',),
         "An evidence item's credibility and relevance, and its source."),
-    ChatOp('set_ach_rating', ('ratings',),
+    ChatOp("formalise.values", 'set_ach_rating', ('ratings',),
         'How consistent one evidence item is with one hypothesis: CC (very consistent), C, N '
         '(neutral), I or II (very inconsistent), with the rationale.'),
 )
@@ -212,7 +212,7 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Rate every item against every hypothesis to find the linchpins.",
-    results=(ResultKind(tool=ChatTool(*_TOOLS['ach-analysis']),
+    results=(ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['ach-analysis']),
                         kind="ach-analysis", title="Competing hypotheses", render=_render, analysis="ach_analyse",
                         run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("ach-matrix",)),),

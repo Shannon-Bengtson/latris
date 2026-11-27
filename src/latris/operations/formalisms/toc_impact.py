@@ -107,7 +107,7 @@ _TOOLS = {
 
 register_analysis(Analysis(
     model_type="theory_of_change",
-    result=ResultKind(tool=ChatTool(*_TOOLS['toc-impact']),
+    result=ResultKind(step="analyse.estimation", tool=ChatTool(*_TOOLS['toc-impact']),
                       kind="toc-impact", title="Theory of change: impact estimate", render=_render,
                       analysis="toc_impact", run=_run, definition=_definition, claims=_claims,
                       charts=_charts, chart_kinds=("impact-its", "impact-did"), needs_dataset=True),

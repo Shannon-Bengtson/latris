@@ -320,12 +320,12 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_toc_level', ('levels',),
+    ChatOp("formalise.definitions", 'set_toc_level', ('levels',),
         'Place a factor on the results chain: input, activity, output, short_term_outcome, '
         'long_term_outcome or impact.'),
-    ChatOp('set_toc_prior', ('priors',),
+    ChatOp("formalise.values", 'set_toc_prior', ('priors',),
         'Process tracing: the prior confidence that a link holds, before the evidence tests.'),
-    ChatOp('set_toc_test', ('tests',),
+    ChatOp("formalise.values", 'set_toc_test', ('tests',),
         'Process tracing: an evidence test on a link: how likely the evidence is if the link holds '
         "(p_if_true) and if it doesn't (p_if_false), which makes it a hoop, smoking-gun, "
         'doubly-decisive or straw-in-the-wind test, and whether it was found.'),
@@ -349,11 +349,11 @@ register(Formalism(
     claims=_claims,
     centrality=True,
     own_implications=True,
-    results=(ResultKind(tool=ChatTool(*_TOOLS['toc-pathways']),
+    results=(ResultKind(step="analyse.structural", tool=ChatTool(*_TOOLS['toc-pathways']),
                         kind="toc-pathways", title="Theory of change: pathways and their evidence", render=_render,
                         analysis="toc_check", run=_run, definition=_definition,
                         charts=_charts_pathways, chart_kinds=("toc-evidence",)),
-             ResultKind(tool=ChatTool(*_TOOLS['toc-process-trace']),
+             ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['toc-process-trace']),
                         kind="toc-process-trace", title="Theory of change: process tracing", render=_render_trace,
                         analysis="toc_trace", run=_run_trace, definition=_definition_trace, claims=_claims_trace,
                         charts=_charts_trace, chart_kinds=("trace-dumbbell",))),

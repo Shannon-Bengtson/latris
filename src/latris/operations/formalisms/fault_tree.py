@@ -251,14 +251,14 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_ft_event', ('events',),
+    ChatOp("formalise.definitions", 'set_ft_event', ('events',),
         'Make a factor a top, intermediate, basic or undeveloped event (link inputs to the event they '
         "feed with kind 'logical')."),
-    ChatOp('set_ft_gate', ('gates',),
+    ChatOp("formalise.definitions", 'set_ft_gate', ('gates',),
         "The gate combining an event's inputs: and, or, or vote (k out of n)."),
-    ChatOp('set_ft_probability', ('probabilities',),
+    ChatOp("formalise.values", 'set_ft_probability', ('probabilities',),
         "A basic event's probability, with its source."),
-    ChatOp('set_ft_uncertainty', ('uncertainty',),
+    ChatOp("formalise.ranges", 'set_ft_uncertainty', ('uncertainty',),
         'An uncertainty on a probability: a distribution and its parameters, with the reason; '
         'monte_carlo_fault_tree samples it.'),
 )
@@ -284,7 +284,7 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Give every basic event a probability to rank the events by importance.",
-    results=(ResultKind(tool=ChatTool(*_TOOLS['ft-analysis']),
+    results=(ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['ft-analysis']),
                         kind="ft-analysis", title="Fault tree: cut sets, probability and importance", render=_render,
                         analysis="ft_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("ft-importance",)),

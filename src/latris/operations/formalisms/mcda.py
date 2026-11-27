@@ -234,12 +234,12 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_mcda_element', ('elements',),
+    ChatOp("formalise.definitions", 'set_mcda_element', ('elements',),
         'Make a factor an option or a criterion of the decision.'),
-    ChatOp('set_mcda_criterion', ('criteria',),
+    ChatOp("formalise.values", 'set_mcda_criterion', ('criteria',),
         "A criterion's weight (any positive number; weights are normalised), its direction (higher or "
         'lower is better), its worst and best values and units, and the source of the weight.'),
-    ChatOp('set_mcda_score', ('scores',),
+    ChatOp("formalise.values", 'set_mcda_score', ('scores',),
         "One option's score on one criterion, with its source."),
 )
 
@@ -261,7 +261,7 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the weights and scores to see how firm the choice is.",
-    results=(ResultKind(tool=ChatTool(*_TOOLS['mcda-analysis']),
+    results=(ResultKind(step="analyse.options", tool=ChatTool(*_TOOLS['mcda-analysis']),
                         kind="mcda-analysis", title="Multi-criteria decision analysis", render=_render,
                         analysis="mcda_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("mcda-contributions", "mcda-swing")),),

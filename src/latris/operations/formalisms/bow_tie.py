@@ -257,14 +257,14 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_bowtie_element', ('elements',),
+    ChatOp("formalise.definitions", 'set_bowtie_element', ('elements',),
         'Make a factor the hazard, the top event, a threat, a consequence, a barrier or an escalation '
         'factor.'),
-    ChatOp('set_bowtie_barrier', ('barriers',),
+    ChatOp("formalise.definitions", 'set_bowtie_barrier', ('barriers',),
         "A barrier's type, status, owner and probability of failure on demand, and its source."),
-    ChatOp('set_bowtie_frequency', ('frequencies',),
+    ChatOp("formalise.values", 'set_bowtie_frequency', ('frequencies',),
         "A threat's frequency per year, with its source."),
-    ChatOp('set_bowtie_uncertainty', ('uncertainty',),
+    ChatOp("formalise.ranges", 'set_bowtie_uncertainty', ('uncertainty',),
         'An uncertainty on a frequency or failure probability; monte_carlo_bow_tie samples it.'),
 )
 
@@ -292,7 +292,7 @@ register(Formalism(
     own_implications=True,
     sensitivity_fallback=("Give every threat a frequency and every barrier a failure probability to rank the "
                           "barriers by how much they buy."),
-    results=(ResultKind(tool=ChatTool(*_TOOLS['bt-analysis']),
+    results=(ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['bt-analysis']),
                         kind="bt-analysis", title="Bow-tie: lines, barriers and frequencies", render=_render,
                         analysis="bowtie_analyse", run=_run, definition=_definition,
                         charts=lambda p: [("bt-lines", {})] if p.get("lines") else [], chart_kinds=("bt-lines",)),

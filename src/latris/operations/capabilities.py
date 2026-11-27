@@ -15,6 +15,7 @@ from typing import Any
 
 from latris.operations.foundations import FOUNDATIONS
 from latris.schema.model_types import ModelTypeSpec, list_model_types
+from latris.schema.workflow import structure as workflow_structure
 
 
 @dataclass(frozen=True)
@@ -131,6 +132,7 @@ def build_capability_manifest() -> dict[str, Any]:
     ordered = sorted(specs, key=lambda s: (_ROADMAP_ORDER[s.roadmap], s.id))
     return {
         "model_types": [_model_type_capability(s) for s in ordered],
+        "workflow": workflow_structure().model_dump(mode="json"),
         "excluded_by_design": [asdict(e) for e in EXCLUDED_BY_DESIGN],
         "foundations": [asdict(f) for f in FOUNDATIONS],
         "reports": _report_capabilities(),
@@ -245,7 +247,8 @@ def _spec_schema(field: str | None) -> dict[str, Any] | None:
 
 def analysis_catalog(model_type: str | None = None) -> list[dict[str, Any]]:
     """Every analysis that records a result (of ``model_type``, or all), in report order: the result kind
-    and its title, the analysis that runs it with the JSON schema of its options (each option described,
+    and its title, its workflow step (one of Analyse's, ``schema/workflow.py``), the analysis that runs it
+    with the JSON schema of its options (each option described,
     and marked with ``x-input`` saying what it is: a factor, a scenario…), its chart kinds, whether it needs
     a dataset, its chat tool, and the method it stands on (method, citation, what for, limits — from the
     foundations registry the report's Methods section reads). Surfaces generate their run controls from
@@ -261,7 +264,7 @@ def analysis_catalog(model_type: str | None = None) -> list[dict[str, Any]]:
     tools = {r.kind: r.tool for r in formalisms.result_kinds() if r.tool}
     return [
         {
-            "model_type": r.model_type, "kind": r.kind, "title": r.title, "analysis": r.analysis,
+            "model_type": r.model_type, "kind": r.kind, "title": r.title, "analysis": r.analysis, "step": r.step,
             "analysis_schema": _options_schema(r.analysis, r.model_type, analysis_model),
             "chart_kinds": list(r.chart_kinds), "needs_dataset": r.needs_dataset,
             "tool": {"name": tools[r.kind].name, "description": tools[r.kind].description} if r.kind in tools else None,
@@ -327,8 +330,13 @@ def build_surface_manifest() -> dict[str, Any]:
             "spec_field": field,
             "spec_schema": _spec_schema(field),
             "cli": f.cli[1] if f and f.cli else None,
-            "chat_ops": [{"name": o.name, "fields": list(o.fields), "description": o.description}
+            "chat_ops": [{"name": o.name, "fields": list(o.fields), "description": o.description, "step": o.step}
                          for o in (f.chat_ops if f else ())],
             "results": results.get(spec.id, []),
         })
-    return {"manifest_version": SURFACE_MANIFEST_VERSION, "latris_version": __version__, "model_types": types}
+    return {
+        "manifest_version": SURFACE_MANIFEST_VERSION,
+        "latris_version": __version__,
+        "workflow": workflow_structure().model_dump(mode="json"),
+        "model_types": types,
+    }

@@ -1,6 +1,7 @@
 # Workflow structure: stages, steps and tracks
 
-*Proposed 2026-11-27. Not built. Tracked in
+*Proposed 2026-11-27. The registry and the steps on analyses and edit
+operations are built (#60); the rest is tracked in
 [#60](https://github.com/Shannon-Bengtson/latris/issues/60),
 [#61](https://github.com/Shannon-Bengtson/latris/issues/61),
 [#62](https://github.com/Shannon-Bengtson/latris/issues/62) and
@@ -299,6 +300,17 @@ fails for anything that doesn't, or that uses an id not in the registry.
 What does not change: CLI command names, routes, result-kind ids, the
 package layout (one module per model type), and the method named in a
 report's Methods section. A place is a label, not a rename.
+
+Two older labels stay as they are, because they are stored or read
+elsewhere:
+
+- **`AnalysisRun.purpose`** is recorded on every run in people's projects,
+  with values from before this structure (Monte Carlo and MCDA runs are
+  recorded as `sensitivity-analysis`). It is a stored format and isn't
+  changed. A run's step comes from its result kind.
+- **Readiness transitions** start at `home`, the app's project landing,
+  rather than `frame`. They move to `frame` when the app shows Frame as a
+  stage, together with the help topic that describes the stepper.
 
 ## What each surface does with it
 

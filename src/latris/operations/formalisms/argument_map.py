@@ -231,14 +231,14 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp("set_argument_element", ("elements",),
+    ChatOp("formalise.definitions", "set_argument_element", ("elements",),
            "Make a factor the conclusion (what is argued for), a claim (a premise, objection or rebuttal) or "
            "the question the conclusion answers."),
-    ChatOp("set_argument_link", ("links",),
+    ChatOp("formalise.definitions", "set_argument_link", ("links",),
            "How a premise bears on a claim ('Premise -> Claim'): supports or attacks; a reason name shared by "
            "premises that only work together; the warrant (why it bears) and qualifier (certainly, probably, "
            "possibly)."),
-    ChatOp("set_argument_claim", ("claims",),
+    ChatOp("formalise.values", "set_argument_claim", ("claims",),
            "A person's assessment of a claim taken as given: accepted or rejected, with the rationale."),
 )
 
@@ -258,7 +258,7 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Link reasons and objections to the conclusion to see what it turns on.",
-    results=(ResultKind(tool=ChatTool(*_TOOLS["argument-analysis"]),
+    results=(ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS["argument-analysis"]),
                         kind="argument-analysis", title="Argument map: does the conclusion stand?",
                         render=_render, analysis="argument_analyse", run=_run, definition=_definition),),
     # The evaluation reads each claim's citations (checked or not) and the open challenges on links.

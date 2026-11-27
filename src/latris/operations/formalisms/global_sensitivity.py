@@ -110,7 +110,8 @@ def _kind(model_type: str) -> ResultKind:
                              variable=p.get("variable"), metric=p.get("metric"), state=p.get("state"),
                              evidence=p.get("evidence") or {})
 
-    return ResultKind(tool=ChatTool(tool, _TOOL.format(what=what.lower(), sd=_OPTS.get(model_type, ""))),
+    return ResultKind(step="analyse.sensitivity",
+                      tool=ChatTool(tool, _TOOL.format(what=what.lower(), sd=_OPTS.get(model_type, ""))),
                       kind=KINDS[model_type],
                       title=f"{what}: global sensitivity",
                       title_for=lambda p: f"{what}: global sensitivity of {p['primary']}",

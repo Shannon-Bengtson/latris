@@ -252,18 +252,18 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_et_element', ('elements',),
+    ChatOp("formalise.definitions", 'set_et_element', ('elements',),
         'Make a factor the initiating event, a heading (a yes/no question in sequence) or an end '
         'state.'),
-    ChatOp('set_et_order', ('order',),
+    ChatOp("formalise.definitions", 'set_et_order', ('order',),
         'The headings in the order they are asked.'),
-    ChatOp('set_et_sequence', ('sequences',),
+    ChatOp("formalise.definitions", 'set_et_sequence', ('sequences',),
         'One path of answers to the headings and the end state it leads to.'),
-    ChatOp('set_et_probability', ('probabilities',),
+    ChatOp("formalise.values", 'set_et_probability', ('probabilities',),
         "A heading's probability (optionally given earlier answers), with its source."),
-    ChatOp('set_et_frequency', ('frequency',),
+    ChatOp("formalise.values", 'set_et_frequency', ('frequency',),
         "The initiating event's frequency per year, with its source."),
-    ChatOp('set_et_uncertainty', ('uncertainty',),
+    ChatOp("formalise.ranges", 'set_et_uncertainty', ('uncertainty',),
         'An uncertainty on a probability or the frequency; monte_carlo_event_tree samples it.'),
 )
 
@@ -290,7 +290,7 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Give every heading its probability to see which values move the result.",
-    results=(ResultKind(tool=ChatTool(*_TOOLS['et-analysis']),
+    results=(ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['et-analysis']),
                         kind="et-analysis", title="Event tree: sequences and end states", render=_render,
                         analysis="et_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("et-endstates",)),

@@ -71,6 +71,7 @@ from latris.server.routes import (
     telemetry,
     view_attributes,
     views,
+    workflow,
 )
 from latris.server.routes import (
     help as help_routes,
@@ -302,6 +303,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(compose.router)
     app.include_router(configure.router)
     app.include_router(help_routes.router)
+    app.include_router(workflow.router)
     _register_plugins(app)
 
     # ── Read-only endpoints ───────────────────────────────────────────

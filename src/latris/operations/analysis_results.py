@@ -43,12 +43,13 @@ class ResultSurface:
     analysis: str  # the build-spec ``SpecAnalysis.kind`` that runs it
     chart_kinds: tuple[str, ...]  # every ``latris-chart`` kind its results may carry
     needs_dataset: bool  # reads a dataset, so a share link can't re-run it
+    step: str = ""  # its place in the workflow: one of Analyse's steps (``schema/workflow.py``)
 
 
 def result_surfaces() -> list[ResultSurface]:
     """Every result kind reports can show, in report order (registration order)."""
     owned = formalisms.kind_model_types()
-    return [ResultSurface(r.kind, owned[r.kind], r.title, r.analysis, r.chart_kinds, r.needs_dataset)
+    return [ResultSurface(r.kind, owned[r.kind], r.title, r.analysis, r.chart_kinds, r.needs_dataset, r.step)
             for r in formalisms.result_kinds()]
 
 
