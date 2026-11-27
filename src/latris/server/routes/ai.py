@@ -28,6 +28,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "ai"
+
 # In-memory cache for ExpandBibliography proposals.  The LLM returns search
 # queries (BibliographySearchPlan); the server transforms them into real
 # references (ExpandBibliographyProposal) via OpenAlex.  We cache the

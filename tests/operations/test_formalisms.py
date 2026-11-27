@@ -152,7 +152,8 @@ def test_charts_need_declared_chart_kinds():
     from latris.operations.formalisms import Analysis, ResultKind
 
     r = ResultKind(kind="x-analysis", title="X", render=lambda p: [], analysis="x_analyse",
-                   run=lambda a, root: "", definition=lambda p: None, charts=lambda p: [("x-bars", {})])
+                   run=lambda a, root: "", definition=lambda p: None, charts=lambda p: [("x-bars", {})],
+                   step="analyse.base_case")
     with pytest.raises(ValueError, match="declare chart_kinds"):
         formalisms.register_analysis(Analysis(model_type="dag", result=r))
     assert all(bool(k.charts) == bool(k.chart_kinds) for k in formalisms.result_kinds())

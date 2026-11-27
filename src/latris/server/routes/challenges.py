@@ -13,6 +13,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "review"
+
 
 class OpenChallengeRequest(BaseModel):
     target: str | None = None

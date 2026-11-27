@@ -2,13 +2,14 @@
 title: Theory of Change
 category: model-types
 summary: Lay out how an intervention is meant to reach its impact, and see which steps the evidence holds up.
+place: frame.model_type
 ---
 
 ## What a theory of change represents
 
 A theory of change is a results chain: what an intervention does (**activities**), what that directly produces (**outputs**), the changes that follow (**short-term** and **long-term outcomes**), and the long-term change it is for (**impact**). **Inputs** are the resources it uses. Every factor gets one of these levels (`latris toc level <factor> <level>`); links are ordinary causal links that run forward through the levels. The impact is the outcome of interest.
 
-## What the check shows
+## Structural analysis (pathways and their evidence)
 
 `latris toc check` lays out every pathway from an activity to an impact and, for each link on one, what holds it up:
 
@@ -19,7 +20,9 @@ A theory of change is a results chain: what an intervention does (**activities**
 
 A pathway is only as strong as its weakest link. The check also counts the assumptions stated for each link (`latris assumption add ... --target "A -> B"`) and flags *leaps*: links that skip two or more levels (an output straight to the impact), where the steps between are left unstated. The result is recorded, so the report's Results section shows it, and it goes out of date when sources, checks or assumptions change.
 
-## Process tracing: how far does the evidence support each link?
+## Base-case analysis (process tracing)
+
+_How far does the evidence support each link?_
 
 The check says whether a link has evidence; process tracing says how much that evidence should move you. For each link, set how confident you are before looking (`latris toc prior "A -> B" 0.6`; 0.5 if unset), then add **tests** — evidence you'd expect to see if the link holds — with two judgements: how likely you'd find it if the link holds (`--if-true`, its certainty) and if it doesn't (`--if-false`; low means the evidence is unique to the link):
 
@@ -34,7 +37,9 @@ Once you've looked, record the result (`--found` or `--not-found`). The test's t
 
 `latris toc trace` updates each link from its prior through the tests carried out (Bayes' rule in odds form), gives each pathway a confidence (the product of its links, treating them as independent) and its weakest link, and ranks the tests still to run by how far they could move their link. It is recorded, so the report shows it and the interpretation's claims include it. The numbers are judgements: write down why in `--notes`, cite where the evidence was found with `--source`, and mark them `--verified` once someone has reviewed them.
 
-## Impact: did the outcome change when the intervention started?
+## Estimation from data (impact)
+
+_Did the outcome change when the intervention started?_
 
 With data on an outcome over time (`latris data add`), `latris toc impact` estimates the change:
 

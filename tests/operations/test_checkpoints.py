@@ -243,3 +243,35 @@ def test_values_names_the_estimates_sensitivity_ranks_highest(sd_bathtub_root: P
     c = cp.open_checkpoint(root=root)
     assert c is not None and c.id == "values" and c.before_asking is None
     assert c.questions and all("my estimate" in q for q in c.questions)
+
+
+# ---------- which sensitivity analysis the values checkpoint points to (#61) ----------
+
+
+@pytest.mark.parametrize(
+    ("model_type", "expected"),
+    [
+        ("sd", {"sd_sensitivity", "gsa_sd"}),
+        ("bn", {"bn_sensitivity", "gsa_bn"}),
+        ("fault_tree", {"gsa_fault_tree"}),
+        ("bow_tie", {"gsa_bow_tie"}),
+        ("event_tree", {"gsa_event_tree"}),
+        ("decision_tree", {"gsa_decision_tree"}),
+        ("markov", {"gsa_markov"}),
+        ("equation_model", {"sweep_equations"}),
+    ],
+)
+def test_sensitivity_tools_come_from_the_declared_step(model_type: str, expected: set[str]) -> None:
+    from latris.operations.checkpoints import sensitivity_tools
+
+    assert set(sensitivity_tools(model_type)) == expected
+
+
+def test_checkpoint_phases_come_from_the_workflow_stages() -> None:
+    from latris.schema import CHECKPOINT_ORDER
+    from latris.schema import workflow as wf
+
+    assert list(cp.CLOSES) == list(CHECKPOINT_ORDER)
+    assert list(cp.CLOSES.values()) == list(wf.STAGE_IDS[:5])  # one closes each stage, Frame to Interpret
+    assert cp.PHASE["framing"] == "Frame → Build"
+    assert cp.PHASE["audience"] == "Interpret → Communicate"

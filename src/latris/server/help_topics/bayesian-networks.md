@@ -2,6 +2,7 @@
 title: Bayesian Networks
 category: model-types
 summary: Define state spaces and CPTs, then observe evidence and read posterior beliefs.
+place: frame.model_type
 ---
 
 ## What a Bayesian Network is

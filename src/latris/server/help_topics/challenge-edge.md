@@ -2,6 +2,7 @@
 title: ChallengeEdge
 category: ai
 summary: Element-scope adversarial prompt: counter-mechanism plus one repair action per edge.
+place: ai
 ---
 
 ## What it does

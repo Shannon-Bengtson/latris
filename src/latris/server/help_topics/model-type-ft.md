@@ -2,6 +2,7 @@
 title: Fault Trees
 category: model-types
 summary: Break an undesired event down into the failures that cause it; find cut sets, its probability and what matters most.
+place: frame.model_type
 ---
 
 ## What a fault tree represents
@@ -10,7 +11,7 @@ A fault tree starts from one undesired **top event** and works down through **ga
 
 Only factors with a fault-tree type are in the tree, so a fault tree can share its events with a causal loop diagram. A link into the tree from an unclassified factor is left out and listed, never silently used.
 
-## What the analysis shows
+## Base-case analysis
 
 `latris ft analyse` lists the **minimal cut sets** — the smallest combinations of basic events that cause the top event — and the **single points of failure** (cut sets of one event). Give every basic event a probability (`latris ft probability <event> <p> --source <where>`) and it adds:
 
@@ -19,9 +20,13 @@ Only factors with a fault-tree type are in the tree, so a fault tree can share i
 
 Every probability keeps where it came from; the important ones nobody has verified are flagged, so you know which numbers to check first. The analysis is recorded for the report and goes out of date when the tree or a probability changes.
 
-## How sure is it? (Monte Carlo)
+## Uncertainty analysis (Monte Carlo)
 
 Basic-event probabilities are rarely known exactly. Give them a range — `latris ft uncertainty "Pump A fails" --median 0.01 --error-factor 3` is a lognormal whose 95th percentile is three times its median, the usual way probabilistic risk assessments state it; `uniform --min --max`, `triangular`, `beta` and others also work — then `latris ft monte-carlo`. It recomputes the exact top-event probability for each sample and gives its 5th–95th percentile, median and mean beside the point estimate (with skewed ranges the mean is higher: the point estimate is not the expected value), and ranks the uncertain events by how strongly they drive the spread. Events without a range stay fixed and are listed. Ranges are judgements too: say why with `--reason` and cite with `--source`.
+
+## Sensitivity analysis (global)
+
+`latris analyse global-sensitivity fault_tree` varies every basic-event probability that has a range together and gives each one's share of the variance in the result, alone (S1) and through its interactions (ST), from Sobol indices; `--method morris` is a cheaper screen. An input with ST near zero could be fixed anywhere in its range. It needs two or more ranges, and the result is recorded for the report (see the Analyse Canvas topic).
 
 ## Calling it from a script (contract and predict)
 

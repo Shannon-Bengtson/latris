@@ -2,6 +2,7 @@
 title: Project Context & Scope Contract
 category: getting-started
 summary: What the project-level context and scope fields are for and how AI uses them.
+place: frame.question
 ---
 
 ## Why project context matters

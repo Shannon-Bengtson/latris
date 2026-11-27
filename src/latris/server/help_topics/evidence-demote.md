@@ -2,6 +2,7 @@
 title: EvidenceDemote
 category: ai
 summary: Adversarial pass on one evidence link: change verdict or remove with rationale.
+place: ai
 ---
 
 ## What it does

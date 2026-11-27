@@ -2,13 +2,14 @@
 title: When the AI asks you
 category: ai
 summary: Five checkpoints where an AI building a model stops and asks the person, and how skips show in the report.
+place: ai
 ---
 
 ## Why it asks
 
 An AI building a model for you — in a chat with the Latris connector, or running `latris` commands — knows the sources but not your situation. So at each phase of the workflow it stops at a **checkpoint** and asks you a few specific questions, built from the model it has so far:
 
-1. **Framing** (before building) — what's happening and the decision the model informs, who will read it, and what you expect the answer to be.
+1. **Framing** (Frame → Build) — what's happening and the decision the model informs, who will read it, and what you expect the answer to be.
 2. **Structure** (Build → Formalise) — the factors it has mapped: is anything missing, which of them can you change, and is its least-supported link right?
 3. **Values** (Formalise → Analyse) — the few estimates the answer depends on most (found by sensitivity analysis): are they right?
 4. **Surprise** (Analyse → Interpret) — the result next to what you expected: does it match what you see?

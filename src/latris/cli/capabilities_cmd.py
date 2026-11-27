@@ -87,3 +87,7 @@ def capabilities(
     console.print("\nBuilding", markup=False, highlight=False)
     for key, text in manifest["building"].items():
         console.print(f"  - {key.replace('_', ' ')}: {text}", markup=False, highlight=False)
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"

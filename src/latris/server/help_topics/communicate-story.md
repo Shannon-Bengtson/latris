@@ -2,6 +2,7 @@
 title: Story (public-facing)
 category: communicate
 summary: Tell the model's answer to its question to one audience, as a scrolling page anyone can read.
+place: communicate
 ---
 
 ## What a Story is

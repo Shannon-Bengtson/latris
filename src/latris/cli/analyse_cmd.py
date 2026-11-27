@@ -10,6 +10,13 @@ from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Graph analysis operations.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "analyse.structural",
+    "estimate_cmd": "analyse.estimation",
+    "global_sensitivity_cmd": "analyse.sensitivity",
+}
 console = Console()
 
 

@@ -19,6 +19,34 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/sd", tags=["sd"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "list_roles": "formalise.definitions",
+    "set_role": "formalise.definitions",
+    "unset_role": "formalise.definitions",
+    "list_equations": "formalise.values",
+    "set_equation": "formalise.values",
+    "list_stocks": "formalise.values",
+    "set_initial_value": "formalise.values",
+    "list_constants": "formalise.values",
+    "set_constant": "formalise.values",
+    "list_tables": "formalise.values",
+    "set_table": "formalise.values",
+    "check": "validation",
+    "simulate": "analyse.base_case",
+    "list_scenarios": "formalise.scenarios",
+    "set_scenario": "formalise.scenarios",
+    "remove_scenario": "formalise.scenarios",
+    "list_uncertainty": "formalise.ranges",
+    "set_uncertainty": "formalise.ranges",
+    "clear_uncertainty": "formalise.ranges",
+    "monte_carlo": "analyse.uncertainty",
+    "sensitivity": "analyse.sensitivity",
+    "loops": "analyse.base_case",
+    "get_settings": "formalise.definitions",
+    "set_settings": "formalise.definitions",
+}
+
 
 
 # ── roles ────────────────────────────────────────────────────────────

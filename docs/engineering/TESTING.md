@@ -41,6 +41,8 @@ what to do.
 | `tests/operations/test_formalisms.py` | Every model type is complete: its plugin, spec field, analyses, foundations entry, help topic. |
 | `tests/test_no_type_branches.py`, `tests/operations/test_no_type_branches.py` | Shared code doesn't branch on a model type's name (the first scans the whole package outside each type's own modules; the second the shared layers — operations, exporters, server, ai, diff — with a wider pattern). Both take the type ids from the registry. |
 | `tests/operations/test_methods_register.py` | Every analysis names the method it stands on. |
+| `tests/operations/test_workflow_declarations.py` | Every analysis and edit operation declares its step in the workflow structure (`schema/workflow.py`), and the classification is pinned. |
+| `tests/test_places.py` | Every CLI command, server route and help topic declares its place in the workflow structure (`PLACE` in its module, `place:` in a topic's header); composites name what they carry out; the CLI reference's "Commands by stage and track" index is current (`python scripts/gen_cli_index.py`). |
 | `tests/schema/test_model_types.py` | Model-type text is about the method, never the GUI's status. |
 | `tests/test_complexity_guard.py` | No function is more complex than the limit (cyclomatic complexity 30, counted as `radon cc` counts it). |
 | `tests/test_type_check_guard.py` | The type annotations are checked: `mypy` (settings in `pyproject.toml`, version pinned in the `dev` extra) finds no more errors in any file than it had. |
@@ -75,7 +77,8 @@ A change to latris is done when:
 
 1. **Schema** changes have a round-trip test; **operations** a test in `tests/operations/`; **routes** a
    test in `tests/server/` (the route guard checks); **CLI commands** a step in the worked example (the
-   coverage guard checks), with the transcript regenerated and committed.
+   coverage guard checks), with the transcript regenerated and committed. A new **command, route or help
+   topic** declares its place in the workflow (the places guard checks).
 2. A user-facing change updates its **help topic** (its file in `src/latris/server/help_topics/`).
 3. `python -m ruff check src tests` is clean and the full suite passes (`python -m pytest`).
 4. If the API changed, the app's types are regenerated there (`scripts/gen-api-types.sh` in the app repo)

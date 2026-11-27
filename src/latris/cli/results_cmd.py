@@ -14,6 +14,13 @@ app = typer.Typer(
     help="Recorded analysis results (simulations, scenarios, Monte Carlo, BN queries) and which ones reports show.",
     no_args_is_help=True,
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "analyse",
+    "hide": "communicate.report",
+    "unhide": "communicate.report",
+}
 console = Console()
 
 

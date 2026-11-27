@@ -13,6 +13,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/edges", tags=["edges"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "build.structure"
+
 
 class AddEdgeRequest(BaseModel):
     from_query: str

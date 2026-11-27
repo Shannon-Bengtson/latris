@@ -749,19 +749,19 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_states', ('states',),
+    ChatOp("formalise.definitions", 'set_states', ('states',),
         "Give a factor its discrete states (e.g. ['low', 'high']); ordered when they have a natural "
         'order. It joins the Bayesian network.'),
-    ChatOp('set_probability_table', ('tables',),
+    ChatOp("formalise.values", 'set_probability_table', ('tables',),
         "A factor's conditional probability table: probabilities run one block per combination of "
         'parent states (first parent slowest), in state order, each block summing to 1.'),
-    ChatOp('set_noisy_or', ('noisy_or',),
+    ChatOp("formalise.values", 'set_noisy_or', ('noisy_or',),
         'A Noisy-OR table for an effect with independent binary causes: one probability per cause '
         '(the chance it alone produces the active state) plus a leak, instead of a full table.'),
-    ChatOp('set_table_uncertainty', ('uncertainty',),
+    ChatOp("formalise.ranges", 'set_table_uncertainty', ('uncertainty',),
         'How well a probability table (or one row) is known, as worth about n observations; '
         'monte_carlo_bn and compare_bn_options sample it.'),
-    ChatOp('set_bn_scenario', ('scenarios',),
+    ChatOp("formalise.scenarios", 'set_bn_scenario', ('scenarios',),
         'A named what-if over the network that never changes its tables: observe (factor → state), '
         'soft or likelihood evidence, set (interventions), and table overrides '
         "('Factor[Parent=state]=p1,p2'); extends builds on another scenario. Use it with "
@@ -782,29 +782,29 @@ register(Formalism(
     },
     claims=_claims,
     results=(
-        ResultKind(tool=ChatTool(*_TOOLS['bn-query']),
+        ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['bn-query']),
                    kind="bn-query", title="Probabilities", render=_render_query, analysis="bn_query",
                    run=_run_query, definition=_def_query, claims=_claims_query, report_limit=6,
                    charts=lambda p: [("posterior", {})], chart_kinds=("posterior",), subtitle=_subtitle_given),
-        ResultKind(tool=ChatTool(*_TOOLS['bn-explanation']),
+        ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['bn-explanation']),
                    kind="bn-explanation", title="Most likely explanation", render=_render_explanation,
                    analysis="bn_explain", run=_run_explain, definition=_def_explanation,
                    claims=_claims_explanation, subtitle=_subtitle_given,
                    charts=lambda p: [("bn-explanation", {})] if p.get("rows") else [],
                    chart_kinds=("bn-explanation",)),
-        ResultKind(tool=ChatTool(*_TOOLS['bn-monte-carlo']),
+        ResultKind(step="analyse.uncertainty", tool=ChatTool(*_TOOLS['bn-monte-carlo']),
                    kind="bn-monte-carlo", title="How sure the probability is (Monte Carlo)",
                    render=_render_monte_carlo, analysis="bn_monte_carlo", run=_run_monte_carlo,
                    definition=_def_monte_carlo, claims=_claims_monte_carlo,
                    charts=lambda p: [("bn-interval", {})], chart_kinds=("bn-interval",), subtitle=_subtitle_target),
-        ResultKind(tool=ChatTool(*_TOOLS['bn-options']),
+        ResultKind(step="analyse.options", tool=ChatTool(*_TOOLS['bn-options']),
                    kind="bn-options", title="Options compared", render=_render_options,
                    analysis="bn_compare", run=_run_compare, definition=_def_compare, claims=_claims_options,
                    charts=lambda p: [("options-diff", {})] if len(p.get("options") or []) > 1 else [],
                    chart_kinds=("options-diff",),
                    subtitle=lambda p: f"P({p['label']} = {p['focus_state']})"
                    + (f" given {_given(p)}" if _given(p) else "")),
-        ResultKind(tool=ChatTool(*_TOOLS['bn-sensitivity']),
+        ResultKind(step="analyse.sensitivity", tool=ChatTool(*_TOOLS['bn-sensitivity']),
                    kind="bn-sensitivity", title="Probability sensitivity", render=_render_sensitivity,
                    analysis="bn_sensitivity", run=_run_sensitivity, definition=_def_sensitivity,
                    claims=_claims_sensitivity, charts=lambda p: [("bn-tornado", {})], chart_kinds=("bn-tornado",),

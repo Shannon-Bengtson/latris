@@ -18,6 +18,22 @@ from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/eq", tags=["equation_model"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "model": "formalise",
+    "set_value": "formalise.values",
+    "set_formula": "formalise.values",
+    "set_role": "formalise.definitions",
+    "remove": "formalise.definitions",
+    "set_scenario": "formalise.scenarios",
+    "remove_scenario": "formalise.scenarios",
+    "set_uncertainty": "formalise.ranges",
+    "clear_uncertainty": "formalise.ranges",
+    "evaluate": "analyse.base_case",
+    "sweep": "analyse.sensitivity",
+    "monte_carlo": "analyse.uncertainty",
+}
+
 
 class ValueRequest(ProvenanceFields):
     node: str

@@ -14,6 +14,14 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/model-types", tags=["model-types"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "frame.model_type",
+    "model_type_elements": "formalise.definitions",
+    "all_readiness": "validation",
+    "model_type_readiness": "validation",
+}
+
 
 class ModelTypeInfo(BaseModel):
     """How a surface presents a model type to someone choosing one (``ModelTypeSpec``'s presentation and

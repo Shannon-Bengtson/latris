@@ -19,6 +19,14 @@ from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/bowtie", tags=["bowtie"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "elements": "formalise",
+    "set_element": "formalise.definitions",
+    "set_barrier": "formalise.definitions",
+    "set_frequency": "formalise.values",
+}
+
 
 
 class ElementRequest(BaseModel):
@@ -80,4 +88,4 @@ _risk_mc.add_routes(router, "bow_tie")
 
 
 _formalism.add_check_route(router, "bow_tie")
-_formalism.add_analyse_route(router, bt)
+_formalism.add_analyse_route(router, bt, model_type="bow_tie")

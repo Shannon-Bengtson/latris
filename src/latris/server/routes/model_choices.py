@@ -13,6 +13,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/model-choices", tags=["model-choices"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "frame.model_type"
+
 
 class SelectRequest(BaseModel):
     model_type_id: str

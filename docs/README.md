@@ -154,6 +154,10 @@ agents: read these before changing code.
 10. [`TELEMETRY.md`](engineering/TELEMETRY.md) — what the library records
     about its use, where it goes (a local file unless upload is turned on),
     and how to switch it off.
+11. [`WORKFLOW_STRUCTURE.md`](engineering/WORKFLOW_STRUCTURE.md) — proposed:
+    one list of stages, steps and tracks that every command, analysis,
+    route and help topic declares, so reports, help and chat tools group
+    the same way.
 
 ### The worked example (`../worked_example/`)
 

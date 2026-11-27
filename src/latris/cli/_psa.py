@@ -216,3 +216,11 @@ def register_correlate(app: typer.Typer, model_type: str) -> None:
                                          f"(rank {rho:+g}) · commit [cyan]{sha[:10]}[/cyan]"), commit_sha=sha)
 
     del correlate
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "range_": "formalise.ranges",
+    "psa_": "analyse.uncertainty",
+    "correlate": "formalise.ranges",
+}

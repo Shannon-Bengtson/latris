@@ -2,6 +2,7 @@
 title: Lineage and Versioning
 category: versioning
 summary: Use milestones and alternatives to compare model histories without losing auditability.
+place: versions
 ---
 
 ## What lineage is for

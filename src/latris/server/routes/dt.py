@@ -18,6 +18,16 @@ from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/dt", tags=["decision-tree"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "tree": "formalise",
+    "set_element": "formalise.definitions",
+    "set_branch": "formalise.values",
+    "set_payoff": "formalise.values",
+    "set_uncertainty": "formalise.definitions",
+    "set_settings": "formalise.definitions",
+}
+
 
 class ElementRequest(BaseModel):
     node: str
@@ -97,7 +107,7 @@ def set_settings(body: SettingsRequest, root: Root) -> dict[str, Any]:
 
 
 _formalism.add_check_route(router, "decision_tree")
-_formalism.add_analyse_route(router, dt)
+_formalism.add_analyse_route(router, dt, model_type="decision_tree")
 
 
 from latris.server.routes import _psa  # noqa: E402

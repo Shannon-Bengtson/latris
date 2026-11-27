@@ -20,6 +20,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/annotations", tags=["annotations"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "evidence"
+
 
 @router.get("/summary")
 def annotation_summary(root: Root) -> dict[str, Any]:

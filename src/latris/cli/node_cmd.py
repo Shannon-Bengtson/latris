@@ -10,6 +10,9 @@ from latris.operations import nodes as ops
 from latris.schema.ids import id_timestamp
 
 app = typer.Typer(help="Create, list, rename, remove nodes.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "build.structure"
 console = Console()
 
 

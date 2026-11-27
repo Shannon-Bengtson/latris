@@ -62,7 +62,7 @@ _TOOLS = {
 
 register_analysis(Analysis(
     model_type="fcm",
-    result=ResultKind(tool=ChatTool(*_TOOLS["fcm-inference"]),
+    result=ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS["fcm-inference"]),
                       kind="fcm-inference", title="Steady state", render=_render, analysis="fcm_infer",
                       run=_run, definition=_definition, claims=_claims),
 ))

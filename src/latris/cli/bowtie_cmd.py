@@ -12,6 +12,16 @@ from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Bow-tie (threats, barriers, consequences) operations.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "element": "formalise.definitions",
+    "barrier": "formalise.definitions",
+    "frequency": "formalise.values",
+    "show": "formalise",
+    "check": "validation",
+    "analyse": "analyse.base_case",
+}
 console = Console()
 
 

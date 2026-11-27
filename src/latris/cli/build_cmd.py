@@ -170,3 +170,9 @@ def _describe_preview(p) -> str:  # noqa: ANN001 — a BuildPreview
     runs = f"\nwould run: {', '.join(p.analyses)}" if p.analyses else ""
     changes = "".join(f"\n  {escape(c['summary'])}" for c in p.changes) or "\nnothing in the model would change"
     return head + runs + changes
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "composite"
+# What a spec can carry out (operations/places.py, composite_places).
+CARRIES = ("frame.question", "frame.model_type", "build.structure", "formalise", "analyse", "evidence")

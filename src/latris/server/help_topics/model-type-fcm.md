@@ -2,6 +2,7 @@
 title: Fuzzy Cognitive Maps
 category: model-types
 summary: Use FCMs for weighted causal influence and semi-quantitative scenario reasoning.
+place: frame.model_type
 ---
 
 ## What an FCM represents
@@ -19,10 +20,13 @@ A Fuzzy Cognitive Map is a weighted directed graph. Each edge has a causal stren
 
 FCM analysis depends on edge weights and, for simulation, node activation settings. Missing weights reduce readiness. `latris fcm weights` lists the weights set so far.
 
-## Commands
+## Building the map (the `fcm` commands)
 
 - **`latris fcm set-weight <edge> <weight>`** — a link's influence, from -1 (strongly opposes) to +1 (strongly drives).
 - **`latris fcm weights`** — every weight.
+
+## Base-case analysis
+
 - **`latris fcm infer`** — run the map to its steady state (which factors end up high or low); `--clamp 'Factor=1.0'` holds a factor at a value as a scenario. Each run is recorded (one result per scenario) and shows in the report and under **Recorded results**; `--no-record` only shows it. In the editor, Analyse → **Steady state** runs it, with the factors to hold picked from the map.
 
 ## Calling it from a script (contract and predict)

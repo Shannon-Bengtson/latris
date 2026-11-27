@@ -13,6 +13,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/nodes", tags=["nodes"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "build.structure"
+
 
 class AddNodeRequest(BaseModel):
     label: str

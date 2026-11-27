@@ -16,6 +16,13 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/results", tags=["results"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "analyse",
+    "hide": "communicate.report",
+    "unhide": "communicate.report",
+}
+
 
 @router.get("")
 def list_results(root: Root, all: bool = False) -> dict[str, Any]:  # noqa: A002 - query parameter name

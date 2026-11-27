@@ -44,3 +44,7 @@ def init(
         {"root": paths.root.as_posix(), "name": display_name, "question": question},
         human=lambda: console.print(f"[green]initialised[/green] project at [bold]{paths.root.as_posix()}[/bold]"),
     )
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"

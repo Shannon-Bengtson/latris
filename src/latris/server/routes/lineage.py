@@ -17,6 +17,9 @@ from latris.server.watch import mark_own_mutation
 
 router = APIRouter(prefix="/api/lineage", tags=["lineage"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "versions"
+
 
 def _guard_sync(fn: Any) -> Any:
     """Convert sync/git transport failures into clean 400s (as routes/sync does)."""

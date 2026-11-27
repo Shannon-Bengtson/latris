@@ -17,6 +17,9 @@ from latris.cli._output import emit, json_mode
 app = typer.Typer(
     help="Checks: `handover` (ready for a board?), `coherence` and `integrity`.", no_args_is_help=True
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "validation"
 console = Console()
 
 

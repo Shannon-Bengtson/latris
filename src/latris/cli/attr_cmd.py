@@ -8,6 +8,9 @@ from latris.cli._output import emit
 from latris.operations import attributes as ops
 
 app = typer.Typer(help="Set attribute values on a target.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "build.structure"
 console = Console()
 
 

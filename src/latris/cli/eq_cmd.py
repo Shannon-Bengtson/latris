@@ -13,6 +13,23 @@ from latris.cli._output import emit
 
 app = typer.Typer(help="Equation model: quantities joined by sourced formulas, with units and no clock.",
                   no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "input_": "formalise.values",
+    "parameter": "formalise.values",
+    "formula": "formalise.values",
+    "role": "formalise.definitions",
+    "remove": "formalise.definitions",
+    "show": "formalise",
+    "check": "validation",
+    "scenario": "formalise.scenarios",
+    "scenarios": "formalise.scenarios",
+    "uncertainty": "formalise.ranges",
+    "evaluate": "analyse.base_case",
+    "sweep": "analyse.sensitivity",
+    "monte_carlo": "analyse.uncertainty",
+}
 console = Console()
 
 _MIN_HELP = "Bottom of the range the value is valid over (usually what its source covered)."

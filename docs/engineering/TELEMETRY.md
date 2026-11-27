@@ -32,7 +32,7 @@ registered types are:
 | `ai.call.completed` | interaction id, prompt name, model id, adoption (pending / approved / rejected / failed), latency, token usage, cost, the rejection reason (a category plus the person's optional note) if one was given, error class | the library, when an AI call finishes (any surface) |
 | `gui.feature` | a feature key and an action (opened / started / completed / abandoned), optional dwell time | a GUI, through the server's relay route |
 | `session.lifecycle` | start / end, duration, event count | a GUI, through the relay |
-| `mcp.tool`, `project.lifecycle`, `error.observed`, `ai.proposal.outcome` | tool name and outcome; project created / saved / shared / archived; error class and location; whether an applied proposal was later edited or reverted | registered for hosted services that use the same envelope; the library itself doesn't emit them |
+| `mcp.tool`, `project.lifecycle`, `error.observed`, `ai.proposal.outcome`, `checkpoint.outcome` | tool name and outcome; project created / saved / shared / archived; error class and location; whether an applied proposal was later edited or reverted; a checkpoint (framing … audience, or all) and whether it was offered, answered, skipped or set aside by asking to just build | registered for hosted services that use the same envelope; the library itself doesn't emit them |
 | `cli.command` | registered, not emitted: the CLI sends no usage events | — |
 
 Never recorded: prompt or response text, factor names, model values,

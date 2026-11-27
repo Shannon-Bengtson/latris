@@ -1,6 +1,6 @@
 """Checkpoints — where an AI building a model stops and asks the person.
 
-Five checkpoints follow the modelling phases (Build → Formalise → Analyse → Interpret → Communicate):
+Five checkpoints, one closing each stage from Frame to Interpret (``schema/workflow.py``):
 
 - ``framing`` — the decision the model informs, who reads it, what the person expects the answer to be;
 - ``structure`` — once the map is connected: what's missing, which factors they can change, the
@@ -39,6 +39,7 @@ from latris.schema import (
     Substrate,
     new_id,
 )
+from latris.schema import workflow as wf
 from latris.schema.person_input import Pace
 
 MAX_QUESTIONS = 3
@@ -47,13 +48,23 @@ DRIVER_RHO = 0.3  # nor a rank correlation with the result weaker than this
 _MIN_AI_FACTORS = 3  # the structure checkpoint waits for a map worth showing
 _STALE_GROWTH = 0.5  # a reviewed structure reopens when AI factors grow by half again (and by ≥3)
 
-PHASE: dict[str, str] = {
-    "framing": "before building",
-    "structure": "Build → Formalise",
-    "values": "Formalise → Analyse",
-    "surprise": "Analyse → Interpret",
-    "audience": "Interpret → Communicate",
+# The workflow stage each checkpoint closes (``schema/workflow.py``; checkpoints are in its AI assistance track).
+CLOSES: dict[str, str] = {
+    "framing": "frame",
+    "structure": "build",
+    "values": "formalise",
+    "surprise": "analyse",
+    "audience": "interpret",
 }
+
+
+def _boundary(stage_id: str) -> str:
+    """"Frame → Build": the stage a checkpoint closes and the one after it, named from the registry."""
+    ids = wf.STAGE_IDS
+    return f"{wf.stage(stage_id).name} → {wf.stage(ids[ids.index(stage_id) + 1]).name}"
+
+
+PHASE: dict[str, str] = {cid: _boundary(stage_id) for cid, stage_id in CLOSES.items()}
 
 WHY: dict[str, str] = {
     "framing": "Only the person knows the decision this informs and what they expect; the report opens with it "
@@ -284,6 +295,14 @@ def _values_set(m: _Model) -> bool:
     return False
 
 
+def sensitivity_tools(model_type: str) -> list[str]:
+    """The chat tools of a model type's sensitivity analyses: every result kind it records (its own and the
+    layered ones, such as global sensitivity) in the Analyse stage's sensitivity step (``schema/workflow.py``)."""
+    from latris.operations import formalisms
+
+    return [rk.tool.name for rk in formalisms.results_of(model_type, "analyse.sensitivity") if rk.tool is not None]
+
+
 def _sensitivity_tools(m: _Model) -> list[str]:
     tools = []
     for f in _quantified(m):
@@ -292,9 +311,7 @@ def _sensitivity_tools(m: _Model) -> list[str]:
                 continue
         except (OSError, ValueError, KeyError):
             continue
-        for rk in f.results:
-            if "sensitivity" in rk.analysis and rk.tool is not None:
-                tools.append(rk.tool.name)
+        tools.extend(sensitivity_tools(f.model_type))
     return tools
 
 

@@ -13,6 +13,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/maturity", tags=["maturity"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "review"
+
 
 class MaturityRequest(BaseModel):
     target: str  # a factor, link or finding (id or label)

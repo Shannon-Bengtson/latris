@@ -53,3 +53,7 @@ def link(
          "note": WHAT_YOU_GET_WHERE["link_is_the_report"]},
         human=human,
     )
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "communicate.sharing"

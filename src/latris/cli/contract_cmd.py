@@ -16,6 +16,14 @@ from latris.cli._output import emit
 
 app = typer.Typer(help="A model's contract: the inputs a caller may give it and the outputs it returns.",
                   no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "use.contract",
+    "predict": "use.prediction",
+    "check": "validation",
+    "diff": "versions",
+}
 console = Console()
 
 _MODEL_TYPES = ("A model type that computes outputs: equation_model, sd, bn, fcm, fault_tree, bow_tie, event_tree, "

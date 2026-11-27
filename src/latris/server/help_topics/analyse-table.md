@@ -2,6 +2,7 @@
 title: Analyse Table
 category: analyse
 summary: Bulk review model-specific attributes across edges and views.
+place: build.structure
 ---
 
 ## What the Analyse table is for

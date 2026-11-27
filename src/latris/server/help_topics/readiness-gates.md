@@ -2,6 +2,7 @@
 title: Readiness Gates
 category: workflow
 summary: What the red, yellow, and green phase indicators mean.
+place: validation
 ---
 
 ## What readiness checks do

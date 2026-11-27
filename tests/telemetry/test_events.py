@@ -70,6 +70,7 @@ def test_builtin_registry_has_all_v1_types() -> None:
         "session.lifecycle",
         "project.lifecycle",
         "error.observed",
+        "checkpoint.outcome",
         "cli.command",
     }
     assert {name for name, _v in EVENT_PAYLOADS} == expected
@@ -358,3 +359,16 @@ def test_no_hosted_env_no_upload(project: Path, monkeypatch: pytest.MonkeyPatch)
     event = _emit_ai_call(project)
     assert event is not None and event.actor_ref is None
     assert sent == []
+
+
+def test_checkpoint_outcome_carries_the_checkpoint_and_outcome_only() -> None:
+    model = validate_payload("checkpoint.outcome", 1, {"checkpoint": "values", "outcome": "skipped"})
+    assert (model.checkpoint, model.outcome) == ("values", "skipped")
+    assert validate_payload("checkpoint.outcome", 1, {"checkpoint": "all", "outcome": "paced"}).checkpoint == "all"
+    for bad in (
+        {"checkpoint": "made-up", "outcome": "answered"},
+        {"checkpoint": "framing", "outcome": "ignored"},
+        {"checkpoint": "framing", "outcome": "answered", "answers": "must not be accepted"},
+    ):
+        with pytest.raises(ValidationError):
+            validate_payload("checkpoint.outcome", 1, bad)

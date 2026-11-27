@@ -2,6 +2,7 @@
 title: Visualise Mode
 category: build
 summary: Edit the conceptual model directly on the graph canvas.
+place: build.structure
 ---
 
 ## What Visualise mode is for

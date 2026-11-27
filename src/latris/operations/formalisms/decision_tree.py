@@ -237,22 +237,22 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_dt_settings', ('objective', 'units'),
+    ChatOp("formalise.definitions", 'set_dt_settings', ('objective', 'units'),
         'Whether the tree maximises or minimises, and the units of its payoffs.'),
-    ChatOp('set_dt_element', ('elements',),
+    ChatOp("formalise.definitions", 'set_dt_element', ('elements',),
         'Make a factor a decision, chance or terminal node.'),
-    ChatOp('set_dt_branch', ('branches',),
+    ChatOp("formalise.values", 'set_dt_branch', ('branches',),
         "A branch from a node to its child ('Parent -> Child'): its label, and its probability under "
         'a chance node or value.'),
-    ChatOp('set_dt_payoff', ('payoffs',),
+    ChatOp("formalise.values", 'set_dt_payoff', ('payoffs',),
         "A terminal node's payoff."),
-    ChatOp('set_dt_uncertainty', ('uncertainties',),
+    ChatOp("formalise.definitions", 'set_dt_uncertainty', ('uncertainties',),
         'Name the uncertainty a chance node resolves; chance nodes with the same name are the same '
         'uncertainty under different choices (for the value of information).'),
-    ChatOp('set_dt_correlation', ('correlations',),
+    ChatOp("formalise.ranges", 'set_dt_correlation', ('correlations',),
         'Two ranged values that move together (two estimates from one study): rank correlation rho, '
         '-0.99 to 0.99. The probabilistic sensitivity analysis samples them together.'),
-    ChatOp('set_dt_range', ('ranges',),
+    ChatOp("formalise.ranges", 'set_dt_range', ('ranges',),
         "How uncertain an input is, for probabilistic sensitivity analysis: a terminal node's payoff, a "
         "branch's value or probability ('Parent -> Child'), or a chance node's branch probabilities as a "
         'Dirichlet worth n observations. Beta and gamma take a mean and sd.'),
@@ -276,7 +276,7 @@ register(Formalism(
     centrality=False,
     own_implications=True,
     sensitivity_fallback="Complete the probabilities and payoffs to see what would change the choice.",
-    results=(ResultKind(tool=ChatTool(*_TOOLS['dt-analysis']),
+    results=(ResultKind(step="analyse.options", tool=ChatTool(*_TOOLS['dt-analysis']),
                         kind="dt-analysis", title="Decision tree: best choice and the value of information",
                         render=_render, analysis="dt_analyse", run=_run, definition=_definition, charts=_charts,
                         chart_kinds=("dt-ev",)),

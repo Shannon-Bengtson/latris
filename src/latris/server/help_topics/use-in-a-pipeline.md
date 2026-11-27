@@ -2,6 +2,7 @@
 title: Using a Model Elsewhere (Contract and Predict)
 category: communicate
 summary: Declare a model's inputs and outputs, then run it from a script on a version you pin.
+place: use
 ---
 
 ## What this is for

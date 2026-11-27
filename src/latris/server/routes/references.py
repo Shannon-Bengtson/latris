@@ -24,6 +24,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/references", tags=["references"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "evidence"
+
 
 # ── Request bodies ───────────────────────────────────────────────────
 

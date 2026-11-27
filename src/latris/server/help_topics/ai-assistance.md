@@ -2,6 +2,7 @@
 title: AI Assistance
 category: ai
 summary: How Latris uses AI for proposals, review, citations, interpretation, and report drafting.
+place: ai
 ---
 
 ## AI role

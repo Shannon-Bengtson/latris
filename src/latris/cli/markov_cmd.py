@@ -13,6 +13,18 @@ from latris.cli._output import emit
 
 app = typer.Typer(help="Markov cohort models: costs and outcomes over time, and cost-effectiveness.",
                   no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "element": "formalise.definitions",
+    "transition": "formalise.values",
+    "reward": "formalise.values",
+    "start": "formalise.values",
+    "settings": "formalise.definitions",
+    "show": "formalise",
+    "check": "validation",
+    "analyse": "analyse.options",
+}
 console = Console()
 
 

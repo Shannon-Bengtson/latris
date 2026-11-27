@@ -30,8 +30,10 @@ All access to these concerns goes through exactly one file:
 2. Operation in `operations/` — returns `(model, commit_sha)`;
    ends with `auto_commit()`
 3. CLI command in `cli/` — `@handle_cli_errors`; one parse + one
-   call into operations + one print
-4. Server route in `server/routes/` — pydantic request model,
+   call into operations + one print. Its module's `PLACE` names where
+   it sits in the workflow (`operations/places.py`); rerun
+   `python scripts/gen_cli_index.py`
+4. Server route in `server/routes/` — its module's `PLACE` too; pydantic request model,
    `Root` dependency injection, returns
    `{"result": model.model_dump(mode="json"), "commit_sha": sha}`
 5. Test in `tests/` — `tmp_path` + `git_identity` fixture
@@ -48,6 +50,11 @@ names anything missing. Declare how shared code should treat the type (fields
 on `Formalism`) and its chat surface (`ResultKind.tool`, `Formalism.chat_ops`)
 rather than branching on its name in shared code — `test_no_type_branches.py`
 fails if you do. Full list in ARCHITECTURE.md → "Adding a formalism".
+
+Every result kind and chat op declares its `step` in the workflow structure (`schema/workflow.py`: the
+stages, steps and tracks every surface groups by). Place it by the rules in
+`docs/engineering/WORKFLOW_STRUCTURE.md`, never by its name; `tests/operations/test_workflow_declarations.py`
+pins the classification. Nothing else spells a stage or step name: read them from the registry.
 
 ## Public Python API
 

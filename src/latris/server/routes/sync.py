@@ -20,6 +20,13 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "project",
+    "get_report_link": "communicate.sharing",
+    "set_report_link": "communicate.sharing",
+}
+
 
 def _guard(fn: Callable[[], Any]) -> Any:
     try:

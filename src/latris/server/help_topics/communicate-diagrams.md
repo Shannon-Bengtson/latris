@@ -2,6 +2,7 @@
 title: Diagram Export
 category: communicate
 summary: Create diagram-oriented outputs for reports, review, and external communication.
+place: communicate.diagram
 ---
 
 ## What Diagram mode is for

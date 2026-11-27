@@ -13,6 +13,9 @@ app = typer.Typer(
     help="Run the AI completeness gate and manage missing-variable records.",
     no_args_is_help=True,
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "ai"
 console = Console()
 
 

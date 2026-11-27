@@ -15,6 +15,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "data"
+
 
 # ---------------------------------------------------------------------------
 # Request bodies

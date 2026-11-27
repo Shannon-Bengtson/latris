@@ -2,6 +2,7 @@
 title: Report Builder
 category: communicate
 summary: Assemble report sections and export Markdown or Word deliverables.
+place: communicate.report
 ---
 
 ## What Report mode is for
@@ -24,7 +25,7 @@ Reports are per-formalism: the report is scoped to the formalism chosen in the p
 
 ## Reports for readers
 
-The **client** and **publication** packs are written for people outside the modelling work, and are grouped into parts in reading order: **Summary** (the answer, the model's size and approved findings), **The model** (the diagrams), **What the analysis shows** (current results and the findings written up from them), **How confident we are** (confidence, contested links, what the person reviewed at each checkpoint of an AI-built model, assumptions and exclusions) and a **Technical appendix** (links, factors, evidence, methods and references). They show only what's ready for a reader: interpretation sections that have been written up (one section per heading, with a paragraph per model type), results computed on the model as it is now — with one line saying how many earlier ones there are — and approved findings. They leave out internal IDs, who recorded each assumption and when, and the change log. The review, workshop and audit packs keep everything.
+The **client** and **publication** packs are written for people outside the modelling work, and are grouped into parts in reading order: **Summary** (the answer, the model's size and approved findings), **The model** (the diagrams), **What the analysis shows** (current results, grouped by the kind of analysis in the order base-case, option comparison, uncertainty, sensitivity and so on, and the findings written up from them), **How confident we are** (confidence, contested links, what the person reviewed at each checkpoint of an AI-built model, assumptions and exclusions) and a **Technical appendix** (links, factors, evidence, methods and references). They show only what's ready for a reader: interpretation sections that have been written up (one section per heading, with a paragraph per model type), results computed on the model as it is now — with one line saying how many earlier ones there are — and approved findings. They leave out internal IDs, who recorded each assumption and when, and the change log. The review, workshop and audit packs keep everything.
 
 ## Export formats
 

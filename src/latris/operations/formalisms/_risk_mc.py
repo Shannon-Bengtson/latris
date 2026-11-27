@@ -101,7 +101,8 @@ def result_kind(model_type: str) -> ResultKind:
         return make_analysis(kind=_ANALYSIS[model_type], runs=p["runs"], seed=p["seed"],  # type: ignore[arg-type]
                             sampling=p["sampling"], target=p["primary"])
 
-    return ResultKind(tool=ChatTool(*_TOOLS[KINDS[model_type]]), kind=KINDS[model_type], title=_TITLE[model_type],
+    return ResultKind(step="analyse.uncertainty",
+                      tool=ChatTool(*_TOOLS[KINDS[model_type]]), kind=KINDS[model_type], title=_TITLE[model_type],
                       render=_render,
                       analysis=_ANALYSIS[model_type], run=run, definition=definition, claims=_claims,
                       charts=_charts, chart_kinds=("mc-strip",))

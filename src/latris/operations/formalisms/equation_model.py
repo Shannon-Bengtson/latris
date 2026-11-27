@@ -445,17 +445,17 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp("set_equation_value", ("values",),
+    ChatOp("formalise.values", "set_equation_value", ("values",),
         "Make a factor an input (something the model is given) or a parameter (a coefficient of the method) and "
         "set its value and units, the range it is valid over (valid_min, valid_max) and its source."),
-    ChatOp("set_equation_formula", ("formulas",),
+    ChatOp("formalise.values", "set_equation_formula", ("formulas",),
         "Make a factor a computed quantity or an output and set its formula and the units it gives. The formula "
         "names other quantities by slugified label (Hydraulic radius → hydraulic_radius); arithmetic, ** and "
         "MIN, MAX, ABS, IF_THEN_ELSE, EXP, LN, LOG10, SQRT, SIN, COS, TAN, MODULO. Give the formula's source."),
-    ChatOp("set_equation_uncertainty", ("uncertainty",),
+    ChatOp("formalise.ranges", "set_equation_uncertainty", ("uncertainty",),
         "Give an input or parameter a distribution over its value (uniform, triangular, normal, lognormal, beta, "
         "gamma) with the reason for it, for the Monte Carlo."),
-    ChatOp("set_equation_scenario", ("scenarios",),
+    ChatOp("formalise.scenarios", "set_equation_scenario", ("scenarios",),
         "Save a named set of input values to evaluate ('Quantity=value [units]' assignments), e.g. a design case."),
 )
 
@@ -479,14 +479,16 @@ register(Formalism(
     sensitivity_fallback="Give the inputs and parameters uncertainty ranges and run the Monte Carlo to see how "
                          "sure the result is.",
     results=(
-        ResultKind(tool=ChatTool(*_TOOLS["eq-evaluation"]), kind="eq-evaluation", title="Equation model: results",
+        ResultKind(step="analyse.base_case",
+                   tool=ChatTool(*_TOOLS["eq-evaluation"]), kind="eq-evaluation", title="Equation model: results",
                    render=_render_evaluation, analysis="eq_evaluate", run=_run_evaluate, definition=_def_evaluate,
                    claims=_claims_evaluation, charts=_charts_evaluation, chart_kinds=("eq-scenarios",)),
-        ResultKind(tool=ChatTool(*_TOOLS["eq-sweep"]), kind="eq-sweep", title="Equation model: response to an input",
+        ResultKind(step="analyse.sensitivity",
+                   tool=ChatTool(*_TOOLS["eq-sweep"]), kind="eq-sweep", title="Equation model: response to an input",
                    render=_render_sweep, analysis="eq_sweep", run=_run_sweep, definition=_def_sweep,
                    claims=_claims_sweep, charts=lambda p: [("eq-response", {})], chart_kinds=("eq-response",),
                    subtitle=lambda p: f"{p['target']} against {p['input']}"),
-        ResultKind(tool=ChatTool(*_TOOLS["eq-monte-carlo"]), kind="eq-monte-carlo",
+        ResultKind(step="analyse.uncertainty", tool=ChatTool(*_TOOLS["eq-monte-carlo"]), kind="eq-monte-carlo",
                    title="Equation model: uncertainty (Monte Carlo)", render=_render_monte_carlo,
                    analysis="eq_monte_carlo", run=_run_monte_carlo, definition=_def_monte_carlo,
                    claims=_claims_monte_carlo, charts=lambda p: [("mc-strip", {})], chart_kinds=("mc-strip",)),

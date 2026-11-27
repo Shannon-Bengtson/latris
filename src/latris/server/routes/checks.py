@@ -12,6 +12,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/checks", tags=["checks"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "validation"
+
 
 @router.get("/handover", response_model=HandoverReport)
 def handover(root: Root, model_type: str | None = None) -> HandoverReport:

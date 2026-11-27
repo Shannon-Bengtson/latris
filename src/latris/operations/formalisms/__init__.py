@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from latris.schema.workflow import require_step
+
 Claims = Callable[[Any, str], list[str]]  # (paths, section) → claims; sections below
 CLAIM_SECTIONS = ("structure", "answer", "gaps", "implications", "sensitivity")
 
@@ -48,11 +50,19 @@ class ChatOp:
     """How a chat assistant writes part of a formalism's build-spec block: one operation, which latris-app
     generates from the surface manifest. ``fields`` names block fields: one field holding a list of entries
     gives an operation that adds or updates one entry (its fields are the entry's); anything else gives an
-    operation that sets those fields' values. It is applied as a partial ``build --spec``."""
+    operation that sets those fields' values. It is applied as a partial ``build --spec``.
 
+    ``step`` is its place in the workflow (``schema/workflow.py``): one of Formalise's steps, by the rules in
+    ``docs/engineering/WORKFLOW_STRUCTURE.md`` (a named alternative → scenarios; how uncertain → ranges; a
+    quantity on one element → values; otherwise → definitions)."""
+
+    step: str  # e.g. "formalise.values"
     name: str  # e.g. "set_mcda_score"
     fields: tuple[str, ...]
     description: str
+
+    def __post_init__(self) -> None:
+        require_step(self.step, "formalise")
 
 
 @dataclass(frozen=True)
@@ -90,6 +100,14 @@ class ResultKind:
     # A newer run over the same or a wider scope replaces it in reports (a simulation of the whole model
     # supersedes an older one of part of it); otherwise reports keep the latest run per analysis key.
     superseded_by_wider: bool = False
+    # Its place in the workflow (``schema/workflow.py``): one of Analyse's steps, by the rules in
+    # ``docs/engineering/WORKFLOW_STRUCTURE.md`` (reads a dataset → estimation; reads no values → structural;
+    # compares options → options; varies inputs one by one or apportions → sensitivity; samples the inputs
+    # together → uncertainty; otherwise → base_case). Required: construction fails without one.
+    step: str = ""
+
+    def __post_init__(self) -> None:
+        require_step(self.step, "analyse")
 
 
 @dataclass(frozen=True)
@@ -239,6 +257,12 @@ def _owned() -> list[tuple[str, ResultKind]]:
 
 def result_kinds() -> list[ResultKind]:
     return [r for _, r in _owned()]
+
+
+def results_of(model_type: str, step: str | None = None) -> list[ResultKind]:
+    """Every result kind a model type records (its own and any analysis layered on it), optionally only those
+    in one workflow step (``schema/workflow.py``)."""
+    return [r for mt, r in _owned() if mt == model_type and (step is None or r.step == step)]
 
 
 def result_kind(kind: str) -> tuple[str, ResultKind] | None:

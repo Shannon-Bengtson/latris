@@ -17,6 +17,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/layout", tags=["layout"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"
+
 
 @router.get("")
 def get_layout(root: Root) -> dict[str, Any]:

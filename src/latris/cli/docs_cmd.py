@@ -23,3 +23,7 @@ def docs(
     """
     text = docs_ops.read_docs(topic)
     emit({"topic": topic, "text": text}, human=lambda: typer.echo(text))
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"

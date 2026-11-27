@@ -2,6 +2,7 @@
 title: The Formalise Phase
 category: formalise
 summary: Select model types and set their parameters before analysing.
+place: formalise
 ---
 
 ## What Formalise is for

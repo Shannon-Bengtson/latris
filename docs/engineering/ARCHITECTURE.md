@@ -294,6 +294,7 @@ declares a `Formalism` with the hooks the shared code calls:
 | `outcome_role`, `outcome_refusal`, `outcome_ids`, `set_outcome` | `view_roles.set_role`, interpretation, `build --spec` `outcome:` |
 | `claims(paths, section)`, `centrality`, `own_implications`, `sensitivity_fallback` | interpretation claims |
 | `results` (`ResultKind`: kind, title, `render`, analysis, `run`, `definition`), `fingerprint_files` | `analysis_results` (report order, staleness), the report's Results section, `analysis_replay` (build-spec analyses and share links) |
+| `ResultKind.step`, `ChatOp.step` (required) | its place in the workflow (`schema/workflow.py`): an Analyse step for a result kind, a Formalise step for an operation, by the placement rules in [`WORKFLOW_STRUCTURE.md`](WORKFLOW_STRUCTURE.md). Construction fails without a valid one. Read by the values checkpoint, the analysis catalog and the surface manifest |
 | `ResultKind.tool` (`ChatTool`: name, description) | the chat tool latris-app generates for the analysis (options: its `SpecAnalysis` model, documented in `ANALYSIS_OPTION_DOCS`) |
 | `ResultKind.charts` + `chart_kinds` (every kind it may emit), `needs_dataset` | the report's `latris-chart` markers; the surface manifest (`latris capabilities --surface`) that apps built on latris read |
 | `spec_field`, `spec_check`, `spec_apply`, `spec_export` | `build --spec` and share links |

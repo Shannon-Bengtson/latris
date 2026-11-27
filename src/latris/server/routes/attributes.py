@@ -17,6 +17,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/attributes", tags=["attributes"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "build.structure"
+
 
 class SetAttributeRequest(BaseModel):
     value: str

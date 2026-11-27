@@ -2,6 +2,7 @@
 title: The Five-Phase Workflow
 category: workflow
 summary: How Build, Formalise, Analyse, Interpret, and Communicate & Use fit together.
+place: project
 ---
 
 ## Evidence basis

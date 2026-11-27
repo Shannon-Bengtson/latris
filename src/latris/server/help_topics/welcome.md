@@ -2,6 +2,7 @@
 title: Welcome to Latris
 category: getting-started
 summary: What Latris is, what it is for, and the ideas that make the workspace hang together.
+place: project
 ---
 
 ## What Latris is

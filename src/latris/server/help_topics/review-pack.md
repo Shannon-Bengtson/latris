@@ -2,6 +2,7 @@
 title: Review Packs
 category: communicate
 summary: Export a self-contained HTML file for external review, then import structured feedback.
+place: review
 ---
 
 ## What a Review Pack is

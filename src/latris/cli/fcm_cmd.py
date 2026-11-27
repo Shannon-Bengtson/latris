@@ -10,6 +10,13 @@ from latris.cli._errors import handle_cli_errors
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Fuzzy Cognitive Map operations.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "set_weight": "formalise.values",
+    "weights": "formalise.values",
+    "infer": "analyse.base_case",
+}
 console = Console()
 
 

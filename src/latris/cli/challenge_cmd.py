@@ -14,6 +14,9 @@ app = typer.Typer(
     help="Open, discuss, and resolve challenges against model elements.",
     no_args_is_help=True,
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "review"
 console = Console()
 
 

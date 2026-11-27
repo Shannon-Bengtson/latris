@@ -106,7 +106,7 @@ _TOOLS = {
 
 register_analysis(Analysis(
     model_type="dag",
-    result=ResultKind(tool=ChatTool(*_TOOLS['dag-estimate']),
+    result=ResultKind(step="analyse.estimation", tool=ChatTool(*_TOOLS['dag-estimate']),
                       kind="dag-estimate", title="Effect estimate", render=_render, analysis="dag_estimate",
                       run=_run, definition=_definition, claims=_claims, charts=_charts,
                       chart_kinds=("estimate-forest",), needs_dataset=True),

@@ -2,6 +2,7 @@
 title: Analysis of Competing Hypotheses
 category: model-types
 summary: Weigh competing explanations against all the evidence at once, and find what the conclusion turns on.
+place: frame.model_type
 ---
 
 ## What ACH represents
@@ -10,7 +11,7 @@ Several possible explanations (**hypotheses**) and everything you know that bear
 
 An evidence item can carry its own sources like any factor (`latris evidence add <item> description <key>`), and the analysis says whether they've been checked.
 
-## What the analysis shows
+## Base-case analysis
 
 `latris ach analyse` (Heuer's method):
 

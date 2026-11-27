@@ -43,16 +43,23 @@ class ResultSurface:
     analysis: str  # the build-spec ``SpecAnalysis.kind`` that runs it
     chart_kinds: tuple[str, ...]  # every ``latris-chart`` kind its results may carry
     needs_dataset: bool  # reads a dataset, so a share link can't re-run it
+    step: str = ""  # its place in the workflow: one of Analyse's steps (``schema/workflow.py``)
 
 
 def result_surfaces() -> list[ResultSurface]:
-    """Every result kind reports can show, in report order (registration order)."""
+    """Every result kind reports can show, in report order: by workflow step (``schema/workflow.py``, the
+    Analyse stage's steps in order), then in registration order within a step."""
+    from latris.schema.workflow import step_ids
+
+    order = {s: i for i, s in enumerate(step_ids("analyse"))}
     owned = formalisms.kind_model_types()
-    return [ResultSurface(r.kind, owned[r.kind], r.title, r.analysis, r.chart_kinds, r.needs_dataset)
-            for r in formalisms.result_kinds()]
+    kinds = sorted(formalisms.result_kinds(), key=lambda r: order[r.step])  # stable: registration order within
+    return [ResultSurface(r.kind, owned[r.kind], r.title, r.analysis, r.chart_kinds, r.needs_dataset, r.step)
+            for r in kinds]
 
 
-# Order results appear in reports (registration order), and the most of each kind a client report shows.
+# Order results appear in reports (by workflow step, then registration order), and the most of each kind a
+# client report shows.
 KIND_ORDER: tuple[str, ...] = tuple(r.kind for r in result_surfaces())
 REPORT_LIMIT: dict[str, int] = {
     r.kind: r.report_limit for r in formalisms.result_kinds() if r.report_limit is not None

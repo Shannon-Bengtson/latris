@@ -18,6 +18,17 @@ from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/markov", tags=["markov"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "model": "formalise",
+    "get_settings": "formalise.definitions",
+    "set_settings": "formalise.definitions",
+    "set_element": "formalise.definitions",
+    "set_transition": "formalise.values",
+    "set_reward": "formalise.values",
+    "set_start": "formalise.values",
+}
+
 
 class ElementRequest(BaseModel):
     node: str
@@ -101,7 +112,7 @@ def set_settings(body: dict[str, Any], root: Root) -> dict[str, Any]:
 
 
 _formalism.add_check_route(router, "markov")
-_formalism.add_analyse_route(router, markov)
+_formalism.add_analyse_route(router, markov, model_type="markov")
 
 
 from latris.server.routes import _psa  # noqa: E402

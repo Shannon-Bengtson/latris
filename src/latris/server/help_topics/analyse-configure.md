@@ -2,6 +2,7 @@
 title: Configure Mode
 category: analyse
 summary: Review and apply model-specific attribute suggestions.
+place: composite
 ---
 
 ## What Configure mode is for

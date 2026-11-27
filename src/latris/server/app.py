@@ -71,12 +71,21 @@ from latris.server.routes import (
     telemetry,
     view_attributes,
     views,
+    workflow,
 )
 from latris.server.routes import (
     help as help_routes,
 )
 from latris.server.state import ProjectState, load_project_state
 from latris.server.watch import manager, watch_project
+
+# Where each route defined here sits in the workflow (schema/workflow.py; rules in
+# docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "project",
+    "get_project": "frame",
+    "update_project": "frame",
+}
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -130,6 +139,30 @@ def _include_formalism_routers(app: FastAPI) -> None:
     for f in formalisms.all_formalisms():
         if f.routes:
             app.include_router(importlib.import_module(f.routes).router)
+
+
+def _stamp_places(app: FastAPI) -> None:
+    """Write each route's workflow place (operations/places.py) into its OpenAPI entry as ``x-latris-place``,
+    so a surface reading the API document can group routes the same way. A plugin's route is stamped only
+    if its module declares ``PLACE``."""
+    from fastapi.routing import APIRoute
+
+    from latris.operations.places import declared_place
+
+    def walk(routes: Any) -> None:
+        for route in routes:
+            if isinstance(route, APIRoute):
+                extra = dict(route.openapi_extra or {})
+                place = extra.get("x-latris-place") or declared_place(route.endpoint)
+                if place:
+                    extra["x-latris-place"] = place
+                    route.openapi_extra = extra
+                continue
+            inner = getattr(route, "original_router", None) or getattr(route, "router", None)
+            if inner is not None and getattr(inner, "routes", None) is not None:
+                walk(inner.routes)
+
+    walk(app.router.routes)
 
 
 def create_app(*, project_root: Path | None = None, access_token: str | None = None) -> FastAPI:
@@ -302,6 +335,7 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
     app.include_router(compose.router)
     app.include_router(configure.router)
     app.include_router(help_routes.router)
+    app.include_router(workflow.router)
     _register_plugins(app)
 
     # ── Read-only endpoints ───────────────────────────────────────────
@@ -354,4 +388,5 @@ def create_app(*, project_root: Path | None = None, access_token: str | None = N
         except Exception:  # noqa: BLE001
             manager.disconnect(ws)
 
+    _stamp_places(app)
     return app

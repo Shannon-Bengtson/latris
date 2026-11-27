@@ -2,6 +2,7 @@
 title: Interpret Phase
 category: interpret
 summary: Turn analysis results into structured findings, claims, and report-ready prose.
+place: interpret.findings
 ---
 
 ## What Interpret does

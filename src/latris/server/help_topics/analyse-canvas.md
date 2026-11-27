@@ -2,6 +2,7 @@
 title: Analyse Canvas
 category: analyse
 summary: View formal model analysis overlays without changing the Build canvas.
+place: analyse.structural
 ---
 
 ## What the Analyse canvas is for

@@ -11,6 +11,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/history", tags=["history"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "versions"
+
 
 def _status(root: Root) -> dict[str, Any]:
     s = history_ops.status(root)

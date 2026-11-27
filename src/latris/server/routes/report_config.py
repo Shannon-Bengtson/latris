@@ -20,6 +20,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/report-config", tags=["report-config"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "communicate.report"
+
 
 @router.get("")
 def get_report_config(root: Root, model_type: str = Query(...)) -> dict[str, Any]:

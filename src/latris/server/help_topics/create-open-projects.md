@@ -2,6 +2,7 @@
 title: Create and Open Projects
 category: getting-started
 summary: How projects are created, what a project contains, and what must be configured first.
+place: project
 ---
 
 ## Project foundations

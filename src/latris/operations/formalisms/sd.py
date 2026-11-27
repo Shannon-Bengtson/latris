@@ -574,27 +574,27 @@ _TOOLS = {
 
 # How a chat assistant writes this type's build-spec block (latris-app generates each operation).
 _CHAT_OPS = (
-    ChatOp('set_sd_settings', ('settings',),
+    ChatOp("formalise.definitions", 'set_sd_settings', ('settings',),
         'The simulation clock: initial_time, final_time, dt, saveper, method (euler | rk2 | rk4 | '
         "adaptive), time_units (e.g. 'month')."),
-    ChatOp('set_sd_role', ('roles',),
+    ChatOp("formalise.definitions", 'set_sd_role', ('roles',),
         'Classify a factor for the simulation: stock, flow, auxiliary, constant or source_sink. It '
         'joins the simulation; the rest of the map stays a loop map.'),
-    ChatOp('set_initial_value', ('stocks',),
+    ChatOp("formalise.values", 'set_initial_value', ('stocks',),
         "A stock's initial value, with its units (pint, e.g. 'tonne'); non_negative keeps it at or "
         'above zero.'),
-    ChatOp('set_constant', ('constants',),
+    ChatOp("formalise.values", 'set_constant', ('constants',),
         "A constant's value with its units."),
-    ChatOp('set_equation', ('equations',),
+    ChatOp("formalise.values", 'set_equation', ('equations',),
         "A flow's or auxiliary's equation over the factors it reads (by label, spaces as underscores, "
         "e.g. 'water * drain_rate'), with its units; checked for units."),
-    ChatOp('set_table', ('tables',),
+    ChatOp("formalise.values", 'set_table', ('tables',),
         'A lookup table: (x, y) points with x and y units; extrapolate beyond the ends or hold the '
         'end values.'),
-    ChatOp('set_uncertainty', ('uncertainty',),
+    ChatOp("formalise.ranges", 'set_uncertainty', ('uncertainty',),
         'An uncertainty range on a constant or initial value (triangular, uniform, normal, lognormal, '
         '…) with the reason; monte_carlo_sd, compare_sd_options and sd_sensitivity sample it.'),
-    ChatOp('set_scenario', ('scenarios',),
+    ChatOp("formalise.scenarios", 'set_scenario', ('scenarios',),
         "A saved what-if (an option): set lists 'Factor=value [units]'; extends builds on another "
         'scenario (a delayed or scaled-down version of an option extends it, and compare_sd_options '
         'then measures it against it).'),
@@ -647,28 +647,28 @@ register(Formalism(
     structure_problems=_problems,
     validators=_VALIDATORS,
     results=(
-        ResultKind(tool=ChatTool(*_TOOLS['sd-simulation']),
+        ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['sd-simulation']),
                    kind="sd-simulation", title="Simulation", render=_simulation, analysis="simulate",
                    superseded_by_wider=True,
                    run=_run_simulate, definition=_def_simulate, definition_reads_run=True,
                    claims=_claims("_simulation"), charts=_charts_simulation, chart_kinds=("series",),
                    subtitle=_subtitle("sd-simulation")),
-        ResultKind(tool=ChatTool(*_TOOLS['sd-options']),
+        ResultKind(step="analyse.options", tool=ChatTool(*_TOOLS['sd-options']),
                    kind="sd-options", title="Options compared under uncertainty", render=_options,
                    analysis="compare", run=_run_compare, definition=_def_compare, definition_reads_run=True,
                    claims=_claims("_options"), charts=_charts_options, chart_kinds=("options-diff",),
                    subtitle=_subtitle("sd-options")),
-        ResultKind(tool=ChatTool(*_TOOLS['sd-monte-carlo']),
+        ResultKind(step="analyse.uncertainty", tool=ChatTool(*_TOOLS['sd-monte-carlo']),
                    kind="sd-monte-carlo", title="Uncertainty (Monte Carlo)", render=_monte_carlo,
                    analysis="monte_carlo", run=_run_monte_carlo, definition=_def_monte_carlo,
                    definition_reads_run=True, claims=_claims("_monte_carlo"), charts=_charts_monte_carlo,
                    chart_kinds=("bands",), subtitle=_subtitle("sd-monte-carlo")),
-        ResultKind(tool=ChatTool(*_TOOLS['sd-sensitivity']),
+        ResultKind(step="analyse.sensitivity", tool=ChatTool(*_TOOLS['sd-sensitivity']),
                    kind="sd-sensitivity", title="Sensitivity", render=_sensitivity, analysis="sensitivity",
                    run=_run_sensitivity, definition=_def_sensitivity, definition_reads_run=True,
                    claims=_claims("_sensitivity"), charts=lambda p: [("tornado", {})], chart_kinds=("tornado",),
                    subtitle=_subtitle("sd-sensitivity"), title_for=_sensitivity_title),
-        ResultKind(tool=ChatTool(*_TOOLS['sd-loops']),
+        ResultKind(step="analyse.base_case", tool=ChatTool(*_TOOLS['sd-loops']),
                    kind="sd-loops", title="Feedback loop dominance", render=_loops, analysis="loops",
                    run=_run_loops, definition=_def_loops, definition_reads_run=True, claims=_claims("_loops"),
                    charts=_charts_loops, chart_kinds=("loops",), subtitle=_subtitle("sd-loops")),

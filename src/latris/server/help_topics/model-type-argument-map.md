@@ -2,6 +2,7 @@
 title: Argument Maps
 category: model-types
 summary: Lay out an argument and see whether its conclusion stands, and what it rests on.
+place: frame.model_type
 ---
 
 ## What an argument map represents
@@ -14,7 +15,7 @@ A **conclusion** — what is being argued for — and the **claims** offered for
 
 A claim's **grounds** are its ordinary sources: `latris evidence add <claim> description <key>`, then `latris evidence check` once read. To object to an **inference** rather than a premise ("even if that's true, it doesn't follow"), open a challenge on the link: `latris challenge open "Premise -> Claim" "…"` — the reason counts for nothing until the challenge is resolved. A person can accept or reject a premise the map doesn't argue further: `latris argument claim <claim> rejected --rationale "…"`.
 
-## What the analysis shows
+## Base-case analysis
 
 `latris argument analyse` labels every claim (grounded labelling, Dung 1995): it **stands** when every objection to it is defeated and a reason for it holds — or it is a premise taken as given (not argued further, not rejected, and its sources don't dispute it); it is **defeated** when an objection to it stands or every reason offered for it fails; otherwise it is **undecided** (a premise whose source disputes it, or two claims attacking each other). Then:
 

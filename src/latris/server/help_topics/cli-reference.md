@@ -2,6 +2,7 @@
 title: CLI and Developer Reference
 category: developer
 summary: Where the command-line tools fit with the GUI and how to find deeper developer docs.
+place: project
 ---
 
 ## CLI and GUI share the same core

@@ -10,6 +10,13 @@ from pydantic import BaseModel
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.server.deps import Root
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "list_uncertainty": "formalise.ranges",
+    "set_uncertainty": "formalise.ranges",
+    "monte_carlo": "analyse.uncertainty",
+}
+
 
 class UncertaintyRequest(BaseModel):
     target: str
