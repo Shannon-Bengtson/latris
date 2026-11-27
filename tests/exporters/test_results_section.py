@@ -33,9 +33,24 @@ def test_client_report_shows_results_after_the_diagram(sd_bathtub_root):
     _record_everything(root)
     md = markdown.render(require_project(root), pack="client", ai=False)
     assert "## Results" in md and md.index("## Results") > md.index("## Diagram")
-    for heading in ("### Simulation", "### Uncertainty (Monte Carlo)", "### Sensitivity of Water",
-                    "### Feedback loop dominance"):
+    for heading in ("#### Simulation", "#### Uncertainty (Monte Carlo)", "#### Sensitivity of Water",
+                    "#### Feedback loop dominance"):
         assert heading in md
+    # Grouped by workflow step, in the Analyse stage's order (schema/workflow.py).
+    lines = md.split("\n")
+    top = next(i for i, line in enumerate(lines) if line.lstrip("#") == " Results")
+    level = len(lines[top]) - len(lines[top].lstrip("#"))  # packs nest Results at different depths
+    step_prefix = "#" * (level + 1) + " "
+    body = []
+    for line in lines[top + 1:]:
+        heading = len(line) - len(line.lstrip("#"))
+        if line.startswith("#") and 0 < heading <= level:
+            break  # the end of the Results section
+        body.append(line)
+    steps = [line[len(step_prefix):] for line in body if line.startswith(step_prefix)]
+    # The scenario run is recorded as a simulation, so there is no option comparison here.
+    assert steps == ["Base-case analysis", "Uncertainty analysis", "Sensitivity analysis"]
+    assert md.index("Feedback loop dominance") < md.index(f"{step_prefix}Uncertainty analysis")
     assert "Drain Rate 0.1 1/year → 0.2 1/year" in md and "AI-proposed, not yet reviewed" in md
     assert "B1 (Water → Outflow) dominates" in md
     assert "latris-chart" not in md  # plain Markdown stays clean
@@ -43,7 +58,7 @@ def test_client_report_shows_results_after_the_diagram(sd_bathtub_root):
     with_charts = markdown.render(require_project(root), pack="client", ai=False, chart_markers=True)
     fences = [block.split("\n", 1)[1].split("\n```")[0] for block in with_charts.split("```latris-chart")[1:]]
     charts = [json.loads(f)["chart"] for f in fences]
-    assert charts == ["series", "bands", "tornado", "loops"]
+    assert charts == ["series", "loops", "bands", "tornado"]  # by step: base case, uncertainty, sensitivity
 
 
 def test_results_go_out_of_date_and_can_be_hidden(sd_bathtub_root):
@@ -93,8 +108,9 @@ def test_reader_packs_show_a_repeated_question_once(sd_bathtub_root, monkeypatch
     # Two runs of the same question that the latest-run rule keeps apart (different analysis keys).
     monkeypatch.setattr(ar, "report_results", lambda **_: [only, only])
     current = results.render_results(require_project(root), current_only=True)
-    assert sum(line.startswith("### Simulation") for line in current) == 1
-    assert sum(line.startswith("### Simulation") for line in results.render_results(require_project(root))) == 2
+    assert sum(line.startswith("#### Simulation") for line in current) == 1
+    assert sum(line.startswith("#### Simulation") for line in results.render_results(require_project(root))) == 2
+    assert sum(line == "### Base-case analysis" for line in current) == 1  # one step heading for the group
 
 
 def test_sd_gets_interpretation_sections_with_claims_from_results(sd_bathtub_root):

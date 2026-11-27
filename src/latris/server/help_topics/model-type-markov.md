@@ -11,17 +11,21 @@ A group of people (a cohort) spread over **states** — Healthy, Sick, Dead — 
 
 Each state can have a **cost** per cycle and a **utility** — a quality-of-life weight per year, 1 for full health and 0 for dead (`latris markov reward Sick --cost 2500 --utility 0.6`). **Strategies** being compared (Standard care, New drug) use the same model and differ where you override a transition or reward for one of them (`--strategy "New drug"`). Settings set the horizon and cycle length, discounting for costs and outcomes, half-cycle correction, the willingness to pay per unit of outcome and the units (`latris markov settings --cycles 40 --discount 0.035 --wtp 20000 --cost-units £ --outcome-units QALY`).
 
-## What the analysis shows
+## Option comparison
 
 `latris markov analyse` runs the cohort for each strategy and gives its discounted cost and outcome (e.g. QALYs) per person and the expected time in each state. With two or more strategies it does the standard **incremental analysis**: cheapest first; strategies that cost more and achieve no more are **dominated**; those a mix of their neighbours would beat are **extendedly dominated**; the rest have an **ICER** — the extra cost per extra unit of outcome — against the previous one. Each ICER is the willingness to pay at which the choice changes; with a willingness to pay set, the strategy with the highest net monetary benefit is named.
 
 The result is recorded for the report and goes out of date when any value changes.
 
-## Probabilistic sensitivity analysis and acceptability curves
+## Uncertainty analysis (probabilistic sensitivity analysis)
 
 Every probability, cost and utility is an estimate. Give one a range with `latris markov range`: a transition (`latris markov range "Healthy -> Sick" beta --mean 0.10 --sd 0.02`), a state's cost or utility (`latris markov range Sick gamma --quantity cost --mean 3000 --sd 600`), or all of a state's transitions out as a Dirichlet worth n observations (`--quantity leaving dirichlet --n 200`), so they can't sum past 1. `--strategy "New drug"` puts the range on that strategy's own value. The usual families are beta for probabilities and utilities and gamma for costs, each by the mean and standard error a study reports.
 
 `latris markov psa` samples every range together (seeded Latin hypercube) and reruns the cohort for each sample. It gives each strategy's cost and outcome across the runs (mean, 5th–95th percentile), the incremental analysis on the means (probabilistic ICERs), the **cost-effectiveness acceptability curve** — at each willingness to pay, the probability each strategy is the most cost-effective — and the **expected value of perfect information** per person (the most further research could be worth), with the **partial EVPI** of each input — which single study would be worth most. With a willingness to pay set, it names the strategy to choose, how often it is cost-effective, and which inputs drive its net benefit over the runner-up. Recorded with a chart; it goes out of date when a value or range changes.
+
+## Sensitivity analysis (global)
+
+`latris analyse global-sensitivity markov` varies every input that has a range together and gives each one's share of the variance in the result, alone (S1) and through its interactions (ST), from Sobol indices; `--method morris` is a cheaper screen. An input with ST near zero could be fixed anywhere in its range. It needs two or more ranges, and the result is recorded for the report (see the Analyse Canvas topic).
 
 ## Calling it from a script (contract and predict)
 

@@ -20,13 +20,19 @@ A formula names other quantities by their label in lower case with underscores (
 
 **Valid ranges.** `--min` and `--max` state the range a value is good for, usually the range its source covered. Every analysis reports a value outside its range as an extrapolation. Nothing is clamped: you see the number and the warning together.
 
-## What the analyses show
+Each analysis below is recorded for the report with a chart, and goes out of date when a value, formula or range changes.
 
-- `latris eq evaluate` works the model out: every quantity at the reference values, and under each **scenario** you have saved (`latris eq scenario "Design flood" --set "Depth=2.5 m"`).
-- `latris eq sweep --input Depth` moves one input across a range (by default its valid range), holding the rest, and gives the output's curve, whether it rises or falls throughout, and how many percent the output changes for a one percent change in the input.
-- `latris eq monte-carlo` answers "how sure is the result?": give inputs and parameters a range (`latris eq uncertainty Roughness triangular --min 0.025 --mode 0.035 --max 0.05 --reason "range across the cited channels"`), and it samples them, recomputes, and reports each output's spread and which values drive it.
+## Base-case analysis
 
-Each result is recorded for the report with a chart, and goes out of date when a value, formula or range changes.
+`latris eq evaluate` works the model out: every quantity at the reference values, and under each **scenario** you have saved (`latris eq scenario "Design flood" --set "Depth=2.5 m"`).
+
+## Uncertainty analysis (Monte Carlo)
+
+`latris eq monte-carlo` answers "how sure is the result?": give inputs and parameters a range (`latris eq uncertainty Roughness triangular --min 0.025 --mode 0.035 --max 0.05 --reason "range across the cited channels"`), and it samples them, recomputes, and reports each output's spread and which values drive it.
+
+## Sensitivity analysis (one input at a time)
+
+`latris eq sweep --input Depth` moves one input across a range (by default its valid range), holding the rest, and gives the output's curve, whether it rises or falls throughout, and how many percent the output changes for a one percent change in the input.
 
 ## In the app
 

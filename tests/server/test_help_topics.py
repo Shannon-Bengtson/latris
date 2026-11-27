@@ -60,3 +60,42 @@ def test_the_order_list_and_the_files_must_agree(tmp_path: Path, order: str, pro
     (tmp_path / "_order.txt").write_text(order, encoding="utf-8")
     with pytest.raises(ValueError, match=problem):
         _load_topics(tmp_path)
+
+
+# ---------- model-type topics are headed by workflow step (schema/workflow.py, latris#62) ----------
+
+_TOPIC_TYPE = {
+    "bn": "bn", "sd": "sd", "cld": "cld", "dag": "dag", "fcm": "fcm", "toc": "theory_of_change",
+    "ft": "fault_tree", "bowtie": "bow_tie", "et": "event_tree", "mcda": "mcda", "ach": "ach",
+    "dt": "decision_tree", "markov": "markov", "argument-map": "argument_map", "equation-model": "equation_model",
+}
+
+
+def _analyse_headings(body: str) -> list[str]:
+    """The step ids of the ``## `` headings that name an Analyse step (optionally followed by " (method)")."""
+    from latris.schema import workflow as wf
+
+    names = {wf.step(s).name: s for s in wf.step_ids("analyse")}
+    out = []
+    for line in body.splitlines():
+        if line.startswith("## "):
+            title = line[3:].split(" (", 1)[0]
+            if title in names:
+                out.append(names[title])
+    return out
+
+
+@pytest.mark.parametrize("suffix", sorted(_TOPIC_TYPE))
+def test_model_type_topics_are_headed_by_analyse_step(suffix: str) -> None:
+    from latris.operations import formalisms
+    from latris.schema import workflow as wf
+
+    topic = next(t for t in HELP_TOPICS if t.id == f"model-type-{suffix}")
+    headings = _analyse_headings(topic.body)
+    order = list(wf.step_ids("analyse"))
+    assert headings == sorted(headings, key=order.index), "analyse headings out of the registry's order"
+    assert len(headings) == len(set(headings)), "an analyse step headed twice"
+    recorded = {r.step for r in formalisms.results_of(_TOPIC_TYPE[suffix])}
+    assert recorded <= set(headings), f"no heading for {sorted(recorded - set(headings))}"
+    for old in ("What the analysis shows", "What the analyses show", "Analysis outputs", "How sure is"):
+        assert f"## {old}" not in topic.body

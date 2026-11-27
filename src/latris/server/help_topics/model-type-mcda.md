@@ -11,7 +11,7 @@ Options you could choose (sites, suppliers, policies) and the criteria they are 
 
 A swing weight says how much moving from the worst to the best of the scale matters, compared with the other criteria's swings — so a weight means nothing without its scale. Without `--worst`/`--best` the options' own range is used; that shifts when an option is added, and the weights then need revisiting.
 
-## What the analysis shows
+## Option comparison
 
 `latris mcda analyse` turns each score into a value from 0 (worst) to 1 (best), combines them by the normalised weights into a total out of 100, and shows:
 

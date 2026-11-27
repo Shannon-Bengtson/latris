@@ -15,7 +15,7 @@ Give each factor its element (`latris bowtie element <factor> hazard|top_event|t
 
 Each barrier can carry its **type** (passive hardware, active hardware, active hardware + human, human — the CCPS types), its **status** (in place, degraded, not in place), its **owner**, and its **probability of failure on demand**, with where that number came from (`latris bowtie barrier <barrier> --type … --status … --owner … --pfd … --source …`). Only what you give changes.
 
-## What the analysis shows
+## Base-case analysis
 
 `latris bowtie analyse` lists every line with its barriers and flags:
 
@@ -25,9 +25,13 @@ Each barrier can carry its **type** (passive hardware, active hardware, active h
 
 Give every threat a frequency per year (`latris bowtie frequency <threat> <f> --source …`) and every barrier on a line a failure probability, and it adds a layer-of-protection estimate: the top event's frequency, each consequence's, and for each barrier how many times more often its side's outcome would happen if it always failed (RAW). A barrier on two routes from the same threat is counted once. The important values nobody has verified are flagged. The analysis is recorded for the report and goes out of date when the bow-tie or a value changes.
 
-## How sure is it? (Monte Carlo)
+## Uncertainty analysis (Monte Carlo)
 
 Give barrier failure probabilities and threat frequencies a range (`latris bowtie uncertainty "Pressure relief valve" --median 0.01 --error-factor 10`, or `uniform --min --max` and other distributions), then `latris bowtie monte-carlo`: the top event's and each consequence's frequency as a 5th–95th percentile range, median and mean beside the point estimate, and which ranges drive the spread. A barrier on several lines takes one value per run everywhere it appears, as it should.
+
+## Sensitivity analysis (global)
+
+`latris analyse global-sensitivity bow_tie` varies every threat frequency and barrier probability that has a range together and gives each one's share of the variance in the result, alone (S1) and through its interactions (ST), from Sobol indices; `--method morris` is a cheaper screen. An input with ST near zero could be fixed anywhere in its range. It needs two or more ranges, and the result is recorded for the report (see the Analyse Canvas topic).
 
 ## Calling it from a script (contract and predict)
 

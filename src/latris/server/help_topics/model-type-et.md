@@ -15,13 +15,17 @@ Give each factor its element (`latris et element <factor> initiating_event|funct
 
 Each heading has P(yes) (`latris et probability <heading> <p>`), and can have different values on different branches (`--given "Gas detected=no"`): the most specific value that matches a branch applies. The initiating event can have a frequency per year (`latris et frequency`). Every value keeps where it came from; a heading's probability can cite a fault-tree analysis, and the initiating frequency a bow-tie's.
 
-## What the analysis shows
+## Base-case analysis
 
 `latris et analyse` gives each sequence's probability (the product of its branch probabilities) and, with the initiating frequency, how often it happens per year; the totals per end state; and the dominant sequence behind each end state. Values on the dominant sequences that nobody has verified are flagged. The result is recorded for the report and goes out of date when the tree or a value changes.
 
-## How sure is it? (Monte Carlo)
+## Uncertainty analysis (Monte Carlo)
 
 Give the uncertain numbers a range and sample them: `latris et uncertainty "Gas release" --median 0.02 --error-factor 3` (a lognormal whose 95th percentile is three times its median — the usual way risk assessments state it), or a branch probability, conditional ones with `--given "Gas detected=no"`; other distributions take `uniform --min --max`, `triangular`, `beta` and so on. `latris et monte-carlo` reruns the tree for each sample and gives every end state's 5th–95th percentile, median and mean beside the point estimate, and ranks the uncertain inputs by how strongly they drive the headline end state (`--output` picks it; by default the rarest). Values without a range stay fixed and are listed, so the spread is a lower bound.
+
+## Sensitivity analysis (global)
+
+`latris analyse global-sensitivity event_tree` varies every heading probability and initiating frequency that has a range together and gives each one's share of the variance in the result, alone (S1) and through its interactions (ST), from Sobol indices; `--method morris` is a cheaper screen. An input with ST near zero could be fixed anywhere in its range. It needs two or more ranges, and the result is recorded for the report (see the Analyse Canvas topic).
 
 ## Calling it from a script (contract and predict)
 

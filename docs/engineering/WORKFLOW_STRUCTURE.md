@@ -2,7 +2,8 @@
 
 *Proposed 2026-11-27. Built: the registry, the steps on analyses and edit
 operations (#60), and the places of every command, route and help topic
-(#63). The rest is tracked in
+(#63), and reports and model-type help grouped by step (#62). The rest is
+tracked in
 [#60](https://github.com/Shannon-Bengtson/latris/issues/60),
 [#61](https://github.com/Shannon-Bengtson/latris/issues/61),
 [#62](https://github.com/Shannon-Bengtson/latris/issues/62) and
@@ -325,9 +326,13 @@ elsewhere:
 
 - **Report.** Results grouped by step in the order above, step name as the
   heading, method in each result's own heading. A step with no results is
-  left out.
-- **Help.** Every model-type topic uses the step names as its headings, in
-  order. The workflow overview lists the stages, steps and tracks once.
+  left out. The analysis catalog lists analyses in the same order.
+- **Help.** Every model-type topic heads its analyses with the step names,
+  in order, with the method in parentheses ("Uncertainty analysis
+  (probabilistic sensitivity analysis)"); a test keeps them aligned.
+  Building a model stays under each topic's own headings. The workflow
+  overview, which describes the app's stepper, changes when the app shows
+  the seven stages.
 - **Editors.** Stage navigation, analysis forms and result lists come from
   the registry.
 - **Chat tools.** Generated per step, not per model type and method, so the

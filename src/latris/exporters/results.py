@@ -109,17 +109,37 @@ def render_results(
             "",
         ]
     out += [
-        "The latest run of each analysis on this model. Every value a run changed or sampled is listed "
-        "with where it came from.",
+        "The latest run of each analysis on this model, by the kind of analysis. Every value a run changed or "
+        "sampled is listed with where it came from.",
         "",
     ]
+    step = None
     for res in results:
-        out += render_result(res.run, res.payload, stale=res.stale, chart_markers=chart_markers, show_ids=show_ids)
+        this = _step_of(res.run.result_kind)
+        if this != step:
+            step = this
+            out += [f"### {_step_name(step)}", ""]
+        out += render_result(res.run, res.payload, stale=res.stale, chart_markers=chart_markers,
+                             show_ids=show_ids, level=4)
     if earlier:
         were = "results from earlier versions of this model aren't" if earlier != 1 else (
             "result from an earlier version of this model isn't")
         out += [f"_{earlier} {were} shown. {HISTORY_NOTE}_", ""]
     return out
+
+
+def _step_of(kind: str) -> str | None:
+    from latris.operations import formalisms
+
+    found = formalisms.result_kind(kind)
+    return found[1].step if found else None
+
+
+def _step_name(step: str | None) -> str:
+    """The heading of a group of results: the workflow step's name (``schema/workflow.py``)."""
+    from latris.schema.workflow import step as workflow_step
+
+    return workflow_step(step).name if step else "Other results"
 
 
 def result_heading(kind: str, p: dict[str, Any]) -> str:
@@ -136,10 +156,11 @@ def result_heading(kind: str, p: dict[str, Any]) -> str:
 
 
 def render_result(run: Any, p: dict[str, Any], *, stale: bool = False, chart_markers: bool = False,
-                  show_ids: bool = True) -> list[str]:
-    """One result's section of the report: heading, date, notes, chart markers and its table."""
+                  show_ids: bool = True, level: int = 3) -> list[str]:
+    """One result's section of the report: heading (at ``level``; the report nests results under their
+    workflow step, so it passes 4), date, notes, chart markers and its table."""
     kind = run.result_kind
-    out = [f"### {result_heading(kind, p)}", "", f"_Run {_run_date(run.id)}._", ""]
+    out = [f"{'#' * level} {result_heading(kind, p)}", "", f"_Run {_run_date(run.id)}._", ""]
     out += _stale_note(stale, run.id, show_ids)
     out += carried_note(run.hyperparameters)
     if chart_markers:

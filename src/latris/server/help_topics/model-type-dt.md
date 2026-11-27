@@ -11,7 +11,7 @@ place: frame.model_type
 
 When the same uncertainty appears under several choices — demand if you launch, demand if you license — give those chance nodes one name (`latris dt uncertainty <chance node> Demand`) with the same states and probabilities, so the tree can price knowing it.
 
-## What the analysis shows
+## Option comparison
 
 `latris dt analyse` rolls the tree back — a chance node is worth the probability-weighted value of its branches, a decision node the best of its options — and gives:
 
@@ -22,11 +22,15 @@ When the same uncertainty appears under several choices — demand if you launch
 
 The result is recorded for the report and goes out of date when the tree or a value changes.
 
-## How sure is the choice? (probabilistic sensitivity analysis)
+## Uncertainty analysis (probabilistic sensitivity analysis)
 
 Give uncertain inputs a range with `latris dt range`: a terminal's payoff (`latris dt range "Launched, high demand" normal --mean 500 --sd 100`), a branch's value (`--quantity value`), the probability of one branch of a two-branch chance node (`latris dt range "Demand if launched -> Launched, high demand" beta --mean 0.4 --sd 0.1` — the other branch takes the rest), or every branch probability of a chance node as a Dirichlet worth n observations (`latris dt range "Demand if launched" dirichlet --n 50`). A beta (probabilities) or gamma (costs) takes the mean and standard error a study reports; uniform, triangular, normal and lognormal take their own parameters. Each range keeps its reason, source and whether a person checked it, and must include the current value. Chance nodes named as one uncertainty take the same sampled probabilities.
 
 `latris dt psa` then samples every range together (seeded Latin hypercube) and rolls the tree back for each sample: each first choice's expected value across the runs (mean, 5th–95th percentile), **how often each option is best**, the **expected value of perfect information on the parameters** — the most it's worth to remove all of this uncertainty before choosing — the **partial EVPI** of each input on its own (what one study of it could at most be worth), and which inputs drive the advantage of the best option over the runner-up (rank correlation). Inputs without a range are held fixed and listed. Two values from the same source can be sampled together: `latris dt correlate "Launched, high demand" "Launched, low demand" 0.6 --reason "one finance model"` (a rank correlation, -0.99 to 0.99; each keeps its own range). It is recorded with a chart, and goes out of date when a value or range changes.
+
+## Sensitivity analysis (global)
+
+`latris analyse global-sensitivity decision_tree` varies every input that has a range together and gives each one's share of the variance in the result, alone (S1) and through its interactions (ST), from Sobol indices; `--method morris` is a cheaper screen. An input with ST near zero could be fixed anywhere in its range. It needs two or more ranges, and the result is recorded for the report (see the Analyse Canvas topic).
 
 ## Calling it from a script (contract and predict)
 
