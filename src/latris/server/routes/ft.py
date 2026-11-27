@@ -18,6 +18,14 @@ from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/ft", tags=["ft"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "get_tree": "formalise",
+    "set_event": "formalise.definitions",
+    "set_gate": "formalise.definitions",
+    "set_probability": "formalise.values",
+}
+
 
 
 class EventRequest(BaseModel):
@@ -80,6 +88,6 @@ _risk_mc.add_routes(router, "fault_tree")
 
 _formalism.add_check_route(router, "fault_tree")
 _formalism.add_analyse_route(
-    router, ft, request=AnalyseRequest, options=lambda b: {"max_order": b.max_order},
+    router, ft, model_type="fault_tree", request=AnalyseRequest, options=lambda b: {"max_order": b.max_order},
     recordable=lambda p: not p["problems"] and not p["error"],
 )

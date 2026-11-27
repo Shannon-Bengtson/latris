@@ -10,6 +10,12 @@ from latris.operations import view_roles as view_role_ops
 from latris.operations import views as view_ops
 
 app = typer.Typer(help="View projection and model-specific attributes.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "build.structure",
+    "view_role": "formalise.definitions",
+}
 console = Console()
 
 

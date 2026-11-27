@@ -12,6 +12,11 @@ from pydantic import BaseModel
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.server.deps import Root
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "check": "validation",
+}
+
 
 class ProvenanceFields(BaseModel):
     """Where a number came from — the fields every parameter-setting request takes."""
@@ -53,6 +58,7 @@ def add_analyse_route(
     router: APIRouter,
     ops: ModuleType,
     *,
+    model_type: str,
     request: type[AnalyseRequest] = AnalyseRequest,
     options: Callable[[Any], dict[str, Any]] = lambda _body: {},
     recordable: Callable[[dict[str, Any]], bool] = _no_problems,
@@ -74,4 +80,15 @@ def add_analyse_route(
     # The body type is this formalism's request class; annotations are strings
     # here (``from __future__``), so give FastAPI the real type.
     analyse.__annotations__["body"] = request | None
-    router.post("/analyse")(analyse)
+    # One function serves every type, so its workflow place comes with each route: the step of the model
+    # type's own main analysis (base-case for a fault tree, option comparison for MCDA).
+    router.post("/analyse", openapi_extra={"x-latris-place": _main_analysis_step(model_type)})(analyse)
+
+
+def _main_analysis_step(model_type: str) -> str:
+    from latris.operations import formalisms
+
+    f = formalisms.get(model_type)
+    if f is None or not f.results:
+        raise ValueError(f"{model_type!r} has no analysis of its own to place /analyse by")
+    return f.results[0].step

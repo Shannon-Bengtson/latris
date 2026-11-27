@@ -30,8 +30,10 @@ All access to these concerns goes through exactly one file:
 2. Operation in `operations/` — returns `(model, commit_sha)`;
    ends with `auto_commit()`
 3. CLI command in `cli/` — `@handle_cli_errors`; one parse + one
-   call into operations + one print
-4. Server route in `server/routes/` — pydantic request model,
+   call into operations + one print. Its module's `PLACE` names where
+   it sits in the workflow (`operations/places.py`); rerun
+   `python scripts/gen_cli_index.py`
+4. Server route in `server/routes/` — its module's `PLACE` too; pydantic request model,
    `Root` dependency injection, returns
    `{"result": model.model_dump(mode="json"), "commit_sha": sha}`
 5. Test in `tests/` — `tmp_path` + `git_identity` fixture

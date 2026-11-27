@@ -2,6 +2,7 @@
 title: VerifyClaimAgainstSource
 category: ai
 summary: Apply-time verbatim quote validation against the stored source snapshot. The model cannot self-attest.
+place: ai
 ---
 
 ## The audit invariant

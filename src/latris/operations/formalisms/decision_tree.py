@@ -246,7 +246,7 @@ _CHAT_OPS = (
         'a chance node or value.'),
     ChatOp("formalise.values", 'set_dt_payoff', ('payoffs',),
         "A terminal node's payoff."),
-    ChatOp("formalise.ranges", 'set_dt_uncertainty', ('uncertainties',),
+    ChatOp("formalise.definitions", 'set_dt_uncertainty', ('uncertainties',),
         'Name the uncertainty a chance node resolves; chance nodes with the same name are the same '
         'uncertainty under different choices (for the value of information).'),
     ChatOp("formalise.ranges", 'set_dt_correlation', ('correlations',),

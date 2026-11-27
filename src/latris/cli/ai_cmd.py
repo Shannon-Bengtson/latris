@@ -24,6 +24,9 @@ app = typer.Typer(
     help="AI layer — canonical prompts, interaction log, credentials, config.",
     no_args_is_help=True,
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "ai"
 console = Console()
 
 prompts_app = typer.Typer(help="Canonical prompt library.", no_args_is_help=True)

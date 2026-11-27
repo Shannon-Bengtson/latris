@@ -13,6 +13,18 @@ from latris.cli._output import emit
 
 app = typer.Typer(help="Decision trees: the best choice under uncertainty, and what information is worth.",
                   no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "element": "formalise.definitions",
+    "branch": "formalise.values",
+    "payoff": "formalise.values",
+    "uncertainty": "formalise.definitions",
+    "settings": "formalise.definitions",
+    "show": "formalise",
+    "check": "validation",
+    "analyse": "analyse.options",
+}
 console = Console()
 
 

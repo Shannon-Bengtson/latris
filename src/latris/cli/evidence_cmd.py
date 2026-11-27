@@ -13,6 +13,9 @@ app = typer.Typer(
     "and detach a citation (`remove`).",
     no_args_is_help=True,
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "evidence"
 console = Console()
 
 

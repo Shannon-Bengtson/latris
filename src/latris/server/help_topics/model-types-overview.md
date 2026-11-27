@@ -2,6 +2,7 @@
 title: Choosing a Model Type
 category: model-types
 summary: How to choose between the fifteen model types — systems, causal inference, evaluation, risk, decisions, arguments and equations — by the question each one answers.
+place: frame.model_type
 ---
 
 ## Current stable model types

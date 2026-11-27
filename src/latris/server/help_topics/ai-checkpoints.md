@@ -2,6 +2,7 @@
 title: When the AI asks you
 category: ai
 summary: Five checkpoints where an AI building a model stops and asks the person, and how skips show in the report.
+place: ai
 ---
 
 ## Why it asks

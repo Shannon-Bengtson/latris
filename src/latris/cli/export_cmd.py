@@ -14,6 +14,13 @@ from latris.operations import sync as sync_ops
 from latris.repo.project import require_project
 
 app = typer.Typer(help="Export the project to Markdown, Graphviz DOT or a build spec.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "export_md": "communicate.report",
+    "export_dot": "communicate.diagram",
+    "export_spec": "communicate.sharing",
+}
 console = Console()
 
 

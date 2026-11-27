@@ -2,6 +2,7 @@
 title: References Workspace
 category: evidence
 summary: Import, search, review, and reuse citations as project evidence.
+place: evidence
 ---
 
 ## What References mode is for

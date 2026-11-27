@@ -14,6 +14,9 @@ from latris.cli._errors import handle_cli_errors
 from latris.operations import maturity as ops
 
 app = typer.Typer(help="Advance an artifact's maturity (proposed → reviewed → approved).", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "review"
 console = Console()
 
 

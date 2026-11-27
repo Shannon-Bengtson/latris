@@ -9,6 +9,12 @@ from latris.cli._errors import handle_cli_errors
 from latris.operations import mappings as mapping_ops
 
 app = typer.Typer(help="Map substrate elements to formal views.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "build.structure",
+    "mapping_approve": "ai",
+}
 console = Console()
 
 

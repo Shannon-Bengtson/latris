@@ -13,6 +13,9 @@ from latris.server.help import get_topic, list_topics
 
 router = APIRouter(prefix="/api/help", tags=["help"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"
+
 
 @router.get("/topics")
 def get_help_topics() -> dict[str, Any]:

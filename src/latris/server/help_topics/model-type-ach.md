@@ -2,6 +2,7 @@
 title: Analysis of Competing Hypotheses
 category: model-types
 summary: Weigh competing explanations against all the evidence at once, and find what the conclusion turns on.
+place: frame.model_type
 ---
 
 ## What ACH represents

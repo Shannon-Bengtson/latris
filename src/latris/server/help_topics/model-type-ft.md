@@ -2,6 +2,7 @@
 title: Fault Trees
 category: model-types
 summary: Break an undesired event down into the failures that cause it; find cut sets, its probability and what matters most.
+place: frame.model_type
 ---
 
 ## What a fault tree represents

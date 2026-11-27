@@ -15,6 +15,15 @@ from latris.repo import git
 from latris.repo.git import GitError
 
 app = typer.Typer(help="Inspect and update the project foundation.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "frame.question",
+    "show": "frame",
+    "set_field_cmd": "frame",
+    "select_models_cmd": "frame.model_type",
+    "choose_cmd": "frame.model_type",
+}
 console = Console()
 
 

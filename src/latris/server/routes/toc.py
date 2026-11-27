@@ -16,6 +16,17 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/toc", tags=["toc"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "list_levels": "formalise.definitions",
+    "set_level": "formalise.definitions",
+    "check": "analyse.structural",
+    "get_trace": "analyse.base_case",
+    "set_prior": "formalise.values",
+    "set_test": "formalise.values",
+    "trace": "analyse.base_case",
+}
+
 
 class SetLevelRequest(BaseModel):
     node: str

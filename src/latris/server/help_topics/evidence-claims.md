@@ -2,6 +2,7 @@
 title: Evidence and Claims
 category: evidence
 summary: How references and datasets support specific model attributes.
+place: evidence
 ---
 
 ## Evidence is claim-level

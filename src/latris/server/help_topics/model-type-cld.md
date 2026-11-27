@@ -2,6 +2,7 @@
 title: Causal Loop Diagrams
 category: model-types
 summary: Use CLDs for feedback structure, polarity, and reinforcing or balancing loops.
+place: frame.model_type
 ---
 
 ## What a CLD represents

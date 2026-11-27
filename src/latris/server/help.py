@@ -6,13 +6,19 @@ to inspect the active project.
 
 The text lives beside this module in ``help_topics/``: one Markdown file per
 topic, named for the topic's id, opening with a header that gives its title,
-category and one-line summary::
+category, one-line summary and place in the workflow::
 
     ---
     title: Welcome to Latris
     category: getting-started
     summary: What Latris is, what it is for, and the ideas behind it.
+    place: project
     ---
+
+``place`` is where the topic's subject sits in the workflow structure (``schema/workflow.py``): a step, a
+stage, a track or ``composite``, by the rules in ``docs/engineering/WORKFLOW_STRUCTURE.md``. A model-type
+topic is placed at model type selection, where people read what each type is for. ``category`` is the older
+grouping the app still reads; it goes once the app groups by place.
 
     ## What Latris is
     ...
@@ -28,12 +34,15 @@ from importlib.resources.abc import Traversable
 
 from pydantic import BaseModel
 
+from latris.schema.workflow import is_place
+
 
 class HelpTopic(BaseModel):
     id: str
     title: str
     category: str
     summary: str
+    place: str
     body: str
 
 
@@ -54,7 +63,7 @@ HELP_CATEGORIES: list[str] = [
     "developer",
 ]
 
-_HEADER_KEYS = ("title", "category", "summary")
+_HEADER_KEYS = ("title", "category", "summary", "place")
 
 
 def _parse_topic(topic_id: str, text: str) -> HelpTopic:
@@ -68,6 +77,8 @@ def _parse_topic(topic_id: str, text: str) -> HelpTopic:
         raise ValueError(f"help topic {topic_id!r}: the header must give {', '.join(_HEADER_KEYS)}, in that order")
     if fields["category"] not in HELP_CATEGORIES:
         raise ValueError(f"help topic {topic_id!r}: no category {fields['category']!r}")
+    if not is_place(fields["place"]):
+        raise ValueError(f"help topic {topic_id!r}: {fields['place']!r} is not a workflow place")
     return HelpTopic(id=topic_id, body=body.removeprefix("\n"), **fields)
 
 

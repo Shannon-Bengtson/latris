@@ -10,6 +10,12 @@ from latris.cli._errors import handle_cli_errors
 from latris.operations import elicitation as elicit_ops
 
 app = typer.Typer(help="Expert elicitation sessions.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "evidence",
+    "elicit_finalise": "formalise.values",
+}
 console = Console()
 
 

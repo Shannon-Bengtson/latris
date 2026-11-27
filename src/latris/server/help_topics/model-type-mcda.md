@@ -2,6 +2,7 @@
 title: Multi-Criteria Decision Analysis
 category: model-types
 summary: Choose between options judged on several criteria, and see how firm the choice is.
+place: frame.model_type
 ---
 
 ## What an MCDA represents

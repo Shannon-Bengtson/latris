@@ -134,3 +134,10 @@ def register(app: typer.Typer, model_type: str) -> None:
         emit(payload, human=human, commit_sha=sha)
 
     del uncertainty, monte_carlo  # registered on the app
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "uncertainty": "formalise.ranges",
+    "monte_carlo": "analyse.uncertainty",
+}

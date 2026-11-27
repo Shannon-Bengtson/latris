@@ -2,6 +2,7 @@
 title: System Dynamics (stock-and-flow)
 category: model-types
 summary: Stocks, flows, unit-checked equations, scenarios, Monte Carlo uncertainty, sensitivity and loop dominance — with per-parameter provenance.
+place: frame.model_type
 ---
 
 ## What an SD model adds

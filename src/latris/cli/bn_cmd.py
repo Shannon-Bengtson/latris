@@ -12,6 +12,31 @@ from latris.cli._options import ORIGIN_HELP
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Bayesian Network operations.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "set_state_space": "formalise.definitions",
+    "remove_states": "formalise.definitions",
+    "state_spaces": "formalise.definitions",
+    "set_cpt": "formalise.values",
+    "set_weighted": "formalise.values",
+    "set_noisy_or": "formalise.values",
+    "learn": "formalise.values",
+    "cpts": "formalise.values",
+    "check": "validation",
+    "marginals": "analyse.base_case",
+    "query": "analyse.base_case",
+    "explain": "analyse.base_case",
+    "set_uncertainty": "formalise.ranges",
+    "list_uncertainty": "formalise.ranges",
+    "clear_uncertainty": "formalise.ranges",
+    "monte_carlo": "analyse.uncertainty",
+    "sensitivity": "analyse.sensitivity",
+    "set_scenario": "formalise.scenarios",
+    "scenarios": "formalise.scenarios",
+    "remove_scenario": "formalise.scenarios",
+    "compare": "analyse.options",
+}
 console = Console()
 
 

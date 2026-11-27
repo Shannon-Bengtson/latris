@@ -2,6 +2,7 @@
 title: Event Trees
 category: model-types
 summary: Follow one initiating event forward through yes/no headings to end states, with the probability of each.
+place: frame.model_type
 ---
 
 ## What an event tree represents

@@ -24,6 +24,9 @@ from latris.telemetry import emit_envelopes
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"
+
 _MAX_BATCH = 500  # same cap as the hosted service's ingest
 
 

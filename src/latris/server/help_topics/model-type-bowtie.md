@@ -2,6 +2,7 @@
 title: Bow-Ties
 category: model-types
 summary: Lay out the threats and consequences of one top event and the barriers between, and see where protection is thin.
+place: frame.model_type
 ---
 
 ## What a bow-tie represents

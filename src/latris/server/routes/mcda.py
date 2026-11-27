@@ -18,6 +18,14 @@ from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/mcda", tags=["mcda"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "model": "formalise",
+    "set_element": "formalise.definitions",
+    "set_criterion": "formalise.values",
+    "set_score": "formalise.values",
+}
+
 
 class ElementRequest(BaseModel):
     node: str
@@ -74,4 +82,4 @@ def set_score(body: ScoreRequest, root: Root) -> dict[str, Any]:
 
 
 _formalism.add_check_route(router, "mcda")
-_formalism.add_analyse_route(router, mcda)
+_formalism.add_analyse_route(router, mcda, model_type="mcda")

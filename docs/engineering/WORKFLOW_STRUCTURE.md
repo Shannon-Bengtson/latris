@@ -1,7 +1,8 @@
 # Workflow structure: stages, steps and tracks
 
-*Proposed 2026-11-27. The registry and the steps on analyses and edit
-operations are built (#60); the rest is tracked in
+*Proposed 2026-11-27. Built: the registry, the steps on analyses and edit
+operations (#60), and the places of every command, route and help topic
+(#63). The rest is tracked in
 [#60](https://github.com/Shannon-Bengtson/latris/issues/60),
 [#61](https://github.com/Shannon-Bengtson/latris/issues/61),
 [#62](https://github.com/Shannon-Bengtson/latris/issues/62) and
@@ -122,8 +123,8 @@ is placed with the thing read.
 1. It serves the model to code (inputs in, outputs out) → Use.
 2. It renders the model for a reader, or hands it over → Communicate.
 3. It writes claims or text about results → Interpret.
-4. It computes and records a result, changing nothing in the model →
-   Analyse.
+4. It computes a result from the model, changing nothing in it (whether the
+   result is recorded or not) → Analyse.
 5. It writes a model type's own content → Formalise.
 6. It writes the shared map → Build.
 7. Otherwise: the project's question, scope, audience or choice of model
@@ -227,7 +228,7 @@ Each placement follows from the rules.
 | Event tree | element, order, sequence | probability, frequency | uncertainty | |
 | MCDA | element | criterion, score | | |
 | Competing hypotheses | element, item | rating | | |
-| Decision tree | settings, element | branch, payoff | uncertainty, correlation, range | |
+| Decision tree | settings, element, uncertainty (which chance nodes share one) | branch, payoff | correlation, range | |
 | Markov | settings, element | transition, reward, start | correlation, range | |
 | Argument map | element, link | claim | | |
 | Equation model | | value, formula | uncertainty | scenario |
@@ -287,10 +288,18 @@ fails for anything that doesn't, or that uses an id not in the registry.
    tracks: id, name, order, one-line description. Nothing else spells them.
 2. **Analyses.** `ResultKind` gains a required `step`.
 3. **Edit operations.** `ChatOp` gains a required `step`.
-4. **CLI commands and server routes.** Each declares a step, a stage, a
-   track, or composite. Those generated from a formalism inherit it.
-5. **Help topics.** Front matter names a place from the registry, replacing
-   today's free-text `category`.
+4. **CLI commands and server routes.** Each module declares `PLACE`: one
+   place, or a place per function with a module default
+   (`operations/places.py`). A route built by a shared factory carries its
+   own (`x-latris-place`), so `POST /api/mcda/analyse` is option comparison
+   and `POST /api/ft/analyse` base-case. The server writes every route's
+   place into its OpenAPI entry; `latris capabilities` lists every command
+   with its place; the CLI reference opens with a generated index by place.
+   A composite also declares what it can carry out (`CARRIES`).
+5. **Help topics.** The header names a place (`place:`), by the topic's
+   subject. Model-type topics are at model type selection, where people read
+   what each type is for. The older free-text `category` stays until the app
+   groups by place.
 6. **Checkpoints and readiness.** Both read stages from the registry. The
    values checkpoint finds sensitivity analyses by step (fixes #61).
 7. **Capabilities.** `latris capabilities` and `GET /api/analyses` serve the

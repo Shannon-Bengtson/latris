@@ -14,6 +14,10 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/build", tags=["build"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "composite"
+CARRIES = ("frame.question", "frame.model_type", "build.structure", "formalise", "analyse", "evidence")
+
 
 class _SpecRequest(BaseModel):
     """The spec as data (``spec``) or as written in a file (``text``: YAML or JSON, read as

@@ -59,6 +59,9 @@ app = typer.Typer(
     add_completion=False,
 )
 
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"
+
 app.command("init")(init_command)
 app.command("build")(build_cmd.build)
 app.command("link")(link_cmd.link)

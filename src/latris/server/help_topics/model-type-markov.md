@@ -2,6 +2,7 @@
 title: Markov Cohort Models
 category: model-types
 summary: Follow a cohort between states over time, and compare what strategies cost and achieve.
+place: frame.model_type
 ---
 
 ## What a Markov model represents

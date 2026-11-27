@@ -2,6 +2,7 @@
 title: Report Builder
 category: communicate
 summary: Assemble report sections and export Markdown or Word deliverables.
+place: communicate.report
 ---
 
 ## What Report mode is for

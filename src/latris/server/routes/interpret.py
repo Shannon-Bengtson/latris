@@ -13,6 +13,12 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/interpret", tags=["interpret"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "interpret.interpretation",
+    "generate_prose": "ai",
+}
+
 
 class ProseUpdateBody(BaseModel):
     prose: str

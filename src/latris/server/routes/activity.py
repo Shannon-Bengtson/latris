@@ -11,6 +11,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/activity", tags=["activity"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "versions"
+
 
 @router.get("")
 def activity(root: Root, limit: int = Query(default=20, ge=1, le=50)) -> dict[str, Any]:

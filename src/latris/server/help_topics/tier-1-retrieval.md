@@ -2,6 +2,7 @@
 title: Tier-1 Source Retrieval
 category: evidence
 summary: `ref fetch` pulls the full text of a reference, chunks it, and stores it as a per-bibkey artefact.
+place: evidence
 ---
 
 ## What `ref fetch` does

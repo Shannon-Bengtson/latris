@@ -2,6 +2,7 @@
 title: Theory of Change
 category: model-types
 summary: Lay out how an intervention is meant to reach its impact, and see which steps the evidence holds up.
+place: frame.model_type
 ---
 
 ## What a theory of change represents

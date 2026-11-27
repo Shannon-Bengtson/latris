@@ -2,6 +2,7 @@
 title: Compose Mode
 category: build
 summary: Stage candidate nodes and edges from references, data, AI suggestions, or manual entry before applying them.
+place: build.structure
 ---
 
 ## What Compose mode is for

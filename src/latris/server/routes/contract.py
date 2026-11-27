@@ -15,6 +15,14 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api", tags=["contract"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "use.contract",
+    "check": "validation",
+    "compare": "versions",
+    "run": "use.prediction",
+}
+
 
 class InitRequest(BaseModel):
     model_type: str

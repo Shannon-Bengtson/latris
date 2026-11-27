@@ -10,6 +10,14 @@ from pydantic import BaseModel
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.server.deps import Root
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "list_ranges": "formalise.ranges",
+    "set_range": "formalise.ranges",
+    "set_correlation": "formalise.ranges",
+    "run_psa": "analyse.uncertainty",
+}
+
 
 class RangeRequest(BaseModel):
     target: str  # a factor, or a link 'A -> B'

@@ -12,6 +12,9 @@ from latris.schema.workflow import WorkflowStructure, structure
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "project"
+
 
 @router.get("", response_model=WorkflowStructure)
 def get_workflow() -> WorkflowStructure:

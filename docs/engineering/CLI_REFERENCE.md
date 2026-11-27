@@ -11,6 +11,50 @@ latris --help
 latris <group> --help
 ```
 
+## Commands by stage and track
+
+Every command's place in the workflow (`schema/workflow.py`; rules in
+[`WORKFLOW_STRUCTURE.md`](WORKFLOW_STRUCTURE.md)). The sections after this
+one are by command group.
+
+<!-- commands-by-place:start (generated: python scripts/gen_cli_index.py) -->
+
+| Place | Commands |
+|---|---|
+| **Frame** | `project set`, `project show` |
+| Frame: Question and scope | `project set-question` |
+| Frame: Model type selection | `project choose`, `project select-models` |
+| Build: Structure | `attr set`, `edge add`, `edge list`, `edge remove`, `mapping add`, `mapping leave-out`, `mapping list`, `node add`, `node list`, `node remove`, `node rename`, `node show`, `view auto-project`, `view project`, `view set` |
+| **Formalise** | `ach show`, `argument show`, `bowtie show`, `dt show`, `eq show`, `et show`, `ft show`, `markov show`, `mcda show` |
+| Formalise: Definitions | `ach element`, `ach item`, `argument element`, `argument link`, `bn remove-states`, `bn set-state-space`, `bn state-spaces`, `bowtie barrier`, `bowtie element`, `dt element`, `dt settings`, `dt uncertainty`, `eq remove`, `eq role`, `et element`, `et order`, `et remove-sequence`, `et sequence`, `ft event`, `ft gate`, `markov element`, `markov settings`, `mcda element`, `sd roles`, `sd set-role`, `sd set-settings`, `sd settings`, `sd unset-role`, `toc level`, `toc levels`, `view role` |
+| Formalise: Values | `ach rate`, `argument claim`, `bn cpts`, `bn learn`, `bn set-cpt`, `bn set-noisy-or`, `bn set-weighted`, `bowtie frequency`, `dt branch`, `dt payoff`, `elicit finalise`, `eq formula`, `eq input`, `eq parameter`, `et frequency`, `et probability`, `fcm set-weight`, `fcm weights`, `ft probability`, `markov reward`, `markov start`, `markov transition`, `mcda criterion`, `mcda score`, `sd constants`, `sd equations`, `sd set-constant`, `sd set-equation`, `sd set-initial-value`, `sd set-table`, `sd stocks`, `sd tables`, `toc prior`, `toc test` |
+| Formalise: Ranges | `bn clear-uncertainty`, `bn set-uncertainty`, `bn uncertainty`, `bowtie uncertainty`, `dt correlate`, `dt range`, `eq uncertainty`, `et uncertainty`, `ft uncertainty`, `markov correlate`, `markov range`, `sd clear-uncertainty`, `sd set-uncertainty`, `sd uncertainty` |
+| Formalise: Scenarios | `bn remove-scenario`, `bn scenarios`, `bn set-scenario`, `eq scenario`, `eq scenarios`, `sd remove-scenario`, `sd scenarios`, `sd set-scenario` |
+| **Analyse** | `results list`, `results show` |
+| Analyse: Structural analysis | `analyse adjustment-sets`, `analyse blanket`, `analyse d-sep`, `analyse loops`, `analyse paths`, `analyse propagate`, `toc check` |
+| Analyse: Base-case analysis | `ach analyse`, `argument analyse`, `bn explain`, `bn marginals`, `bn query`, `bowtie analyse`, `eq evaluate`, `et analyse`, `fcm infer`, `ft analyse`, `sd loops`, `sd simulate`, `toc trace` |
+| Analyse: Option comparison | `bn compare`, `dt analyse`, `markov analyse`, `mcda analyse`, `sd compare` |
+| Analyse: Uncertainty analysis | `bn monte-carlo`, `bowtie monte-carlo`, `dt psa`, `eq monte-carlo`, `et monte-carlo`, `ft monte-carlo`, `markov psa`, `sd monte-carlo` |
+| Analyse: Sensitivity analysis | `analyse global-sensitivity`, `bn sensitivity`, `eq sweep`, `sd sensitivity` |
+| Analyse: Estimation from data | `analyse estimate`, `toc impact` |
+| Interpret: Findings | `finding add`, `finding list`, `finding show` |
+| Interpret: Interpretation | `interpret initialise`, `interpret list`, `interpret refresh-claims`, `interpret set-prose`, `interpret show` |
+| Communicate: Report | `export md`, `results hide`, `results unhide` |
+| Communicate: Diagram | `export dot` |
+| Communicate: Sharing | `export spec`, `link`, `sync link` |
+| Use: Contract | `contract available`, `contract init`, `contract input`, `contract output`, `contract remove`, `contract show` |
+| Use: Prediction | `predict` |
+| *AI assistance* (track) | `ai call attack`, `ai call challenge`, `ai call draft`, `ai call explain`, `ai call find-connections`, `ai call find-counter-pathway`, `ai call peer-review`, `ai call project-view`, `ai call research-gaps`, `ai call run`, `ai call scope-check`, `ai call steelman`, `ai call suggest-citations`, `ai config set`, `ai config show`, `ai interactions list`, `ai interactions show`, `ai key list`, `ai key set`, `ai key unset`, `ai prompts list`, `ai prompts show`, `ai task apply`, `ai task emit`, `checkpoint pace`, `checkpoint record`, `checkpoint show`, `checkpoint skip`, `completeness check`, `completeness dismiss`, `completeness list`, `completeness mark-added`, `completeness override`, `interpret generate-all`, `interpret generate-prose`, `mapping approve` |
+| *Evidence* (track) | `assumption add`, `decision log`, `elicit aggregate`, `elicit list`, `elicit round`, `elicit show`, `elicit start`, `evidence add`, `evidence check`, `evidence remove`, `exclusion add`, `prediction add`, `question add`, `ref add`, `ref edit`, `ref fetch`, `ref import`, `ref list`, `ref remove`, `ref snapshot`, `session record` |
+| *Data* (track) | `data add`, `data list`, `data show` |
+| *Review and challenge* (track) | `challenge list`, `challenge open`, `challenge resolve`, `challenge show`, `challenge turn`, `mature approve`, `mature propose`, `mature review`, `signoff record` |
+| *Verification and validation* (track) | `ach check`, `argument check`, `bn check`, `bowtie check`, `check coherence`, `check handover`, `check integrity`, `contract check`, `dt check`, `eq check`, `et check`, `finding check-stale`, `ft check`, `markov check`, `mcda check`, `sd check` |
+| *Versions and history* (track) | `contract diff`, `diff`, `log`, `status`, `version add`, `version alternative`, `version compare`, `version get-latest`, `version milestone`, `version preferred`, `version publish`, `version reconcile`, `version reconcile-preview`, `version restore`, `version switch`, `version sync-status`, `version tree`, `version update` |
+| *Project* (track) | `capabilities`, `docs`, `doctor`, `foundations`, `init`, `sync fetch`, `sync login`, `sync pull`, `sync push`, `sync remote`, `sync share`, `sync status` |
+| Composite | `build` |
+
+<!-- commands-by-place:end -->
+
 ## Global
 
 ```bash

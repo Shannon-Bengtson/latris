@@ -12,6 +12,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/compose", tags=["compose"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "build.structure"
+
 
 # ---------------------------------------------------------------------------
 # Request / response bodies

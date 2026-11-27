@@ -2,6 +2,7 @@
 title: Fuzzy Cognitive Maps
 category: model-types
 summary: Use FCMs for weighted causal influence and semi-quantitative scenario reasoning.
+place: frame.model_type
 ---
 
 ## What an FCM represents

@@ -14,6 +14,35 @@ from latris.cli._options import ORIGIN_HELP
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="System Dynamics (stock-and-flow) operations.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "set_role": "formalise.definitions",
+    "unset_role": "formalise.definitions",
+    "roles": "formalise.definitions",
+    "set_equation": "formalise.values",
+    "equations": "formalise.values",
+    "set_initial_value": "formalise.values",
+    "stocks": "formalise.values",
+    "set_constant": "formalise.values",
+    "constants": "formalise.values",
+    "set_table": "formalise.values",
+    "tables": "formalise.values",
+    "check": "validation",
+    "set_settings": "formalise.definitions",
+    "settings": "formalise.definitions",
+    "simulate": "analyse.base_case",
+    "set_scenario": "formalise.scenarios",
+    "scenarios": "formalise.scenarios",
+    "remove_scenario": "formalise.scenarios",
+    "set_uncertainty": "formalise.ranges",
+    "list_uncertainty": "formalise.ranges",
+    "clear_uncertainty": "formalise.ranges",
+    "monte_carlo": "analyse.uncertainty",
+    "compare": "analyse.options",
+    "sensitivity": "analyse.sensitivity",
+    "loops": "analyse.base_case",
+}
 console = Console()
 
 _ROLE_ORDER = {"stock": 0, "flow": 1, "auxiliary": 2, "constant": 3, "source_sink": 4}

@@ -10,6 +10,9 @@ from latris.operations import edges as ops
 from latris.operations import nodes as node_ops
 
 app = typer.Typer(help="Create, list, remove edges.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "build.structure"
 console = Console()
 
 

@@ -2,6 +2,7 @@
 title: Sharing & Syncing Projects
 category: collaboration
 summary: Your projects and workspaces (teams, admins and members, folders), managing a project, inviting collaborators, and publishing versions.
+place: project
 ---
 
 ## Where collaboration lives

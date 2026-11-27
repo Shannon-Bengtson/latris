@@ -2,6 +2,7 @@
 title: Data Workspace
 category: evidence
 summary: Upload datasets, inspect rows and columns, apply data operations, and keep an audit trail.
+place: data
 ---
 
 ## What Data mode is for

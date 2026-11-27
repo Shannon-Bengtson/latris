@@ -13,6 +13,12 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/provenance", tags=["provenance"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "evidence",
+    "record_signoff": "review",
+}
+
 
 class AssumptionRequest(BaseModel):
     statement: str

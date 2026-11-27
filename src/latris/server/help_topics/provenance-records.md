@@ -2,6 +2,7 @@
 title: Provenance Records
 category: provenance
 summary: Use assumptions, decisions, questions, exclusions, predictions, sessions, and sign-offs to make reasoning auditable.
+place: evidence
 ---
 
 ## What provenance records capture

@@ -13,6 +13,9 @@ console = Console()
 
 app = typer.Typer(help="Version tree: milestones, alternatives, switch.", no_args_is_help=True)
 
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "versions"
+
 
 @app.command("milestone")
 @handle_cli_errors

@@ -2,6 +2,7 @@
 title: Adversarial Review Tray
 category: ai
 summary: The non-blocking docked panel where adversarial AI proposals accumulate for triage.
+place: ai
 ---
 
 ## What it is

@@ -133,6 +133,7 @@ def build_capability_manifest() -> dict[str, Any]:
     return {
         "model_types": [_model_type_capability(s) for s in ordered],
         "workflow": workflow_structure().model_dump(mode="json"),
+        "commands": _commands_by_place(),
         "excluded_by_design": [asdict(e) for e in EXCLUDED_BY_DESIGN],
         "foundations": [asdict(f) for f in FOUNDATIONS],
         "reports": _report_capabilities(),
@@ -144,6 +145,14 @@ def build_capability_manifest() -> dict[str, Any]:
             "why": "data: SD integration methods other than euler, datasets; quant: Bayesian network inference.",
         },
     }
+
+
+def _commands_by_place() -> list[dict[str, str | None]]:
+    """Every CLI command with its place in the workflow (operations/places.py). Routes carry theirs in the
+    server's OpenAPI document, as ``x-latris-place``."""
+    from latris.operations.places import cli_places
+
+    return [{"command": command, "place": place} for command, place in cli_places()]
 
 
 def _building_capabilities() -> dict[str, str]:

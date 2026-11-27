@@ -18,6 +18,17 @@ from latris.server.routes._formalism import ProvenanceFields
 
 router = APIRouter(prefix="/api/et", tags=["et"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "tree": "formalise",
+    "set_element": "formalise.definitions",
+    "set_order": "formalise.definitions",
+    "set_sequence": "formalise.definitions",
+    "remove_sequence": "formalise.definitions",
+    "set_probability": "formalise.values",
+    "set_frequency": "formalise.values",
+}
+
 
 
 class Answer(BaseModel):
@@ -112,4 +123,4 @@ _risk_mc.add_routes(router, "event_tree")
 
 
 _formalism.add_check_route(router, "event_tree")
-_formalism.add_analyse_route(router, et)
+_formalism.add_analyse_route(router, et, model_type="event_tree")

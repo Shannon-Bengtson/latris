@@ -19,6 +19,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/evidence", tags=["evidence"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "evidence"
+
 
 class AddEvidenceRequest(BaseModel):
     target: str | None = None

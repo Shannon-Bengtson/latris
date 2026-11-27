@@ -2,6 +2,7 @@
 title: Challenges
 category: provenance
 summary: Challenge model elements and record the outcome instead of burying dissent.
+place: review
 ---
 
 ## What challenges are for

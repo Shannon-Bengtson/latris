@@ -29,6 +29,9 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/readiness", tags=["readiness"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "validation"
+
 
 @router.get("")
 def readiness(root: Root) -> dict[str, Any]:

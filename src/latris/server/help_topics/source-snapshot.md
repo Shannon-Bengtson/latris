@@ -2,6 +2,7 @@
 title: Source Snapshots
 category: evidence
 summary: A persistent fetched-content slot on each Reference, with metadata that the verifier audits against.
+place: evidence
 ---
 
 ## What it is

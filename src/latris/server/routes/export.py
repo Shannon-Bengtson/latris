@@ -16,6 +16,13 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "export_markdown": "communicate.report",
+    "export_dot": "communicate.diagram",
+    "export_spec": "communicate.sharing",
+}
+
 
 @router.get("/markdown")
 def export_markdown(

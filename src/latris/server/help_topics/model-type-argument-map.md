@@ -2,6 +2,7 @@
 title: Argument Maps
 category: model-types
 summary: Lay out an argument and see whether its conclusion stands, and what it rests on.
+place: frame.model_type
 ---
 
 ## What an argument map represents

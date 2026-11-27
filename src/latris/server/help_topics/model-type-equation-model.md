@@ -2,6 +2,7 @@
 title: Equation Models
 category: model-types
 summary: Compute with sourced formulas: what a physical law or published relationship gives for your inputs.
+place: frame.model_type
 ---
 
 ## What an equation model represents

@@ -20,6 +20,13 @@ app = typer.Typer(
     help="Interpret phase: sections, claims, AI prose.",
     no_args_is_help=True,
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "interpret.interpretation",
+    "generate_prose": "ai",
+    "generate_all": "ai",
+}
 console = Console()
 
 

@@ -22,6 +22,9 @@ app = typer.Typer(
     help="Checkpoints: what to ask the person at each phase (`show`), and their answers (`record`, `skip`, `pace`).",
     no_args_is_help=True,
 )
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "ai"
 console = Console()
 
 _STATE_TEXT = {

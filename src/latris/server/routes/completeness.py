@@ -22,6 +22,9 @@ from latris.server.routes._envelope import Result
 
 router = APIRouter(prefix="/api/completeness", tags=["completeness"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "ai"
+
 
 class CheckBody(BaseModel):
     claims: list[str] = []

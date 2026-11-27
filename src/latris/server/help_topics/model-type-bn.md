@@ -2,6 +2,7 @@
 title: Bayesian Networks (quantitative)
 category: model-types
 summary: Discrete BN inference with hard and soft evidence, the most likely explanation, Monte Carlo over the tables, learning and sensitivity — with per-cell provenance.
+place: frame.model_type
 ---
 
 ## What a BN adds

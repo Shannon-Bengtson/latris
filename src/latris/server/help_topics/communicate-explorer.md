@@ -2,6 +2,7 @@
 title: Explorer (interactive model)
 category: communicate
 summary: Hand someone the model itself, as a page they can click through, with the reasoning and sources behind it.
+place: communicate
 ---
 
 ## What an Explorer is

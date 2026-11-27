@@ -79,3 +79,7 @@ def diff_cmd(
         events = diff_commits(paths.root, f"{revrange}^", revrange)
         header = f"[bold]commit {revrange}:[/bold]"
     _print_events(events, header=header)
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = "versions"

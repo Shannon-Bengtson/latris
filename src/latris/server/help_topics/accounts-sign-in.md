@@ -2,6 +2,7 @@
 title: Accounts & Signing In
 category: collaboration
 summary: Passwordless sign-in, creating an account, your profile, and signing out.
+place: project
 ---
 
 ## Passwordless sign-in

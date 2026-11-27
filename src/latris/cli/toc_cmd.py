@@ -12,6 +12,17 @@ from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit, json_mode
 
 app = typer.Typer(help="Theory of Change (results chain) operations.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "level": "formalise.definitions",
+    "levels": "formalise.definitions",
+    "check": "analyse.structural",
+    "prior": "formalise.values",
+    "test_link": "formalise.values",
+    "trace": "analyse.base_case",
+    "impact": "analyse.estimation",
+}
 console = Console()
 
 _STATUS_STYLE = {"checked": "green", "cited": "yellow", "untested": "red", "contested": "magenta"}

@@ -2,6 +2,7 @@
 title: EdgeReclassify
 category: ai
 summary: Adversarial pass that catches policy/governance/definitional links currently typed as causal.
+place: ai
 ---
 
 ## What it does

@@ -2,6 +2,7 @@
 title: Detail Mode
 category: build
 summary: Review and edit model elements in a structured table.
+place: build.structure
 ---
 
 ## What Detail mode is for

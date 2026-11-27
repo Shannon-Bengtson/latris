@@ -8,7 +8,7 @@ import pytest
 
 from latris.server.help import HELP_CATEGORIES, HELP_TOPICS, _load_topics, _parse_topic
 
-TOPIC = "---\ntitle: Tides\ncategory: build\nsummary: Why the sea moves: the short version.\n---\n\n## Tides\n\nText.\n"
+TOPIC = "---\ntitle: Tides\ncategory: build\nsummary: Why the sea moves: the short version.\nplace: build.structure\n---\n\n## Tides\n\nText.\n"
 
 
 def test_every_topic_is_complete() -> None:
@@ -35,6 +35,7 @@ def test_a_topic_file_is_a_header_then_the_body() -> None:
         (TOPIC.replace("summary: ", "blurb: "), "must give title, category, summary"),
         (TOPIC.replace("title: Tides\ncategory: build\n", "category: build\ntitle: Tides\n"), "in that order"),
         (TOPIC.replace("category: build", "category: tides"), "no category 'tides'"),
+        (TOPIC.replace("place: build.structure", "place: build.tides"), "not a workflow place"),
     ],
 )
 def test_a_malformed_topic_file_is_refused(text: str, problem: str) -> None:

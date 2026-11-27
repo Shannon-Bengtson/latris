@@ -2,6 +2,7 @@
 title: Decision Trees
 category: model-types
 summary: Find the best choice under uncertainty, and what finding out more first would be worth.
+place: frame.model_type
 ---
 
 ## What a decision tree represents

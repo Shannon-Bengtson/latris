@@ -8,6 +8,12 @@ from latris.cli._output import emit
 from latris.operations import sync as ops
 
 app = typer.Typer(help="Sync the project with a remote (push, pull, fetch).", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "project",
+    "link": "communicate.sharing",
+}
 console = Console()
 
 # The real public control plane and the real public hosted app — both

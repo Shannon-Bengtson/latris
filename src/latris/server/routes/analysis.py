@@ -13,6 +13,12 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "analyse.structural",
+    "global_sensitivity": "analyse.sensitivity",
+}
+
 
 @router.get("/loops")
 def loops(root: Root) -> dict[str, Any]:

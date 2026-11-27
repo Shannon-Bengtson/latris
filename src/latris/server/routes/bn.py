@@ -18,6 +18,31 @@ from latris.server.deps import Root
 
 router = APIRouter(prefix="/api/bn", tags=["bn"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "list_state_spaces": "formalise.definitions",
+    "set_state_space": "formalise.definitions",
+    "remove_states": "formalise.definitions",
+    "list_cpts": "formalise.values",
+    "set_cpt": "formalise.values",
+    "list_noisy_or": "formalise.values",
+    "set_noisy_or": "formalise.values",
+    "learn": "formalise.values",
+    "set_weighted": "formalise.values",
+    "check": "validation",
+    "sensitivity": "analyse.sensitivity",
+    "query": "analyse.base_case",
+    "explain": "analyse.base_case",
+    "marginals": "analyse.base_case",
+    "monte_carlo": "analyse.uncertainty",
+    "list_scenarios": "formalise.scenarios",
+    "set_scenario": "formalise.scenarios",
+    "remove_scenario": "formalise.scenarios",
+    "compare": "analyse.options",
+    "list_uncertainty": "formalise.ranges",
+    "set_uncertainty": "formalise.ranges",
+}
+
 
 # ── state spaces ─────────────────────────────────────────────────────
 

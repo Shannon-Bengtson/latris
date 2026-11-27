@@ -17,6 +17,14 @@ from latris.server.routes import _formalism
 
 router = APIRouter(prefix="/api/argument", tags=["argument"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "get_map": "formalise",
+    "set_element": "formalise.definitions",
+    "set_link": "formalise.definitions",
+    "set_claim": "formalise.values",
+}
+
 
 class ElementRequest(BaseModel):
     node: str
@@ -73,4 +81,4 @@ def set_claim(body: ClaimRequest, root: Root) -> dict[str, Any]:
 
 
 _formalism.add_check_route(router, "argument_map")
-_formalism.add_analyse_route(router, am)
+_formalism.add_analyse_route(router, am, model_type="argument_map")

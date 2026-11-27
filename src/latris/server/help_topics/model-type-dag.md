@@ -2,6 +2,7 @@
 title: Directed Acyclic Graphs
 category: model-types
 summary: Use DAGs for acyclic causal or dependency structure where direction matters.
+place: frame.model_type
 ---
 
 ## What a DAG represents

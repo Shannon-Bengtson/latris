@@ -12,6 +12,16 @@ from latris.cli._options import ORIGIN_HELP, verification
 from latris.cli._output import emit
 
 app = typer.Typer(help="Multi-criteria decision analysis: options against weighted criteria.", no_args_is_help=True)
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "element": "formalise.definitions",
+    "criterion": "formalise.values",
+    "score": "formalise.values",
+    "show": "formalise",
+    "check": "validation",
+    "analyse": "analyse.options",
+}
 console = Console()
 
 

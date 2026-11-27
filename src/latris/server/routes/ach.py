@@ -17,6 +17,14 @@ from latris.server.routes import _formalism
 
 router = APIRouter(prefix="/api/ach", tags=["ach"])
 
+# Where each route sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "matrix": "formalise",
+    "set_element": "formalise.definitions",
+    "set_item": "formalise.definitions",
+    "set_rating": "formalise.values",
+}
+
 
 class ElementRequest(BaseModel):
     node: str
@@ -70,4 +78,4 @@ def set_rating(body: RatingRequest, root: Root) -> dict[str, Any]:
 
 
 _formalism.add_check_route(router, "ach")
-_formalism.add_analyse_route(router, ach)
+_formalism.add_analyse_route(router, ach, model_type="ach")

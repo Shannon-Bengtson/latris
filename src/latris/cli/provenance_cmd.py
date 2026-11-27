@@ -171,3 +171,10 @@ def prediction_add(
     """Record a prediction for future outcome-tracking."""
     entry, sha = ops.add_prediction(statement, horizon)
     console.print(f"[green]logged prediction[/green] [cyan]{entry.id}[/cyan] · commit [cyan]{sha[:10]}[/cyan]")
+
+
+# Where each command sits in the workflow (schema/workflow.py; rules in docs/engineering/WORKFLOW_STRUCTURE.md).
+PLACE = {
+    "*": "evidence",
+    "signoff_record": "review",
+}

@@ -65,9 +65,9 @@ def test_rules_applied_to_borderline_analyses(kind: str, step: str) -> None:
 
 def test_operation_classification() -> None:
     assert Counter(o.step for o in _ops()) == {
-        "formalise.definitions": 20,
+        "formalise.definitions": 21,
         "formalise.values": 23,
-        "formalise.ranges": 11,
+        "formalise.ranges": 10,
         "formalise.scenarios": 3,
     }
 
@@ -81,6 +81,7 @@ def test_operation_classification() -> None:
         ("set_toc_test", "formalise.values"),
         ("set_argument_claim", "formalise.values"),  # an assessment on one claim
         ("set_dt_correlation", "formalise.ranges"),
+        ("set_dt_uncertainty", "formalise.definitions"),  # names which chance nodes share an uncertainty
         ("set_bn_scenario", "formalise.scenarios"),
     ],
 )
