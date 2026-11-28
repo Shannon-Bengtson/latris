@@ -17,6 +17,7 @@ latris's OpenAPI, so a schema change here shows up there as a type error.
 | **Routes** | FastAPI TestClient | Each route, its request shape and its errors | `tests/server/` |
 | **CLI** | typer CliRunner | Parsing, flags, error paths | `tests/cli/` |
 | **Acceptance** | the worked example | The whole CLI, end to end, as a person would use it | `worked_example/`, `tests/test_worked_example.py --slow` |
+| **Replications** | pytest + `latris replicate` | The engines reproduce textbook models' known results (published, closed form or exact), each expected value recomputed without Latris | `src/latris/replications/`, `tests/operations/test_replications.py` |
 | **Guards** | pytest | The rules below hold across the codebase | named `*guard*`, `test_routes_are_tested.py`, `test_worked_example_coverage.py`, `test_formalisms.py`, `test_no_type_branches.py` |
 
 ## Hermetic

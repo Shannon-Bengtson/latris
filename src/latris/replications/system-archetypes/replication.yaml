@@ -1,0 +1,25 @@
+id: system-archetypes
+title: Senge's system archetypes
+model_type: cld
+question: Which feedback loops make up "limits to growth" and "fixes that fail"?
+summary: >-
+  Two of the system archetypes from The Fifth Discipline, drawn as causal loop diagrams. Each archetype is
+  defined by its loops, so Latris must find every loop and classify it as reinforcing or balancing.
+source:
+  citation: "Senge, P. M. (1990). The Fifth Discipline: The Art and Practice of the Learning Organization. Doubleday."
+checks:
+- id: reinforcing-loops
+  claim: Reinforcing loops (growth in limits to growth; the side effect in fixes that fail)
+  measure: {kind: loop_count, polarity: R}
+  expected: 2
+  basis: published
+  where: "Senge (1990), Appendix 2: each archetype has one reinforcing loop."
+- id: balancing-loops
+  claim: Balancing loops (the limit in limits to growth; the fix in fixes that fail)
+  measure: {kind: loop_count, polarity: B}
+  expected: 2
+  basis: published
+  where: "Senge (1990), Appendix 2: each archetype has one balancing loop."
+notes:
+- The book has no DOI. The two archetypes are separate maps in one project, so the counts are summed.
+- Delays (the fix's side effect is slow) are not part of the check; Latris records loop structure and polarity.

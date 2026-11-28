@@ -1,0 +1,46 @@
+{
+ "model_type": "sd",
+ "context": {"background": "The Kermack and McKendrick (1927) epidemic model with constant rates, the SIR model: susceptible people are infected by contact with infectious ones and later recover with immunity. With a basic reproduction number of 2 the epidemic's final size and its peak follow from a conserved quantity of the equations, so the simulation can be checked against exact values."},
+ "factors": [
+  {"label": "Susceptible"}, {"label": "Infectious"}, {"label": "Recovered"},
+  {"label": "Infection"}, {"label": "Recovery"}, {"label": "Contact rate"}, {"label": "Recovery rate"}, {"label": "Population"}
+ ],
+ "links": [
+  {"from": "Susceptible", "to": "Infection", "kind": "flow"}, {"from": "Infection", "to": "Infectious", "kind": "flow"},
+  {"from": "Infectious", "to": "Recovery", "kind": "flow"}, {"from": "Recovery", "to": "Recovered", "kind": "flow"},
+  {"from": "Susceptible", "to": "Infection", "polarity": "+", "sources": ["kermack1927"]},
+  {"from": "Infectious", "to": "Infection", "polarity": "+", "sources": ["kermack1927"]},
+  {"from": "Contact rate", "to": "Infection", "polarity": "+", "sources": ["kermack1927"]},
+  {"from": "Population", "to": "Infection", "polarity": "-", "sources": ["kermack1927"]},
+  {"from": "Infectious", "to": "Recovery", "polarity": "+", "sources": ["kermack1927"]},
+  {"from": "Recovery rate", "to": "Recovery", "polarity": "+", "sources": ["kermack1927"]}
+ ],
+ "sources": [
+  {"key": "kermack1927", "title": "A contribution to the mathematical theory of epidemics", "authors": ["Kermack, W. O.", "McKendrick, A. G."], "year": 1927, "doi": "10.1098/rspa.1927.0118"}
+ ],
+ "sd": {
+  "settings": {"time_units": "day", "initial_time": 0, "final_time": 300, "dt": 0.125, "saveper": 0.125, "integration_method": "rk4"},
+  "roles": [
+   {"node": "Susceptible", "role": "stock"}, {"node": "Infectious", "role": "stock"}, {"node": "Recovered", "role": "stock"},
+   {"node": "Infection", "role": "flow"}, {"node": "Recovery", "role": "flow"},
+   {"node": "Contact rate", "role": "constant"}, {"node": "Recovery rate", "role": "constant"}, {"node": "Population", "role": "constant"}
+  ],
+  "stocks": [
+   {"node": "Susceptible", "value": 999990, "units": "person", "non_negative": true},
+   {"node": "Infectious", "value": 10, "units": "person", "non_negative": true},
+   {"node": "Recovered", "value": 0, "units": "person", "non_negative": true}
+  ],
+  "constants": [
+   {"node": "Contact rate", "value": 0.5, "units": "1/day"},
+   {"node": "Recovery rate", "value": 0.25, "units": "1/day"},
+   {"node": "Population", "value": 1000000, "units": "person"}
+  ],
+  "equations": [
+   {"node": "Infection", "expression": "contact_rate * susceptible * infectious / population", "units": "person/day", "source": "kermack1927"},
+   {"node": "Recovery", "expression": "recovery_rate * infectious", "units": "person/day", "source": "kermack1927"}
+  ]
+ },
+ "analyses": [
+  {"kind": "simulate", "settings": {"initial_time": 0, "final_time": 300, "dt": 0.125, "saveper": 0.125, "method": "rk4", "time_units": "day"}}
+ ]
+}

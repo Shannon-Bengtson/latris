@@ -1,0 +1,17 @@
+{
+ "model_type": "dag",
+ "context": {"background": "The causal diagram Pearl (2009) uses to illustrate the back-door criterion: the effect of X on Y, with X6 mediating it and X1–X5 forming back-door paths. Which sets of variables are enough to adjust for?"},
+ "factors": [
+  {"label": "X1"}, {"label": "X2"}, {"label": "X3"}, {"label": "X4"}, {"label": "X5"}, {"label": "X6"}, {"label": "X"}, {"label": "Y"}
+ ],
+ "links": [
+  {"from": "X1", "to": "X3", "sources": ["pearl2009"]}, {"from": "X1", "to": "X4", "sources": ["pearl2009"]},
+  {"from": "X2", "to": "X4", "sources": ["pearl2009"]}, {"from": "X2", "to": "X5", "sources": ["pearl2009"]},
+  {"from": "X3", "to": "X", "sources": ["pearl2009"]}, {"from": "X4", "to": "X", "sources": ["pearl2009"]},
+  {"from": "X4", "to": "Y", "sources": ["pearl2009"]}, {"from": "X5", "to": "Y", "sources": ["pearl2009"]},
+  {"from": "X", "to": "X6", "sources": ["pearl2009"]}, {"from": "X6", "to": "Y", "sources": ["pearl2009"]}
+ ],
+ "sources": [
+  {"key": "pearl2009", "title": "Causality: Models, Reasoning, and Inference (2nd ed.)", "authors": ["Pearl, J."], "year": 2009, "doi": "10.1017/CBO9780511803161"}
+ ]
+}

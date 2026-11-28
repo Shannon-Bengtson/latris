@@ -1,0 +1,45 @@
+{
+ "model_type": "bn",
+ "context": {"background": "The 'Asia' (chest clinic) network of Lauritzen and Spiegelhalter (1988): a fictitious diagnostic example used to teach exact inference in Bayesian networks. Shortness of breath (dyspnoea) may come from tuberculosis, lung cancer or bronchitis; a recent visit to Asia raises the chance of tuberculosis, smoking that of cancer and bronchitis; an X-ray doesn't tell tuberculosis from cancer."},
+ "factors": [
+  {"label": "Visit to Asia"}, {"label": "Smoking"}, {"label": "Tuberculosis"}, {"label": "Lung cancer"},
+  {"label": "Bronchitis"}, {"label": "Tuberculosis or cancer", "description": "A logical OR of the two: either disease present."},
+  {"label": "Positive X-ray"}, {"label": "Dyspnoea"}
+ ],
+ "links": [
+  {"from": "Visit to Asia", "to": "Tuberculosis", "polarity": "+", "sources": ["lauritzen1988"]},
+  {"from": "Smoking", "to": "Lung cancer", "polarity": "+", "sources": ["lauritzen1988"]},
+  {"from": "Smoking", "to": "Bronchitis", "polarity": "+", "sources": ["lauritzen1988"]},
+  {"from": "Tuberculosis", "to": "Tuberculosis or cancer", "polarity": "+", "sources": ["lauritzen1988"]},
+  {"from": "Lung cancer", "to": "Tuberculosis or cancer", "polarity": "+", "sources": ["lauritzen1988"]},
+  {"from": "Tuberculosis or cancer", "to": "Positive X-ray", "polarity": "+", "sources": ["lauritzen1988"]},
+  {"from": "Tuberculosis or cancer", "to": "Dyspnoea", "polarity": "+", "sources": ["lauritzen1988"]},
+  {"from": "Bronchitis", "to": "Dyspnoea", "polarity": "+", "sources": ["lauritzen1988"]}
+ ],
+ "sources": [
+  {"key": "lauritzen1988", "title": "Local computations with probabilities on graphical structures and their application to expert systems",
+   "authors": ["Lauritzen, S. L.", "Spiegelhalter, D. J."], "year": 1988, "doi": "10.1111/j.2517-6161.1988.tb01721.x"}
+ ],
+ "bn": {
+  "states": [
+   {"node": "Visit to Asia", "states": ["yes", "no"]}, {"node": "Smoking", "states": ["yes", "no"]},
+   {"node": "Tuberculosis", "states": ["yes", "no"]}, {"node": "Lung cancer", "states": ["yes", "no"]},
+   {"node": "Bronchitis", "states": ["yes", "no"]}, {"node": "Tuberculosis or cancer", "states": ["yes", "no"]},
+   {"node": "Positive X-ray", "states": ["yes", "no"]}, {"node": "Dyspnoea", "states": ["yes", "no"]}
+  ],
+  "tables": [
+   {"node": "Visit to Asia", "probabilities": [0.01, 0.99], "source": "lauritzen1988"},
+   {"node": "Smoking", "probabilities": [0.5, 0.5], "source": "lauritzen1988"},
+   {"node": "Tuberculosis", "parents": ["Visit to Asia"], "probabilities": [0.05, 0.95, 0.01, 0.99], "source": "lauritzen1988"},
+   {"node": "Lung cancer", "parents": ["Smoking"], "probabilities": [0.1, 0.9, 0.01, 0.99], "source": "lauritzen1988"},
+   {"node": "Bronchitis", "parents": ["Smoking"], "probabilities": [0.6, 0.4, 0.3, 0.7], "source": "lauritzen1988"},
+   {"node": "Tuberculosis or cancer", "parents": ["Tuberculosis", "Lung cancer"], "probabilities": [1, 0, 1, 0, 1, 0, 0, 1], "source": "lauritzen1988"},
+   {"node": "Positive X-ray", "parents": ["Tuberculosis or cancer"], "probabilities": [0.98, 0.02, 0.05, 0.95], "source": "lauritzen1988"},
+   {"node": "Dyspnoea", "parents": ["Tuberculosis or cancer", "Bronchitis"], "probabilities": [0.9, 0.1, 0.7, 0.3, 0.8, 0.2, 0.1, 0.9], "source": "lauritzen1988"}
+  ]
+ },
+ "analyses": [
+  {"kind": "bn_query", "evidence": {}, "query": ["Tuberculosis", "Lung cancer", "Bronchitis", "Tuberculosis or cancer", "Positive X-ray", "Dyspnoea"]},
+  {"kind": "bn_query", "evidence": {"Visit to Asia": "yes", "Dyspnoea": "yes"}, "query": ["Tuberculosis", "Lung cancer", "Bronchitis"]}
+ ]
+}

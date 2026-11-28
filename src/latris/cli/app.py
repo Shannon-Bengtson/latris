@@ -42,6 +42,7 @@ from latris.cli import (  # noqa: E402
     project_cmd,
     provenance_cmd,
     ref_cmd,
+    replicate_cmd,
     results_cmd,
     sync_cmd,
     view_cmd,
@@ -148,6 +149,7 @@ def main(
 
 app.command("capabilities")(capabilities_cmd.capabilities)
 app.command("foundations")(foundations_cmd.foundations)
+app.add_typer(replicate_cmd.app, name="replicate")
 app.command("docs")(docs_cmd.docs)
 
 

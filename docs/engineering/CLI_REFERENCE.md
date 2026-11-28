@@ -50,7 +50,7 @@ one are by command group.
 | *Review and challenge* (track) | `challenge list`, `challenge open`, `challenge resolve`, `challenge show`, `challenge turn`, `mature approve`, `mature propose`, `mature review`, `signoff record` |
 | *Verification and validation* (track) | `ach check`, `argument check`, `bn check`, `bowtie check`, `check coherence`, `check handover`, `check integrity`, `contract check`, `dt check`, `eq check`, `et check`, `finding check-stale`, `ft check`, `markov check`, `mcda check`, `sd check` |
 | *Versions and history* (track) | `contract diff`, `diff`, `log`, `status`, `version add`, `version alternative`, `version compare`, `version get-latest`, `version milestone`, `version preferred`, `version publish`, `version reconcile`, `version reconcile-preview`, `version restore`, `version switch`, `version sync-status`, `version tree`, `version update` |
-| *Project* (track) | `capabilities`, `docs`, `doctor`, `foundations`, `init`, `sync fetch`, `sync login`, `sync pull`, `sync push`, `sync remote`, `sync share`, `sync status` |
+| *Project* (track) | `capabilities`, `docs`, `doctor`, `foundations`, `init`, `replicate build`, `replicate check`, `replicate list`, `sync fetch`, `sync login`, `sync pull`, `sync push`, `sync remote`, `sync share`, `sync status` |
 | Composite | `build` |
 
 <!-- commands-by-place:end -->
@@ -65,6 +65,9 @@ latris capabilities [--json]
 latris capabilities --surface [-m TYPE]           # surface manifest for apps: spec blocks, result and chart kinds per type
 latris foundations [--json]                      # the methods registry behind the report's Methods and foundations section
 latris docs [agents|readme|llms|foundations]     # the guide, from the installed package
+latris replicate list                            # textbook models rebuilt in Latris (works outside a project)
+latris replicate check [ID ...] [--keep DIR]     # build each, run its analyses, compare with the known results
+latris replicate build ID DIR                    # one as a project of your own, analyses run
 latris --json <group> <command> ...
 ```
 
@@ -86,6 +89,15 @@ capability manifest's `foundations` block, so the three cannot drift apart.
 Each entry names the method, its citation, what Latris uses it for, and its
 stated limits; `--json` emits the raw list. `latris docs foundations` prints
 the prose companion (docs/FOUNDATIONS.md, bundled in the wheel).
+
+`latris replicate` runs the replications that ship in the wheel
+(`src/latris/replications/`): textbook models (the Asia network, Bass
+diffusion, the SIR epidemic, Pearl's back-door example, Senge's archetypes)
+rebuilt from a build spec, with the results each must reproduce. `check`
+builds each into a temporary project, runs its analyses and prints expected
+against computed values, with where each expected value comes from
+(`published`, `closed_form` or `exact`); it exits 1 if any differs. `--keep`
+keeps the projects; `build` makes one to inspect. `--json` works for all three.
 
 ## Project
 
