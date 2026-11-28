@@ -55,21 +55,76 @@ def test_draft_inputs_passthrough():
     assert result == trigger
 
 
-def test_assumptions_from_draft_uses_first_applied_id():
+def _outcome(applied_ids: list[str], prompt_name: str = "DraftConceptualModel"):
     from latris.ai.call import CallOutcome
-    from latris.ai.chains import _assumptions_from_draft
 
-    outcome = CallOutcome(
-        prompt_name="DraftConceptualModel",
+    return CallOutcome(
+        prompt_name=prompt_name,
         model="test",
         interaction_id="int_123",
         adoption="approved",
-        applied_ids=["node_ABC", "node_DEF", "edge_GHI"],
+        applied_ids=applied_ids,
         cost_usd=0.01,
         token_usage={},
     )
-    result = _assumptions_from_draft({"focus": "test"}, [outcome])
-    assert result == {"target_id": "node_ABC"}
+
+
+def test_assumptions_from_draft_uses_first_applied_node():
+    from latris.ai.chains import _assumptions_from_draft
+    from latris.schema.ids import new_id
+
+    n1, n2, e1 = new_id("node"), new_id("node"), new_id("edge")
+    result = _assumptions_from_draft({"focus": "test"}, [_outcome([n1, n2, e1])])
+    assert result == {"target_id": n1}
+
+
+def test_draft_follow_ups_skip_provenance_ids_to_reach_an_element():
+    # A draft that reused an existing node lists that node's bound assumption first.
+    from latris.ai.chains import _assumptions_from_draft, _citations_from_draft
+    from latris.schema.ids import new_id
+
+    assumption, node = new_id("assumption"), new_id("node")
+    prior = [_outcome([assumption, node])]
+    assert _assumptions_from_draft({"focus": "x"}, prior) == {"target_id": node}
+    assert _citations_from_draft({}, prior) == {"target_id": node, "target_attribute": "description"}
+
+
+def test_draft_follow_ups_fall_back_to_an_edge_when_no_node_was_created():
+    from latris.ai.chains import _assumptions_from_draft
+    from latris.schema.ids import new_id
+
+    edge = new_id("edge")
+    prior = [_outcome([new_id("assumption"), edge, "not-an-id"])]
+    assert _assumptions_from_draft({"focus": "x"}, prior) == {"target_id": edge}
+
+
+def test_citations_from_draft_with_nothing_applied_has_an_empty_target():
+    from latris.ai.chains import _citations_from_draft
+
+    assert _citations_from_draft({}, []) == {"target_id": "", "target_attribute": "description"}
+    assert _citations_from_draft({}, [_outcome([])]) == {"target_id": "", "target_attribute": "description"}
+
+
+def test_connections_follow_up_targets_the_first_new_edge():
+    from latris.ai.chains import _assumptions_from_connections, _connections_inputs
+    from latris.schema.ids import new_id
+
+    trigger = {"focus": "x"}
+    assert _connections_inputs(trigger, []) == trigger
+    e1, e2 = new_id("edge"), new_id("edge")
+    prior = [_outcome([new_id("assumption"), e1, e2], "FindNewConnections")]
+    assert _assumptions_from_connections(trigger, prior) == {"target_id": e1}
+    assert _assumptions_from_connections(trigger, []) == {"target_id": ""}
+
+
+def test_every_chain_step_names_a_prompt_in_the_library():
+    from latris.ai.chains import list_chains
+    from latris.ai.prompts import PROMPT_LIBRARY
+
+    for chain in list_chains():
+        assert chain.step_count == len(chain.steps) > 0
+        for step in chain.steps:
+            assert step.prompt_name in PROMPT_LIBRARY, (chain.name, step.prompt_name)
 
 
 def test_assumptions_from_draft_fallback_on_empty():
