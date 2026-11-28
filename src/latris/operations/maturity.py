@@ -14,6 +14,7 @@ design in ``docs/design/MATURITY_LADDER.md``.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -131,6 +132,10 @@ def _resolve_and_set(target: str, maturity: Maturity, paths) -> tuple[str, Path]
     """Resolve *target* across substrate / mappings / findings / lineage / milestones,
     set its maturity, and return ``(resolved_id, file_path)``.
     """
+    # The setters below assign without pydantic validation, so check the level here,
+    # before anything is written.
+    if maturity not in get_args(Maturity):
+        raise ValueError(f"unknown maturity {maturity!r}: expected one of {', '.join(get_args(Maturity))}")
     # Try substrate label/prefix resolution first.
     substrate = load_model(Substrate, paths.conceptual_yaml)
     try:
