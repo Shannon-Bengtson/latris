@@ -9,7 +9,6 @@ operations/mcda.py::analyse 41
 operations/formalisms/theory_of_change.py::_claims 37
 operations/equation_model.py::sweep 37
 operations/checkpoints.py::_value_rows 37
-operations/formalisms/bow_tie.py::_claims 36
 operations/ach.py::analyse 36
 exporters/markdown.py::_render_interpretation 35
 cli/sd_cmd.py::simulate 35

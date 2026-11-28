@@ -18,6 +18,25 @@ from latris.operations.formalisms import (
 from latris.schema.common import ProvenanceVerification
 
 
+def _sensitivity(p: dict[str, Any]) -> list[str]:
+    """The barriers ranked by how much they buy (RAW), for a quantified bow-tie."""
+    ranked = [b for b in p["barriers"] if b["raw"] is not None][:5]
+    if not ranked:  # nothing reaches the top event (or its consequences): there is no ratio to rank by
+        if p["frequency"]["top"] == 0:
+            return [f"At the threat frequencies given nothing reaches {p['top']}, so no barrier can be ranked by "
+                    "how much it buys."]
+        return []
+    claims = ["Barriers by how much they buy (RAW: how many times more often their side's outcome would happen if "
+              "the barrier always failed):"]
+    claims += [f"  - {b['barrier']} ({b['side']}): {b['raw']:.3g}" + (" (value not verified)" if b["weak"] else "")
+               for b in ranked]
+    weak = [b["barrier"] for b in ranked[:3] if b["weak"]]
+    if weak:
+        claims.append(f"The barriers that matter most whose failure probability nobody has verified: "
+                      f"{', '.join(weak)}.")
+    return claims
+
+
 def _claims(paths, section: str) -> list[str]:
     """Bow-tie claims for one section, from the live analysis."""
     from latris.operations import bow_tie
@@ -50,15 +69,7 @@ def _claims(paths, section: str) -> list[str]:
             claims.append("Consequences per year: " + "; ".join(f"{c} {v:.3g}" for c, v in fr["consequences"].items())
                           + ".")
     elif section == "sensitivity" and p["quantified"]:
-        ranked = [b for b in p["barriers"] if b["raw"] is not None][:5]
-        claims.append("Barriers by how much they buy (RAW: how many times more often their side's outcome would "
-                      "happen if the barrier always failed):")
-        claims += [f"  - {b['barrier']} ({b['side']}): {b['raw']:.3g}" + (" (value not verified)" if b["weak"] else "")
-                   for b in ranked]
-        weak = [b["barrier"] for b in ranked[:3] if b["weak"]]
-        if weak:
-            claims.append(f"The barriers that matter most whose failure probability nobody has verified: "
-                          f"{', '.join(weak)}.")
+        claims += _sensitivity(p)
     elif section == "implications":
         if f["unprotected"] or f["single_barrier"]:
             claims.append("Where another independent barrier would help most: "
