@@ -6,7 +6,6 @@ DELETE /api/sd/uncertainty/{target}
 DELETE /api/sync/members/{account_id}
 GET /api/ach/matrix
 GET /api/bn/cpts
-GET /api/bowtie/uncertainty
 GET /api/compose/suggest-nodes
 GET /api/mcda/model
 GET /api/sync/members
@@ -16,9 +15,6 @@ PATCH /api/sync/members/{account_id}
 PATCH /api/sync/profile
 POST /api/ach/element
 POST /api/ach/item
-POST /api/bowtie/element
-POST /api/bowtie/monte-carlo
-POST /api/bowtie/uncertainty
 POST /api/compose/apply
 POST /api/compose/suggest-edges
 POST /api/dt/element
