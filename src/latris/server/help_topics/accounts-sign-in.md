@@ -1,7 +1,7 @@
 ---
 title: Accounts & Signing In
 category: collaboration
-summary: Passwordless sign-in, creating an account, your profile, and signing out.
+summary: Passwordless sign-in, creating an account, your profile, connected chat apps, and signing out.
 place: project
 ---
 
@@ -22,7 +22,16 @@ If you pick the wrong one, Latris tells you (e.g. "No account for this email —
 
 - Your **name** and **email** appear as the author on the model changes you make (this is part of the project's provenance and travels with the model).
 - Your **organisation** stays on your account only — it is **not** written into the shared model.
-- Open the **account menu** from your name in the top-right to **Edit profile** or **Sign out**. (This is separate from the **Versions** view, where sharing and collaboration live.)
+- Open the **account menu** from your name in the top-right to **Edit profile**, see **Connected apps**, or **Sign out**. (This is separate from the **Versions** view, where sharing and collaboration live.)
+
+## Connected apps
+
+You can sign in to Latris from an AI chat app such as Claude or ChatGPT, so it can save models to your account and open the ones you have there. You sign in on a Latris page with your emailed code and choose whether to allow the chat app.
+
+- A connected chat app can see and change the models **you own**. Its changes are recorded under your name, as AI-proposed until you review them.
+- What you open from the chat is sent to that chat app's AI provider.
+- **Account menu → Connected apps** lists each chat app you allowed, where it sends you back to, and when it was last used. **Disconnect** ends its access straight away; sign in from the chat app again to reconnect.
+- A model saved to your account can't be changed from a chat by its old link token alone: the chat needs your sign-in.
 
 ## Which server
 
