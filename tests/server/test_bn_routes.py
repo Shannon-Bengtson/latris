@@ -166,3 +166,39 @@ def test_soft_evidence_explain_and_monte_carlo_routes(tmp_path, git_identity):
     assert client.get("/api/bn/uncertainty").json()["count"] == 1
     mc = client.post("/api/bn/monte-carlo", json={"target": "Flood", "runs": 40, "record": False}).json()
     assert mc["result"]["runs"] == 40 and "run_id" not in mc
+
+
+def test_list_cpts(client: TestClient, project: Path):
+    assert client.get("/api/bn/cpts").json() == {"cpts": [], "count": 0}
+    _quantify(client)
+    body = client.get("/api/bn/cpts").json()
+    assert body["count"] == 2 == len(bn_ops.get_cpts(root=project).entries)
+    from latris.operations.nodes import list_nodes
+
+    wet_id = next(e.id for e in list_nodes(root=project) if e.label == "Wet")
+    wet = next(c for c in body["cpts"] if c["target_id"] == wet_id)
+    assert wet["states"] == ["yes", "no"]
+    assert [row["p"] for row in wet["rows"]] == [[0.9, 0.1], [0.1, 0.9]]
+
+
+def test_remove_scenario(client: TestClient, project: Path):
+    from latris.operations import bn_scenarios
+    from latris.repo import git
+
+    _quantify(client)
+    assert client.post("/api/bn/scenario", json={"name": "Storm", "observe": ["Rain=yes"]}).status_code == 200
+    assert client.post("/api/bn/scenario", json={"name": "Flood", "extends": "Storm",
+                                                 "observe": ["Wet=yes"]}).status_code == 200
+    # A scenario another extends stays until that one goes.
+    blocked = client.delete("/api/bn/scenario/Storm")
+    assert blocked.status_code == 422 and "Flood extends" in blocked.json()["detail"]
+
+    r = client.delete("/api/bn/scenario/Flood")
+    assert r.status_code == 200 and r.json()["result"] == {"removed": "Flood"}
+    assert r.json()["commit_sha"] == git.head_sha(project)
+    assert [s.name for s in bn_scenarios.list_scenarios(root=project)] == ["Storm"]
+
+    missing = client.delete("/api/bn/scenario/Flood")
+    assert missing.status_code == 422 and "no BN scenario named" in missing.json()["detail"]
+    assert client.delete("/api/bn/scenario/baseline").status_code == 422
+    assert [s.name for s in bn_scenarios.list_scenarios(root=project)] == ["Storm"]
