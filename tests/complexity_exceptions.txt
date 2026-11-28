@@ -9,7 +9,6 @@ operations/_sd_fast.py::_Compiler.call 42
 operations/mcda.py::analyse 41
 operations/checkpoints.py::_value_rows 37
 operations/equation_model.py::sweep 37
-operations/event_tree.py::load_tree 37
 operations/formalisms/theory_of_change.py::_claims 37
 operations/ach.py::analyse 36
 operations/formalisms/bow_tie.py::_claims 36
@@ -23,5 +22,4 @@ operations/sd_montecarlo.py::compare_options 34
 operations/formalisms/mcda.py::_claims 33
 operations/global_sensitivity.py::_bn 33
 operations/markov.py::load 33
-operations/event_tree.py::analyse 32
 operations/formalisms/event_tree.py::_claims 31
