@@ -69,7 +69,7 @@ def _render_evaluation(p: dict[str, Any]) -> list[str]:
     for q in p["quantities"]:
         defined = f"`{q['formula']}`" if q["formula"] else _range(q["valid_min"], q["valid_max"])
         rows.append([q["quantity"], _ROLE_NAMES[q["role"]], _v(ref[q["quantity"]], q["units"]), defined,
-                     (md.esc(q["source"]) if q["source"] else "—") + ("; not verified" if q["weak"] else "")])
+                     (q["source"] if q["source"] else "—") + ("; not verified" if q["weak"] else "")])
     out += md.table(["Quantity", "Role", "Value", "Formula, or valid range", "Source"], rows)
     if len(arms) > 1:
         units = p["units"]
@@ -114,7 +114,7 @@ def _render_monte_carlo(p: dict[str, Any]) -> list[str]:
     out += md.table(["Output", "At the reference values", "Mean", "5th pct", "Median", "95th pct"], rows)
     if p["drivers"]:
         rows = [[d["input"], f"{d['distribution']} (5th–95th: {_g(d['p5'])} – {_v(d['p95'], d['units'])})",
-                 "—" if d["spearman"] is None else f"{d['spearman']:+.2f}", md.esc(d["reason"]) or "—",
+                 "—" if d["spearman"] is None else f"{d['spearman']:+.2f}", d["reason"] or "—",
                  "unverified" if d["weak"] else "verified"] for d in p["drivers"][:md.MAX_ROWS]]
         out += [f"What drives the spread in {p['primary']}: each uncertain value's range and its rank correlation "
                 "with the result.", ""]

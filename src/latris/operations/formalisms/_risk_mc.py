@@ -46,7 +46,7 @@ def _render(p: dict[str, Any]) -> list[str]:
     if p["drivers"]:
         rows = [[d["input"], f"{d['distribution']} (5th–95th: {g(d['p5'])} – {g(d['p95'])})",
                  "—" if d["spearman"] is None else f"{d['spearman']:+.2f}",
-                 md.esc(d["reason"]) or "—", "unverified" if d["weak"] else "verified"]
+                 d["reason"] or "—", "unverified" if d["weak"] else "verified"]
                 for d in p["drivers"][:md.MAX_ROWS]]
         out += [f"What drives the spread in {p['primary']}: each uncertain input's range and its rank correlation "
                 "with the result.", ""]
