@@ -36,6 +36,7 @@ from latris.ai.proposals import (  # noqa: E402
     ChallengeProposal,
     CitationsProposal,
     CitationSuggestion,
+    CounterPathwayResult,
     DraftAssumption,
     DraftEdge,
     DraftEntity,
@@ -52,6 +53,7 @@ from latris.ai.proposals import (  # noqa: E402
     InterpretProseResult,
     NewConnectionsProposal,
     PeerReviewResult,
+    ProposedEdgeSketch,
     ReportDraft,
     ReportSection,
     ResearchGap,
@@ -683,6 +685,9 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["project", "set", "granularity_level",
             "each node a specific measurable variable a city air-quality team could track"])
     ex.run(["project", "set", "audience", "a municipal air-quality and public-health team"])
+    ex.note("The question can be sharpened at any time; the change is a commit like any other.")
+    ex.run(["project", "set-question",
+            "What factors drive urban air quality, and how do they affect respiratory health outcomes?"])
     ex.run(["project", "show"])
 
     # ── 2. Building the substrate ─────────────────────────────────────
@@ -717,6 +722,13 @@ def build_example(ex: WorkedExample) -> None:
     from latris.operations.edges import list_edges
     edges = list_edges(ex.root)
     eids = {f"{e.from_id}->{e.to_id}": e.id for e in edges}
+    ex.note("A node keeps its ID when renamed, so links and evidence follow it. A link is removed by ID or "
+            "by its 'From -> To' labels; removing a node takes its links with it.")
+    ex.run(["node", "add", "Road Noise", "--kind", "variable"])
+    ex.run(["node", "rename", "Road Noise", "Traffic Noise"])
+    ex.run(["edge", "add", "Vehicle Emissions", "Traffic Noise", "--kind", "causal"])
+    ex.run(["edge", "remove", "Vehicle Emissions -> Traffic Noise"])
+    ex.run(["node", "remove", "Traffic Noise"])
 
     # ── 2b. Formalise: select model types ─────────────────────────────
     ex.section(
@@ -783,6 +795,8 @@ def build_example(ex: WorkedExample) -> None:
             "Air Quality Strategy for England",
             "--author", "DEFRA", "--year", "2023"])
     ex.run(["ref", "list"])
+    ex.note("BibTeX import is not built yet: the command says so and points at `ref add`.")
+    ex.run(["ref", "import", "library.bib"], expect_fail=True)
 
     # AI interrogation Phase 2a: attach a publisher source snapshot so
     # subsequent evidence links inherit `source_access=abstract` rather
@@ -942,6 +956,9 @@ def build_example(ex: WorkedExample) -> None:
             "citation of a source that isn't in the library, no duplicate labels or links. The handover "
             "check includes this; `--fix` clears rows left by older removals or hand edits.")
     ex.run(["check", "integrity"])
+    ex.note("A link's description and its polarity should tell the same causal story; this flags any that "
+            "contradict each other.")
+    ex.run(["check", "coherence"])
     ex.note("Before handing the model to a board: what's left, and how to fix each (exits 1 until clear).")
     ex.run(["check", "handover"], expect_fail=True)
     ex.note("One item is the reason for the model type — the report's Modelling Approach says it. Record it "
@@ -1167,6 +1184,10 @@ def build_example(ex: WorkedExample) -> None:
             "--reason", "Elicited from one clinician"])
     ex.run(["bn", "set-uncertainty", "Air Quality Index", "--n", "180",
             "--reason", "Learned from 180 monitoring rows"])
+    ex.run(["bn", "set-uncertainty", "Vehicle Emissions", "--n", "40", "--reason", "First guess"])
+    ex.run(["bn", "uncertainty"])
+    ex.note("A range set in error comes off again; the table keeps its values.")
+    ex.run(["bn", "clear-uncertainty", "Vehicle Emissions"])
     ex.run(["bn", "monte-carlo", "Respiratory Health", "--state", "poor",
             "--evidence", "Transport Policy=strict", "--runs", "300"])
     ex.note(
@@ -1230,6 +1251,10 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("Under a lax transport policy (the evidence holds for every option, the baseline included):")
     ex.run(["bn", "compare", "Respiratory Health", "--state", "poor", "-S", "Street trees",
             "-S", "Street trees and filters", "-e", "Transport Policy=lax", "--runs", "200"])
+    ex.note("A scenario nobody needs is removed by name (one another scenario extends is refused).")
+    ex.run(["bn", "set-scenario", "Hot week", "--observe", "Air Quality Index=poor",
+            "--reason", "Trying a heatwave"])
+    ex.run(["bn", "remove-scenario", "Hot week"])
 
     # ── 7.9 System Dynamics ───────────────────────────────────────────
     ex.section(
@@ -1273,6 +1298,8 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["sd", "check"])
     ex.run(["sd", "roles"])
     ex.run(["sd", "equations"])
+    ex.run(["sd", "stocks"])
+    ex.run(["sd", "constants"])
     ex.note(
         "The load approaches equilibrium = emission rate / dispersal rate = 60 "
         "tonnes. The run's full series is saved and logged as an AnalysisRun."
@@ -1324,6 +1351,9 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["sd", "set-scenario", "Clean transport", "--set", "Emission Rate=6.5 tonne/month",
             "--description", "Electrified buses and freight", "--reason", "Policy target: one-third cut"])
     ex.run(["sd", "set-scenario", "Wrong units", "--set", "Emission Rate=80 person"], expect_fail=True)
+    ex.run(["sd", "set-scenario", "Trial value", "--set", "Emission Rate=100", "--reason", "A quick try"])
+    ex.run(["sd", "scenarios"])
+    ex.run(["sd", "remove-scenario", "Trial value"])
     ex.note(
         "Simulating with the scenario compares it with the baseline. Cutting emissions "
         "keeps the load below the stagnation tipping point, so it settles near 48 t "
@@ -1343,6 +1373,9 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["sd", "set-uncertainty", "Dispersal Rate", "lognormal", "--mean", "2", "--sd", "0.4",
             "--reason", "Wind-speed variability across years"])
     ex.run(["sd", "uncertainty"])
+    ex.note("A range on the starting load, then taken off again: the initial value stays fixed.")
+    ex.run(["sd", "set-uncertainty", "PM2.5 Load", "uniform", "--min", "15", "--max", "25"])
+    ex.run(["sd", "clear-uncertainty", "PM2.5 Load"])
     ex.run(["sd", "monte-carlo", "--runs", "100", *_sd_run, "--saveper", "0.5"])
 
     # ── 7.13 SD sensitivity ───────────────────────────────────────────
@@ -1365,6 +1398,12 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["sd", "loops", *_sd_run])
     ex.note("Reports show the latest result of each analysis; `results hide` leaves one out.")
     ex.run(["results", "list"])
+    from latris.operations import analysis_results as _ar
+
+    _loops_run = next(run for run, _hidden, _stale in _ar.list_results(root=ex.root) if run.result_kind == "sd-loops")
+    ex.run(["results", "show", _loops_run.id])
+    ex.run(["results", "hide", _loops_run.id])
+    ex.run(["results", "unhide", _loops_run.id])
 
     # ── 7.15 SD clock and delays ──────────────────────────────────────
     ex.section(
@@ -1441,11 +1480,39 @@ def build_example(ex: WorkedExample) -> None:
     eids_named["policy_to_em"] = policy_to_em
     _register_mock_responses(nids, eids_named)
 
+    ex.note("The prompt library is fixed and inspectable: each prompt's inputs and instructions.")
+    ex.run(["ai", "prompts", "list"])
+    ex.run(["ai", "prompts", "show", "ExplainThisElement"])
+    ex.note("Project AI defaults live in .graph-tooling/ai_config.yaml (committed; it refuses anything "
+            "key-shaped — keys stay in the environment or the OS keyring).")
+    ex.run(["ai", "config", "set", "temperature", "0.2"])
+    ex.run(["ai", "config", "show"])
+
     ex.run(["ai", "call", "explain", nids["Vehicle Emissions"], "--yes"])
     ex.run(["ai", "call", "challenge", em_to_aqi, "-a", "polarity", "--yes"])
     ex.run(["ai", "call", "suggest-citations", nids["Vehicle Emissions"], "description", "--yes"])
     ex.run(["ai", "call", "draft", "urban air quality factors", "--yes"])
     ex.run(["ai", "call", "attack", "--yes"])
+    MockAdapter.shared().register_default(
+        response_cls=CounterPathwayResult,
+        result=ChatResult(
+            parsed=CounterPathwayResult(
+                missing_mechanism="Indoor exposure",
+                argument="People spend most of their time indoors, so outdoor AQI overstates the dose; "
+                         "a pathway through indoor air would weaken the emissions-to-health conclusion.",
+                proposed_nodes=["Indoor Air Quality"],
+                proposed_edges=[
+                    ProposedEdgeSketch(from_label="Air Quality Index", to_label="Indoor Air Quality",
+                                       polarity="+", rationale="outdoor air infiltrates buildings"),
+                    ProposedEdgeSketch(from_label="Indoor Air Quality", to_label="Respiratory Health",
+                                       polarity="-"),
+                ],
+                record_question=True,
+            ),
+            raw="(mock counter pathway)", model_id="mock-model",
+        ),
+    )
+    ex.run(["ai", "call", "find-counter-pathway", "--yes"])
     ex.run(["ai", "call", "scope-check", "--yes"])
     ex.run(["ai", "call", "peer-review", "--yes"])
     ex.run(["ai", "call", "research-gaps", "--yes"])
@@ -1610,6 +1677,10 @@ def build_example(ex: WorkedExample) -> None:
     (ex.root / "delegated-task.json").unlink()
 
     ex.run(["ai", "interactions", "list"])
+    from latris.ai.interactions import list_interactions as _list_interactions
+
+    _last = _list_interactions(prompt_name="ExplainThisElement", limit=1, root=ex.root)[0]
+    ex.run(["ai", "interactions", "show", _last.id])
 
     # ── 9. Views & mappings ───────────────────────────────────────────
     ex.section("Views and Mappings", "Map substrate elements to formal views and project them.")
@@ -1624,8 +1695,11 @@ def build_example(ex: WorkedExample) -> None:
             "--reason", "Trying the DAG without point sources."])
     ex.run(["view", "auto-project", "dag"])
     ex.run(["mapping", "list", "--view", "dag"])
-    ex.run(["mapping", "add", "Industrial Emissions", "dag"])
+    ex.note("Putting it back as an AI suggestion leaves it proposed until a person approves it.")
+    ex.run(["mapping", "add", "Industrial Emissions", "dag", "--ai-proposed"])
+    ex.run(["mapping", "approve", "Industrial Emissions", "dag"])
     ex.run(["view", "auto-project", "dag"])
+    ex.run(["view", "project", "dag"])
 
     # ── 10. Graph Analysis ────────────────────────────────────────────
     ex.section("Graph Analysis",
@@ -1658,9 +1732,11 @@ def build_example(ex: WorkedExample) -> None:
 
     # Set weights on edges (same edges that have CLD polarity)
     for eid, weight in [(em_to_aqi, "-0.7"), (aqi_to_health, "-0.6"),
-                        (green_to_aqi, "0.5"), (policy_to_em, "-0.8")]:
+                        (green_to_aqi, "0.5")]:
         # `--` stops option parsing so a negative weight isn't read as a flag.
         ex.run(["view", "set", "fcm", eid, "weight", "--", weight])
+    ex.note("`fcm set-weight` is the shorthand, and takes the link by its labels too.")
+    ex.run(["fcm", "set-weight", policy_to_em, "--", "-0.8"])
 
     ex.run(["fcm", "weights"])
     ex.run(["fcm", "infer"])
@@ -1960,8 +2036,12 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["et", "sequence", "Jet fire", "Gas detected=no", "Ignition=yes"])
     ex.note("One branch is missing; the check names it and exits 1.")
     ex.run(["et", "check"], expect_fail=True)
+    ex.note("A sequence entered by mistake is removed by its answers.")
+    ex.run(["et", "sequence", "Contained release", "Gas detected=no", "Ignition=no"])
+    ex.run(["et", "remove-sequence", "Gas detected=no", "Ignition=no"])
     ex.run(["et", "sequence", "Gas cloud dispersed", "Gas detected=no", "Ignition=no"])
     ex.run(["et", "check"])
+    ex.run(["et", "show"])
     ex.note("Branch probabilities carry their source. An undetected release grows larger, so ignition is likelier "
             "on that branch: a conditional value. The initiating frequency cites the bow-tie analysis above.")
     ex.run(["et", "probability", "Gas detected", "0.9", "--source", "lopa-generic-values", "--verified"])
@@ -2015,6 +2095,7 @@ def build_example(ex: WorkedExample) -> None:
         _survey, index=False)
     ex.run(["data", "add", str(_survey), "--name", "survey", "--description", "Synthetic health survey."])
     ex.run(["data", "show", "survey"])
+    ex.run(["data", "list"])
     ex.run(["analyse", "adjustment-sets", "Exercise", "Heart health"])
     ex.note("Columns are matched to factors by name; the exercise column has a different name, so it is given. "
             "Age is the backdoor set and the dataset measures it, so Latris adjusts for it.")
@@ -2117,6 +2198,7 @@ def build_example(ex: WorkedExample) -> None:
     ex.run(["evidence", "add", "Outage began minutes after a deploy", "description", "deploylog"])
     ex.run(["evidence", "check", "Outage began minutes after a deploy", "description", "deploylog", "supports",
             "--rationale", "The log shows the deploy finishing four minutes before the first errors."])
+    ex.run(["ach", "check"])
     ex.run(["ach", "show"])
     ex.note("The software bug has no evidence against it. Two items are linchpins: without either, another "
             "hypothesis would tie. One has a checked source, the other none — the place to look next.")
@@ -2552,6 +2634,9 @@ def build_example(ex: WorkedExample) -> None:
 
     ex.run(["log", "--limit", "10"])
     ex.run(["status"])
+    ex.note("`diff` summarises what a commit or a range of commits changed, file by file in the project's "
+            "terms (blank: the working tree against HEAD). Here, the last three commits.")
+    ex.run(["diff", "HEAD~3..HEAD"])
 
     # ── 12b. AI agents at the command line ───────────────────────────
     ex.section(
@@ -2744,6 +2829,17 @@ def build_example(ex: WorkedExample) -> None:
     ex.note("Keep our line; the shared copy is archived (kept, not deleted).")
     ex.run(["version", "reconcile", "main", "--keep", "mine"])
     ex.run(["version", "sync-status"])
+
+    ex.note("A collaborator publishes a version of their own. Fetching shows it; `version add` brings it "
+            "into your workspace, and `sync pull` merges anything new on the current version.")
+    from latris.operations import lineage as _lineage
+
+    _alt, _alt_branch = _lineage.create_alternative("Collaborator's what-if", root=_collab)
+    _sync.publish_version("Collaborator's what-if", root=_collab)
+    ex.run(["sync", "fetch"])
+    ex.run(["version", "sync-status"])
+    ex.run(["version", "add", _alt_branch])
+    ex.run(["sync", "pull"])
 
 
 _AGENT_ENV = ("LATRIS_AGENT", "AI_AGENT", "CLAUDECODE", "LATRIS_RECORDED_BY_AGENT", "LATRIS_FOR_PERSON",

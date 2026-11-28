@@ -19,6 +19,7 @@ in `docs/design/AI_INTERROGATION.md`.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -330,6 +331,10 @@ def test_build_context_smoke(
     assert pack.system, f"{spec.name}: empty system message"
     assert pack.user, f"{spec.name}: empty user message"
     assert isinstance(pack.target_ids, list), f"{spec.name}: target_ids must be a list"
+    # A template's ``{placeholder}`` must be filled by the builder (or the
+    # template routed placeholder-free), never sent to the model verbatim.
+    leftover = re.findall(r"\{[A-Za-z_][A-Za-z0-9_]*\}", pack.system + pack.user)
+    assert not leftover, f"{spec.name}: unfilled template variables {leftover}"
 
 
 def test_every_builder_is_covered() -> None:

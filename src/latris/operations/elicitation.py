@@ -89,11 +89,17 @@ def _load_session(session_id: str, root: Path | None = None) -> tuple:
     """Load a session by ID via the index. Returns (paths, session, session_file)."""
     paths = require_project(root)
     log = load_model(ElicitationLog, paths.elicitations_yaml)
-    for entry in log.entries:
-        if entry.id == session_id or session_id.startswith(entry.id[:8]):
-            session_file = paths.root / entry.file_path
-            session = load_model(ElicitationSession, session_file)
-            return paths, session, session_file
+    # The full id, or an unambiguous prefix with at least 4 characters after
+    # the type prefix (the convention in ``operations/_resolve.py``).
+    matches = [e for e in log.entries if e.id == session_id]
+    if not matches and len(session_id) >= len("elicitation_") + 4:
+        matches = [e for e in log.entries if e.id.startswith(session_id)]
+    if len(matches) > 1:
+        raise ValueError(f"Elicitation session id {session_id!r} is ambiguous; give more of it.")
+    if matches:
+        session_file = paths.root / matches[0].file_path
+        session = load_model(ElicitationSession, session_file)
+        return paths, session, session_file
     raise ValueError(f"Elicitation session not found: {session_id!r}")
 
 
