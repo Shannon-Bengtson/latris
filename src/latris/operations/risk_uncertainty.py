@@ -143,7 +143,8 @@ def _bounded(distribution: str, params: dict[str, float], quantity: str) -> dict
         if quantity == "probability":
             p.setdefault("max", 1.0)
     lo, hi = (0.0, 1.0) if quantity == "probability" else (0.0, math.inf)
-    if distribution in ("uniform", "triangular") and not (lo <= p["min"] and p["max"] <= hi):
+    # A missing min or max is the distribution's own check to report (ParameterUncertainty), not a KeyError.
+    if distribution in ("uniform", "triangular") and not (lo <= p.get("min", lo) and p.get("max", hi) <= hi):
         raise ValueError(f"a {quantity} must lie in [{lo:g}, {hi:g}]; this range goes outside it")
     if distribution == "beta" and not (lo <= p.get("min", 0.0) and p.get("max", 1.0) <= hi):
         raise ValueError(f"a {quantity} must lie in [{lo:g}, {hi:g}]; this range goes outside it")

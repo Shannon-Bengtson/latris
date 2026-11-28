@@ -134,3 +134,59 @@ def test_loops_route(client):
     body = client.post("/api/sd/loops", json={"final_time": 5, "dt": 0.1, "method": "euler"}).json()
     assert body["result"]["loops"][0]["id"] == "B1" and body["run_id"]
     assert client.post("/api/sd/loops", json={"start": 4, "end": 1}).status_code == 422
+
+
+def _node_id(root, label: str) -> str:
+    from latris.operations.nodes import list_nodes
+
+    return next(e.id for e in list_nodes(root=root) if e.label == label)
+
+
+def test_unset_role(client, sd_bathtub_root):
+    from latris.operations import sd as sd_ops
+    from latris.repo import git
+
+    water = _node_id(sd_bathtub_root, "Water")
+    r = client.delete("/api/sd/role/Water")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["result"]["target_id"] == water and body["result"]["removed"] >= 2  # its role and its stock
+    assert body["commit_sha"] == git.head_sha(sd_bathtub_root)
+    assert water not in {e.target_id for e in sd_ops.get_roles(root=sd_bathtub_root).entries}
+    assert _node_id(sd_bathtub_root, "Water") == water  # the factor stays in the loop map
+    assert client.get("/api/sd/stocks").json()["count"] == 0
+
+    again = client.delete("/api/sd/role/Water")
+    assert again.status_code == 422 and "has no SD role" in again.json()["detail"]
+    assert client.delete("/api/sd/role/Nope").status_code == 404
+
+
+def test_remove_scenario(client, sd_bathtub_root):
+    from latris.operations import sd_scenarios
+    from latris.repo import git
+
+    assert client.post("/api/sd/scenario", json={"name": "Faster", "set": ["Drain Rate=0.2"]}).status_code == 200
+    r = client.delete("/api/sd/scenario/Faster")
+    assert r.status_code == 200 and r.json()["result"] == {"removed": "Faster"}
+    assert r.json()["commit_sha"] == git.head_sha(sd_bathtub_root)
+    assert sd_scenarios.list_scenarios(root=sd_bathtub_root) == []
+    missing = client.delete("/api/sd/scenario/Faster")
+    assert missing.status_code == 422 and "no scenario named" in missing.json()["detail"]
+    assert client.delete("/api/sd/scenario/baseline").status_code == 422
+
+
+def test_clear_uncertainty(client, sd_bathtub_root):
+    from latris.operations import uncertainty
+    from latris.repo import git
+    from latris.repo.layout import ProjectPaths
+
+    drain = _node_id(sd_bathtub_root, "Drain Rate")
+    assert client.post("/api/sd/uncertainty", json={"target": "Drain Rate", "distribution": "uniform",
+                                                    "params": {"min": 0.05, "max": 0.2}}).status_code == 200
+    r = client.delete(f"/api/sd/uncertainty/{drain}")
+    assert r.status_code == 200 and r.json()["result"] == {"cleared": drain}
+    assert r.json()["commit_sha"] == git.head_sha(sd_bathtub_root)
+    assert uncertainty.load(ProjectPaths(sd_bathtub_root)).entries == []
+    again = client.delete(f"/api/sd/uncertainty/{drain}")
+    assert again.status_code == 422 and "no uncertainty range to clear" in again.json()["detail"]
+    assert client.delete("/api/sd/uncertainty/Nope").status_code == 404
