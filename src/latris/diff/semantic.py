@@ -68,7 +68,9 @@ class SemanticEvent:
 _LABELS: ContextVar[dict[str, str] | None] = ContextVar("_LABELS", default=None)
 
 
-def _name(element_id: str) -> str:
+def _name(element_id: str | None) -> str:
+    if element_id is None:  # evidence and challenges with no target are about the model as a whole
+        return "model"
     return (_LABELS.get() or {}).get(element_id) or _id_short(element_id)
 
 
@@ -206,7 +208,8 @@ def _diff_substrate(
                 )
             )
 
-    labels = {e.id: e.label for e in list(new_sub.entities) + list(old_sub.entities)}
+    # The new label wins: an edge on a renamed node is named as it now reads.
+    labels = {e.id: e.label for e in list(old_sub.entities) + list(new_sub.entities)}
 
     added_edges, removed_edges, changed_edges = _keyed_diff(old_sub.edges, new_sub.edges, lambda e: e.id)
     for e in added_edges:
@@ -378,6 +381,14 @@ def _diff_evidence(
             parts.append(f"source_access: {o.source_access} → {n.source_access}")
         if o.support_verdict != n.support_verdict:
             parts.append(f"support_verdict: {o.support_verdict} → {n.support_verdict}")
+        if o.stance != n.stance:
+            parts.append(f"stance: {o.stance} → {n.stance}")
+        if o.quote != n.quote:
+            parts.append("quote updated" if n.quote else "quote removed")
+        if o.quote_verified != n.quote_verified:
+            parts.append(f"quote_verified: {o.quote_verified} → {n.quote_verified}")
+        if o.informants != n.informants:
+            parts.append("informants updated")
         if parts:
             events.append(
                 SemanticEvent(
