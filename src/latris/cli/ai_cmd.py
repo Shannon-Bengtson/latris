@@ -120,13 +120,13 @@ def interactions_list(
     adoption: str = typer.Option(
         None,
         "--adoption",
-        help="Filter by adoption state: pending | approved | rejected.",
+        help="Filter by adoption state: pending | approved | rejected | failed.",
     ),
     limit: int = typer.Option(20, "--limit", "-n", help="Max records (newest first)."),
 ) -> None:
     """List AI interactions recorded against this project (newest first)."""
-    if adoption is not None and adoption not in ("pending", "approved", "rejected"):
-        raise typer.BadParameter("--adoption must be pending | approved | rejected")
+    if adoption is not None and adoption not in ("pending", "approved", "rejected", "failed"):
+        raise typer.BadParameter("--adoption must be pending | approved | rejected | failed")
     records = inter_ops.list_interactions(
         target_id=target,
         prompt_name=prompt,
@@ -148,6 +148,7 @@ def interactions_list(
             "approved": "green",
             "rejected": "red",
             "pending": "yellow",
+            "failed": "red",
         }[r.adoption]
         summary = r.response_summary
         if len(summary) > 50:
