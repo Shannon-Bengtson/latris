@@ -64,7 +64,9 @@ location, not a traceback.
     `LATRIS_TELEMETRY_ACTOR` (the pseudonymous `actor_ref` for events that
     carry none).
 
-A failed upload drops the remote copy, never the local event, and never
+The ingest URL must be `https`, or plain `http` only to this machine
+(`localhost`, `127.0.0.1`, `::1`); any other URL is refused and the upload
+dropped. A failed upload drops the remote copy, never the local event, and never
 breaks the command or request that produced it.
 
 ## The GUI relay
