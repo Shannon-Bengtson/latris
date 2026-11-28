@@ -317,6 +317,55 @@ def test_post_events_without_token_sends_no_header(monkeypatch: pytest.MonkeyPat
     assert sent[0].get_header("Authorization") is None
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://telemetry.example/v1/events",
+        "HTTPS://telemetry.example/v1/events",
+        "http://localhost:8080/ingest",
+        "http://127.0.0.1/ingest",
+        "http://[::1]:9000/ingest",
+    ],
+)
+def test_post_events_allows_https_and_local_http(monkeypatch: pytest.MonkeyPatch, url: str) -> None:
+    sent = _capture_urlopen(monkeypatch)
+    emitter_module._post_events(url, [_envelope()])
+    assert len(sent) == 1
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://telemetry.example/v1/events",  # cleartext to a remote host
+        "http://localhost.telemetry.example/ingest",
+        "http://localhost@telemetry.example/ingest",  # userinfo, not the host
+        "http://127.0.0.2/ingest",
+        "file:///etc/passwd",
+        "ftp://telemetry.example/events",
+        "data:text/plain,hello",
+        "gopher://telemetry.example/",
+        "https:///no-host",
+        "telemetry.example/v1/events",  # no scheme
+        "",
+    ],
+)
+def test_post_events_refuses_other_schemes_and_hosts(monkeypatch: pytest.MonkeyPatch, url: str) -> None:
+    sent = _capture_urlopen(monkeypatch)
+    with pytest.raises(ValueError, match="telemetry endpoint refused"):
+        emitter_module._post_events(url, [_envelope()])
+    assert sent == []  # refused before anything is opened
+
+
+def test_refused_endpoint_drops_the_upload_but_keeps_the_event(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = _capture_urlopen(monkeypatch)
+    monkeypatch.setenv(emitter_module.ENDPOINT_ENV_VAR, "file:///tmp/events")
+    event = _emit_ai_call(project)
+    assert event is not None  # best-effort: the local mirror still has it
+    assert len(_read_events(project)) == 1
+    assert emitter_module.emit_envelopes([_envelope()], root=project) == 1
+    assert sent == []
+
+
 # ---------- hosted containers: configured by environment ----------
 
 

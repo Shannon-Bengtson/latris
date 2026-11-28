@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -194,7 +195,27 @@ def _upload_batch(endpoint_url: str, events: list[TelemetryEvent]) -> None:
     _post_events(endpoint_url, events)
 
 
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _check_endpoint(endpoint_url: str) -> None:
+    """Refuse an endpoint that isn't ``https`` (or plain ``http`` to this machine).
+
+    ``urlopen`` would otherwise follow any scheme it knows (``file:``, ``ftp:``, ``data:``),
+    and send events in the clear to any host over ``http``. Raises :class:`ValueError`,
+    which the callers' best-effort handling logs and drops like any failed upload.
+    """
+    parts = urllib.parse.urlsplit(endpoint_url)
+    scheme = parts.scheme.lower()
+    if scheme == "https" and parts.hostname:
+        return
+    if scheme == "http" and parts.hostname in _LOCAL_HOSTS:
+        return
+    raise ValueError(f"telemetry endpoint refused (https only, or http to localhost): {endpoint_url!r}")
+
+
 def _post_events(endpoint_url: str, events: list[TelemetryEvent]) -> None:
+    _check_endpoint(endpoint_url)
     body = json.dumps({"events": [event.model_dump(mode="json") for event in events]}).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     token = os.environ.get(TOKEN_ENV_VAR, "")
@@ -202,6 +223,6 @@ def _post_events(endpoint_url: str, events: list[TelemetryEvent]) -> None:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(endpoint_url, data=body, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=_UPLOAD_TIMEOUT_S) as resp:  # noqa: S310
-        # endpoint_url is operator-configured project config, not user input
+        # endpoint_url is operator-configured and its scheme checked above
         if resp.status >= 400:
             raise RuntimeError(f"telemetry ingest returned {resp.status}")

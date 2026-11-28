@@ -148,6 +148,24 @@ def _is_num(v: Any) -> bool:
 # ── compiler ─────────────────────────────────────────────────────────
 
 
+def _check_tree(tree: ast.AST) -> None:
+    """Re-check *every* node of an equation against the whitelist, before any code is generated.
+
+    The compiler only visits the nodes it emits, so a part it never reads (a call's callee, its
+    keyword arguments) would otherwise escape the check. Anything outside the whitelist sends the
+    model to the pint path, whose ``parse`` reports it.
+    """
+    for node in ast.walk(tree):
+        if not isinstance(node, _ALLOWED_NODES):
+            raise _Unsupported(type(node).__name__)
+        if isinstance(node, ast.Constant) and not _is_num(node.value):
+            raise _Unsupported("non-numeric literal")
+        if isinstance(node, ast.Call) and (
+            not isinstance(node.func, ast.Name) or node.func.id not in FUNCTIONS or node.keywords
+        ):
+            raise _Unsupported("call outside the allowed functions")
+
+
 class _Compiler:
     """Turn one equation's AST into float code, typing each node by a pint shadow value."""
 
@@ -365,6 +383,7 @@ def _compile(model: SDModel) -> FastModel:
         comp = _Compiler(env, lambda slug: var_of[slug], tf, {"current": table_name})
         comp.table_entry = model.tables.get(v)
         tree = ast.parse(model.equations[v].expression, mode="eval")
+        _check_tree(tree)
         code, val = comp.c(tree)
         if isinstance(val, bool):
             raise _Unsupported("boolean equation")
