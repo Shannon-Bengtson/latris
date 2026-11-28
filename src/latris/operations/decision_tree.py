@@ -227,6 +227,68 @@ class Tree:
         return b.label if b and b.label else self.labels[child]
 
 
+def _root_problems(kind: dict[str, str], roots: list[str], parents: dict[str, int]) -> list[DTProblem]:
+    """One root, one parent per node, and a decision to make."""
+    problems: list[DTProblem] = []
+    if not kind:
+        problems.append(DTProblem(None, "dt_no_root", "No nodes yet: give factors a decision-tree type."))
+    elif not roots:
+        problems.append(DTProblem(None, "dt_no_root", "Every node has a parent: the tree has no root (it loops)."))
+    elif len(roots) > 1:
+        problems.append(DTProblem(roots[1], "dt_many_roots", "More than one node has no parent; a tree has one root."))
+    for n, c in parents.items():
+        if c > 1:
+            problems.append(DTProblem(n, "dt_not_tree", "More than one branch leads here; in a tree each node has one "
+                                                        "parent (repeat the node under each branch instead)."))
+    if "decision" not in kind.values() and kind:
+        problems.append(DTProblem(None, "dt_no_decision", "No decision node: say what is being chosen."))
+    return problems
+
+
+def _has_cycle(kind: dict[str, str], children: dict[str, list[tuple[str, str]]]) -> bool:
+    state: dict[str, int] = {}
+
+    def cyc(n: str) -> bool:
+        state[n] = 1
+        for _, c in children.get(n, []):
+            if state.get(c) == 1 or (c not in state and cyc(c)):
+                return True
+        state[n] = 2
+        return False
+
+    return any(n not in state and cyc(n) for n in kind)
+
+
+def _chance_problem(t: Tree, n: str, kids: list[tuple[str, str]]) -> DTProblem | None:
+    """Every branch from a chance node has a probability, and they sum to 1."""
+    probs: list[float] = []
+    for e, _ in kids:
+        b = t.branches.get(e)
+        if b is None or b.probability is None:
+            return DTProblem(n, "dt_no_probability", "Every branch from a chance node needs a probability.")
+        probs.append(b.probability)
+    if abs(sum(probs) - 1) > _TOL:
+        return DTProblem(n, "dt_probabilities_sum", f"Branch probabilities sum to {sum(probs):.4g}, not 1.")
+    return None
+
+
+def _node_problems(t: Tree) -> list[DTProblem]:
+    """What each node needs for its type: branches, a payoff, probabilities."""
+    problems: list[DTProblem] = []
+    for n, k in t.kind.items():
+        kids = t.children.get(n, [])
+        if k in ("decision", "chance") and not kids:
+            problems.append(DTProblem(n, "dt_dead_end", f"A {k} node needs branches."))
+        if k == "terminal" and kids:
+            problems.append(DTProblem(n, "dt_terminal_has_children", "A terminal node ends a path; make it a "
+                                                                     "decision or chance node to branch on."))
+        if k == "terminal" and n not in t.payoffs:
+            problems.append(DTProblem(n, "dt_no_payoff", "No payoff (`latris dt payoff`)."))
+        if k == "chance" and kids and (p := _chance_problem(t, n, kids)):
+            problems.append(p)
+    return problems
+
+
 def load_tree(*, root: Path | None = None) -> Tree:
     paths = require_project(root)
     sub = _substrate(paths)
@@ -247,49 +309,13 @@ def load_tree(*, root: Path | None = None) -> Tree:
              payoffs={x.target_id: x for x in get_payoffs(root=paths.root).entries if x.target_id in kind},
              uncertainty={n: unc.get(n, labels[n]) for n, k in kind.items() if k == "chance"},
              settings=get_settings(root=paths.root), root=None)
-    P = t.problems
     roots = sorted((n for n in kind if parents[n] == 0), key=lambda n: labels[n])
-    if not kind:
-        P.append(DTProblem(None, "dt_no_root", "No nodes yet: give factors a decision-tree type."))
-    elif not roots:
-        P.append(DTProblem(None, "dt_no_root", "Every node has a parent: the tree has no root (it loops)."))
-    elif len(roots) > 1:
-        P.append(DTProblem(roots[1], "dt_many_roots", "More than one node has no parent; a tree has one root."))
-    for n, c in parents.items():
-        if c > 1:
-            P.append(DTProblem(n, "dt_not_tree", "More than one branch leads here; in a tree each node has one parent "
-                                                 "(repeat the node under each branch instead)."))
-    if "decision" not in kind.values() and kind:
-        P.append(DTProblem(None, "dt_no_decision", "No decision node: say what is being chosen."))
-    state: dict[str, int] = {}
-
-    def cyc(n: str) -> bool:
-        state[n] = 1
-        for _, c in children.get(n, []):
-            if state.get(c) == 1 or (c not in state and cyc(c)):
-                return True
-        state[n] = 2
-        return False
-
-    if any(n not in state and cyc(n) for n in kind):
-        P.append(DTProblem(None, "dt_cycle", "The branches loop back."))
-    for n, k in kind.items():
-        kids = children.get(n, [])
-        if k in ("decision", "chance") and not kids:
-            P.append(DTProblem(n, "dt_dead_end", f"A {k} node needs branches."))
-        if k == "terminal" and kids:
-            P.append(DTProblem(n, "dt_terminal_has_children", "A terminal node ends a path; make it a decision or "
-                                                              "chance node to branch on."))
-        if k == "terminal" and n not in t.payoffs:
-            P.append(DTProblem(n, "dt_no_payoff", "No payoff (`latris dt payoff`)."))
-        if k == "chance" and kids:
-            probs = [t.branches.get(e) for e, _ in kids]
-            if any(b is None or b.probability is None for b in probs):
-                P.append(DTProblem(n, "dt_no_probability", "Every branch from a chance node needs a probability."))
-            elif abs(sum(b.probability for b in probs) - 1) > _TOL:  # type: ignore[union-attr,misc]
-                P.append(DTProblem(n, "dt_probabilities_sum", f"Branch probabilities sum to "
-                                   f"{sum(b.probability for b in probs):.4g}, not 1."))  # type: ignore[union-attr,misc]
-    if len(roots) == 1 and not any(p.gap_type == "dt_cycle" for p in P):
+    t.problems += _root_problems(kind, roots, parents)
+    cycle = _has_cycle(kind, t.children)
+    if cycle:
+        t.problems.append(DTProblem(None, "dt_cycle", "The branches loop back."))
+    t.problems += _node_problems(t)
+    if len(roots) == 1 and not cycle:
         t.root = roots[0]
     return t
 
