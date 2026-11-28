@@ -62,7 +62,6 @@ src/latris/operations/psa.py 8
 src/latris/operations/readiness.py 1
 src/latris/operations/sd.py 1
 src/latris/operations/sd_montecarlo.py 2
-src/latris/operations/share_link.py 4
 src/latris/operations/toc.py 1
 src/latris/operations/view_roles.py 1
 src/latris/operations/views.py 1
