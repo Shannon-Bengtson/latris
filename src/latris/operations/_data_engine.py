@@ -92,6 +92,7 @@ def file_content_hash(file_path: Path) -> str:
 _DTYPE_MAP: dict[str, str] = {
     "object": "string",
     "string": "string",
+    "str": "string",
     "int64": "int64",
     "int32": "int64",
     "Int64": "int64",
@@ -102,15 +103,18 @@ _DTYPE_MAP: dict[str, str] = {
     "Float32": "float64",
     "bool": "bool",
     "boolean": "bool",
-    "datetime64[ns]": "datetime",
-    "datetime64[ns, UTC]": "datetime",
     "category": "category",
 }
 
 
 def _map_dtype(pd_dtype: str) -> str:
     """Map a pandas dtype string to our ColumnSpec dtype literal."""
-    return _DTYPE_MAP.get(str(pd_dtype), "string")
+    name = str(pd_dtype)
+    # Any resolution, any time zone: pandas 3 reads datetimes as
+    # ``datetime64[us]``, and zoned ones carry their zone in the name.
+    if name.startswith("datetime64"):
+        return "datetime"
+    return _DTYPE_MAP.get(name, "string")
 
 
 def infer_column_specs(df: pd.DataFrame) -> list[ColumnSpec]:
@@ -313,7 +317,9 @@ def _apply_remove_outliers(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     elif method == "zscore":
         threshold = params.get("threshold", 3)
         z = (series - series.mean()) / series.std()
-        mask = z.abs().le(threshold) | series.isna()
+        # A z-score that can't be computed (missing value, or a column with
+        # no spread: constant, or a single value) marks no outlier.
+        mask = ~z.abs().gt(threshold)
     else:
         raise ValueError(f"Unknown outlier method {method!r}")
     return df[mask].reset_index(drop=True)
@@ -343,7 +349,8 @@ def _apply_normalize(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     result = df.copy()
     series = pd.to_numeric(result[col], errors="coerce")
     mn, mx = series.min(), series.max()
-    result[col] = (series - mn) / (mx - mn) if mx != mn else 0.0
+    # A constant column scales to 0; its missing values stay missing.
+    result[col] = (series - mn) / (mx - mn) if mx != mn else series.where(series.isna(), 0.0)
     return result
 
 
@@ -383,11 +390,16 @@ def _apply_bin(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     return result
 
 
+_RANK_METHODS = ("average", "min", "max", "first", "dense")
+
+
 def _apply_rank(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     col = params["column"]
     method = params.get("method", "average")
     if col not in df.columns:
         raise ValueError(f"Column {col!r} not found. Available: {list(df.columns)}")
+    if method not in _RANK_METHODS:
+        raise ValueError(f"Unknown rank method {method!r}. Known: {list(_RANK_METHODS)}")
     result = df.copy()
     result[col] = result[col].rank(method=method)
     return result
@@ -413,26 +425,29 @@ def _apply_derived_column(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     return result
 
 
+_DATE_PARTS = ("year", "month", "day", "dayofweek", "quarter", "hour")
+
+
 def _apply_date_extract(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     col = params["column"]
     parts = params.get("parts", ["year", "month", "day"])
     if col not in df.columns:
         raise ValueError(f"Column {col!r} not found. Available: {list(df.columns)}")
+    unknown = [p for p in parts if p not in _DATE_PARTS]
+    if unknown:
+        raise ValueError(f"Unknown date parts {unknown}. Known: {list(_DATE_PARTS)}")
     result = df.copy()
-    dt = pd.to_datetime(result[col], errors="coerce")
+    # format="mixed" parses each value on its own: without it pandas guesses
+    # the format from the first value and blanks every value written another
+    # way (a date followed by a date-and-time).
+    try:
+        dt = pd.to_datetime(result[col], errors="coerce", format="mixed")
+    except ValueError as exc:  # e.g. values in different time zones
+        raise ValueError(f"Could not read column {col!r} as dates: {exc}") from exc
+    if not pd.api.types.is_datetime64_any_dtype(dt):
+        raise ValueError(f"Could not read column {col!r} as dates: its values mix time zones")
     for part in parts:
-        if part == "year":
-            result[f"{col}_year"] = dt.dt.year
-        elif part == "month":
-            result[f"{col}_month"] = dt.dt.month
-        elif part == "day":
-            result[f"{col}_day"] = dt.dt.day
-        elif part == "dayofweek":
-            result[f"{col}_dayofweek"] = dt.dt.dayofweek
-        elif part == "quarter":
-            result[f"{col}_quarter"] = dt.dt.quarter
-        elif part == "hour":
-            result[f"{col}_hour"] = dt.dt.hour
+        result[f"{col}_{part}"] = getattr(dt.dt, "day_of_week" if part == "dayofweek" else part)
     return result
 
 
@@ -447,6 +462,9 @@ def _apply_lag_lead(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     return result
 
 
+_ROLLING_FUNCS = ("mean", "sum", "min", "max", "median", "std", "var", "count")
+
+
 def _apply_rolling_window(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     col = params["column"]
     window = params.get("window", 3)
@@ -454,6 +472,10 @@ def _apply_rolling_window(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     target = params.get("target", f"{col}_roll{window}_{func}")
     if col not in df.columns:
         raise ValueError(f"Column {col!r} not found. Available: {list(df.columns)}")
+    if func not in _ROLLING_FUNCS:
+        raise ValueError(f"Unknown rolling function {func!r}. Known: {list(_ROLLING_FUNCS)}")
+    if isinstance(window, bool) or not isinstance(window, int) or window < 1:
+        raise ValueError(f"The window must be a whole number of rows, at least 1 (got {window!r})")
     result = df.copy()
     series = pd.to_numeric(result[col], errors="coerce")
     roller = series.rolling(window=window, min_periods=1)
@@ -646,21 +668,30 @@ def _apply_update_cell(df: pd.DataFrame, params: dict) -> pd.DataFrame:
     result = df.copy()
     col_loc = result.columns.get_loc(column)
 
+    coerced: Any
     if value == "" or value is None:
-        result.iloc[row_index, col_loc] = pd.NA
+        coerced = pd.NA
     else:
         col_dtype = result[column].dtype
         try:
-            if pd.api.types.is_numeric_dtype(col_dtype):
-                coerced = pd.to_numeric(value, errors="raise")
-            elif pd.api.types.is_bool_dtype(col_dtype):
+            # bool before numeric: pandas counts a bool column as numeric.
+            if pd.api.types.is_bool_dtype(col_dtype):
                 coerced = str(value).lower() in ("true", "1", "yes")
+            elif pd.api.types.is_numeric_dtype(col_dtype):
+                coerced = pd.to_numeric(value, errors="raise")
             elif pd.api.types.is_datetime64_any_dtype(col_dtype):
                 coerced = pd.to_datetime(value, errors="raise")
             else:
                 coerced = str(value)
         except (ValueError, TypeError):
             coerced = str(value)
+    try:
+        result.iloc[row_index, col_loc] = coerced
+    except (TypeError, ValueError):
+        # The column's dtype can't hold the value (text in a number column, a
+        # blank in a whole-number one); pandas 3 refuses where pandas 2
+        # widened the column, so widen it here.
+        result[column] = result[column].astype(object)
         result.iloc[row_index, col_loc] = coerced
     return result
 
@@ -734,12 +765,23 @@ def execute_operation(
     kind: str,
     params: dict,
 ) -> pd.DataFrame:
-    """Apply a single operation to a DataFrame.  Raises ValueError on failure."""
+    """Apply a single operation to a DataFrame.  Raises ValueError on failure.
+
+    A handler that trips over its input inside pandas (a parameter left out,
+    a value of the wrong type, a column of the wrong dtype) raises KeyError
+    or TypeError; those become ValueError here, so a caller sees a bad
+    request rather than "not found" (KeyError is a LookupError) or a crash.
+    """
     _require_pandas()
     handler = _HANDLERS.get(kind)
     if handler is None:
         raise ValueError(f"Unknown operation kind {kind!r}. Known: {sorted(_HANDLERS)}")
-    return handler(df, params)
+    try:
+        return handler(df, params)
+    except KeyError as exc:
+        raise ValueError(f"{kind}: missing a required parameter or column: {exc}") from exc
+    except TypeError as exc:
+        raise ValueError(f"{kind} can't run on this data: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
