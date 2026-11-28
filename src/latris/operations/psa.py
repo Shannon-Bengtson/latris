@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import math
 import random
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -389,8 +390,8 @@ def _draws(scalar: dict[str, ParameterUncertainty], sets: dict[str, tuple[Parame
             else [{} for _ in range(runs)])
     rng = random.Random(seed + 7919)
     out = []
-    for d in base:
-        d = dict(d)
+    for sampled in base:
+        d: dict[str, Any] = dict(sampled)
         for k in sorted(sets):
             e, probs = sets[k]
             d[k] = smp.dirichlet(rng, probs, e.params["n"])
@@ -591,7 +592,7 @@ def dt_psa(*, runs: int = 2000, seed: int = 1234, sampling: str = "lhs",
     _check_runs(runs)
     paths = require_project(root)
     t = dt.load_tree(root=paths.root)
-    if t.problems:
+    if t.problems or t.root is None:  # a tree without problems has its root
         raise ValueError("the decision tree is incomplete; `latris dt check` lists what's missing")
     scalar, sets, labels, points, apply = _dt_inputs(t, ranges("decision_tree", paths))
     if not scalar and not sets:
@@ -726,6 +727,94 @@ def _wtp_grid(wtp: float | None, icers: list[float]) -> list[float]:
     return [top * i / (CEAC_POINTS - 1) for i in range(CEAC_POINTS)]
 
 
+def _mk_ceac(grid: list[float], names: list[str], cost: Any, out: Any) -> dict[str, Any]:
+    """The cost-effectiveness acceptability curve: at each WTP, each strategy's chance of the highest net
+    benefit, the strategy with the highest mean (the frontier), and the EVPI."""
+    p: list[list[float]] = [[] for _ in names]
+    frontier: list[str] = []
+    evpi: list[float] = []
+    for w in grid:
+        nmb = w * out - cost
+        win = nmb.argmax(axis=1)
+        for j in range(len(names)):
+            p[j].append(float((win == j).mean()))
+        mean_nmb = nmb.mean(axis=0)
+        frontier.append(names[int(mean_nmb.argmax())])
+        evpi.append(float(nmb.max(axis=1).mean() - mean_nmb.max()))
+    return {"wtp": grid, "strategies": names, "p": p, "frontier": frontier, "evpi": evpi}
+
+
+def _mk_strategy_rows(names: list[str], cost: Any, out: Any, point: dict[str, tuple[float, float]],
+                      wtp: float | None) -> list[dict[str, Any]]:
+    rows = []
+    for j, n in enumerate(names):
+        row = {"strategy": n, "cost": _summary(cost[:, j], point[n][0]), "outcome": _summary(out[:, j], point[n][1])}
+        if wtp is not None:
+            row["nmb"] = _summary(wtp * out[:, j] - cost[:, j], wtp * point[n][1] - point[n][0])
+        rows.append(row)
+    return rows
+
+
+def _mk_decision(payload: dict[str, Any], names: list[str], cost: Any, out: Any, wtp: float | None,
+                 outcome_units: str | None, evppi: Callable[[Any], list[dict[str, Any]]]) -> tuple[Any, str]:
+    """What drives the decision: incremental net benefit at the willingness to pay (with the choice, its
+    chance of being cost-effective, EVPI and EVPPI into ``payload``), else incremental outcome. Returns the
+    per-draw target the drivers are ranked against, and what it is."""
+    import numpy as np
+
+    if len(names) > 1 and wtp is not None:
+        nmb = wtp * out - cost
+        means = nmb.mean(axis=0)
+        order = list(np.argsort(-means, kind="stable"))
+        a, b = int(order[0]), int(order[1])
+        win = nmb.argmax(axis=1)
+        payload.update(choice=names[a], rival=names[b], p_cost_effective=float((win == a).mean()),
+                       evpi=float(nmb.max(axis=1).mean() - means.max()), evppi=evppi(nmb))
+        return nmb[:, a] - nmb[:, b], f"net monetary benefit of {names[a]} over {names[b]}"
+    if len(names) > 1:
+        a = int(np.argmax(out.mean(axis=0)))
+        b = int(np.argmin(out.mean(axis=0)))
+        target = out[:, a] - out[:, b] if a != b else out[:, a]
+        return target, f"{outcome_units or 'outcome'} gained by {names[a]} over {names[b]}"
+    return out[:, 0], f"{outcome_units or 'outcome'} of {names[0]}"
+
+
+def _mk_drivers(m: Any, scalar: dict[str, ParameterUncertainty], sets: dict[str, Any], labels: dict[str, str],
+                points: dict[str, float | None], leaving: dict[str, list[str]], draws: list[dict[str, Any]],
+                target: list[float]) -> list[dict[str, Any]]:
+    """Each sampled input's rank correlation with the target, strongest first; a Dirichlet set gives one
+    row per transition leaving its state."""
+    drivers = [_driver(labels[k], scalar[k], points[k], [d[k] for d in draws], target)
+               for k in sorted(scalar, key=lambda k: labels[k])]
+    for k in sorted(sets, key=lambda k: labels[k]):
+        e, _ = sets[k]
+        sid = describe_cell(k.split("|", 1)[1])[1]
+        who = f" under {m.labels[sid]}" if sid else ""
+        for i, x in enumerate(leaving[k]):
+            a_, b_ = m.edges[x]
+            prob = m.prob(x, sid)
+            drivers.append(_driver(f"P({m.labels[a_]} → {m.labels[b_]}){who}", e,
+                                   prob.probability if prob is not None else None,
+                                   [d[k][i] for d in draws], target))
+    drivers.sort(key=lambda r: -abs(r["spearman"] or 0))
+    return drivers
+
+
+def _mk_fixed(m: Any, scalar: dict[str, ParameterUncertainty], sets: dict[str, Any],
+              leaving: dict[str, list[str]]) -> list[str]:
+    """The transitions and rewards no range moves."""
+    used = {(k.split("|", 1)[0], describe_cell(k.split("|", 1)[1])[1]) for k in scalar
+            if describe_cell(k.split("|", 1)[1])[0] == "transition"}
+    used |= {(x, describe_cell(k.split("|", 1)[1])[1]) for k in sets for x in leaving[k]}
+    fixed = sorted(f"P({m.labels[m.edges[e][0]]} → {m.labels[m.edges[e][1]]})"
+                   + (f" under {m.labels[sid]}" if sid else "")
+                   for (e, sid) in m.transitions if (e, sid) not in used)
+    fixed += sorted(f"{m.labels[st]} {q}" + (f" under {m.labels[sid]}" if sid else "")
+                    for (st, sid), r in m.rewards.items() for q in ("cost", "utility")
+                    if getattr(r, q) is not None and f"{st}|{_cell('markov', q, sid)}" not in scalar)
+    return fixed
+
+
 def markov_psa(*, runs: int = 1000, seed: int = 1234, sampling: str = "lhs",
                root: Path | None = None) -> dict[str, Any]:
     """Sample every Markov input with a range; costs and outcomes per strategy, the CEAC and the EVPI."""
@@ -761,71 +850,20 @@ def markov_psa(*, runs: int = 1000, seed: int = 1234, sampling: str = "lhs",
                for j, n in enumerate(names)]
     rows = markov.incremental(results) if len(names) > 1 else []
     grid = _wtp_grid(s.wtp, [r["icer"] for r in rows if r["icer"] is not None])
-    ceac = {"wtp": grid, "strategies": names, "p": [[] for _ in names], "frontier": [], "evpi": []}
-    for w in grid:
-        nmb = w * out - cost
-        win = nmb.argmax(axis=1)
-        for j in range(len(names)):
-            ceac["p"][j].append(float((win == j).mean()))
-        mean_nmb = nmb.mean(axis=0)
-        ceac["frontier"].append(names[int(mean_nmb.argmax())])
-        ceac["evpi"].append(float(nmb.max(axis=1).mean() - mean_nmb.max()))
-    strat_rows = []
-    for j, n in enumerate(names):
-        row = {"strategy": n, "cost": _summary(cost[:, j], point[n][0]), "outcome": _summary(out[:, j], point[n][1])}
-        if s.wtp is not None:
-            row["nmb"] = _summary(s.wtp * out[:, j] - cost[:, j], s.wtp * point[n][1] - point[n][0])
-        strat_rows.append(row)
     payload: dict[str, Any] = {
         "model_type": "markov", "runs": runs, "seed": seed, "sampling": sampling,
         "cost_units": s.cost_units, "outcome_units": s.outcome_units, "wtp": s.wtp,
-        "strategies": strat_rows, "incremental": rows, "ceac": ceac, "rescaled_runs": rescaled,
+        "strategies": _mk_strategy_rows(names, cost, out, point, s.wtp), "incremental": rows,
+        "ceac": _mk_ceac(grid, names, cost, out), "rescaled_runs": rescaled,
     }
-    # What drives the decision: incremental net benefit at the willingness to pay, else incremental outcome.
-    target: Any
-    if len(names) > 1 and s.wtp is not None:
-        nmb = s.wtp * out - cost
-        means = nmb.mean(axis=0)
-        order = list(np.argsort(-means, kind="stable"))
-        a, b = int(order[0]), int(order[1])
-        win = nmb.argmax(axis=1)
-        payload.update(choice=names[a], rival=names[b], p_cost_effective=float((win == a).mean()),
-                       evpi=float(nmb.max(axis=1).mean() - means.max()),
-                       evppi=_evppi_rows(draws, sorted([*scalar, *sets], key=lambda k: labels[k]), labels, nmb,
-                                         correlations("markov", paths=paths)))
-        target = nmb[:, a] - nmb[:, b]
-        driver_target = f"net monetary benefit of {names[a]} over {names[b]}"
-    elif len(names) > 1:
-        a = int(np.argmax(out.mean(axis=0)))
-        b = int(np.argmin(out.mean(axis=0)))
-        target = out[:, a] - out[:, b] if a != b else out[:, a]
-        driver_target = f"{s.outcome_units or 'outcome'} gained by {names[a]} over {names[b]}"
-    else:
-        target = out[:, 0]
-        driver_target = f"{s.outcome_units or 'outcome'} of {names[0]}"
-    tlist = [float(v) for v in target]
-    drivers = [_driver(labels[k], scalar[k], points[k], [d[k] for d in draws], tlist)
-               for k in sorted(scalar, key=lambda k: labels[k])]
-    for k in sorted(sets, key=lambda k: labels[k]):
-        e, _ = sets[k]
-        sid = describe_cell(k.split("|", 1)[1])[1]
-        who = f" under {m.labels[sid]}" if sid else ""
-        for i, x in enumerate(leaving[k]):
-            a_, b_ = m.edges[x]
-            drivers.append(_driver(f"P({m.labels[a_]} → {m.labels[b_]}){who}", e,
-                                   m.prob(x, sid).probability,  # type: ignore[union-attr]
-                                   [d[k][i] for d in draws], tlist))
-    drivers.sort(key=lambda r: -abs(r["spearman"] or 0))
-    used = {(k.split("|", 1)[0], describe_cell(k.split("|", 1)[1])[1]) for k in scalar
-            if describe_cell(k.split("|", 1)[1])[0] == "transition"}
-    used |= {(x, describe_cell(k.split("|", 1)[1])[1]) for k in sets for x in leaving[k]}
-    fixed = sorted(f"P({m.labels[m.edges[e][0]]} → {m.labels[m.edges[e][1]]})"
-                   + (f" under {m.labels[sid]}" if sid else "")
-                   for (e, sid) in m.transitions if (e, sid) not in used)
-    fixed += sorted(f"{m.labels[st]} {q}" + (f" under {m.labels[sid]}" if sid else "")
-                    for (st, sid), r in m.rewards.items() for q in ("cost", "utility")
-                    if getattr(r, q) is not None and f"{st}|{_cell('markov', q, sid)}" not in scalar)
-    payload.update(driver_target=driver_target, drivers=drivers, fixed=fixed,
+
+    def evppi(nmb: Any) -> list[dict[str, Any]]:
+        return _evppi_rows(draws, sorted([*scalar, *sets], key=lambda k: labels[k]), labels, nmb,
+                           correlations("markov", paths=paths))
+
+    target, driver_target = _mk_decision(payload, names, cost, out, s.wtp, s.outcome_units, evppi)
+    drivers = _mk_drivers(m, scalar, sets, labels, points, leaving, draws, [float(v) for v in target])
+    payload.update(driver_target=driver_target, drivers=drivers, fixed=_mk_fixed(m, scalar, sets, leaving),
                    correlations=_correlation_rows("markov", paths, labels))
     return payload
 

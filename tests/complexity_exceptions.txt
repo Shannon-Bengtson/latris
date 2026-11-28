@@ -2,7 +2,6 @@
 # their score. This list only shrinks: split a function, then take it off (or lower its score).
 operations/toc.py::analyse 49
 operations/global_sensitivity.py::analyse 47
-operations/psa.py::markov_psa 45
 operations/datasets.py::_build_summary 44
 operations/formalisms/bn.py::_export 44
 operations/bn_compare.py::compare_options 43

@@ -58,7 +58,6 @@ src/latris/operations/mcda.py 1
 src/latris/operations/predict.py 1
 src/latris/operations/process_tracing.py 4
 src/latris/operations/provenance.py 1
-src/latris/operations/psa.py 8
 src/latris/operations/readiness.py 1
 src/latris/operations/sd.py 1
 src/latris/operations/sd_montecarlo.py 1
