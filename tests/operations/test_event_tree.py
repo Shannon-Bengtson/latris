@@ -85,6 +85,55 @@ def test_unordered_unused(project):
     assert {"et_heading_unordered", "et_end_state_unused"} <= kinds
 
 
+def _problems(root) -> list[tuple[str | None, str]]:
+    t = et.load_tree(root=root)
+    return [(t.labels.get(p.target_id or "", None), p.gap_type) for p in t.problems]
+
+
+def test_element_problems_in_order(project):
+    _build(project)
+    node_ops.add_node("Second release", root=project)
+    et.set_element("Second release", "initiating_event", root=project)
+    et.set_element("Ignition", "end_state", root=project)  # still in the heading order, no longer a heading
+    assert _problems(project) == [("Second release", "et_many_initiators"), ("Ignition", "et_bad_heading"),
+                                  ("Ignition", "et_end_state_unused")]
+    p = et.analyse(root=project)
+    assert p["initiator"] is None and p["sequences"] == [] and not p["quantified"] and len(p["problems"]) == 3
+
+
+def test_bad_sequence_and_unused_heading(project):
+    _build(project)
+    node_ops.add_node("Deluge works", root=project)
+    et.set_element("Deluge works", "functional_event", root=project)
+    et.set_order(["Gas detected", "Isolation succeeds", "Ignition", "Deluge works"], root=project)
+    assert _problems(project) == [("Deluge works", "et_heading_unused")]
+    et.set_element("Fire", "functional_event", root=project)  # two sequences now end in a heading
+    assert _problems(project) == [("Fire", "et_heading_unordered"), ("Fire", "et_bad_sequence"),
+                                  ("Fire", "et_bad_sequence"), ("Deluge works", "et_heading_unused")]
+
+
+def test_quantified_without_a_frequency(project):
+    _build(project)
+    _quantify(project)
+    et.set_element("Gas release", "end_state", root=project)  # no initiator: a structure problem
+    assert not et.analyse(root=project)["quantified"]
+    et.set_element("Gas release", "initiating_event", root=project)
+    p = et.analyse(root=project)
+    assert p["quantified"] and p["frequency"] == {"per_year": 0.02, "origin": "human-direct",
+                                                  "source": "incident-log", "weak": True}
+
+
+def test_probabilities_without_a_frequency(project, tmp_path):
+    _build(project)
+    for args in (("Gas detected", 0.9), ("Isolation succeeds", 0.95), ("Ignition", 0.1)):
+        et.set_probability(*args, root=project)
+    p = et.analyse(root=project)
+    assert p["quantified"] and p["frequency"] is None
+    assert all(r["frequency"] is None for r in p["sequences"])
+    assert all(d["frequency"] is None for d in p["end_states"])
+    assert [v["heading"] for v in p["values"]] == ["Gas detected", "Isolation succeeds", "Ignition"]
+
+
 def test_setters_refuse(project):
     _build(project)
     with pytest.raises(ValueError, match="not a heading"):
