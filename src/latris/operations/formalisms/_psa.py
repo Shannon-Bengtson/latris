@@ -38,7 +38,7 @@ def _drivers(p: dict[str, Any]) -> list[str]:
     if not p["drivers"]:
         return []
     rows = [[d["input"], f"{d['distribution']} (5th–95th: {_g(d['p5'])} – {_g(d['p95'])})",
-             "—" if d["spearman"] is None else f"{d['spearman']:+.2f}", md.esc(d["reason"]) or "—",
+             "—" if d["spearman"] is None else f"{d['spearman']:+.2f}", d["reason"] or "—",
              "unverified" if d["weak"] else "verified"] for d in p["drivers"][:md.MAX_ROWS]]
     return ([f"What drives the {md.esc(p['driver_target'])}: each uncertain input's range and its rank "
              "correlation with it.", ""]
@@ -79,8 +79,9 @@ def _footer(p: dict[str, Any]) -> list[str]:
     if p["fixed"]:
         out += ["Held at their point value (no range given): " + md.esc(", ".join(p["fixed"][:md.MAX_ROWS * 2]))
                 + ".", ""]
+    others = "The other inputs are" if p.get("correlations") else "Inputs are"
     out += [f"{p['runs']} runs, {'Latin hypercube' if p['sampling'] == 'lhs' else 'random'} sampling, seed "
-            f"{p['seed']}. Inputs are sampled independently, each once per run.", ""]
+            f"{p['seed']}. {others} sampled independently, each once per run.", ""]
     return out
 
 
