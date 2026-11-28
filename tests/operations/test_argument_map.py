@@ -213,3 +213,50 @@ def test_an_answer_that_keeps_the_conclusion_standing_is_a_linchpin(tmp_path, gi
     assert sorted(x["claim"] for x in p["linchpins"]) == ["P", "R"]
     assert sorted(p["rests_on"]["none"]) == ["P", "R"]  # the unsourced rebuttal is listed with the premise
     assert "2 premise(s) it rests on have no checked source" in am.describe(p)
+
+
+def test_problem_payload_and_more_structure_problems(project):
+    """A map with problems reports only them; the conclusion offered for a claim, and two questions."""
+    _build(project)
+    node_ops.add_node("Is it worth it?", root=project)
+    node_ops.add_node("Is it safe?", root=project)
+    am.set_element("Is it worth it?", "question", root=project)
+    am.set_element("Is it safe?", "question", root=project)
+    kinds = [p.gap_type for p in am.structure_problems(root=project)]
+    assert kinds == ["am_many_questions"]
+    p = am.analyse(root=project)
+    assert list(p) == ["problems"] and p["problems"][0]["label"] == "Is it worth it?"
+    am.set_element("Is it safe?", "claim", root=project)
+    edge_ops.add_edge("Fund the drug", "Is it safe?", root=project)
+    kinds = [p.gap_type for p in am.structure_problems(root=project)]
+    assert kinds == ["am_conclusion_not_top"]
+
+
+def test_analysis_rows(project):
+    """The full shape of an analysis: claims, reasons, both sides' objections, what it rests on."""
+    _build(project)
+    node_ops.add_node("Doctors recommend it", root=project)
+    am.set_element("Doctors recommend it", "claim", root=project)
+    edge_ops.add_edge("Doctors recommend it", "Fund the drug", root=project)
+    am.set_link("Doctors recommend it -> Fund the drug", relation="supports", warrant="Clinical judgement",
+                qualifier="probably", root=project)
+    node_ops.add_node("Unrelated aside", root=project)
+    am.set_element("Unrelated aside", "claim", root=project)
+    p = am.analyse(root=project)
+    assert p["conclusion"] == "Fund the drug" and p["question"] is None and p["status"] == "in"
+    assert p["linchpins"] == []  # two independent reasons hold: neither alone is a linchpin
+    assert sorted(p["rests_on"]["none"]) == ["Doctors recommend it", "Patients want it"]
+    assert p["outside"] == ["Unrelated aside"]
+    by_claim = {c["claim"]: c for c in p["claims"]}
+    assert by_claim["Fund the drug"] == {"claim": "Fund the drug", "role": "conclusion", "status": "in",
+                                         "given": False, "basis": "none"}
+    assert by_claim["The budget is overspent"]["given"] is True
+    doctors = next(r for r in p["reasons"] if r["premises"] == ["Doctors recommend it"])
+    assert doctors == {"claim": "Fund the drug", "reason": None, "premises": ["Doctors recommend it"],
+                       "status": "holds", "warrant": "Clinical judgement", "qualifier": "probably"}
+    assert {o["objection"]: (o["against"], o["status"], o["answered"]) for o in p["objections"]} == {
+        "The trial was small": ("The drug works", "out", True),
+        "The budget is overspent": ("We can afford it", "in", False)}
+    assert [(a["objection"], a["against"]) for a in p["answers"]] == [
+        ("A second trial confirmed it", "The trial was small")]
+    assert p["unverified_links"] == 7 and p["ai_links"] == 0 and p["challenged"] == []
