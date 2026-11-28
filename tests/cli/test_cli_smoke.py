@@ -90,3 +90,13 @@ def test_status_outside_project(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 1
+
+
+def test_node_add_blank_label_is_a_clean_error(tmp_path: Path, git_identity, monkeypatch):
+    root = tmp_path / "proj"
+    init_project(root, statement="X")
+    monkeypatch.chdir(root)
+    result = runner.invoke(app, ["node", "add", "  "])
+    assert result.exit_code == 2
+    assert "label can't be empty" in result.output
+    assert "Traceback" not in result.output

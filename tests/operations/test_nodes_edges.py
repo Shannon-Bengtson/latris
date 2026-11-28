@@ -67,6 +67,18 @@ def test_rename_rejects_noop(project: Path) -> None:
         node_ops.rename_node(entity.id, "Price", root=project)
 
 
+@pytest.mark.parametrize("label", ["", "   ", "\t\n"])
+def test_add_and_rename_refuse_a_blank_label(project: Path, label: str) -> None:
+    before = _commit_count(project)
+    with pytest.raises(ValueError, match="label can't be empty"):
+        node_ops.add_node(label, root=project)
+    entity, _ = node_ops.add_node("Price", root=project)
+    with pytest.raises(ValueError, match="label can't be empty"):
+        node_ops.rename_node(entity.id, label, root=project)
+    assert [e.label for e in node_ops.list_nodes(project)] == ["Price"]
+    assert _commit_count(project) == before + 1
+
+
 def test_remove_node_cascades_edges(project: Path) -> None:
     a, _ = node_ops.add_node("Price", root=project)
     b, _ = node_ops.add_node("Demand", root=project)
