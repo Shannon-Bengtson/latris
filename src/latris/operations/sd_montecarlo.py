@@ -65,20 +65,9 @@ def baseline_value(model: SDModel, target_id: str) -> float:
     return float(model.initial[target_id])
 
 
-def monte_carlo(
-    model: SDModel,
-    specs: dict[str, ParameterUncertainty],
-    *,
-    runs: int = DEFAULT_RUNS,
-    seed: int = DEFAULT_SEED,
-    sampling: str = "lhs",
-    variables: list[str] | None = None,
-    scenario: SDScenario | None = None,
-    max_seconds: float = 60.0,
-) -> dict[str, Any]:
-    """Run ``runs`` sampled simulations and summarise the chosen variables as percentile bands."""
-    if not 2 <= runs <= MAX_RUNS:
-        raise ValueError(f"runs must be between 2 and {MAX_RUNS}")
+def _uncertain(model: SDModel, specs: dict[str, ParameterUncertainty], scenario: SDScenario | None
+               ) -> tuple[SDModel, dict[str, ParameterUncertainty], list[dict[str, Any]]]:
+    """The model to sample (with the scenario applied), the ranges to sample, and those the scenario fixes."""
     base = apply_overrides(model, scenario.overrides) if scenario else model
     fixed = {o.target_id for o in scenario.overrides} if scenario else set()
     uncertain = {k: v for k, v in specs.items() if (k in base.constants or k in base.stock_units) and k not in fixed}
@@ -92,18 +81,17 @@ def monte_carlo(
             "no uncertain values to sample — give constants or initial values a range first, "
             "e.g. `latris sd set-uncertainty 'Emission Rate' triangular --min 80 --mode 120 --max 150`"
         )
-    var_ids = resolve_variables(base, variables)
+    return base, uncertain, skipped
 
-    reference = simulate(base)
-    if not reference.success:
-        raise ValueError(f"the baseline run failed before sampling: {reference.message}")
-    n_times = len(reference.times)
-    draws = sample(uncertain, runs, seed=seed, method=sampling)
 
+def _run_draws(base: SDModel, draws: list[dict[str, float]], var_ids: list[str], n_times: int,
+               max_seconds: float, started: float
+               ) -> tuple[dict[str, list[list[float]]], list[dict[str, float]], list[str]]:
+    """Simulate every draw: each variable's series per successful run, the draws kept, and why others failed."""
+    runs = len(draws)
     collected: dict[str, list[list[float]]] = {v: [] for v in var_ids}
     kept_draws: list[dict[str, float]] = []
     failures: list[str] = []
-    started = time.perf_counter()
     for i, draw in enumerate(draws):
         if i == 1:
             estimate = (time.perf_counter() - started) * runs
@@ -128,34 +116,40 @@ def monte_carlo(
         raise ValueError(
             f"only {len(kept_draws)} of {runs} runs succeeded; the sampled ranges break the model.{detail}"
         )
+    return collected, kept_draws, failures
 
-    idx = _thin(n_times)
-    bands: dict[str, Any] = {}
-    end: dict[str, Any] = {}
-    influence: dict[str, list[dict[str, Any]]] = {}
-    for v in var_ids:
-        matrix = collected[v]
-        per_time = [sorted(row[t] for row in matrix) for t in idx]
-        bands[v] = {
-            "percentiles": list(PERCENTILES),
-            "series": {f"{p:g}": [_r(percentile(col, p)) for col in per_time] for p in PERCENTILES},
-            "mean": [_r(sum(col) / len(col)) for col in per_time],
-            "baseline": [_r(reference.series[v][t]) for t in idx],
-        }
-        finals = [row[-1] for row in matrix]
-        fs = sorted(finals)
-        end[v] = {
-            **{f"p{p:g}": _r(percentile(fs, p)) for p in PERCENTILES},
-            "mean": _r(sum(fs) / len(fs)),
-            "baseline": _r(reference.series[v][-1]),
-        }
-        rows = []
-        for k in sorted(uncertain):
-            rho = spearman([d[k] for d in kept_draws], finals)
-            rows.append({"target_id": k, "label": model.labels.get(k, k), "rho": None if rho is None else _r(rho)})
-        rows.sort(key=lambda r: -abs(r["rho"] or 0.0))
-        influence[v] = rows
 
+def _band(matrix: list[list[float]], idx: list[int], baseline: list[float]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Percentile bands over time, and the spread of the end values."""
+    per_time = [sorted(row[t] for row in matrix) for t in idx]
+    band = {
+        "percentiles": list(PERCENTILES),
+        "series": {f"{p:g}": [_r(percentile(col, p)) for col in per_time] for p in PERCENTILES},
+        "mean": [_r(sum(col) / len(col)) for col in per_time],
+        "baseline": [_r(baseline[t]) for t in idx],
+    }
+    fs = sorted(row[-1] for row in matrix)
+    end = {
+        **{f"p{p:g}": _r(percentile(fs, p)) for p in PERCENTILES},
+        "mean": _r(sum(fs) / len(fs)),
+        "baseline": _r(baseline[-1]),
+    }
+    return band, end
+
+
+def _influence(model: SDModel, uncertain: dict[str, ParameterUncertainty], kept_draws: list[dict[str, float]],
+               finals: list[float]) -> list[dict[str, Any]]:
+    """Each sampled value's rank correlation with a variable's end value, strongest first."""
+    rows: list[dict[str, Any]] = []
+    for k in sorted(uncertain):
+        rho = spearman([d[k] for d in kept_draws], finals)
+        rows.append({"target_id": k, "label": model.labels.get(k, k), "rho": None if rho is None else _r(rho)})
+    rows.sort(key=lambda r: -abs(r["rho"] or 0.0))
+    return rows
+
+
+def _parameter_rows(model: SDModel, base: SDModel, uncertain: dict[str, ParameterUncertainty],
+                    kept_draws: list[dict[str, float]]) -> list[dict[str, Any]]:
     parameters = []
     for k in sorted(uncertain, key=lambda x: model.labels.get(x, x)):
         spec = uncertain[k]
@@ -176,6 +170,42 @@ def monte_carlo(
                 "sampled": {"min": _r(min(values)), "mean": _r(sum(values) / len(values)), "max": _r(max(values))},
             }
         )
+    return parameters
+
+
+def monte_carlo(
+    model: SDModel,
+    specs: dict[str, ParameterUncertainty],
+    *,
+    runs: int = DEFAULT_RUNS,
+    seed: int = DEFAULT_SEED,
+    sampling: str = "lhs",
+    variables: list[str] | None = None,
+    scenario: SDScenario | None = None,
+    max_seconds: float = 60.0,
+) -> dict[str, Any]:
+    """Run ``runs`` sampled simulations and summarise the chosen variables as percentile bands."""
+    if not 2 <= runs <= MAX_RUNS:
+        raise ValueError(f"runs must be between 2 and {MAX_RUNS}")
+    base, uncertain, skipped = _uncertain(model, specs, scenario)
+    var_ids = resolve_variables(base, variables)
+
+    reference = simulate(base)
+    if not reference.success:
+        raise ValueError(f"the baseline run failed before sampling: {reference.message}")
+    n_times = len(reference.times)
+    draws = sample(uncertain, runs, seed=seed, method=sampling)
+    started = time.perf_counter()
+    collected, kept_draws, failures = _run_draws(base, draws, var_ids, n_times, max_seconds, started)
+
+    idx = _thin(n_times)
+    bands: dict[str, Any] = {}
+    end: dict[str, Any] = {}
+    influence: dict[str, list[dict[str, Any]]] = {}
+    for v in var_ids:
+        bands[v], end[v] = _band(collected[v], idx, reference.series[v])
+        influence[v] = _influence(model, uncertain, kept_draws, [row[-1] for row in collected[v]])
+    parameters = _parameter_rows(model, base, uncertain, kept_draws)
 
     return {
         "times": [_r(reference.times[t]) for t in idx],
