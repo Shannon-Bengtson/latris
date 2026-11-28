@@ -6,6 +6,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TypeVar
 
+import keyring.errors
 import typer
 from pydantic import ValidationError
 from rich.console import Console
@@ -83,6 +84,11 @@ def handle_cli_errors(fn: F) -> F:
             raise _fail("git error", exc, 1) from None
         except CredentialError as exc:
             raise _fail("credential error", exc, 1) from None
+        except keyring.errors.KeyringError as exc:
+            # No usable OS keyring (a headless machine, a locked store).
+            raise _fail("keyring error", exc, 1) from None
+        except FileNotFoundError as exc:
+            raise _fail("error", exc, 1) from None
         except LLMCallError as exc:
             # Message has already been scrubbed of API keys in the adapter.
             # `from None` suppresses the chained traceback so the original
