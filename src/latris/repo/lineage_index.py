@@ -109,36 +109,31 @@ def _derive_parent_branch(
     """Return the branch *branch* was created from, or ``None`` — the fallback when its creation commit
     can't be found (see :func:`_fork_point`).
 
-    Strategy: find the first commit unique to *branch* (not reachable
-    from any other lineage branch), take its first parent commit, then
-    pick whichever other branch reaches that parent.
+    The parent is the other branch that *branch* split from most recently: the one whose merge base
+    with *branch* is deepest. Lineage branches that contain all of *branch* are its descendants, not
+    its parent, and are skipped; ``main`` wins a tie (an alternative made straight from the original
+    shares that fork commit with every sibling made from it). ``None`` when *branch* shares no history
+    with any other branch.
     """
     others = [b for b in all_branches if b != branch]
     if not others:
         return None
 
-    log_args = ["log", branch, "--reverse", "--format=%H"]
-    for other in others:
-        log_args += [f"^{other}"]
-    out = git.run_git(log_args, cwd=root, check=False)
-    if out.returncode != 0 or not out.stdout.strip():
-        return None
-    first_unique_sha = out.stdout.splitlines()[0].strip()
+    best: tuple[tuple[int, bool], str] | None = None
+    for cand in others:
+        if cand != "main" and _is_ancestor(root, branch, cand):
+            continue  # cand was made from branch (or later): a descendant
+        base = git.run_git(["merge-base", branch, cand], cwd=root, check=False)
+        if base.returncode != 0 or not base.stdout.strip():
+            continue  # no shared history
+        depth = git.run_git(["rev-list", "--count", base.stdout.strip()], cwd=root, check=False)
+        if depth.returncode != 0:
+            continue
+        key = (int(depth.stdout.strip()), cand == "main")
+        if best is None or key > best[0]:
+            best = (key, cand)
+    return best[1] if best else None
 
-    parent_out = git.run_git(
-        ["log", "-1", "--format=%P", first_unique_sha], cwd=root, check=False
-    )
-    parents = parent_out.stdout.strip().split()
-    if not parents:
-        return None
-    parent_sha = parents[0]
 
-    # Prefer the most-specific branch (lineage branches before main).
-    candidates = [b for b in others if b != "main"] + (["main"] if "main" in others else [])
-    for cand in candidates:
-        check = git.run_git(
-            ["merge-base", "--is-ancestor", parent_sha, cand], cwd=root, check=False
-        )
-        if check.returncode == 0:
-            return cand
-    return None
+def _is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    return git.run_git(["merge-base", "--is-ancestor", ancestor, descendant], cwd=root, check=False).returncode == 0

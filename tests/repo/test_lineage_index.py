@@ -21,8 +21,8 @@ def test_an_unreadable_lineage_node_is_skipped(tmp_path, git_identity, monkeypat
 # ── The fallback when a version's creation commit can't be found ─────────────
 #
 # ``_fork_point`` finds the commit a version was made from by searching for its id. When that
-# search finds nothing (``None``), the index falls back to ``_derive_parent_branch``: the first
-# commit unique to the branch, and which other branch reaches its parent.
+# search finds nothing (``None``), the index falls back to ``_derive_parent_branch``: the other
+# branch it split from most recently.
 
 import pytest  # noqa: E402
 
@@ -31,6 +31,7 @@ from latris.operations.lineage import (  # noqa: E402
     create_alternative,
     create_milestone,
     ensure_root_lineage,
+    switch_version,
     update_version,
 )
 
@@ -73,14 +74,28 @@ def test_the_fallback_finds_an_alternative_made_from_an_alternative(project):
     assert lineage_index._derive_parent_branch(project, a2, branches) == a
 
 
+def test_the_fallback_gives_siblings_and_grandchildren_their_own_parents(project, monkeypatch):
+    # Original -> A -> A2, and Original -> B. The old rule made B a child of A (any branch reaching
+    # the fork commit won over main) and left A with no parent (A2 contains all of A).
+    create_alternative("Alt A", root=project)
+    create_milestone("On A", root=project)
+    create_alternative("Alt A2", root=project)
+    switch_version("Original", root=project)
+    create_alternative("Alt B", root=project)
+    monkeypatch.setattr(lineage_index, "_fork_point", lambda root, branch, version_id: None)
+
+    index = lineage_index.build_lineage_index(project)
+    assert _named_edges(index) == {("Original", "Alt A"), ("Alt A", "Alt A2"), ("Original", "Alt B")}
+
+
 def test_the_fallback_gives_up_without_other_versions(project):
     assert lineage_index._derive_parent_branch(project, "main", ["main"]) is None
 
 
-def test_the_fallback_gives_up_when_the_branch_has_no_commits_of_its_own(project):
-    # A lineage branch pointing at main's tip: nothing on it is unique, so no parent can be read.
+def test_the_fallback_hangs_a_branch_with_no_commits_of_its_own_from_where_it_points(project):
+    # A lineage branch pointing at main's tip was made from main.
     git.create_branch(project, "lineage/bare")
-    assert lineage_index._derive_parent_branch(project, "lineage/bare", ["main", "lineage/bare"]) is None
+    assert lineage_index._derive_parent_branch(project, "lineage/bare", ["main", "lineage/bare"]) == "main"
 
 
 def test_the_fallback_gives_up_on_a_root_commit(tmp_path, git_identity):
