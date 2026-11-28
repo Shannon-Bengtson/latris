@@ -116,6 +116,49 @@ def test_missing_rows_dropped_and_warned(project, tmp_path):
     assert p["dropped"] == 10 and p["n"] == 190 and any("dropped" in w for w in p["warnings"])
 
 
+def test_refusals_before_fitting(project):
+    with pytest.raises(est.EstimationError, match="the same factor"):
+        est.estimate("Exercise", "Exercise", "survey", columns=COLS, root=project)
+    node_ops.add_node("Income", root=project)
+    with pytest.raises(est.EstimationError, match="no column for Income"):
+        est.estimate("Exercise", "Heart health", "survey", columns=COLS, adjust=["Age", "Income"], root=project)
+
+
+def _upload(project, tmp_path, df, name):
+    csv = tmp_path / f"{name}.csv"
+    df.to_csv(csv, index=False)
+    upload_dataset(csv, name=name, root=project)
+
+
+def test_too_few_complete_rows(project, tmp_path):
+    _upload(project, tmp_path, _data(n=4), "tiny")
+    with pytest.raises(est.EstimationError, match="only 4 complete row"):
+        est.estimate("Exercise", "Heart health", "tiny", columns=COLS, root=project)
+
+
+def test_small_data_warnings(project, tmp_path):
+    """A two-valued treatment with a small group, and few rows per coefficient, are both warned about."""
+    df = _data(n=40)
+    df["Smoker"] = ["smoker"] * 5 + ["non-smoker"] * 35
+    _upload(project, tmp_path, df, "small")
+    node_ops.add_node("Smoking", root=project)
+    edge_ops.add_edge("Smoking", "Heart health", root=project)
+    p = est.estimate("Smoking", "Heart health", "small", columns={"Smoking": "Smoker"}, estimator="linear",
+                     root=project)
+    assert p["model"] == "linear" and p["n"] == 40 and p["dropped"] == 0
+    assert p["warnings"] == ["only 5 row(s) in one treatment group; the estimate is fragile"]
+    _upload(project, tmp_path, _data(n=24), "few")
+    p = est.estimate("Exercise", "Heart health", "few", columns=COLS, root=project)  # 3 coefficients
+    assert p["warnings"] == ["about 8 rows per coefficient; with fewer than 10 the estimate is unstable"]
+
+
+def test_explicit_estimators(project):
+    lin = est.estimate("Exercise", "Heart attack", "survey", columns=COLS, estimator="linear", root=project)
+    assert lin["model"] == "linear" and "marginal_effect" not in lin["effect"]
+    log = est.estimate("Exercise", "Heart attack", "survey", columns=COLS, estimator="logistic", root=project)
+    assert log["model"] == "logistic" and log["se_type"] == "maximum likelihood" and "pseudo_r2" in log["fit"]
+
+
 def test_measured_search_beyond_minimal_sets():
     from types import SimpleNamespace as E
 
