@@ -117,6 +117,27 @@ def test_surfaces_receive_steps_and_the_registry() -> None:
     assert build_capability_manifest()["workflow"]["tracks"][0]["id"] == "ai"
 
 
+def test_link_attributes_declare_their_step() -> None:
+    """A link's sign is Build's structure; a link's strength a Formalise value (WORKFLOW_STRUCTURE.md)."""
+    by_type = {t["id"]: t["link_attribute"] for t in build_surface_manifest()["model_types"]}
+    assert by_type["cld"] == {"name": "polarity", "description": "polarity (+/-)", "step": "build.structure"}
+    assert by_type["fcm"]["name"] == "weight" and by_type["fcm"]["step"] == "formalise.values"
+    assert by_type["dag"] is None and by_type["mcda"] is None
+
+
+def test_a_link_attribute_needs_its_step() -> None:
+    import dataclasses
+
+    from latris.operations import formalisms
+
+    fcm = formalisms.get("fcm")
+    with pytest.raises(ValueError, match="go together"):
+        formalisms.register(dataclasses.replace(fcm, model_type="x_no_step", link_attribute_step=None))
+    with pytest.raises(ValueError, match="not a workflow place"):
+        formalisms.register(dataclasses.replace(fcm, model_type="x_bad_step", link_attribute_step="nowhere"))
+    assert "x_no_step" not in formalisms.FORMALISMS and "x_bad_step" not in formalisms.FORMALISMS
+
+
 def test_readiness_transitions_use_registry_stages(empty_project_root) -> None:
     """Readiness names stages by registry id: the first gate is Frame → Build."""
     from latris.operations.readiness import assess_transition_readiness

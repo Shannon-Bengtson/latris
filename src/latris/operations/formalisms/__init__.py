@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from latris.schema.workflow import require_step
+from latris.schema.workflow import is_place, require_step
 
 Claims = Callable[[Any, str], list[str]]  # (paths, section) → claims; sections below
 CLAIM_SECTIONS = ("structure", "answer", "gaps", "implications", "sensitivity")
@@ -179,6 +179,9 @@ class Formalism:
     links_from_values: bool = False
     # (attribute, how the AI is told to fill it): the value each link carries in this type, e.g. polarity
     link_attribute: tuple[str, str] | None = None
+    # Where setting that value sits in the workflow (``schema/workflow.py``): a link's sign is Build's
+    # structure, a link's strength a Formalise value. Required with ``link_attribute``.
+    link_attribute_step: str | None = None
     # (gap type, message): readiness when nothing has joined it yet, for a type sharing the map
     empty_scope_gap: tuple[str, str] | None = None
     source_label: str | None = None  # how a claim pooled from several types names this one ("Network")
@@ -227,6 +230,10 @@ def _refuse_clash(new: list[ResultKind]) -> None:
 def register(f: Formalism) -> Formalism:
     if f.model_type in FORMALISMS:
         raise ValueError(f"formalism {f.model_type!r} registered twice")
+    if (f.link_attribute is None) != (f.link_attribute_step is None):
+        raise ValueError(f"{f.model_type}: link_attribute and link_attribute_step go together")
+    if f.link_attribute_step is not None and not is_place(f.link_attribute_step):
+        raise ValueError(f"{f.model_type}: {f.link_attribute_step!r} is not a workflow place")
     _check_declared(list(f.results))
     _refuse_clash(list(f.results))
     FORMALISMS[f.model_type] = f

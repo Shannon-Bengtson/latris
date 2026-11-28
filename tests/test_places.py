@@ -92,6 +92,7 @@ def test_cli_and_routes_agree_on_shared_operations(routes) -> None:
         ("eq sweep", "POST", "/api/eq/sweep"),
         ("contract check", "GET", "/api/contract/check"),
         ("export md", "GET", "/api/export/markdown"),
+        ("fcm set-weight", "POST", "/api/fcm/weight"),
     ]:
         assert cli[command] == by_route[(method, path)], command
 

@@ -164,6 +164,11 @@ An action with secondary outputs or mixed fields (a decision tree's
 rollback also reports thresholds; an MCDA criterion has a direction and a
 weight) is placed by the first test it meets, once.
 
+A causal type's link value is placed the same way, on `Formalism.link_attribute_step`: a CLD
+link's polarity is part of the structure (Build), an FCM link's weight a quantity on it
+(Formalise › Values). The surface manifest carries it with the type (`link_attribute`), and the
+weight has its own route (`POST /api/fcm/weight`) so the route and `latris fcm set-weight` agree.
+
 ## Where the terms come from
 
 - **Uncertainty analysis and sensitivity analysis** follow Saltelli's

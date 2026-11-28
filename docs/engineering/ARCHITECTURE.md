@@ -303,7 +303,7 @@ declares a `Formalism` with the hooks the shared code calls:
 | `cli` (module, command), `routes` (module) | `cli/app.py`, `server/app.py` |
 | `whole_map`, `parameterised_nodes`, `connected_structure`, `empty_scope_gap` | `membership` (the whole map, or the factors a quantified type computes on), Build's connectivity gate, readiness |
 | `source_label`, `scope_noun`, `loop_claims`, `acyclicity_claims`, `feedback_via_stocks`, `findings_priority` | interpretation wording and claims |
-| `link_attribute` (the value its links carry: CLD polarity, FCM weight) | the AI context; `formalisms.attribute_home("polarity")` tells exporters where polarity is stored |
+| `link_attribute` (the value its links carry: CLD polarity, FCM weight) and `link_attribute_step` (where setting it sits: polarity `build.structure`, weight `formalise.values`) | the AI context; the surface manifest's `link_attribute`; `formalisms.attribute_home("polarity")` tells exporters where polarity is stored |
 | `diagram_direction`, `polarity_labels` | the generic Mermaid and DOT sketches |
 | `scenario_store` | result staleness when a run used saved scenarios |
 | `predictor` (module with `build(paths) -> Predictor`, in `operations/predictors/`) | contract and predict: what the type offers as inputs and outputs and a pure run on a caller's values ([PREDICT.md](PREDICT.md)); a type with no forward calculation leaves it unset |

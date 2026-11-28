@@ -341,6 +341,9 @@ def build_surface_manifest() -> dict[str, Any]:
             "cli": f.cli[1] if f and f.cli else None,
             "chat_ops": [{"name": o.name, "fields": list(o.fields), "description": o.description, "step": o.step}
                          for o in (f.chat_ops if f else ())],
+            # The value each link carries in this type, and the workflow step setting it sits in.
+            "link_attribute": ({"name": f.link_attribute[0], "description": f.link_attribute[1],
+                                "step": f.link_attribute_step} if f and f.link_attribute else None),
             "results": results.get(spec.id, []),
         })
     return {
