@@ -60,7 +60,6 @@ src/latris/operations/provenance.py 1
 src/latris/operations/readiness.py 1
 src/latris/operations/sd.py 1
 src/latris/operations/sd_montecarlo.py 1
-src/latris/operations/toc.py 1
 src/latris/operations/view_roles.py 1
 src/latris/operations/views.py 1
 src/latris/repo/yaml_io.py 1

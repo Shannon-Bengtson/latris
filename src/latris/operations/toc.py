@@ -130,40 +130,15 @@ def _reaches(start: set[str], adj: dict[str, list[str]]) -> set[str]:
     return seen
 
 
-def analyse(
-    entity_ids: list[str],
-    edges: list[Any],
-    levels: dict[str, str],
-    *,
-    evidence: Sequence[Any] = (),
-    assumption_targets: Sequence[str | None] = (),
-    confidence: dict[str, str] | None = None,
-) -> ToCAnalysis:
-    """Lay out a results chain: its pathways, and what holds each link up.
-
-    ``edges`` are causal substrate edges (anything with ``id``, ``from_id``,
-    ``to_id``); ``evidence`` are :class:`EvidenceLink` records (any attribute
-    of an edge counts as evidence for that link); ``assumption_targets`` are
-    the ``target_id`` of each logged assumption.
-    """
-    confidence = confidence or {}
-    entity_set = set(entity_ids)
-    edges = [e for e in edges if e.from_id in entity_set and e.to_id in entity_set]
-    problems: list[ToCProblem] = []
-
-    for eid in entity_ids:
-        if eid not in levels:
-            problems.append(
-                ToCProblem(eid, "toc_no_level", "No theory-of-change level. Give it one with `latris toc level`.")
-            )
-
+def _links(edges: list[Any], levels: dict[str, str], confidence: dict[str, str],
+           assumption_targets: Sequence[str | None], problems: list[ToCProblem]) -> list[ToCLink]:
+    """One link per edge, with its levels, assumptions, confidence and whether it leaps; a link that runs
+    backwards is a problem."""
     n_assumptions: dict[str, int] = defaultdict(int)
     for t in assumption_targets:
         if t:
             n_assumptions[t] += 1
-
     links: list[ToCLink] = []
-    by_id: dict[str, ToCLink] = {}
     for e in edges:
         fl, tl = levels.get(e.from_id), levels.get(e.to_id)
         lk = ToCLink(
@@ -180,34 +155,31 @@ def analyse(
                 ))
             lk.leap = gap >= LEAP_GAP
         links.append(lk)
-        by_id[e.id] = lk
+    return links
 
+
+def _count_sources(evidence: Sequence[Any], by_id: dict[str, ToCLink]) -> None:
     for ev in evidence:
-        lk = by_id.get(ev.target_id)
-        if lk is None:
+        link = by_id.get(ev.target_id)
+        if link is None:
             continue
         if ev.is_against:
-            lk.sources_against += 1
+            link.sources_against += 1
         else:
-            lk.sources_for += 1
+            link.sources_for += 1
             if ev.support_verdict == "supports":
-                lk.sources_for_checked += 1
+                link.sources_for_checked += 1
 
-    counts = {lvl: 0 for lvl in LEVELS}
-    for eid in entity_ids:
-        if levels.get(eid) in counts:
-            counts[levels[eid]] += 1
 
-    adj: dict[str, list[tuple[str, str]]] = defaultdict(list)
+def _reach_problems(entity_ids: list[str], levels: dict[str, str], activities: list[str], impacts: list[str],
+                    edges: list[Any], problems: list[ToCProblem]) -> tuple[list[str], list[str]]:
+    """An activity and an impact to start and end at; factors that lead to no impact (dead ends) and impacts
+    no activity reaches."""
     fwd: dict[str, list[str]] = defaultdict(list)
     rev: dict[str, list[str]] = defaultdict(list)
     for e in edges:
-        adj[e.from_id].append((e.to_id, e.id))
         fwd[e.from_id].append(e.to_id)
         rev[e.to_id].append(e.from_id)
-
-    activities = [eid for eid in entity_ids if levels.get(eid) == "activity"]
-    impacts = [eid for eid in entity_ids if levels.get(eid) == "impact"]
     if not activities:
         problems.append(ToCProblem(
             None, "toc_no_activity", "No activity: a theory of change starts from what the intervention does."
@@ -216,7 +188,6 @@ def analyse(
         problems.append(ToCProblem(
             None, "toc_no_impact", "No impact: say what long-term change the intervention is for."
         ))
-
     reach_impact = _reaches(set(impacts), rev)
     reached_from_activity = _reaches(set(activities), fwd)
     dead_ends = [
@@ -230,8 +201,16 @@ def analyse(
         ))
     for eid in unreached:
         problems.append(ToCProblem(eid, "toc_unreached_impact", "No activity leads to this impact."))
+    return dead_ends, unreached
 
-    # Pathways: every simple directed path from an activity to an impact.
+
+def _pathways(activities: list[str], impacts: list[str], edges: list[Any], by_id: dict[str, ToCLink]
+              ) -> tuple[list[ToCPathway], bool]:
+    """Every simple directed path from an activity to an impact (at most MAX_PATHWAYS), each with its weakest
+    link; marks the links on one."""
+    adj: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for e in edges:
+        adj[e.from_id].append((e.to_id, e.id))
     pathways: list[ToCPathway] = []
     truncated = False
     impact_set = set(impacts)
@@ -247,7 +226,7 @@ def analyse(
             statuses = [by_id[x].status for x in eids]
             pathways.append(ToCPathway(
                 node_ids=list(nodes), edge_ids=list(eids),
-                status=min(statuses, key=_status_rank),  # type: ignore[arg-type]
+                status=min(statuses, key=_status_rank),
                 weak_edge_ids=[x for x in eids if by_id[x].status != "checked"],
             ))
             return
@@ -264,7 +243,40 @@ def analyse(
     for pw in pathways:
         for x in pw.edge_ids:
             by_id[x].on_pathway = True
+    return pathways, truncated
 
+
+def analyse(
+    entity_ids: list[str],
+    edges: list[Any],
+    levels: dict[str, str],
+    *,
+    evidence: Sequence[Any] = (),
+    assumption_targets: Sequence[str | None] = (),
+    confidence: dict[str, str] | None = None,
+) -> ToCAnalysis:
+    """Lay out a results chain: its pathways, and what holds each link up.
+
+    ``edges`` are causal substrate edges (anything with ``id``, ``from_id``,
+    ``to_id``); ``evidence`` are :class:`EvidenceLink` records (any attribute
+    of an edge counts as evidence for that link); ``assumption_targets`` are
+    the ``target_id`` of each logged assumption.
+    """
+    entity_set = set(entity_ids)
+    edges = [e for e in edges if e.from_id in entity_set and e.to_id in entity_set]
+    problems = [ToCProblem(eid, "toc_no_level", "No theory-of-change level. Give it one with `latris toc level`.")
+                for eid in entity_ids if eid not in levels]
+    links = _links(edges, levels, confidence or {}, assumption_targets, problems)
+    by_id = {lk.edge_id: lk for lk in links}
+    _count_sources(evidence, by_id)
+    counts = {lvl: 0 for lvl in LEVELS}
+    for eid in entity_ids:
+        if levels.get(eid) in counts:
+            counts[levels[eid]] += 1
+    activities = [eid for eid in entity_ids if levels.get(eid) == "activity"]
+    impacts = [eid for eid in entity_ids if levels.get(eid) == "impact"]
+    dead_ends, unreached = _reach_problems(entity_ids, levels, activities, impacts, edges, problems)
+    pathways, truncated = _pathways(activities, impacts, edges, by_id)
     return ToCAnalysis(
         levels=dict(levels), counts=counts, links=links, pathways=pathways, pathways_truncated=truncated,
         dead_ends=dead_ends, unreached_impacts=unreached, problems=problems,
