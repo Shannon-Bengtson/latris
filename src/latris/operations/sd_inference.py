@@ -33,7 +33,14 @@ from latris.operations._sd_eval import (
 from latris.operations._units import Quantity, UnitError, describe, is_compatible, parse_unit
 from latris.schema import Substrate
 from latris.schema.roles import RoleSet
-from latris.schema.sd import SDConstantSet, SDEquationSet, SDStockSet, SDTableEntry, SDTableSet
+from latris.schema.sd import (
+    SDConstantSet,
+    SDEquationEntry,
+    SDEquationSet,
+    SDStockSet,
+    SDTableEntry,
+    SDTableSet,
+)
 from latris.schema.settings import SDSettings
 
 ROLES: tuple[str, ...] = ("stock", "flow", "auxiliary", "constant", "source_sink")
@@ -196,7 +203,8 @@ def _analyse_with_delays(
     settings = settings or SDSettings()
 
     def rewritten(mode: str, labels: dict[str, str] | None = None) -> tuple[SDEquationSet, list[_sd_delays.Call]]:
-        entries, calls = [], []
+        entries: list[SDEquationEntry] = []
+        calls: list[_sd_delays.Call] = []
         for e in equations.entries:
             if _sd_delays.uses_delays([e.expression]):
                 text, found = _sd_delays.rewrite(e.expression, e.target_id, len(calls), mode,
@@ -539,6 +547,8 @@ class _Analysis:
     def _flow_units(self) -> None:
         """A flow in or out of a stock is in the stock's units per time unit."""
         name, time_unit, eq_entries = self.name, self.time_unit, self.eq_entries
+        if time_unit is None:
+            return
         inflows, outflows = self.inflows, self.outflows
         for s in sorted(set(inflows) | set(outflows), key=name):
             su = self.stock_units.get(s)

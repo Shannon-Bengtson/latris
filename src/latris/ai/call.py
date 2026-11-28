@@ -156,8 +156,8 @@ def run_call(
     inputs: dict[str, Any],
     model_override: str | None = None,
     approver: Any,  # HumanActor — avoid schema import cycles
-    confirm: callable,  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
-    render: callable,  # def render(parsed: BaseModel) -> str
+    confirm: Callable[..., bool],  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
+    render: Callable[..., str],  # def render(parsed: BaseModel) -> str
     dry_run: bool = False,
     preview_only: bool = False,
     root: Path | None = None,
@@ -195,7 +195,7 @@ def run_call(
     cfg = ai_config.load(paths)
     model = ai_config.resolve_model(paths, override=model_override)
     provider = _provider_for(model)
-    response_cls = spec.response_model
+    response_cls = spec.response_model or RESPONSE_MODELS[prompt_name]
     # Per-operation temperature beats the project/config default (extraction ops
     # run cool for consistent granularity); falls back to the config default.
     # Provider-mandated params (e.g. Moonshot temperature=1) override both
@@ -311,8 +311,8 @@ def _finalize_call(
     token_usage: dict[str, Any],
     cost_usd: float | None,
     approver: Any,  # HumanActor — avoid schema import cycles
-    confirm: callable,  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
-    render: callable,  # def render(parsed: BaseModel) -> str
+    confirm: Callable[..., bool],  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
+    render: Callable[..., str],  # def render(parsed: BaseModel) -> str
     preview_only: bool,
     paths: ProjectPaths,
     surface: Surface | None = None,

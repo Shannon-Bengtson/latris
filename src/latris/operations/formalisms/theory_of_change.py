@@ -63,7 +63,7 @@ def _claims(paths, section: str) -> list[str]:
             claims.append(f"{len(no_assumption)} of {len(on)} link(s) on a pathway have no stated assumption "
                           "about why the step should happen.")
     elif section == "implications":
-        weak = {}
+        weak: dict[str, int] = {}
         for p in pws:
             for name in p["weak_links"]:
                 weak[name] = weak.get(name, 0) + 1

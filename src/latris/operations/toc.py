@@ -26,6 +26,7 @@ Three pieces:
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -134,8 +135,8 @@ def analyse(
     edges: list[Any],
     levels: dict[str, str],
     *,
-    evidence: list[Any] = (),
-    assumption_targets: list[str | None] = (),
+    evidence: Sequence[Any] = (),
+    assumption_targets: Sequence[str | None] = (),
     confidence: dict[str, str] | None = None,
 ) -> ToCAnalysis:
     """Lay out a results chain: its pathways, and what holds each link up.
@@ -358,7 +359,7 @@ def describe(payload: dict[str, Any]) -> str:
     pws = payload["pathways"]
     if not pws:
         return "No pathway runs from an activity to an impact yet"
-    by = defaultdict(int)
+    by: defaultdict[str, int] = defaultdict(int)
     for p in pws:
         by[p["status"]] += 1
     n = len(pws)
@@ -385,7 +386,7 @@ def check(*, record: bool = True, root: Path | None = None) -> tuple[dict[str, A
     payload = to_payload(result, substrate)
     if not record:
         return payload, None
-    statuses = defaultdict(int)
+    statuses: defaultdict[str, int] = defaultdict(int)
     for p in result.pathways:
         statuses[p.status] += 1
     sha, run = record_result(

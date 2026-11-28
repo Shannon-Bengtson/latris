@@ -7,8 +7,10 @@ spec's ``availability == "stable"``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Ensure activations are loaded so ATTR_SET_MODELS is populated.
 import latris.operations._activations  # noqa: F401
@@ -22,6 +24,9 @@ from latris.schema.model_types import (
     list_model_types,
 )
 from latris.schema.roles import RoleSet
+
+if TYPE_CHECKING:
+    from latris.repo.layout import ProjectPaths
 
 
 @dataclass
@@ -61,9 +66,12 @@ class ValidationContext:
     view_edge_ids: list[str]
     spec: ModelTypeSpec
     roles: RoleSet
-    paths: object  # ProjectPaths (untyped to avoid circular import)
+    paths: ProjectPaths
     # Per-check memo: validators that share one expensive analysis (SD) compute it once.
     cache: dict = field(default_factory=dict, compare=False, hash=False)
+
+
+_Validator = Callable[[ValidationContext], list["ReadinessGap"]]
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +90,7 @@ def _check_acyclicity(ctx: ValidationContext) -> list[ReadinessGap]:
 
     edges_in_view = causal_edges(e for e in ctx.substrate.edges if e.id in ctx.view_edge_ids)
     has_cycle, node_id = find_cycle(edges_in_view)
-    if has_cycle:
+    if has_cycle and node_id is not None:
         labels = {e.id: e.label for e in ctx.substrate.entities}
         return [
             ReadinessGap(
@@ -407,7 +415,7 @@ SD_VALIDATORS: tuple[str, ...] = (
 )
 
 
-def _formalism_validator(model_type: str, gap_types: tuple[str, ...]):
+def _formalism_validator(model_type: str, gap_types: tuple[str, ...]) -> _Validator:
     """A structural validator for a registered formalism: its problems of these gap types.
 
     The formalism's structure is analysed once per readiness check (ctx.cache) however many of its
@@ -418,6 +426,8 @@ def _formalism_validator(model_type: str, gap_types: tuple[str, ...]):
     plugin = formalisms.get(model_type)
 
     def check(ctx: ValidationContext) -> list[ReadinessGap]:
+        if plugin is None or plugin.structure_problems is None:
+            raise ValueError(f"{model_type!r} declares validators but no structure_problems")
         key = f"{model_type}_problems"
         if key not in ctx.cache:
             ctx.cache[key] = plugin.structure_problems(ctx.paths.root)
@@ -432,7 +442,7 @@ def _formalism_validator(model_type: str, gap_types: tuple[str, ...]):
     return check
 
 
-def _formalism_validators() -> dict[str, object]:
+def _formalism_validators() -> dict[str, _Validator]:
     from latris.operations import formalisms
 
     return {
@@ -442,7 +452,7 @@ def _formalism_validators() -> dict[str, object]:
     }
 
 
-_STRUCTURAL_VALIDATORS: dict[str, object] = {
+_STRUCTURAL_VALIDATORS: dict[str, _Validator] = {
     "acyclicity": _check_acyclicity,
     "loops_present": _check_loops_present,
     # BN's state_space_defined / cpt_complete come from its formalism plugin
@@ -467,7 +477,7 @@ _STRUCTURAL_VALIDATORS.update(_formalism_validators())
 
 def _check_model_attributes(
     spec: ModelTypeSpec,
-    paths,
+    paths: ProjectPaths,
     edge_ids: set[str],
     entity_ids: set[str],
     substrate: Substrate,

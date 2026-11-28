@@ -622,11 +622,11 @@ def _export(paths, labels: dict[str, str]):
         if node not in labels:
             continue
         for cell, e in cells.items():
-            row = None
+            row_key: str | None = None
             if cell != uncertainty.BN_TABLE:
                 pairs = [part.split("=", 1) for part in cell.split(":", 2)[-1].split(",")]
-                row = ",".join(f"{labels.get(pid, pid)}={state}" for pid, state in pairs)
-            ranges.append(SpecBNUncertainty(node=labels[node], n=e.params["n"], row=row, reason=e.reason,
+                row_key = ",".join(f"{labels.get(pid, pid)}={state}" for pid, state in pairs)
+            ranges.append(SpecBNUncertainty(node=labels[node], n=e.params["n"], row=row_key, reason=e.reason,
                                             origin=e.origin, source=e.source_id))
     from latris.operations import bn_scenarios
     from latris.schema.build_spec import SpecBNScenario

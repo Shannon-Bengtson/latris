@@ -86,7 +86,7 @@ def auto_commit(
     root: Path,
     *,
     subject: str,
-    body: str = "",
+    body: str | None = "",
     provenance: Provenance = "human-authored",
     paths: list[Path] | None = None,
     trailers: list[str] | None = None,

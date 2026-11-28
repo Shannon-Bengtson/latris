@@ -11,8 +11,11 @@ from latris.operations.formalisms import (
     Formalism,
     ResultKind,
     _risk_mc,
+    default_origin,
     register,
+    spec_verification,
 )
+from latris.schema.common import ProvenanceVerification
 
 
 def _claims(paths, section: str) -> list[str]:
@@ -176,10 +179,10 @@ def _apply(spec_bt, verified_by: str, root: Path) -> int:
     """Elements first (barrier values and frequencies need them), then barriers, then frequencies."""
     from latris.operations import bow_tie as bt_ops
 
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+    origin_default = default_origin(verified_by)
 
-    def verification(v: bool) -> str:
-        return "human-verified" if v and verified_by == "human" else "unverified"
+    def verification(v: bool) -> ProvenanceVerification:
+        return spec_verification(v, verified_by)
 
     n = 0
     for e in spec_bt.elements:
@@ -188,11 +191,11 @@ def _apply(spec_bt, verified_by: str, root: Path) -> int:
     for b in spec_bt.barriers:
         bt_ops.set_barrier(
             b.node, barrier_type=b.type, status=b.status, owner=b.owner, pfd=b.pfd, notes=b.notes,
-            origin=b.origin or default_origin, source_id=b.source, verification=verification(b.verified), root=root,
+            origin=b.origin or origin_default, source_id=b.source, verification=verification(b.verified), root=root,
         )
         n += 1
     for f in spec_bt.frequencies:
-        bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
+        bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or origin_default, source_id=f.source,
                              verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
     return n + _risk_mc.spec_apply("bow_tie", spec_bt.uncertainty, verified_by, root)

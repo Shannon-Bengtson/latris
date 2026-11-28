@@ -21,6 +21,7 @@ branch; mutating prompts keep the confirm gate.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -154,8 +155,8 @@ def finalize_delegated(
     response_path: str | Path,
     actor: str | None,
     approver: Any,  # HumanActor — avoid schema import cycles
-    confirm: callable,  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
-    render: callable,  # def render(parsed: BaseModel) -> str
+    confirm: Callable[..., bool],  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
+    render: Callable[..., str],  # def render(parsed: BaseModel) -> str
     root: Path | None = None,
 ) -> call_module.CallOutcome:
     """Ingest an external agent's answer through the shared call pipeline.

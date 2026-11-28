@@ -336,7 +336,9 @@ def rollback(t: Tree, forced: dict[str, str] | None = None,
                 ev[n] = sum((prob.get(e, t.branches[e].probability or 0.0)) * along[e] for e, _ in kids)
         return ev[n]
 
-    val(t.root)  # type: ignore[arg-type]
+    if t.root is None:
+        raise ValueError("the tree has no root to roll back from")
+    val(t.root)
     return ev, choice
 
 
@@ -348,10 +350,10 @@ def _groups(t: Tree) -> tuple[dict[str, dict[str, float]], dict[str, list[str]],
     ok: dict[str, dict[str, float]] = {}
     skipped: list[str] = []
     for u, ns in sorted(nodes.items()):
-        dists = [{t.branch_label(e, c): t.branches[e].probability for e, c in t.children[n]} for n in ns]
+        dists = [{t.branch_label(e, c): t.branches[e].probability or 0.0 for e, c in t.children[n]} for n in ns]
         first = dists[0]
         if all(set(d) == set(first) and all(abs(d[s] - first[s]) < _TOL for s in first) for d in dists[1:]):
-            ok[u] = first  # type: ignore[assignment]
+            ok[u] = first
         else:
             skipped.append(f"{u}: its states or probabilities differ between choices, so it depends on the choice "
                            "and perfect information about it isn't defined")
@@ -457,17 +459,17 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         "problems": [{"label": lab.get(p.target_id or "", "(tree)"), "gap_type": p.gap_type, "message": p.message}
                      for p in t.problems],
     }
-    if t.problems:
+    if t.problems or t.root is None:
         return payload
     ev, choice = rollback(t)
     rt = t.root
-    payload["root"] = lab[rt]  # type: ignore[index]
-    payload["ev"] = ev[rt]  # type: ignore[index]
-    if t.kind[rt] == "decision":  # type: ignore[index]
+    payload["root"] = lab[rt]
+    payload["ev"] = ev[rt]
+    if t.kind[rt] == "decision":
         opts = []
-        for e, c in t.children[rt]:  # type: ignore[index]
+        for e, c in t.children[rt]:
             v = (t.branches[e].value if e in t.branches else 0.0) + ev[c]
-            opts.append({"option": t.branch_label(e, c), "ev": v, "best": e == choice[rt]})  # type: ignore[index]
+            opts.append({"option": t.branch_label(e, c), "ev": v, "best": e == choice[rt]})
         payload["options"] = sorted(opts, key=lambda o: -t.sign * o["ev"])
         payload["best"] = next(o["option"] for o in opts if o["best"])
     # The optimal strategy: every decision reached when following the best choices.

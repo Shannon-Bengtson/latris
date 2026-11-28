@@ -7,6 +7,7 @@ desktop app. If the server restarts, active chains are lost.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -39,7 +40,7 @@ def start_chain(
     inputs: dict[str, Any],
     *,
     approver: Any,
-    render: callable,
+    render: Callable[..., str],
     root: Path | None = None,
 ) -> tuple[ChainSession, CallOutcome]:
     """Start a new chain, execute step 0, return session + first result."""
@@ -61,7 +62,7 @@ def advance_chain(
     session_id: str,
     *,
     approver: Any,
-    render: callable,
+    render: Callable[..., str],
     root: Path | None = None,
 ) -> tuple[ChainSession, CallOutcome | None]:
     """Advance to the next step after approval. Returns None if chain is complete."""
@@ -83,7 +84,7 @@ def reject_step(
     session_id: str,
     *,
     approver: Any,
-    render: callable,
+    render: Callable[..., str],
     root: Path | None = None,
 ) -> tuple[ChainSession, CallOutcome | None]:
     """Reject current step (logged as rejected), then advance to next step."""
@@ -133,7 +134,7 @@ def _run_current_step(
     spec: ChainSpec,
     *,
     approver: Any,
-    render: callable,
+    render: Callable[..., str],
     root: Path | None = None,
 ) -> CallOutcome:
     """Execute the current step and record the outcome."""

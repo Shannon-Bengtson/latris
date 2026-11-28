@@ -11,8 +11,11 @@ from latris.operations.formalisms import (
     Formalism,
     ResultKind,
     _risk_mc,
+    default_origin,
     register,
+    spec_verification,
 )
+from latris.schema.common import ProvenanceVerification
 
 
 def _claims(paths, section: str) -> list[str]:
@@ -175,10 +178,10 @@ def _apply(spec_et, verified_by: str, root: Path) -> int:
     """Elements, then the heading order, then sequences, probabilities and the initiating frequency."""
     from latris.operations import event_tree as et_ops
 
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+    origin_default = default_origin(verified_by)
 
-    def verification(v: bool) -> str:
-        return "human-verified" if v and verified_by == "human" else "unverified"
+    def verification(v: bool) -> ProvenanceVerification:
+        return spec_verification(v, verified_by)
 
     n = 0
     for e in spec_et.elements:
@@ -191,12 +194,12 @@ def _apply(spec_et, verified_by: str, root: Path) -> int:
         et_ops.set_sequence(s.end_state, list(s.answers.items()), root=root)
         n += 1
     for p in spec_et.probabilities:
-        et_ops.set_probability(p.node, p.p_yes, given=list(p.given.items()), origin=p.origin or default_origin,
+        et_ops.set_probability(p.node, p.p_yes, given=list(p.given.items()), origin=p.origin or origin_default,
                                source_id=p.source, verification=verification(p.verified), notes=p.notes, root=root)
         n += 1
     if spec_et.frequency:
         f = spec_et.frequency
-        et_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
+        et_ops.set_frequency(f.node, f.frequency, origin=f.origin or origin_default, source_id=f.source,
                              verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
     return n + _risk_mc.spec_apply("event_tree", spec_et.uncertainty, verified_by, root)
