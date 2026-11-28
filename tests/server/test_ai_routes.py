@@ -97,6 +97,14 @@ def test_ai_call_unknown_prompt_returns_422(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
+def test_ai_call_bad_inputs_return_422(client: TestClient) -> None:
+    missing = client.post("/api/ai/call", json={"prompt_name": "ExplainThisElement", "inputs": {}})
+    assert missing.status_code == 422 and "target_id" in missing.json()["detail"]
+    bad = client.post("/api/ai/call", json={"prompt_name": "ProjectToFormalView", "inputs": {"view": "nope"}})
+    assert bad.status_code == 422 and "view" in bad.json()["detail"]
+    assert client.get("/api/ai/interactions").json() == []
+
+
 def test_ai_call_tolerates_missing_cld_polarity_file(client: TestClient, project: Path) -> None:
     """Legacy projects may predate views/parameters/cld-polarity.yaml."""
     paths = ProjectPaths(project)

@@ -284,39 +284,46 @@ def _given(m: Map, claim: str) -> bool:
     return not m.reasons(claim)
 
 
+def _supported(m: Map, c: str, accepted: bool, lab: dict[str, str | None]) -> bool | None:
+    """Whether ``c`` has support: a reason that holds (None when every reason offered for it fails), or, with
+    no reason offered or once accepted, that no source disputes it."""
+    groups = m.reasons(c)
+    if not groups or accepted:
+        return accepted or m.evidence.get(c) != "contested"
+    ok = [g for g in groups.values()
+          if not any(ln.edge in m.challenged for ln in g) and all(lab[ln.premise] == IN for ln in g)]
+    failed = [g for g in groups.values()
+              if any(ln.edge in m.challenged for ln in g) or any(lab[ln.premise] == OUT for ln in g)]
+    if len(failed) == len(groups):
+        return None
+    return bool(ok)
+
+
+def _decide(m: Map, c: str, rejected: frozenset[str], lab: dict[str, str | None]) -> str | None:
+    """IN, OUT, or None while it can't be decided yet from the labels so far."""
+    a = m.assessment.get(c)
+    if c in rejected or (a and a.assessment == "rejected"):
+        return OUT
+    attacks = [ln for ln in m.attacks(c) if ln.edge not in m.challenged]
+    if any(lab[ln.premise] == IN for ln in attacks):
+        return OUT
+    supported = _supported(m, c, bool(a and a.assessment == "accepted"), lab)
+    if supported is None:
+        return OUT
+    if supported and all(lab[ln.premise] == OUT for ln in attacks):
+        return IN
+    return None
+
+
 def label(m: Map, rejected: frozenset[str] = frozenset()) -> dict[str, str]:
     """Grounded labelling with support: every claim in, out or undecided (see the module docstring)."""
     lab: dict[str, str | None] = dict.fromkeys(m.claims)
-
-    def decide(c: str) -> str | None:
-        a = m.assessment.get(c)
-        if c in rejected or (a and a.assessment == "rejected"):
-            return OUT
-        attacks = [ln for ln in m.attacks(c) if ln.edge not in m.challenged]
-        if any(lab[ln.premise] == IN for ln in attacks):
-            return OUT
-        accepted = bool(a and a.assessment == "accepted")
-        groups = m.reasons(c)
-        if groups and not accepted:
-            ok = [g for g in groups.values()
-                  if not any(ln.edge in m.challenged for ln in g) and all(lab[ln.premise] == IN for ln in g)]
-            failed = [g for g in groups.values()
-                      if any(ln.edge in m.challenged for ln in g) or any(lab[ln.premise] == OUT for ln in g)]
-            if len(failed) == len(groups):
-                return OUT
-            supported = bool(ok)
-        else:
-            supported = accepted or m.evidence.get(c) != "contested"
-        if supported and all(lab[ln.premise] == OUT for ln in attacks):
-            return IN
-        return None
-
     changed = True
     while changed:
         changed = False
         for c in m.claims:
             if lab[c] is None:
-                new = decide(c)
+                new = _decide(m, c, rejected, lab)
                 if new is not None:
                     lab[c] = new
                     changed = True
@@ -384,6 +391,63 @@ def _rests_on(m: Map, lab: dict[str, str], top: str) -> list[str]:
     return out
 
 
+def _basis(m: Map, c: str) -> str:
+    """What a claim stands on: its assessment if it has one, else its sources."""
+    a = m.assessment.get(c)
+    if a and a.assessment:
+        return a.assessment
+    return m.evidence.get(c, "none")
+
+
+def _reason_status(m: Map, lab: dict[str, str], g: list[Link]) -> str:
+    if any(ln.edge in m.challenged for ln in g):
+        return "challenged"
+    if all(lab[ln.premise] == IN for ln in g):
+        return "holds"
+    return "fails" if any(lab[ln.premise] == OUT for ln in g) else "undecided"
+
+
+def _reason_rows(m: Map, lab: dict[str, str], scope: list[str]) -> list[dict[str, Any]]:
+    lb = m.labels
+    reasons = []
+    for c in scope:
+        for name, g in sorted(m.reasons(c).items()):
+            reasons.append({"claim": lb[c], "reason": None if name.startswith("#") else name,
+                            "premises": [lb[ln.premise] for ln in g], "status": _reason_status(m, lab, g),
+                            "warrant": next((ln.entry.warrant for ln in g if ln.entry.warrant), None),
+                            "qualifier": next((ln.entry.qualifier for ln in g if ln.entry.qualifier), None)})
+    return reasons
+
+
+def _objection_rows(m: Map, lab: dict[str, str], top: str, scope: list[str]
+                    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Attacks on the conclusion's side (objections) and on the other side (answers to objections)."""
+    lb = m.labels
+    side = _sides(m, top)
+    objections: list[dict[str, Any]] = []
+    answers: list[dict[str, Any]] = []
+    for c in scope:
+        for ln in m.attacks(c):
+            row = {"objection": lb[ln.premise], "against": lb[c], "status": lab[ln.premise],
+                   "challenged": ln.edge in m.challenged,
+                   "answered": lab[ln.premise] == OUT or ln.edge in m.challenged}
+            (objections if side.get(c, True) else answers).append(row)
+    return objections, answers
+
+
+def _grounds(m: Map, lab: dict[str, str], top: str) -> tuple[list[dict[str, str]], dict[str, list[str]]]:
+    """The linchpins (premises without which the conclusion would not stand) and every premise it rests on,
+    by basis."""
+    lb = m.labels
+    rests = _rests_on(m, lab, top) if lab[top] == IN else []
+    linchpins = [{"claim": lb[c], "basis": _basis(m, c)} for c in rests
+                 if c != top and label(m, frozenset({c}))[top] != IN]
+    by_basis: dict[str, list[str]] = {k: [] for k in ("checked", "cited", "accepted", "none", "contested")}
+    for c in rests:
+        by_basis.setdefault(_basis(m, c), []).append(lb[c])
+    return linchpins, by_basis
+
+
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
     m = load(root=root)
     lb = m.labels
@@ -391,50 +455,18 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
         "problems": [{"label": lb.get(p.target_id or "", "(map)"), "gap_type": p.gap_type, "message": p.message}
                      for p in m.problems],
     }
-    if m.problems:
-        return payload
     top = m.conclusion
+    if m.problems or top is None:  # a map without problems has its conclusion
+        return payload
     lab = label(m)
-    under = _under(m, top)  # type: ignore[arg-type]
-    scope = [top, *under]
-
-    def basis(c: str) -> str:
-        a = m.assessment.get(c)
-        if a and a.assessment:
-            return a.assessment
-        return m.evidence.get(c, "none")
-
-    reasons = []
-    for c in scope:
-        for name, g in sorted(m.reasons(c).items()):
-            challenged = [ln for ln in g if ln.edge in m.challenged]
-            status = ("challenged" if challenged else "holds" if all(lab[ln.premise] == IN for ln in g)
-                      else "fails" if any(lab[ln.premise] == OUT for ln in g) else "undecided")
-            reasons.append({"claim": lb[c], "reason": None if name.startswith("#") else name,
-                            "premises": [lb[ln.premise] for ln in g], "status": status,
-                            "warrant": next((ln.entry.warrant for ln in g if ln.entry.warrant), None),
-                            "qualifier": next((ln.entry.qualifier for ln in g if ln.entry.qualifier), None)})
-    side = _sides(m, top)  # type: ignore[arg-type]
-    objections, answers = [], []
-    for c in scope:
-        for ln in m.attacks(c):
-            row = {"objection": lb[ln.premise], "against": lb[c], "status": lab[ln.premise],
-                   "challenged": ln.edge in m.challenged,
-                   "answered": lab[ln.premise] == OUT or ln.edge in m.challenged}
-            (objections if side.get(c, True) else answers).append(row)
-    rests = _rests_on(m, lab, top) if lab[top] == IN else []  # type: ignore[index]
-    linchpins = []
-    if lab[top] == IN:  # type: ignore[index]
-        for c in rests:
-            if c != top and label(m, frozenset({c}))[top] != IN:  # type: ignore[index]
-                linchpins.append({"claim": lb[c], "basis": basis(c)})
-    by_basis: dict[str, list[str]] = {k: [] for k in ("checked", "cited", "accepted", "none", "contested")}
-    for c in rests:
-        by_basis.setdefault(basis(c), []).append(lb[c])
+    scope = [top, *_under(m, top)]
+    reasons = _reason_rows(m, lab, scope)
+    objections, answers = _objection_rows(m, lab, top, scope)
+    linchpins, by_basis = _grounds(m, lab, top)
     payload.update(
-        conclusion=lb[top], question=lb[m.question] if m.question else None,  # type: ignore[index]
-        status=lab[top],  # type: ignore[index]
-        claims=[{"claim": lb[c], "role": m.kind[c], "status": lab[c], "given": _given(m, c), "basis": basis(c)}
+        conclusion=lb[top], question=lb[m.question] if m.question else None,
+        status=lab[top],
+        claims=[{"claim": lb[c], "role": m.kind[c], "status": lab[c], "given": _given(m, c), "basis": _basis(m, c)}
                 for c in scope],
         reasons=reasons, objections=objections, answers=answers,
         unanswered=[o for o in objections if not o["answered"] and o["status"] == IN],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 import uvicorn
@@ -33,6 +34,13 @@ def main() -> None:
     )
 
     warn_if_exposed(cfg.host)
+    if cfg.reload:
+        # Reloading needs the app as an import string: uvicorn re-imports it in a fresh process,
+        # which finds the project through the env var create_app reads.
+        if cfg.project_root is not None:
+            os.environ["LATRIS_PROJECT_ROOT"] = str(cfg.project_root)
+        uvicorn.run("latris.server.app:create_app", factory=True, host=cfg.host, port=cfg.port, reload=True)
+        return
     app = create_app(project_root=cfg.project_root)
     uvicorn.run(app, host=cfg.host, port=cfg.port)
 

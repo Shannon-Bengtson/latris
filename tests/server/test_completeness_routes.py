@@ -171,16 +171,19 @@ def test_dismiss_unknown_id_returns_404(client: TestClient) -> None:
 # ── POST mark-added ─────────────────────────────────────────────────────
 
 
-def test_mark_added_records_entity(client: TestClient) -> None:
+def test_mark_added_records_entity(client: TestClient, project: Path) -> None:
     mv_id = _seed_one_entry(client)
+    unknown = client.post(f"/api/completeness/cld/{mv_id}/mark-added", json={"entity_id": "node_RAINFALL"})
+    assert unknown.status_code == 404 and "no node matches" in unknown.json()["detail"]
+    rainfall = add_node("Rainfall", root=project)[0]
     resp = client.post(
         f"/api/completeness/cld/{mv_id}/mark-added",
-        json={"entity_id": "node_RAINFALL"},
+        json={"entity_id": rainfall.id},
     )
     assert resp.status_code == 200
     body = resp.json()
     assert body["result"]["disposition"] == "added_to_model"
-    assert body["result"]["added_entity_id"] == "node_RAINFALL"
+    assert body["result"]["added_entity_id"] == rainfall.id
     assert body["commit_sha"]
 
 

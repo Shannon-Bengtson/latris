@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
+from latris.operations._words import a_or_an
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
@@ -69,8 +70,8 @@ def _require(paths, target: str, element: str) -> tuple[str, str]:
     )
     got = get_elements(root=paths.root).get(tid)
     if got != element:
-        raise ValueError(f"{label} is {('a ' + got.replace('_', ' ')) if got else 'not in the ACH'}, not a "
-                         f"{element.replace('_', ' ')} (`latris ach element <factor> {element}`)")
+        raise ValueError(f"{label} is {a_or_an(got.replace('_', ' ')) if got else 'not in the ACH'}, not "
+                         f"{a_or_an(element.replace('_', ' '))} (`latris ach element <factor> {element}`)")
     return tid, label
 
 

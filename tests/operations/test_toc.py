@@ -103,6 +103,28 @@ def test_pathway_cap(monkeypatch):
     assert len(res.pathways) == 1 and res.pathways_truncated
 
 
+def test_full_analysis_on_a_chain_with_a_loop_and_a_stray_link():
+    """Every field of the analysis: links outside the chain are dropped, evidence for them is ignored, a loop
+    doesn't repeat a pathway, and the counts, leaps and confidence carry through."""
+    levels = {"a": "activity", "o": "output", "s": "short_term_outcome", "i": "impact"}
+    edges = [_e("e1", "a", "o"), _e("e2", "o", "s"), _e("e3", "s", "o"), _e("e4", "s", "i"),
+             _e("e5", "o", "i"), _e("x", "a", "elsewhere")]
+    res = toc.analyse(list(levels), edges, levels, evidence=[_ev("x"), _ev("e4", checked=True), _ev("e5")],
+                      assumption_targets=["e4", "e4", "gone"], confidence={"e1": "high"})
+    assert [lk.edge_id for lk in res.links] == ["e1", "e2", "e3", "e4", "e5"]
+    assert res.counts == {"input": 0, "activity": 1, "output": 1, "short_term_outcome": 1, "long_term_outcome": 0,
+                          "impact": 1}
+    assert [(p.gap_type, p.target_id) for p in res.problems] == [("toc_backward_link", "e3")]
+    assert sorted(p.node_ids for p in res.pathways) == [["a", "o", "i"], ["a", "o", "s", "i"]]
+    assert {tuple(p.edge_ids): p.status for p in res.pathways} == {("e1", "e5"): "untested",
+                                                                   ("e1", "e2", "e4"): "untested"}
+    lk = {x.edge_id: x for x in res.links}
+    assert (lk["e1"].confidence, lk["e4"].assumptions, lk["e4"].sources_for_checked, lk["e5"].sources_for) == (
+        "high", 2, 1, 1)
+    assert not lk["e3"].on_pathway and lk["e5"].leap and not lk["e1"].leap
+    assert res.dead_ends == [] and res.unreached_impacts == [] and not res.pathways_truncated
+
+
 # ── project ─────────────────────────────────────────────────────────
 
 

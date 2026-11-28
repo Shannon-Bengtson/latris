@@ -47,6 +47,9 @@ jobs:
       # No pip cache: the point is to test against today's releases of every dependency.
       - name: Install latris and the analysis tools
         run: |
+          # Today's pip, setuptools and wheel first: pip-audit checks every installed package, and an
+          # old copy of the installer's own tools would fail the run for something latris doesn't ship.
+          python -m pip install --upgrade pip setuptools wheel
           python -m pip install -e ".[server,data,dev]"
           python -m pip install "pip-audit==2.10.1" "bandit==1.9.4" "radon==6.0.1" "vulture==2.16"
 

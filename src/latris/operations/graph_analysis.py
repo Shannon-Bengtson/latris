@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol, TypeVar
 
@@ -17,17 +17,24 @@ from typing import Literal, Protocol, TypeVar
 
 
 class _HasDirection(Protocol):
-    id: str
-    from_id: str
-    to_id: str
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def from_id(self) -> str: ...
+
+    @property
+    def to_id(self) -> str: ...
 
 
 class _HasId(Protocol):
-    id: str
+    @property
+    def id(self) -> str: ...
 
 
 class _HasKind(Protocol):
-    kind: str
+    @property
+    def kind(self) -> str: ...
 
 
 _EdgeT = TypeVar("_EdgeT", bound=_HasKind)
@@ -112,7 +119,7 @@ class GraphPath:
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
-def _build_adj(edges: list[_HasDirection]) -> dict[str, list[tuple[str, str]]]:
+def _build_adj(edges: Sequence[_HasDirection]) -> dict[str, list[tuple[str, str]]]:
     """Build adjacency list: node → [(neighbour, edge_id), ...]."""
     adj: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for e in edges:
@@ -120,7 +127,7 @@ def _build_adj(edges: list[_HasDirection]) -> dict[str, list[tuple[str, str]]]:
     return adj
 
 
-def _build_edge_lookup(edges: list[_HasDirection]) -> dict[tuple[str, str], str]:
+def _build_edge_lookup(edges: Sequence[_HasDirection]) -> dict[tuple[str, str], str]:
     """Build (from_id, to_id) → edge_id lookup."""
     lookup: dict[tuple[str, str], str] = {}
     for e in edges:
@@ -128,7 +135,7 @@ def _build_edge_lookup(edges: list[_HasDirection]) -> dict[tuple[str, str], str]
     return lookup
 
 
-def _all_nodes(edges: list[_HasDirection]) -> set[str]:
+def _all_nodes(edges: Sequence[_HasDirection]) -> set[str]:
     """Collect all node IDs referenced by edges."""
     nodes: set[str] = set()
     for e in edges:
@@ -138,7 +145,7 @@ def _all_nodes(edges: list[_HasDirection]) -> set[str]:
 
 
 def weakly_connected_components(
-    node_ids: list[str], edges: list[_HasDirection]
+    node_ids: list[str], edges: Sequence[_HasDirection]
 ) -> list[set[str]]:
     """Connected components over the UNDIRECTED projection of the graph.
 
@@ -178,7 +185,7 @@ class TooManyLoops(ValueError):
     """More elementary circuits than the caller's ``max_loops``."""
 
 
-def find_all_loops(edges: list[_HasDirection], *, max_loops: int | None = None) -> list[Loop]:
+def find_all_loops(edges: Sequence[_HasDirection], *, max_loops: int | None = None) -> list[Loop]:
     """Find all elementary circuits using Johnson's algorithm.
 
     ``max_loops`` stops enumeration (raising :class:`TooManyLoops`) once more
@@ -404,7 +411,7 @@ def loop_mechanism_summary(loops: list[Loop]) -> str:
 
 def propagate_polarity(
     from_id: str,
-    edges: list[_HasDirection],
+    edges: Sequence[_HasDirection],
     polarity_map: dict[str, str],
 ) -> list[PropagationEffect]:
     """Trace qualitative effect from a variable through the graph.
@@ -491,7 +498,7 @@ def propagate_polarity(
 
 def compute_centrality(
     entities: list[_HasId],
-    edges: list[_HasDirection],
+    edges: Sequence[_HasDirection],
 ) -> list[CentralityResult]:
     """Compute degree and betweenness centrality for all entities.
 
@@ -598,7 +605,7 @@ def compute_loop_participation(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def topological_sort(edges: list[_HasDirection]) -> list[str]:
+def topological_sort(edges: Sequence[_HasDirection]) -> list[str]:
     """Kahn's algorithm for topological ordering.
 
     Raises ValueError if the graph has cycles.
@@ -632,7 +639,7 @@ def topological_sort(edges: list[_HasDirection]) -> list[str]:
 
 
 def d_separation(
-    edges: list[_HasDirection],
+    edges: Sequence[_HasDirection],
     x_ids: set[str],
     y_ids: set[str],
     z_ids: set[str],
@@ -727,7 +734,7 @@ def d_separation(
 
 def markov_blanket(
     entity_id: str,
-    edges: list[_HasDirection],
+    edges: Sequence[_HasDirection],
 ) -> set[str]:
     """Compute the Markov blanket of an entity in a DAG.
 
@@ -755,7 +762,7 @@ def markov_blanket(
 def enumerate_paths(
     from_id: str,
     to_id: str,
-    edges: list[_HasDirection],
+    edges: Sequence[_HasDirection],
 ) -> list[GraphPath]:
     """Find all undirected paths between two nodes.
 
@@ -846,7 +853,7 @@ def enumerate_paths(
 def adjustment_sets(
     exposure_id: str,
     outcome_id: str,
-    edges: list[_HasDirection],
+    edges: Sequence[_HasDirection],
     *,
     max_size: int = 10,
 ) -> list[set[str]]:

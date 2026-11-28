@@ -147,3 +147,16 @@ def test_with_values_shares_the_compiled_model():
     ref = with_values(build_model(*bathtub(k=0.2, initial=10.0).args(final_time=50, dt=0.5)))
     a, b = simulate(other).series["water"], simulate(ref, fast=False).series["water"]
     assert b[-1] == pytest.approx(a[-1], rel=1e-9)
+
+
+@pytest.mark.parametrize("method", ["euler", "rk4", "adaptive"])
+def test_a_non_finite_literal_falls_back_to_the_pint_path(method):
+    # repr(1e999) is "inf", which the generated code would read as an undefined name.
+    m = M()
+    w = m.stock("Water", 1.0, "liter")
+    r = m.const("Inflow Rate", 5.0, "liter/year")
+    m.flow("Inflow", "inflow_rate * 1e999", "liter/year", to=w, inputs=[r])
+    model = build_model(*m.args(final_time=20, dt=0.25, saveper=5, integration_method=method))
+    assert fast_model(model) is None
+    result = simulate(model)  # no "name 'inf' is not defined"; the run reports its own outcome
+    assert result.success is False

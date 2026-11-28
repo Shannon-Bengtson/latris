@@ -79,7 +79,8 @@ def validate_reference_urls(
             idx, url = futures[future]
             try:
                 valid = future.result()
-            except Exception:
+            except Exception:  # noqa: BLE001 — check_url handles the expected errors; one bad URL can't fail the batch
+                logger.warning("checking %s failed unexpectedly", url, exc_info=True)
                 valid = False
             results.append({"index": idx, "url": url, "valid": valid})
 

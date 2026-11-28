@@ -156,7 +156,17 @@ def element_history_snippet(
 
     block = "## Recent history for this element\n" + "\n".join(matching) + "\n"
     # Enforce token-budget cap (~150 words). Truncate the tail if over.
-    words = block.split()
-    if len(words) > _MAX_WORDS:
-        block = " ".join(words[:_MAX_WORDS]) + "…\n"
+    # Cut line by line so the list keeps its one-entry-per-line shape.
+    if len(block.split()) > _MAX_WORDS:
+        kept: list[str] = []
+        budget = _MAX_WORDS
+        for text_line in block.splitlines():
+            words = text_line.split()
+            if len(words) > budget:
+                indent = text_line[: len(text_line) - len(text_line.lstrip())]
+                kept.append(indent + " ".join(words[:budget]) + "…")
+                break
+            kept.append(text_line)
+            budget -= len(words)
+        block = "\n".join(kept) + "\n"
     return block

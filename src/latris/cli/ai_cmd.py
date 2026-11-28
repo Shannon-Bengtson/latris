@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast, get_args
 
 import typer
 from rich.console import Console
@@ -18,6 +19,7 @@ from latris.cli._errors import handle_cli_errors
 from latris.repo import git
 from latris.repo.project import require_project
 from latris.schema import HumanActor
+from latris.schema.ai import Adoption
 from latris.schema.ids import id_timestamp
 
 app = typer.Typer(
@@ -120,17 +122,17 @@ def interactions_list(
     adoption: str = typer.Option(
         None,
         "--adoption",
-        help="Filter by adoption state: pending | approved | rejected.",
+        help="Filter by adoption state: pending | approved | rejected | failed.",
     ),
     limit: int = typer.Option(20, "--limit", "-n", help="Max records (newest first)."),
 ) -> None:
     """List AI interactions recorded against this project (newest first)."""
-    if adoption is not None and adoption not in ("pending", "approved", "rejected"):
-        raise typer.BadParameter("--adoption must be pending | approved | rejected")
+    if adoption is not None and adoption not in get_args(Adoption):
+        raise typer.BadParameter("--adoption must be pending | approved | rejected | failed")
     records = inter_ops.list_interactions(
         target_id=target,
         prompt_name=prompt,
-        adoption=adoption,  # type: ignore[arg-type]
+        adoption=cast("Adoption | None", adoption),  # checked just above
         limit=limit,
     )
     if not records:
@@ -148,6 +150,7 @@ def interactions_list(
             "approved": "green",
             "rejected": "red",
             "pending": "yellow",
+            "failed": "red",
         }[r.adoption]
         summary = r.response_summary
         if len(summary) > 50:
@@ -406,6 +409,8 @@ def _run(
     assume_yes: bool,
     dry_run: bool,
 ) -> None:
+    # run_call checks the inputs against the prompt's input schema first, so a
+    # bad value (`ai call project-view nope`) is refused (exit 2), never sent.
     approver = _resolve_approver()
 
     def render_parsed(parsed):

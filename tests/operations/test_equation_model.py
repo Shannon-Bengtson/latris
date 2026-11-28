@@ -624,3 +624,29 @@ def test_scenario_overrides_go_with_the_quantity(small):
     eq.set_scenario("Only Z", ["Z=5 m"], root=small)
     node_ops.remove_node("Z", root=small)  # deleted outright
     assert [s.name for s in eq.get_scenarios(root=small).scenarios] == ["Both"]
+
+
+def _edit_formula(root: Path, label: str, **update) -> None:
+    """Change a stored formula behind the setter's back, as a hand edit or an older version might have."""
+    from latris.repo.layout import ProjectPaths
+    from latris.repo.yaml_io import dump_model
+
+    m = eq.load(root=root, check_units=False)
+    tid = next(i for i, x in m.labels.items() if x == label)
+    store = eq.get_formulas(root=root)
+    store.entries = [e.model_copy(update=update) if e.target_id == tid else e for e in store.entries]
+    dump_model(store, eq._store.path(ProjectPaths(root), "formula"))
+
+
+def test_a_stored_formula_that_no_longer_parses_or_reads_itself(small):
+    eq.set_value("X", 2, "m", role="input", root=small)
+    eq.set_formula("Y", "x * 2", "m", role="output", root=small)
+    _edit_formula(small, "Y", expression="x *")
+    assert [g for _, g in _gaps(small)] == ["eq_formula_invalid"]
+    _edit_formula(small, "Y", expression="x * 2", units="not-a-unit")
+    assert [g for _, g in _gaps(small)] == ["eq_formula_invalid"]
+    _edit_formula(small, "Y", expression="y + x", units="m")
+    problems = eq.load(root=small).problems
+    assert [(p.gap_type, p.message) for p in problems] == [("eq_unknown_reference", "The formula refers to itself.")]
+    m = eq.load(root=small)
+    assert m.parsed == {} and m.order == []

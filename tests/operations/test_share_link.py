@@ -86,6 +86,38 @@ def test_bad_targets_are_refused_before_anything_changes(tmp_path: Path, git_ide
     assert "no section 'the_answer'" in str(exc.value)
 
 
+def test_the_exported_spec_says_what_was_built(built: Path) -> None:
+    _, spec = share_link.export_spec(root=built)
+    d = share_link.spec_data(spec)
+    assert d["model_type"] == "cld" and d["outcome"] == "Volunteer departures"
+    assert d["factors"][0] == {"label": "Workload", "description": "Hours asked of each volunteer."}
+    first = d["links"][0]
+    assert (first["from"], first["to"], first["polarity"], first["reason"], first["confidence"]) == (
+        "Workload", "Burnout", "+", "More hours, more exhaustion.", "high")
+    assert first["sources"] == ["smith2021"] and first["contradicts"] == ["tuohy2015"]
+    assert [a.get("target") for a in d["assumptions"]] == [None, "Workload -> Burnout"]
+    assert d["questions"] == ["Does recognition matter independently of workload?"]
+    assert d["findings"][0]["targets"] == ["Workload", "Burnout -> Volunteer departures"]
+    assert d["challenges"] == [{"argument": "Burnout may lag workload by months.", "target": "Workload -> Burnout"}]
+    assert [(i["section"], i.get("by", "ai")) for i in d["interpretation"]] == [("answer_to_question", "ai")]
+    assert [s["key"] for s in d["sources"]] == ["smith2021", "tuohy2015"]
+
+
+def test_export_refuses_an_unknown_type_and_duplicate_labels(built: Path) -> None:
+    from latris.repo.yaml_io import dump_model
+    from latris.schema import Substrate
+    from latris.schema.ids import new_id
+
+    with pytest.raises(ValueError, match="unknown model type 'nope'"):
+        share_link.export_spec(model_type="nope", root=built)
+    paths = ProjectPaths(built)
+    sub = load_model(Substrate, paths.conceptual_yaml)  # a hand edit: the setters keep labels unique
+    sub.entities.append(sub.entities[1].model_copy(update={"id": new_id("node"), "label": "burnout"}))
+    dump_model(sub, paths.conceptual_yaml)
+    with pytest.raises(ValueError, match="two factors are both called 'burnout'"):
+        share_link.export_spec(root=built)
+
+
 def test_round_trip_through_a_link(built: Path, tmp_path: Path, git_identity) -> None:
     link = share_link.make_link(root=built)
     assert link.url.startswith("https://app.latris.app/open#")

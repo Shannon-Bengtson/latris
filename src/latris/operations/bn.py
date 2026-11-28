@@ -17,6 +17,7 @@ import itertools
 import math
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from latris.operations._bn_canonical import effective_cpt_map
 from latris.operations._resolve import resolve_target
@@ -528,8 +529,10 @@ def with_scenario(
     What the call says about a factor replaces what the scenario says about it, whichever kind."""
     from latris.operations import bn_scenarios
 
-    call = {"evidence": dict(evidence or {}), "soft": dict(soft or {}), "likelihood": dict(likelihood or {}),
-            "interventions": dict(interventions or {})}
+    call: dict[str, dict[str, Any]] = {
+        "evidence": dict(evidence or {}), "soft": dict(soft or {}), "likelihood": dict(likelihood or {}),
+        "interventions": dict(interventions or {}),
+    }
     if not name:
         return ScenarioApplied(None, cpt_map, call["evidence"], call["soft"], call["likelihood"],
                                call["interventions"], {}, [])
@@ -551,7 +554,7 @@ def _set_factors(applied: ScenarioApplied, ss_map: dict[str, list[str]]) -> dict
     for node in do:
         if node not in applied.tables:
             raise ValueError(f"{node!r} is not in the network, so it can't be set")
-    overlap = set(do) & set(applied.evidence | applied.soft | applied.likelihood)
+    overlap = set(do) & (set(applied.evidence) | set(applied.soft) | set(applied.likelihood))
     if overlap:
         raise ValueError("a factor can be set or observed, not both: " + ", ".join(sorted(overlap)))
     return intervene(applied.tables, ss_map, do)

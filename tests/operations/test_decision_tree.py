@@ -71,6 +71,47 @@ def test_not_a_tree(project):
     assert "dt_not_tree" in {p.gap_type for p in dt.structure_problems(root=project)}
 
 
+def _problems(root) -> list[tuple[str | None, str]]:
+    t = dt.load_tree(root=root)
+    return [(t.labels.get(p.target_id or "", None), p.gap_type) for p in t.problems]
+
+
+def test_structure_problems_in_order(project):
+    """Each structure problem a tree can have, in the order they're reported, and when it has a root."""
+    assert _problems(project) == [(None, "dt_no_root")]  # no nodes typed yet
+    _build(project)
+    for n in ("Second choice", "Loose chance"):
+        node_ops.add_node(n, root=project)
+    dt.set_element("Second choice", "decision", root=project)  # a second root, with no branches
+    dt.set_element("Loose chance", "chance", root=project)
+    edge_ops.add_edge("Strategy", "Loose chance", kind="conditional", root=project)  # a chance node, no branches
+    edge_ops.add_edge("Launched, high", "Demand if licensed", kind="conditional", root=project)  # past a terminal
+    dt.set_payoff("Do nothing", 0, root=project)
+    t = dt.load_tree(root=project)
+    assert t.root is None
+    assert _problems(project) == [
+        ("Strategy", "dt_many_roots"), ("Demand if licensed", "dt_not_tree"),
+        ("Launched, high", "dt_terminal_has_children"), ("Second choice", "dt_dead_end"),
+        ("Loose chance", "dt_dead_end")]
+
+
+def test_a_loop_has_no_root(project):
+    _build(project)
+    edge_ops.add_edge("Do nothing", "Strategy", kind="conditional", root=project)  # back to the top
+    problems = _problems(project)
+    assert problems[0] == (None, "dt_no_root") and (None, "dt_cycle") in problems
+    assert dt.load_tree(root=project).root is None
+
+
+def test_terminal_without_payoff_and_no_decision(project):
+    for n in ("Demand if launched", "Launched, high", "Launched, low"):
+        dt.set_element(n, NODES[n], root=project)
+    for a, b, label, p in BRANCHES[3:5]:
+        dt.set_branch(f"{a} -> {b}", label=label, probability=p, root=project)
+    dt.set_payoff("Launched, high", 500, root=project)
+    assert _problems(project) == [(None, "dt_no_decision"), ("Launched, low", "dt_no_payoff")]
+
+
 def test_rollback_evpi_thresholds(project):
     _build(project)
     p = dt.analyse(root=project)

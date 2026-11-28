@@ -105,6 +105,9 @@ def test_duplicate_edge_refused_but_other_kind_allowed(project: Path) -> None:
     with pytest.raises(DuplicateEdgeError, match="already exists"):
         add_edge("Workload", "Burnout", root=project)
     add_edge("Workload", "Burnout", kind="temporal", root=project)
+    add_edge("Workload", "Burnout", kind="association", root=project)
+    with pytest.raises(DuplicateEdgeError, match="an association link"):
+        add_edge("Workload", "Burnout", kind="association", root=project)
 
 
 def test_build_spec_with_a_repeated_link_changes_nothing(project: Path) -> None:
@@ -150,6 +153,7 @@ def test_malformed_id(project: Path) -> None:
     dump_raw(sub, paths.conceptual_yaml)
     problems = [p for p in check_integrity(root=project).problems if p.kind == "malformed_id"]
     assert len(problems) == 2
+    assert any("has an 'edge' ID" in p.message for p in problems)
 
 
 def test_source_id_must_match_origin(project: Path) -> None:

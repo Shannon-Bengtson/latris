@@ -28,7 +28,7 @@ def load_report_config_store(*, root: Path | None = None) -> ReportConfigStore:
         return ReportConfigStore()
     try:
         return load_model(ReportConfigStore, path)
-    except Exception:
+    except ValueError:  # not the store's shape (pydantic's ValidationError is a ValueError)
         # Legacy single-config file — wrap it as one (untyped) entry.
         legacy = load_model(ReportConfig, path)
         return ReportConfigStore(configs=[legacy])

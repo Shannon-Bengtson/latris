@@ -62,3 +62,13 @@ def test_update_tokens(fake_keyring: dict) -> None:
     credentials.update_gitea_token("y2")
     assert credentials.get_session_token() == "x2"
     assert credentials.get_gitea_token() == "y2"
+
+
+def test_a_broken_keyring_backend_reads_as_signed_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(service: str, key: str):
+        raise RuntimeError("no keyring backend")
+
+    monkeypatch.setattr(credentials.keyring, "get_password", broken)
+    assert credentials.get_session_token() is None
+    assert credentials.is_logged_in() is False
+    assert credentials.get_account() is None

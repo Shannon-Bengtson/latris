@@ -155,9 +155,17 @@ def load_model(cls: type[T], path: Path) -> T:
     cheap), and one operation often reads the same file many times — a
     report render reads the conceptual model dozens of times — so parsed
     text is cached (see :func:`_parse`). Every call still validates a fresh
-    copy: callers own what they get back.
+    copy: callers own what they get back. Text that isn't YAML raises ``ValueError`` naming the file,
+    as :func:`load_model_from_string` does.
     """
-    return cls.model_validate(_parse(path.read_text(encoding="utf-8")))
+    from ruamel.yaml.error import YAMLError
+
+    text = path.read_text(encoding="utf-8")
+    try:
+        data = _parse(text)
+    except YAMLError as exc:
+        raise ValueError(f"{path.name}: not valid YAML: {' '.join(str(exc).split())}") from exc
+    return cls.model_validate(data)
 
 
 # Parsed YAML keyed on the text itself, so a hit is exactly what parsing would

@@ -137,6 +137,6 @@ def mark_added(
     """Mark a missing-variable record as added-to-model."""
     mv, sha = ops.mark_added_to_model(model_type, missing_var_id, entity_id)
     console.print(
-        f"[green]marked added[/green] [bold]{mv.name}[/bold] (entity {entity_id}) "
+        f"[green]marked added[/green] [bold]{mv.name}[/bold] (entity {mv.added_entity_id}) "
         f"· commit [cyan]{sha[:10]}[/cyan]"
     )

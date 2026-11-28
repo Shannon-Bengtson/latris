@@ -7,6 +7,7 @@ apply them to the substrate in a single commit.
 
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ from latris.operations._data_engine import (
 )
 from latris.operations.attributes import set_attribute
 from latris.operations.batch import batch
+from latris.operations.commit import auto_commit
 from latris.operations.edges import add_edge
 from latris.operations.nodes import add_node
 from latris.repo.layout import contained_path
@@ -32,6 +34,8 @@ from latris.schema import (
     coerce_edge_kind,
     coerce_entity_kind,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Node suggestions from data
@@ -132,6 +136,9 @@ def suggest_nodes_from_data(
 # ---------------------------------------------------------------------------
 
 
+CORRELATION_METHODS = ("pearson", "spearman", "kendall")
+
+
 def suggest_edges_from_correlations(
     *,
     node_labels: list[str],
@@ -145,6 +152,8 @@ def suggest_edges_from_correlations(
     Returns a list of suggestion dicts for the frontend:
     ``{id, fromLabel, toLabel, kind, source, sourceDetail, coefficient, pValue}``.
     """
+    if method not in CORRELATION_METHODS:
+        raise ValueError(f"{method!r} is not a correlation method: {', '.join(CORRELATION_METHODS)}")
     paths = require_project(root)
     if not paths.data_datasets_yaml.exists():
         return []
@@ -168,7 +177,8 @@ def suggest_edges_from_correlations(
             continue
         try:
             df = load_dataframe(data_path)
-        except Exception:
+        except (OSError, ValueError, ImportError) as exc:  # unreadable or not tabular: no suggestions from it
+            logger.debug("skipping dataset %s: %s", dataset.location, exc)
             continue
 
         # Find columns that match accepted node labels.
@@ -387,6 +397,8 @@ def apply_compose_selections(
                 link_set = DataLinkSet()
             link_set.entries.extend(data_links)
             dump_model(link_set, paths.data_links_yaml)
+            # Inside the batch this only registers the file for the batch's one commit.
+            auto_commit(paths.root, subject=subject, paths=[paths.data_links_yaml])
 
     # The batch context manager produces the final commit SHA.
     from latris.repo import git

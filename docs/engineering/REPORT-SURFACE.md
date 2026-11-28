@@ -1,8 +1,7 @@
 # Report surface: how models reach the report
 
-Status: agreed direction (2026-11-17), implementation in progress.
-Tracking: latris#5 (charts hook), latris#4 (aggregate diagrams), latris#3
-(legacy migration).
+Status: implemented. Agreed 2026-11-17; the charts hook (latris#5), the
+aggregate diagrams (latris#4) and the legacy migration (latris#3) are done.
 
 ## The split
 

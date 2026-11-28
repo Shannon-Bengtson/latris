@@ -7,6 +7,7 @@ checkpoints within a version's save history.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -38,6 +39,8 @@ from latris.schema import (
     new_id,
     parse_id,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Ensure root lineage (compatibility bridge)
@@ -284,7 +287,7 @@ def _global_annotation_counts_for_branch(
             continue
         try:
             model = load_model_from_string(model_cls, text)
-        except Exception:
+        except ValueError:  # not valid YAML, or not that log's shape
             continue
         n = sum(1 for e in model.entries if getattr(e, "target_id", None) is None)
         if n > 0:
@@ -376,8 +379,9 @@ def _sync_info(root: Path) -> dict[str, Any]:
         from latris.operations import sync
 
         return sync.version_sync_states(root=root)
-    except Exception:
+    except Exception:  # noqa: BLE001 — tree loading must never fail because of sync state
         # Tree loading must never fail because of sync state. Degrade to empty.
+        logger.warning("sync state unavailable; showing versions without it", exc_info=True)
         return {"sync_state": {}, "ghosts": [], "shared": False}
 
 

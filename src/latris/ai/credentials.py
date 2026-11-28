@@ -18,11 +18,14 @@ Design goals:
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterable
 from contextlib import contextmanager
 
 import keyring
+
+logger = logging.getLogger(__name__)
 
 SERVICE = "latris"
 
@@ -65,7 +68,8 @@ def get_key(provider: str) -> str | None:
             return from_env
     try:
         return keyring.get_password(SERVICE, provider.lower())
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 — keyring backends raise more than KeyringError; no key is the answer
+        logger.debug("keyring lookup for %s failed: %s", provider, exc)
         return None
 
 
@@ -109,7 +113,8 @@ def list_providers() -> list[dict[str, str]]:
         try:
             if keyring.get_password(SERVICE, provider):
                 out.append({"provider": provider, "source": "keyring", "env_var": env_var})
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 — as in get_key: an unreadable keyring lists nothing
+            logger.debug("keyring lookup for %s failed: %s", provider, exc)
             continue
     return out
 
@@ -134,7 +139,8 @@ def key_in_env(providers: Iterable[str]):
                 continue
             try:
                 value = keyring.get_password(SERVICE, provider.lower())
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 — as in get_key: an unreadable keyring stages nothing
+                logger.debug("keyring lookup for %s failed: %s", provider, exc)
                 value = None
             if value:
                 os.environ[env_var] = value

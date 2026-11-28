@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -390,8 +391,102 @@ def _by_label(ids, labels: dict[str, str]) -> list[str]:
     return sorted(ids, key=lambda i: (labels[i].casefold(), i))
 
 
+_Add = Callable[[EquationProblem], None]
+
+
+def _name_problems(m: Model, add: _Add) -> dict[str, list[str]]:
+    """Quantities sharing a formula name; returns every name → the quantities that have it."""
+    by_name: dict[str, list[str]] = {}
+    for i, s in m.slugs.items():
+        by_name.setdefault(s, []).append(i)
+    for s, ids in sorted(by_name.items()):
+        if len(ids) > 1:
+            for i in ids:
+                add(EquationProblem(i, "eq_name_collision", f"The formula name '{s}' is shared by "
+                                    f"{', '.join(m.labels[x] for x in _by_label(ids, m.labels))}; rename one."))
+    return by_name
+
+
+def _definition_problems(m: Model, add: _Add) -> None:
+    """A value quantity with no value, or a formula quantity with no formula."""
+    for i in _by_label(m.roles, m.labels):
+        role = m.roles[i]
+        if role in VALUE_ROLES and i not in m.values:
+            add(EquationProblem(i, "eq_no_value", f"No value (`latris eq {role} <factor> <value> <units>`)."))
+        if role in FORMULA_ROLES and i not in m.formulas:
+            add(EquationProblem(i, "eq_no_formula", "No formula (`latris eq formula <factor> \"<formula>\" <units>`)."))
+
+
+def _formula_reads(m: Model, i: str, p: ParsedEquation, by_name: dict[str, list[str]], resolve: dict[str, str],
+                   linked: set[tuple[str, str]], add: _Add) -> list[str] | None:
+    """The quantities formula ``i`` reads, or None when it refers to something it can't."""
+    labels = m.labels
+    deps: list[str] = []
+    ok = True
+    for name in sorted(p.names):
+        ref = resolve.get(name)
+        if ref is None or ref == i:
+            ok = False
+            if name not in by_name:
+                add(EquationProblem(i, "eq_unknown_reference", f"The formula refers to '{name}', which is not "
+                                    f"in the equation model. Known: {', '.join(sorted(resolve)) or '(none)'}."))
+            elif ref == i:
+                add(EquationProblem(i, "eq_unknown_reference", "The formula refers to itself."))
+            continue
+        deps.append(ref)
+        if (ref, i) not in linked:
+            add(EquationProblem(i, "eq_missing_link", f"The formula uses {labels[ref]} but the map has no link "
+                                f"{labels[ref]} → {labels[i]}; set the formula again to add it."))
+    return deps if ok else None
+
+
+def _parse_formulas(m: Model, by_name: dict[str, list[str]], linked: set[tuple[str, str]], add: _Add) -> None:
+    """Parse every formula into ``m.parsed`` and ``m.reads``, reporting those that can't be."""
+    resolve = {s: ids[0] for s, ids in by_name.items() if len(ids) == 1}
+    for i in _by_label(m.formulas, m.labels):
+        try:
+            p = _parse(m.formulas[i].expression)
+            parse_unit(m.formulas[i].units)
+        except (EquationError, UnitError) as exc:
+            add(EquationProblem(i, "eq_formula_invalid", str(exc)))
+            continue
+        deps = _formula_reads(m, i, p, by_name, resolve, linked, add)
+        if deps is not None:
+            m.parsed[i] = p
+            m.reads[i] = deps
+
+
+def _unused_links(m: Model, causal: list[Any], add: _Add) -> None:
+    labels, roles = m.labels, m.roles
+    for e in causal:
+        if e.to_id in m.reads and e.from_id not in m.reads[e.to_id]:
+            add(EquationProblem(e.id, "eq_unused_link", f"The map says {labels[e.from_id]} → {labels[e.to_id]}, but "
+                                f"{labels[e.to_id]}'s formula doesn't use {labels[e.from_id]}."))
+        elif roles[e.to_id] in VALUE_ROLES:
+            add(EquationProblem(e.id, "eq_unused_link", f"{labels[e.to_id]} is {_an(roles[e.to_id])}: it is given, "
+                                f"not computed, so the link from {labels[e.from_id]} means nothing here."))
+
+
+def _unclassified(m: Model, substrate: Substrate, add: _Add) -> None:
+    """Factors linked to the model that have no role in it."""
+    labels, roles = m.labels, m.roles
+    strays: dict[str, set[str]] = {}
+    for e in substrate.edges:
+        if e.kind == "causal" and (e.from_id in roles) != (e.to_id in roles):
+            inside, outside = (e.from_id, e.to_id) if e.from_id in roles else (e.to_id, e.from_id)
+            if outside in labels:
+                strays.setdefault(outside, set()).add(inside)
+    for i in _by_label(strays, labels):
+        near = ", ".join(labels[x] for x in _by_label(strays[i], labels))
+        add(EquationProblem(i, "eq_unclassified", f"Linked to {near} "
+                            "but has no role in the equation model: make it an input, a parameter, a computed "
+                            "quantity or an output, or remove the link."))
+
+
 def load(*, root: Path | None = None, check_units: bool = True) -> Model:
     """Load the model and list what is wrong with it; a model with no problems can be computed."""
+    from latris.operations.membership import shares_map
+
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     labels = {e.id: e.label for e in substrate.entities}
@@ -406,75 +501,19 @@ def load(*, root: Path | None = None, check_units: bool = True) -> Model:
     if not m.outputs:
         add(EquationProblem(None, "eq_no_output", "No output: say which quantity the model is for "
                                                   "(`latris eq formula <factor> \"<formula>\" <units> --output`)."))
-    by_name: dict[str, list[str]] = {}
-    for i, s in slugs.items():
-        by_name.setdefault(s, []).append(i)
-    for s, ids in sorted(by_name.items()):
-        if len(ids) > 1:
-            for i in ids:
-                add(EquationProblem(i, "eq_name_collision", f"The formula name '{s}' is shared by "
-                                    f"{', '.join(labels[x] for x in _by_label(ids, labels))}; rename one."))
-    resolve = {s: ids[0] for s, ids in by_name.items() if len(ids) == 1}
-    for i in _by_label(roles, labels):
-        if roles[i] in VALUE_ROLES and i not in values:
-            add(EquationProblem(i, "eq_no_value", f"No value (`latris eq {roles[i]} <factor> <value> <units>`)."))
-        if roles[i] in FORMULA_ROLES and i not in formulas:
-            add(EquationProblem(i, "eq_no_formula", "No formula (`latris eq formula <factor> \"<formula>\" <units>`)."))
+    by_name = _name_problems(m, add)
+    _definition_problems(m, add)
     causal = [e for e in substrate.edges if e.kind == "causal" and e.from_id in roles and e.to_id in roles]
-    linked = {(e.from_id, e.to_id) for e in causal}
-    for i in _by_label(formulas, labels):
-        try:
-            p = _parse(formulas[i].expression)
-            parse_unit(formulas[i].units)
-        except (EquationError, UnitError) as exc:
-            add(EquationProblem(i, "eq_formula_invalid", str(exc)))
-            continue
-        deps: list[str] = []
-        ok = True
-        for name in sorted(p.names):
-            ref = resolve.get(name)
-            if ref is None or ref == i:
-                ok = False
-                if name not in by_name:
-                    add(EquationProblem(i, "eq_unknown_reference", f"The formula refers to '{name}', which is not "
-                                        f"in the equation model. Known: {', '.join(sorted(resolve)) or '(none)'}."))
-                elif ref == i:
-                    add(EquationProblem(i, "eq_unknown_reference", "The formula refers to itself."))
-                continue
-            deps.append(ref)
-            if (ref, i) not in linked:
-                add(EquationProblem(i, "eq_missing_link", f"The formula uses {labels[ref]} but the map has no link "
-                                    f"{labels[ref]} → {labels[i]}; set the formula again to add it."))
-        if ok:
-            m.parsed[i] = p
-            m.reads[i] = deps
-    for e in causal:
-        if e.to_id in m.reads and e.from_id not in m.reads[e.to_id]:
-            add(EquationProblem(e.id, "eq_unused_link", f"The map says {labels[e.from_id]} → {labels[e.to_id]}, but "
-                                f"{labels[e.to_id]}'s formula doesn't use {labels[e.from_id]}."))
-        elif roles[e.to_id] in VALUE_ROLES:
-            add(EquationProblem(e.id, "eq_unused_link", f"{labels[e.to_id]} is {_an(roles[e.to_id])}: it is given, "
-                                f"not computed, so the link from {labels[e.from_id]} means nothing here."))
+    _parse_formulas(m, by_name, {(e.from_id, e.to_id) for e in causal}, add)
+    _unused_links(m, causal, add)
     m.order = _order(m)
     # A formula left out of the order is waiting on something upstream that has its own problem (no value, no
     # formula); only one that reads itself through other formulas is circular.
     for i in _by_label((i for i in set(m.reads) - set(m.order) if _reads_itself(m, i)), labels):
         add(EquationProblem(i, "eq_circular", "Its formula depends on itself through other formulas; simultaneous "
                                               "equations aren't solved here."))
-    from latris.operations.membership import shares_map
-
     if not shares_map(paths, MODEL_TYPE):  # on a shared map, a link to a loop-map factor is the loop map's
-        strays: dict[str, set[str]] = {}
-        for e in substrate.edges:
-            if e.kind == "causal" and (e.from_id in roles) != (e.to_id in roles):
-                inside, outside = (e.from_id, e.to_id) if e.from_id in roles else (e.to_id, e.from_id)
-                if outside in labels:
-                    strays.setdefault(outside, set()).add(inside)
-        for i in _by_label(strays, labels):
-            near = ", ".join(labels[x] for x in _by_label(strays[i], labels))
-            add(EquationProblem(i, "eq_unclassified", f"Linked to {near} "
-                                "but has no role in the equation model: make it an input, a parameter, a computed "
-                                "quantity or an output, or remove the link."))
+        _unclassified(m, substrate, add)
     _check_scenarios_and_ranges(paths, m)
     # The units are checked as soon as every formula can be evaluated: a model with no output yet, or a
     # link out of step with a formula, still computes.
@@ -1079,7 +1118,7 @@ def monte_carlo(*, runs: int = 2000, seed: int = 1234, sampling: str = "lhs", ta
     keys = _by_label(ranges, m.labels)
     correlations = {m.labels[o]: {m.labels[k]: smp.spearman([d[k] for d in kept], vals) for k in keys}
                     for o, vals in outputs.items()}
-    drivers = []
+    drivers: list[dict[str, Any]] = []
     for k in keys:
         e, v = ranges[k], m.values[k]
         sampler = smp.Sampler(e)

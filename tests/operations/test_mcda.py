@@ -84,8 +84,10 @@ def test_stated_scale_and_setter_rules(project):
     assert not cost["local_scale"] and cost["worst"] == 100
     with pytest.raises(ValueError, match="best must be"):
         mcda.set_criterion("Capacity", worst=400, best=0, root=project)
-    with pytest.raises(ValueError, match="not a criterion"):
+    with pytest.raises(ValueError, match="is an option, not a criterion"):
         mcda.set_score("Site A", "Site B", 1, root=project)
+    with pytest.raises(ValueError, match="Cost is a criterion, not an option"):
+        mcda.set_score("Cost", "Cost", 1, root=project)
     with pytest.raises(ValueError, match="nothing to set"):
         mcda.set_criterion("Cost", root=project)
     from latris.operations.view_roles import set_role

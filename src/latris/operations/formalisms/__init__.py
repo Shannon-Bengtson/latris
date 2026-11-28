@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 from latris.schema.workflow import is_place, require_step
 
 Claims = Callable[[Any, str], list[str]]  # (paths, section) → claims; sections below
@@ -74,7 +75,8 @@ class ResultKind:
     render: Callable[[dict[str, Any]], list[str]]  # payload → Markdown lines
     analysis: str  # the build-spec ``SpecAnalysis.kind`` that runs it, e.g. "ft_analyse"
     run: Callable[[Any, Path], str]  # (SpecAnalysis, root) → run id; runs and records it
-    definition: Callable[[dict[str, Any]], Any]  # recorded payload → SpecAnalysis that reproduces it
+    # recorded payload → SpecAnalysis that reproduces it; (payload, run record) when definition_reads_run
+    definition: Callable[..., Any]
     # (payload, claims by interpretation section) → add this result's claims, e.g. to "answer_to_question"
     claims: Callable[[dict[str, Any], dict[str, list[str]]], None] | None = None
     # payload → [(chart kind, extra keys)] for the report's ``latris-chart`` markers; the app draws them.
@@ -334,12 +336,12 @@ def problem_labels(substrate) -> dict[str, str]:
     return labels
 
 
-def spec_verification(verified: bool, verified_by: str) -> str:
+def spec_verification(verified: bool, verified_by: str) -> ProvenanceVerification:
     """A spec value marked verified counts as human-verified only when a person built the spec."""
     return "human-verified" if verified and verified_by == "human" else "unverified"
 
 
-def default_origin(verified_by: str) -> str:
+def default_origin(verified_by: str) -> ProvenanceOrigin:
     return "ai-proposed" if verified_by == "ai" else "human-direct"
 
 

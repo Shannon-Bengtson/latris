@@ -45,6 +45,7 @@ IDKind = Literal[
     "explorer",
     "person-input",
     "telemetry-event",
+    "chain",
 ]
 
 # Derived from the Literal so a new IDKind can never be added to the type
