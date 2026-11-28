@@ -63,6 +63,20 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _decisive(root: Path, p: dict[str, Any]) -> list[dict[str, Any]]:
+    """The unanswered objections whose answer would change the conclusion's status: with the objection
+    defeated, the conclusion labels differently. One that only defeats a reason the conclusion can do without
+    is not among them."""
+    from latris.operations import argument_map as am
+
+    if not p["unanswered"]:
+        return []
+    m = am.load(root=root)
+    ids = {lb: c for c, lb in m.labels.items()}
+    return [o for o in p["unanswered"]
+            if am.label(m, frozenset({ids[o["objection"]]}))[m.conclusion] != p["status"]]
+
+
 def _claims(paths, section: str) -> list[str]:
     from latris.operations import argument_map as am
 
@@ -81,7 +95,7 @@ def _claims(paths, section: str) -> list[str]:
             claims.append(f"The conclusion turns on {x['claim']} ({_BASIS.get(x['basis'], x['basis'])}).")
         if p["status"] == "in" and not p["linchpins"]:
             claims.append("No single premise, rejected, would stop the conclusion standing.")
-        for o in p["unanswered"]:
+        for o in _decisive(paths.root, p):
             claims.append(f"Answering the objection '{o['objection']}' (against {o['against']}) would change the "
                           "outcome.")
     elif section == "implications":
