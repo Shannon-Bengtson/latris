@@ -137,3 +137,27 @@ def test_routes_take_interventions(project):  # noqa: F811
     r = client.post("/api/bn/monte-carlo", json={"target": "T", "state": "t0", "interventions": {"A": "a0"}, "runs": 50})
     assert r.status_code == 200, r.text
     assert r.json()["result"]["by_state"]["t0"]["point"] == pytest.approx(0.9)
+
+
+# ── build specs (latris#66) ──────────────────────────────────────────
+
+
+def test_spec_analyses_take_interventions_and_give_them_back(project):  # noqa: F811
+    """The explanation and Monte Carlo analyses take ``interventions`` from a spec (as the query does), and a
+    recorded run's definition carries them back out, so a spec or a link reruns the same what-if."""
+    from latris.operations.analysis_replay import definitions, run_analysis
+    from latris.schema.build_spec import make_analysis
+
+    root, a_id, t_id, _ = project
+    set_table_uncertainty("T", 10, root=root)
+    explained = make_analysis(kind="bn_explain", interventions={"A": "a1"})
+    sampled = make_analysis(kind="bn_monte_carlo", target="T", state="t0", interventions={"A": "a0"}, runs=50)
+    for a in (explained, sampled):
+        type(a).model_validate(a.model_dump(mode="json"))  # round-trips
+        run_analysis(a, root=root)
+
+    back = {d.kind: d for d in definitions(root=root)}
+    assert back["bn_explain"].interventions == {"A": "a1"}
+    assert back["bn_monte_carlo"].interventions == {"A": "a0"}
+    mc = bn_ops.run_monte_carlo("T", state="t0", interventions={"A": "a0"}, runs=50, root=root)
+    assert mc["by_state"]["t0"]["point"] == pytest.approx(0.9)
