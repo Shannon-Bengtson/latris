@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from latris.operations._words import a_or_an
 from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 from latris.repo.yaml_io import iter_jsonl, load_model, load_model_or_default, load_raw
@@ -180,7 +181,8 @@ def _check_ids(check: _Pass) -> None:
                 check.add("error", "malformed_id", f"{expected} ID isn't valid: {exc}", conceptual, [item.id])
                 continue
             if kind != expected:
-                check.add("error", "malformed_id", f"{expected} has a {kind!r} ID: {item.id}", conceptual, [item.id])
+                check.add("error", "malformed_id", f"{expected} has {a_or_an(repr(kind))} ID: {item.id}", conceptual,
+                          [item.id])
 
     for dup, n in Counter([e.id for e in substrate.entities] + [e.id for e in substrate.edges]).items():
         if n > 1:

@@ -34,6 +34,7 @@ from typing import Any
 
 from latris.operations import _ft_engine as engine
 from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
+from latris.operations._words import a_or_an
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
@@ -94,8 +95,8 @@ def _require(paths, target: str, element: str, what: str) -> tuple[str, str]:
     got = get_elements(root=paths.root).get(tid)
     if got != element:
         raise ValueError(
-            f"{label} is {('a ' + ELEMENT_NAMES[got].lower()) if got else 'not in the bow-tie'}; only a "
-            f"{ELEMENT_NAMES[element].lower()} takes {what} (`latris bowtie element <factor> {element}` first)"
+            f"{label} is {a_or_an(ELEMENT_NAMES[got].lower()) if got else 'not in the bow-tie'}; only "
+            f"{a_or_an(ELEMENT_NAMES[element].lower())} takes {what} (`latris bowtie element <factor> {element}` first)"
         )
     return tid, label
 
@@ -245,7 +246,8 @@ def _bow_tie_links(substrate: Substrate, el: dict[str, str]
         pair = (el[e.from_id], el[e.to_id])
         if pair not in _ALLOWED:
             problems.append(BTProblem(e.id, "bt_bad_link", (
-                f"A {ELEMENT_NAMES[pair[0]].lower()} can't lead to a {ELEMENT_NAMES[pair[1]].lower()}. Lines run "
+                f"{a_or_an(ELEMENT_NAMES[pair[0]].lower()).capitalize()} can't lead to "
+                f"{a_or_an(ELEMENT_NAMES[pair[1]].lower())}. Lines run "
                 "threat → barriers → top event → barriers → consequence; an escalation factor leads to a barrier."
             )))
             continue

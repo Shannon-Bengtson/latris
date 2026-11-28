@@ -136,7 +136,7 @@ def test_probabilities_without_a_frequency(project, tmp_path):
 
 def test_setters_refuse(project):
     _build(project)
-    with pytest.raises(ValueError, match="not a heading"):
+    with pytest.raises(ValueError, match="Fire is an end state, not a heading"):
         et.set_probability("Fire", 0.5, root=project)
     with pytest.raises(ValueError, match="own answer"):
         et.set_probability("Ignition", 0.5, given=[("Ignition", "no")], root=project)
