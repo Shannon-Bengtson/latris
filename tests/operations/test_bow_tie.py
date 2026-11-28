@@ -148,6 +148,13 @@ def test_setters(project):
         bt.set_frequency("Gas detection", 0.1, root=project)
     with pytest.raises(ValueError, match="nothing to set"):
         bt.set_barrier("Gas detection", root=project)
+    node_ops.add_node("Night shift", root=project)
+    bt.set_element("Night shift", "escalation_factor", root=project)
+    with pytest.raises(ValueError, match="Night shift is an escalation factor; only a barrier takes"):
+        bt.set_barrier("Night shift", pfd=0.1, root=project)
+    edge_ops.add_edge("Night shift", "Loss of containment", root=project)
+    assert any(p.message.startswith("An escalation factor can't lead to a top event.")
+               for p in bt.structure_problems(root=project) if p.gap_type == "bt_bad_link")
     bt.set_barrier("Gas detection", barrier_type="active_hardware", owner="Instrument tech", root=project)
     entry, _ = bt.set_barrier("Gas detection", pfd=0.1, source_id="vendor", root=project)
     assert (entry.barrier_type, entry.owner, entry.pfd, entry.source_id) == ("active_hardware", "Instrument tech",

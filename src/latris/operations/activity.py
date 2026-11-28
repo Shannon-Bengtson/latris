@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 from typing import get_args
 
+from latris.operations._words import a_or_an
 from latris.repo import git
 from latris.schema.ids import IDKind
 
@@ -81,7 +82,7 @@ def readable_subject(subject: str, names: dict[str, str]) -> str:
         matches = [name for full, name in names.items() if full.startswith(whole)]
         if len(matches) == 1:
             return matches[0]
-        return _KIND_WORDS.get(m.group(1), f"a {m.group(1)}")
+        return _KIND_WORDS.get(m.group(1)) or a_or_an(m.group(1))
 
     return _ID.sub(swap, subject)
 

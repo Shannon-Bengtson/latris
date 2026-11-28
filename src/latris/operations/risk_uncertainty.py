@@ -305,6 +305,9 @@ def _et_model(paths) -> _Model:
 
 
 _BUILD = {"fault_tree": _ft_model, "bow_tie": _bt_model, "event_tree": _et_model}
+# The CLI group and the inputs its `uncertainty` command takes, for the hint when nothing has a range.
+_RANGE_HOW = {"fault_tree": ("ft", "event"), "bow_tie": ("bowtie", "barrier or threat"),
+              "event_tree": ("et", "heading or initiating event")}
 
 
 def _summary(values: list[float], point: float) -> dict[str, Any]:
@@ -335,8 +338,9 @@ def monte_carlo(model_type: str, *, runs: int = 2000, seed: int = 1234, sampling
     model = _BUILD[model_type](paths)
     ranges = {k: v for k, v in specs(model_type, paths).items() if k in model.inputs}
     if not ranges:
+        cmd, what = _RANGE_HOW[model_type]
         raise ValueError("no input has an uncertainty range yet; give some a distribution first "
-                         "(e.g. `latris ft uncertainty <event> lognormal --median 1e-3 --error-factor 3`)")
+                         f"(e.g. `latris {cmd} uncertainty <{what}> lognormal --median 1e-3 --error-factor 3`)")
     draws = smp.sample(ranges, runs, seed=seed, method=sampling)
     point_out = model.evaluate(model.inputs)
     outputs: dict[str, list[float]] = {n: [] for n in point_out}

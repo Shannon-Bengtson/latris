@@ -155,8 +155,10 @@ app.command("docs")(docs_cmd.docs)
 def doctor() -> None:
     """Check environment prerequisites (git binary, identity config)."""
     import shutil
+    from pathlib import Path
 
     from latris.repo import git as git_ops
+    from latris.repo.project import find_project_root
 
     git = shutil.which("git")
     if not git:
@@ -165,8 +167,8 @@ def doctor() -> None:
     console.print(f"[green]git[/green]: {git}")
 
     try:
-        name = git_ops.global_config("user.name")
-        email = git_ops.global_config("user.email")
+        # The identity commits will use: env vars, then repo-local config, then global.
+        name, email = git_ops.get_effective_identity(find_project_root() or Path.cwd())
     except (OSError, git_ops.GitError) as exc:
         console.print(f"[red]could not run git: {exc}[/red]")
         raise typer.Exit(code=1) from exc

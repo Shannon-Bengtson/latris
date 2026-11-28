@@ -72,3 +72,9 @@ def test_cld_allows_only_outcome(project):
     assert target_id == a.id
     with pytest.raises(ValueError, match="not a valid role"):
         role_ops.set_role("Population", "cld", "stock", root=root)
+
+
+def test_a_role_on_a_link_is_refused(project):
+    root, _, _, e1 = project
+    with pytest.raises(ValueError, match="is a link; an Event Tree role"):
+        role_ops.assign_role(e1.id, "event_tree", "end_state", root=root)

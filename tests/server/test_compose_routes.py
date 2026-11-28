@@ -115,6 +115,8 @@ def test_apply_errors_leave_nothing_behind(client: TestClient, project: Path) ->
                                                        "edges": [{"from_label": "A", "to_label": "Missing"}]})
     assert dangling.status_code == 404
     assert client.post("/api/compose/apply", json={"nodes": [{"kind": "concept"}]}).status_code == 422
+    blank = client.post("/api/compose/apply", json={"nodes": [{"label": " "}]})
+    assert blank.status_code == 422 and "label can't be empty" in blank.json()["detail"]
     assert node_ops.list_nodes(root=project) == []
     assert git.head_sha(project) == head and not git.has_uncommitted_changes(project)
 

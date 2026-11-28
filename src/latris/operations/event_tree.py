@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
+from latris.operations._words import a_or_an
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
@@ -81,8 +82,8 @@ def _require(paths, substrate, target: str, element: str) -> tuple[str, str]:
     got = get_elements(root=paths.root).get(tid)
     if got != element:
         raise ValueError(
-            f"{label} is {('a ' + ELEMENT_NAMES[got].lower()) if got else 'not in the event tree'}, not a "
-            f"{ELEMENT_NAMES[element].lower()} (`latris et element <factor> {element}`)"
+            f"{label} is {a_or_an(ELEMENT_NAMES[got].lower()) if got else 'not in the event tree'}, not "
+            f"{a_or_an(ELEMENT_NAMES[element].lower())} (`latris et element <factor> {element}`)"
         )
     return tid, label
 

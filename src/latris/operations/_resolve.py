@@ -88,8 +88,13 @@ def resolve_target(query: str, substrate) -> str:
     """Return the stable ID of whichever Entity or Edge *query* points at."""
     try:
         return resolve_entity(query, substrate.entities).id
-    except ValueError:
+    except ValueError as node_error:
         named = resolve_edge_by_name(query, substrate)  # "A -> B", after labels (a label may hold "->")
         if named is not None:
             return named.id
-        return resolve_edge(query, substrate.edges).id
+        edge_matches = _by_id_exact(query, substrate.edges) or _by_id_prefix(query, substrate.edges)
+        if edge_matches:
+            return resolve_edge(query, substrate.edges).id  # one, or "edge prefix … is ambiguous"
+        if "ambiguous" in str(node_error):
+            raise
+        raise ResolveError(f"nothing matches {query!r} as a factor or a link") from None

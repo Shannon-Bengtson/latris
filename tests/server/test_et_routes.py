@@ -91,7 +91,7 @@ def test_frequency(staged: TestClient, project: Path) -> None:
 
 @pytest.mark.parametrize(("body", "status", "detail"), [
     ({"node": "Gas release", "frequency": -1}, 422, "greater than or equal to 0"),
-    ({"node": "Fire", "frequency": 0.02}, 422, "not a initiating event"),
+    ({"node": "Fire", "frequency": 0.02}, 422, "not an initiating event"),
     ({"node": "Nope", "frequency": 0.02}, 404, "Nope"),
 ])
 def test_frequency_errors(staged: TestClient, project: Path, body: dict, status: int, detail: str) -> None:

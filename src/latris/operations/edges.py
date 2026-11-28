@@ -6,6 +6,7 @@ from pathlib import Path
 
 from latris.operations._cascade import cascade_removed_ids
 from latris.operations._resolve import resolve_edge, resolve_edge_by_name, resolve_entity
+from latris.operations._words import a_or_an
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
@@ -30,7 +31,7 @@ class DuplicateEdgeError(ValueError):
     def __init__(self, existing: Edge, from_label: str, to_label: str) -> None:
         self.existing = existing
         super().__init__(
-            f'a {existing.kind} link "{from_label}" → "{to_label}" already exists ({existing.id}); '
+            f'{a_or_an(existing.kind)} link "{from_label}" → "{to_label}" already exists ({existing.id}); '
             "edit that one instead of adding a second"
         )
 

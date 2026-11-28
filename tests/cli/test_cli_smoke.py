@@ -90,3 +90,55 @@ def test_status_outside_project(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 1
+
+
+def test_node_add_blank_label_is_a_clean_error(tmp_path: Path, git_identity, monkeypatch):
+    root = tmp_path / "proj"
+    init_project(root, statement="X")
+    monkeypatch.chdir(root)
+    result = runner.invoke(app, ["node", "add", "  "])
+    assert result.exit_code == 2
+    assert "label can't be empty" in result.output
+    assert "Traceback" not in result.output
+
+
+def _isolate_git_config(tmp_path: Path, monkeypatch) -> None:
+    """No global or system git config and no identity env vars: the machine's own identity can't leak in."""
+    empty = tmp_path / "empty-gitconfig"
+    empty.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    for var in ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"):
+        monkeypatch.delenv(var, raising=False)
+
+
+def test_doctor_reports_an_identity_set_by_env_vars(tmp_path: Path, monkeypatch):
+    _isolate_git_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Env Person")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "env-person@example.invalid")
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 0, result.output
+    assert "Env Person" in result.output and "env-person@example.invalid" in result.output
+
+
+def test_doctor_reports_a_repo_local_identity(tmp_path: Path, monkeypatch):
+    from latris.repo import git
+
+    _isolate_git_config(tmp_path, monkeypatch)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git.run_git(["init", "-q"], cwd=repo)
+    git.set_local_identity(repo, "Local Person", "local-person@example.invalid")
+    monkeypatch.chdir(repo)
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 0, result.output
+    assert "Local Person" in result.output and "local-person@example.invalid" in result.output
+
+
+def test_doctor_without_identity(tmp_path: Path, monkeypatch):
+    _isolate_git_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 1
+    assert "not fully configured" in result.output
