@@ -97,7 +97,7 @@ def _load_node_at_branch(root: Path, branch: str) -> LineageNode | None:
         return None
     try:
         return load_model_from_string(LineageNode, text)
-    except Exception:
+    except ValueError:  # not valid YAML, or not a lineage node
         return None
 
 

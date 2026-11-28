@@ -21,6 +21,7 @@ on modelling artifacts; see docs/design/MATURITY_LADDER.md.
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from collections.abc import Callable
@@ -42,6 +43,8 @@ from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 from latris.schema.events import Surface
 from latris.telemetry import emit as telemetry_emit
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -271,11 +274,11 @@ def run_call(
                 root=paths.root,
             )
             _emit_completed(record, paths=paths, adoption="failed")
-        except Exception:
+        except Exception:  # noqa: BLE001 — recording is best-effort; the original error must surface
             # If recording the failure itself fails we still want the
             # original error to surface — don't mask the real problem
             # with a logging hiccup.
-            pass
+            logger.warning("couldn't record the failed AI call %s", prompt_name, exc_info=True)
         raise
 
     parsed = result.parsed

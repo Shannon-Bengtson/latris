@@ -7,6 +7,7 @@ apply them to the substrate in a single commit.
 
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,8 @@ from latris.schema import (
     coerce_edge_kind,
     coerce_entity_kind,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Node suggestions from data
@@ -168,7 +171,8 @@ def suggest_edges_from_correlations(
             continue
         try:
             df = load_dataframe(data_path)
-        except Exception:
+        except (OSError, ValueError, ImportError) as exc:  # unreadable or not tabular: no suggestions from it
+            logger.debug("skipping dataset %s: %s", dataset.location, exc)
             continue
 
         # Find columns that match accepted node labels.

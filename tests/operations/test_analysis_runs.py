@@ -61,3 +61,8 @@ def test_list_filters_by_purpose_newest_first(tmp_path, git_identity):
 def test_no_log_returns_empty(tmp_path, git_identity):
     root = _project(tmp_path)
     assert runs_ops.list_runs(root=root) == []
+
+
+def test_head_sha_is_empty_outside_a_repository(tmp_path):
+    assert runs_ops._head_sha(tmp_path) == ""  # not a repo: the record carries no commit
+    assert runs_ops._head_sha(tmp_path / "missing") == ""  # not even a directory

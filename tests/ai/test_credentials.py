@@ -132,3 +132,24 @@ def test_key_in_env_does_not_stomp_preexisting(
         assert os.environ["ANTHROPIC_API_KEY"] == "preexisting"
     # Still there after exit (we didn't set it, we don't pop it).
     assert os.environ["ANTHROPIC_API_KEY"] == "preexisting"
+
+
+class BrokenKeyring(InMemoryKeyring):
+    """A backend that fails the way some do (a locked or unreachable secret service)."""
+
+    def get_password(self, service: str, username: str) -> str | None:
+        raise RuntimeError("secret service unavailable")
+
+
+def test_a_broken_keyring_reads_as_no_key_and_is_logged(clean_env, caplog) -> None:
+    original = keyring.get_keyring()
+    keyring.set_keyring(BrokenKeyring())
+    try:
+        with caplog.at_level("DEBUG", logger="latris.ai.credentials"):
+            assert creds.get_key("anthropic") is None
+            assert creds.list_providers() == []
+            with creds.key_in_env(["anthropic"]):
+                assert not os.environ.get(creds.PROVIDER_ENV["anthropic"])
+    finally:
+        keyring.set_keyring(original)
+    assert "secret service unavailable" in caplog.text

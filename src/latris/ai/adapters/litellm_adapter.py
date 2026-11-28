@@ -11,6 +11,7 @@ after.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
@@ -18,6 +19,8 @@ from pydantic import BaseModel
 from latris.ai import config as ai_config
 from latris.ai.adapters.base import ChatResult, LLMCallError, redact_secrets
 from latris.perf import span
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -128,7 +131,7 @@ class LiteLLMAdapter:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — any provider/SDK failure is wrapped as LLMCallError below
             raw_response = self._extract_last_raw_response(exc)
             # On parse failure, do one self-correction pass: feed the malformed
             # output back to the model with the parser error and ask for valid
@@ -151,7 +154,7 @@ class LiteLLMAdapter:
                             temperature=temperature,
                             max_tokens=max_tokens,
                         )
-                except Exception as repair_exc:
+                except Exception as repair_exc:  # noqa: BLE001 — re-raised as LLMCallError, like the first failure
                     # Repair pass also failed — raise wrapping the *repair*
                     # error since that's the most recent (still safe — both
                     # error messages and raw response are scrubbed).
@@ -237,7 +240,8 @@ class LiteLLMAdapter:
     def _try_completion_cost(self, completion: Any) -> float | None:
         try:
             return float(self._litellm.completion_cost(completion_response=completion))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 — cost is best-effort; litellm raises anything for unpriced models
+            logger.debug("no completion cost for this response: %s", exc)
             return None
 
     @staticmethod
@@ -248,7 +252,7 @@ class LiteLLMAdapter:
                 return ""
             msg = getattr(choices[0], "message", None)
             return getattr(msg, "content", "") or ""
-        except Exception:
+        except (AttributeError, IndexError, KeyError, TypeError):
             return ""
 
     @classmethod

@@ -21,6 +21,7 @@ branch; mutating prompts keep the confirm gate.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,8 @@ from latris.ai import prompts as prompt_lib
 from latris.ai.adapters.base import LLMCallError, redact_secrets
 from latris.ai.context import build_context
 from latris.repo.project import require_project
+
+logger = logging.getLogger(__name__)
 
 TASK_VERSION = 1
 
@@ -198,11 +201,11 @@ def finalize_delegated(
                 raw_response_excerpt=redact_secrets(raw_response) if raw_response else None,
                 root=paths.root,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — recording is best-effort; the original error must surface
             # If recording the failure itself fails we still want the
             # original error to surface — don't mask the real problem
             # with a logging hiccup.
-            pass
+            logger.warning("couldn't record the failed delegated AI call", exc_info=True)
         raise
 
     return call_module._finalize_call(

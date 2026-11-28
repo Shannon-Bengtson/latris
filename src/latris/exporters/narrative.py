@@ -225,7 +225,7 @@ def _try_ai_narrative(
             )
         return result.parsed
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — any AI failure falls back to the mechanical narrative (logged)
         log.info("AI narrative generation failed, using fallback: %s", exc)
         return None
 

@@ -42,7 +42,7 @@ def _actor_from_git(root: Path) -> HumanActor:
 def _head_sha(root: Path) -> str:
     try:
         return git.head_sha(root)
-    except Exception:  # no commits yet / not a repo — non-fatal for the record
+    except (git.GitError, OSError):  # no commits yet / not a repo — non-fatal for the record
         return ""
 
 

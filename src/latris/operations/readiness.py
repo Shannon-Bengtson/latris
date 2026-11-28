@@ -213,7 +213,7 @@ def _check_cpt_complete(ctx: ValidationContext) -> list[ReadinessGap]:
             continue
         try:
             cpt_map[ne.target_id] = expand_noisy_or(ne, ss_map)
-        except Exception as exc:  # malformed spec — surface as a readiness gap
+        except (ValueError, KeyError) as exc:  # malformed spec — surface as a readiness gap
             canonical_problems[ne.target_id] = f"Invalid Noisy-OR spec: {exc}"
 
     nodes, parent_map = _bn_parent_map(ctx)

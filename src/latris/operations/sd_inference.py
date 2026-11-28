@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import logging
 import math
 from dataclasses import dataclass, field
 from typing import Any
@@ -42,6 +43,8 @@ from latris.schema.sd import (
     SDTableSet,
 )
 from latris.schema.settings import SDSettings
+
+logger = logging.getLogger(__name__)
 
 ROLES: tuple[str, ...] = ("stock", "flow", "auxiliary", "constant", "source_sink")
 _COMPUTED = ("flow", "auxiliary")  # roles with an equation
@@ -810,7 +813,8 @@ def simulate(model: SDModel, *, fast: bool = True, include_hidden: bool = False)
         if compiled is not None:
             try:
                 vals = compiled.values(t, y, consts)
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 — the fast path's failure falls back to the evaluator, which reports it
+                logger.debug("compiled step failed at t=%s, evaluating instead: %s", t, exc)
                 vals = None
             if vals is not None:
                 for v, x in zip(model.order, vals, strict=True):
