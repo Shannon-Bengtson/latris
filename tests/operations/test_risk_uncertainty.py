@@ -190,6 +190,48 @@ def test_event_tree_monte_carlo_with_conditional_probability(release):
     assert total == pytest.approx(f_mean, rel=0.05)  # the end states partition the initiator's frequency
 
 
+# ── what can be uncertain ───────────────────────────────────────────
+
+_RANGE = ("uniform", {"min": 0.0, "max": 1.0})
+
+
+def _refused(model_type, target, match, root, **kw):
+    with pytest.raises(ValueError, match=match):
+        ru.set_uncertainty(model_type, target, *_RANGE, root=root, **kw)
+
+
+def test_fault_tree_targets_refused(cooling):
+    _refused("fault_tree", "Pump A fails", "--given applies to event-tree headings only", cooling,
+             given=[("Pump B fails", "yes")])
+    _refused("fault_tree", "Both pumps fail", "isn't a basic or undeveloped event", cooling)
+    node_ops.add_node("Valve sticks", kind="event", root=cooling)
+    ft.set_event("Valve sticks", "basic_event", root=cooling)
+    _refused("fault_tree", "Valve sticks", "has no probability yet", cooling)
+
+
+def test_bow_tie_targets_refused(gas):
+    _refused("bow_tie", "Gas detection", "--given applies to event-tree headings only", gas,
+             given=[("Fire", "yes")])
+    for label, el in (("Spare barrier", "barrier"), ("Sabotage", "threat")):
+        node_ops.add_node(label, kind="event", root=gas)
+        bt.set_element(label, el, root=gas)
+    _refused("bow_tie", "Spare barrier", "has no failure probability yet", gas)
+    _refused("bow_tie", "Sabotage", "has no frequency yet", gas)
+    bt.set_barrier("Gas detection", status="not_in_place", root=gas)
+    _refused("bow_tie", "Gas detection", "is not in place, so it always fails", gas)
+
+
+def test_event_tree_targets_refused(release):
+    _refused("event_tree", "Gas release", "--given applies to headings, not the initiating event", release,
+             given=[("Gas detected", "no")])
+    _refused("event_tree", "Fire", "is neither a heading nor the initiating event", release)
+    _refused("event_tree", "Ignition", r"no probability given Isolation succeeds=no yet", release,
+             given=[("Isolation succeeds", "no")])
+    node_ops.add_node("Second release", kind="event", root=release)
+    et.set_element("Second release", "initiating_event", root=release)
+    _refused("event_tree", "Second release", "has no frequency yet", release)
+
+
 # ── surfaces ────────────────────────────────────────────────────────
 
 
