@@ -1,0 +1,22 @@
+{
+ "model_type": "cld",
+ "context": {"background": "Two of Senge's (1990) system archetypes as causal loop diagrams. Limits to growth: a reinforcing growth loop that drives a balancing loop as it runs into a constraint. Fixes that fail: a balancing fix for a problem whose side effect, after a delay, makes the problem worse again."},
+ "factors": [
+  {"label": "Growing action"}, {"label": "Performance"}, {"label": "Slowing action"}, {"label": "Limiting condition"},
+  {"label": "Problem symptom"}, {"label": "Fix"}, {"label": "Unintended consequences"}
+ ],
+ "links": [
+  {"from": "Growing action", "to": "Performance", "polarity": "+", "sources": ["senge1990"]},
+  {"from": "Performance", "to": "Growing action", "polarity": "+", "sources": ["senge1990"]},
+  {"from": "Performance", "to": "Slowing action", "polarity": "+", "sources": ["senge1990"]},
+  {"from": "Slowing action", "to": "Performance", "polarity": "-", "sources": ["senge1990"]},
+  {"from": "Limiting condition", "to": "Slowing action", "polarity": "+", "sources": ["senge1990"]},
+  {"from": "Problem symptom", "to": "Fix", "polarity": "+", "sources": ["senge1990"]},
+  {"from": "Fix", "to": "Problem symptom", "polarity": "-", "sources": ["senge1990"]},
+  {"from": "Fix", "to": "Unintended consequences", "polarity": "+", "sources": ["senge1990"]},
+  {"from": "Unintended consequences", "to": "Problem symptom", "polarity": "+", "sources": ["senge1990"]}
+ ],
+ "sources": [
+  {"key": "senge1990", "title": "The Fifth Discipline: The Art and Practice of the Learning Organization", "authors": ["Senge, P. M."], "year": 1990}
+ ]
+}

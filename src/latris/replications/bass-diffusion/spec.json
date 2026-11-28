@@ -1,0 +1,43 @@
+{
+ "model_type": "sd",
+ "context": {"background": "The Bass (1969) model of how a new product spreads through a market: some people adopt on their own (innovation, coefficient p), others because adopters around them have (imitation, coefficient q). Coefficients are the means Sultan, Farley and Lehmann (1990) found across 213 published applications."},
+ "factors": [
+  {"label": "Potential adopters"}, {"label": "Adopters"}, {"label": "Adoption"},
+  {"label": "Innovation coefficient"}, {"label": "Imitation coefficient"}, {"label": "Market size"}
+ ],
+ "links": [
+  {"from": "Potential adopters", "to": "Adoption", "kind": "flow"},
+  {"from": "Adoption", "to": "Adopters", "kind": "flow"},
+  {"from": "Innovation coefficient", "to": "Adoption", "polarity": "+", "sources": ["bass1969"]},
+  {"from": "Imitation coefficient", "to": "Adoption", "polarity": "+", "sources": ["bass1969"]},
+  {"from": "Adopters", "to": "Adoption", "polarity": "+", "reason": "Word of mouth: more adopters, more imitation.", "sources": ["bass1969"]},
+  {"from": "Potential adopters", "to": "Adoption", "polarity": "+", "reason": "Fewer people left to adopt, fewer adoptions.", "sources": ["bass1969"]},
+  {"from": "Market size", "to": "Adoption", "polarity": "-", "sources": ["bass1969"]}
+ ],
+ "sources": [
+  {"key": "bass1969", "title": "A new product growth for model consumer durables", "authors": ["Bass, F. M."], "year": 1969, "doi": "10.1287/mnsc.15.5.215"},
+  {"key": "sultan1990", "title": "A meta-analysis of applications of diffusion models", "authors": ["Sultan, F.", "Farley, J. U.", "Lehmann, D. R."], "year": 1990, "doi": "10.1177/002224379002700107"}
+ ],
+ "sd": {
+  "settings": {"time_units": "year", "initial_time": 0, "final_time": 30, "dt": 0.0625, "saveper": 0.0625, "integration_method": "rk4"},
+  "roles": [
+   {"node": "Potential adopters", "role": "stock"}, {"node": "Adopters", "role": "stock"}, {"node": "Adoption", "role": "flow"},
+   {"node": "Innovation coefficient", "role": "constant"}, {"node": "Imitation coefficient", "role": "constant"}, {"node": "Market size", "role": "constant"}
+  ],
+  "stocks": [
+   {"node": "Potential adopters", "value": 1000000, "units": "person", "non_negative": true},
+   {"node": "Adopters", "value": 0, "units": "person", "non_negative": true}
+  ],
+  "constants": [
+   {"node": "Innovation coefficient", "value": 0.03, "units": "1/year", "source": "sultan1990"},
+   {"node": "Imitation coefficient", "value": 0.38, "units": "1/year", "source": "sultan1990"},
+   {"node": "Market size", "value": 1000000, "units": "person"}
+  ],
+  "equations": [
+   {"node": "Adoption", "expression": "(innovation_coefficient + imitation_coefficient * adopters / market_size) * potential_adopters", "units": "person/year", "source": "bass1969"}
+  ]
+ },
+ "analyses": [
+  {"kind": "simulate", "settings": {"initial_time": 0, "final_time": 30, "dt": 0.0625, "saveper": 0.0625, "method": "rk4", "time_units": "year"}}
+ ]
+}

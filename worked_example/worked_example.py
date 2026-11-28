@@ -2629,6 +2629,22 @@ def build_example(ex: WorkedExample) -> None:
     )
     ex.run(["export", "md", "--pack", "client", "--no-ai", "--no-link"])
 
+    # ── 11d. Replications ────────────────────────────────────────────────
+    ex.section(
+        "Replications",
+        "Textbook models rebuilt in Latris, each with the results it must reproduce: the Asia network's "
+        "probabilities, the Bass and SIR models' exact solutions, Pearl's back-door sets and Senge's "
+        "archetype loops. `replicate check` builds each into a temporary project, runs its analyses and "
+        "compares; every expected value says where it comes from (published, closed form or exact). "
+        "These run outside a project.",
+    )
+    ex.run(["replicate", "list"])
+    ex.run(["replicate", "check", "pearl-backdoor", "sir-epidemic"])
+    ex.note("`replicate build` makes one a project of your own, analyses already run, to inspect or report on.")
+    os.chdir(ex.root.parent)
+    ex.run(["replicate", "build", "asia", "asia-replication"])
+    os.chdir(ex.root)
+
     # ── 12. History ───────────────────────────────────────────────────
     ex.section("History", "View semantic commit history, status, and diffs.")
 

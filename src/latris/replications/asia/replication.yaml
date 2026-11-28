@@ -1,0 +1,82 @@
+id: asia
+title: The Asia chest-clinic network
+model_type: bn
+question: How likely is each disease for a patient with shortness of breath who has been to Asia?
+summary: >-
+  Lauritzen and Spiegelhalter's eight-node diagnostic network, the standard first test of exact Bayesian
+  network inference. Latris must give the published tables' marginal probabilities and, after a visit to
+  Asia and dyspnoea are observed, the updated chances of tuberculosis, lung cancer and bronchitis.
+source:
+  citation: >-
+    Lauritzen, S. L. & Spiegelhalter, D. J. (1988). Local computations with probabilities on graphical
+    structures and their application to expert systems. Journal of the Royal Statistical Society, Series B,
+    50(2), 157–224.
+  doi: 10.1111/j.2517-6161.1988.tb01721.x
+checks:
+- id: prior-tuberculosis
+  claim: P(tuberculosis), no evidence
+  measure: {kind: bn_probability, analysis: 0, node: Tuberculosis, state: "yes"}
+  expected: 0.0104
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: prior-lung-cancer
+  claim: P(lung cancer), no evidence
+  measure: {kind: bn_probability, analysis: 0, node: Lung cancer, state: "yes"}
+  expected: 0.055
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: prior-bronchitis
+  claim: P(bronchitis), no evidence
+  measure: {kind: bn_probability, analysis: 0, node: Bronchitis, state: "yes"}
+  expected: 0.45
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: prior-either
+  claim: P(tuberculosis or cancer), no evidence
+  measure: {kind: bn_probability, analysis: 0, node: Tuberculosis or cancer, state: "yes"}
+  expected: 0.064828
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: prior-xray
+  claim: P(positive X-ray), no evidence
+  measure: {kind: bn_probability, analysis: 0, node: Positive X-ray, state: "yes"}
+  expected: 0.11029004
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: prior-dyspnoea
+  claim: P(dyspnoea), no evidence
+  measure: {kind: bn_probability, analysis: 0, node: Dyspnoea, state: "yes"}
+  expected: 0.4359706
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: posterior-tuberculosis
+  claim: P(tuberculosis | visit to Asia, dyspnoea)
+  measure: {kind: bn_probability, analysis: 1, node: Tuberculosis, state: "yes"}
+  expected: 0.0877509649829219
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: posterior-lung-cancer
+  claim: P(lung cancer | visit to Asia, dyspnoea)
+  measure: {kind: bn_probability, analysis: 1, node: Lung cancer, state: "yes"}
+  expected: 0.0995251450945544
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+- id: posterior-bronchitis
+  claim: P(bronchitis | visit to Asia, dyspnoea)
+  measure: {kind: bn_probability, analysis: 1, node: Bronchitis, state: "yes"}
+  expected: 0.8114020715892366
+  abs_tol: 1.0e-9
+  basis: exact
+  where: Exact enumeration of all 256 joint states of the published tables.
+notes:
+- The tables are the ones used throughout the literature for this network; the paper presents them in its text.
+- "Expected values are exact calculations from those tables, not numbers read from the paper's figures; the
+  test suite repeats the enumeration without Latris."

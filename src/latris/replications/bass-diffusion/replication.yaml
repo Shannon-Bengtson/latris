@@ -1,0 +1,50 @@
+id: bass-diffusion
+title: Bass diffusion of a new product
+model_type: sd
+question: How fast does a new product spread through its market?
+summary: >-
+  The Bass (1969) diffusion model as a stock-and-flow simulation, with the average innovation and imitation
+  coefficients from Sultan, Farley and Lehmann's meta-analysis. The model has an exact solution, so Latris's
+  simulated adoption curve, its peak and the time of the peak can each be checked against a formula.
+source:
+  citation: >-
+    Bass, F. M. (1969). A new product growth for model consumer durables. Management Science, 15(5), 215–227.
+  doi: 10.1287/mnsc.15.5.215
+checks:
+- id: adopters-year-5
+  claim: Adopters after 5 years
+  measure: {kind: sd_value, analysis: 0, variable: Adopters, time: 5}
+  expected: 331198.6424913736
+  rel_tol: 1.0e-4
+  basis: closed_form
+  where: "N(t) = M (1 − e^(−(p+q)t)) / (1 + (q/p) e^(−(p+q)t)), with p = 0.03, q = 0.38, M = 1,000,000."
+- id: adopters-year-10
+  claim: Adopters after 10 years
+  measure: {kind: sd_value, analysis: 0, variable: Adopters, time: 10}
+  expected: 812803.2212213462
+  rel_tol: 1.0e-4
+  basis: closed_form
+  where: "N(t) = M (1 − e^(−(p+q)t)) / (1 + (q/p) e^(−(p+q)t)), with p = 0.03, q = 0.38, M = 1,000,000."
+- id: adopters-year-20
+  claim: Adopters after 20 years
+  measure: {kind: sd_value, analysis: 0, variable: Adopters, time: 20}
+  expected: 996259.4145024163
+  rel_tol: 1.0e-4
+  basis: closed_form
+  where: "N(t) = M (1 − e^(−(p+q)t)) / (1 + (q/p) e^(−(p+q)t)), with p = 0.03, q = 0.38, M = 1,000,000."
+- id: peak-time
+  claim: When adoptions peak (years)
+  measure: {kind: sd_peak_time, analysis: 0, variable: Adoption}
+  expected: 6.192619197703112
+  abs_tol: 0.01
+  basis: closed_form
+  where: "t* = ln(q/p) / (p + q)."
+- id: peak-rate
+  claim: Adoptions a year at the peak
+  measure: {kind: sd_peak_value, analysis: 0, variable: Adoption}
+  expected: 110592.10526315791
+  rel_tol: 1.0e-4
+  basis: closed_form
+  where: "dN/dt at t* = M (p + q)² / (4q)."
+notes:
+- The coefficients are the meta-analysis means, not those of any one product, so there is no observed series to compare with.

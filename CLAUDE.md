@@ -25,6 +25,11 @@ Start at [README.md](./README.md) and [docs/README.md](./docs/README.md).
   module plus four central entries (ARCHITECTURE.md → "Adding a
   formalism"). What comes next is in
   [`docs/engineering/ROADMAP.md`](./docs/engineering/ROADMAP.md).
+- [`src/latris/replications/`](./src/latris/replications/) — textbook models
+  (Asia, Bass, SIR, Pearl's back-door, Senge's archetypes) with the results
+  each must reproduce; `latris replicate check` runs them. A new one needs a
+  folder there and an independent recomputation of its expected values in
+  `tests/operations/test_replications.py`.
 - [`tests/`](./tests/) — pytest suite mirroring the package layout.
   Hermetic — env-var git identity, commit signing off, and
   `LATRIS_AI_MOCK=1`; no network or real keys required.

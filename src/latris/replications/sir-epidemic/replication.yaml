@@ -1,0 +1,32 @@
+id: sir-epidemic
+title: Kermack–McKendrick SIR epidemic
+model_type: sd
+question: How many people does an epidemic with a reproduction number of 2 infect, and how high does it peak?
+summary: >-
+  The classic susceptible–infectious–recovered model in a population of a million, with a basic
+  reproduction number of 2. Its final size and peak are fixed by a conserved quantity of the equations, so
+  Latris's simulation must land on the exact values.
+source:
+  citation: >-
+    Kermack, W. O. & McKendrick, A. G. (1927). A contribution to the mathematical theory of epidemics.
+    Proceedings of the Royal Society of London, Series A, 115(772), 700–721.
+  doi: 10.1098/rspa.1927.0118
+checks:
+- id: final-size
+  claim: People ever infected, once the epidemic is over (day 300)
+  measure: {kind: sd_value, analysis: 0, variable: Recovered, time: 300}
+  expected: 796815.5528253908
+  rel_tol: 1.0e-4
+  basis: closed_form
+  where: "The final-size relation ln(s∞ / s₀) = R₀ (s∞ − s₀ − i₀), with R₀ = β/γ = 2, s₀ = 0.99999, i₀ = 0.00001; ever infected = N (1 − s∞)."
+- id: peak-prevalence
+  claim: Most people infectious at once
+  measure: {kind: sd_peak_value, analysis: 0, variable: Infectious}
+  expected: 153431.40974502754
+  rel_tol: 5.0e-4
+  basis: closed_form
+  where: "i_max = i₀ + s₀ − (1 + ln(R₀ s₀)) / R₀, from the conserved quantity s + i − ln(s)/R₀."
+notes:
+- A recorded run keeps 200 points (here 1.5 days apart); the peak is read from the parabola through the
+  highest three, which adds about 1e-4 of error the simulation itself doesn't have, hence the looser tolerance.
+- The final size is read at day 300, when fewer than one person is still infectious.

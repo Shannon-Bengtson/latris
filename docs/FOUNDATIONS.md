@@ -568,6 +568,17 @@ XMILE/Vensim import is no longer excluded — it joined the roadmap on
 2026-11-25 (see [ROADMAP.md](engineering/ROADMAP.md)); it had never been an
 inspectability objection. See the capability manifest for the living list.
 
+## Replications: checked against the literature
+
+Each engine is also checked against textbook models with known results:
+`latris replicate check` rebuilds them (`src/latris/replications/`) and
+compares what Latris computes with the expected values, each marked as
+published, closed form or exact. Today: the Asia network (Lauritzen &
+Spiegelhalter 1988), Bass diffusion (Bass 1969), the SIR epidemic (Kermack &
+McKendrick 1927), Pearl's (2009) back-door example and two of Senge's (1990)
+system archetypes. The test suite runs them all and recomputes every exact and
+closed-form value without Latris.
+
 ## Machine-readable source of truth
 
 The report's **Methods and foundations** section and the capability manifest's

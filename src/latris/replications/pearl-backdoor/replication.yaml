@@ -1,0 +1,43 @@
+id: pearl-backdoor
+title: Pearl's back-door example
+model_type: dag
+question: Which variables must be adjusted for to estimate the effect of X on Y?
+summary: >-
+  The eight-variable diagram Pearl uses to define the back-door criterion. Latris must accept the two
+  adjustment sets Pearl gives, reject the one he shows fails, and find exactly the minimal sufficient sets.
+source:
+  citation: "Pearl, J. (2009). Causality: Models, Reasoning, and Inference (2nd ed.). Cambridge University Press."
+  doi: 10.1017/CBO9780511803161
+checks:
+- id: x3-x4-sufficient
+  claim: "{X3, X4} satisfies the back-door criterion"
+  measure: {kind: dag_adjustment_valid, exposure: X, outcome: Y, adjust_for: [X3, X4]}
+  expected: true
+  basis: published
+  where: Pearl (2009), §3.3.1, the example of Figure 3.4.
+- id: x4-x5-sufficient
+  claim: "{X4, X5} satisfies the back-door criterion"
+  measure: {kind: dag_adjustment_valid, exposure: X, outcome: Y, adjust_for: [X4, X5]}
+  expected: true
+  basis: published
+  where: Pearl (2009), §3.3.1, the example of Figure 3.4.
+- id: x4-alone-insufficient
+  claim: "{X4} alone does not: it opens the path X ← X3 ← X1 → X4 ← X2 → X5 → Y"
+  measure: {kind: dag_adjustment_valid, exposure: X, outcome: Y, adjust_for: [X4]}
+  expected: false
+  basis: published
+  where: Pearl (2009), §3.3.1, the example of Figure 3.4.
+- id: mediator-not-allowed
+  claim: "{X4, X5, X6} does not: X6 is a descendant of X"
+  measure: {kind: dag_adjustment_valid, exposure: X, outcome: Y, adjust_for: [X4, X5, X6]}
+  expected: false
+  basis: published
+  where: Pearl (2009), Definition 3.3.1, condition (i).
+- id: minimal-sets
+  claim: The minimal sufficient adjustment sets Latris finds
+  measure: {kind: dag_adjustment_sets, exposure: X, outcome: Y}
+  expected: [[X1, X4], [X2, X4], [X3, X4], [X4, X5]]
+  basis: exact
+  where: Every subset of the non-descendants of X tested against Definition 3.3.1, keeping those with no valid proper subset.
+notes:
+- Pearl names {X3, X4} and {X4, X5} as examples; {X1, X4} and {X2, X4} are also minimal, as the exhaustive search finds.
