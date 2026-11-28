@@ -291,12 +291,12 @@ class AttackResult(_Base):
             created.append(entry.id)
         if self.follow_up_question and self.follow_up_question.strip():
             target_id = self.affected_node_ids[0] if self.affected_node_ids else None
-            entry, _ = add_question(
+            question, _ = add_question(
                 self.follow_up_question,
                 target_id=target_id,
                 root=paths.root,
             )
-            created.append(entry.id)
+            created.append(question.id)
         return created
 
 
@@ -413,11 +413,11 @@ class ScopeCheckResult(_Base):
             )
             created.append(entry.id)
         for q in self.proposed_questions:
-            entry, _ = add_question(
+            question, _ = add_question(
                 q.question,
                 root=paths.root,
             )
-            created.append(entry.id)
+            created.append(question.id)
         return created
 
 

@@ -112,10 +112,10 @@ def fingerprint(
             if scope is not None and e.id not in scope.entity_ids:
                 continue
             h.update(f"n|{e.id}|{e.label}|{e.kind}\n".encode())
-        for e in sorted(sub.edges, key=lambda x: x.id):
-            if scope is not None and e.id not in scope.edge_ids:
+        for ed in sorted(sub.edges, key=lambda x: x.id):
+            if scope is not None and ed.id not in scope.edge_ids:
                 continue
-            h.update(f"e|{e.id}|{e.from_id}|{e.to_id}|{e.kind}\n".encode())
+            h.update(f"e|{ed.id}|{ed.from_id}|{ed.to_id}|{ed.kind}\n".encode())
     h.update(_file_text(paths.role_path(model_type)).encode())
     # Inputs beyond structure, roles and parameters that this model type's results read (evidence, datasets…).
     for f in formalisms.fingerprint_files(model_type, paths):
