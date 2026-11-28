@@ -4,7 +4,6 @@ operations/equation_model.py::load 57
 operations/share_link.py::export_spec 54
 operations/decision_tree.py::load_tree 50
 operations/toc.py::analyse 49
-operations/argument_map.py::analyse 47
 operations/global_sensitivity.py::analyse 47
 operations/psa.py::markov_psa 45
 operations/sd_montecarlo.py::monte_carlo 45
@@ -30,6 +29,5 @@ operations/sd_montecarlo.py::compare_options 34
 operations/formalisms/mcda.py::_claims 33
 operations/global_sensitivity.py::_bn 33
 operations/markov.py::load 33
-operations/argument_map.py::label 32
 operations/event_tree.py::analyse 32
 operations/formalisms/event_tree.py::_claims 31
