@@ -53,12 +53,15 @@ def test_report_section(project):
     am.set_element("Should we fund it?", "question", root=project)
     node_ops.add_node("Unrelated aside", root=project)
     am.set_element("Unrelated aside", "claim", root=project)
+    am.set_link("Patients want it -> Fund the drug", warrant="Preference | need", qualifier="probably", root=project)
     p = am.analyse(root=project)
     text = "\n".join(KIND.render(p))
     assert text.startswith("Fund the drug stands on 1 reason(s)")
     assert "The question: Should we fund it?" in text
     assert "| For | Because | Holds? | Qualifier | Warrant |" in text
     assert "| Fund the drug | The drug works + We can afford it | fails | — | — |" in text
+    # The table escapes a cell once: a pipe in the warrant must not end the cell.
+    assert "| Fund the drug | Patients want it | holds | probably | Preference \\| need |" in text
     assert "| The trial was small | The drug works | defeated | answered |" in text
     assert "| The budget is overspent | We can afford it | stands | **unanswered** |" in text
     assert "Answers to objections:" in text and "| A second trial confirmed it | The trial was small | stands |" in text

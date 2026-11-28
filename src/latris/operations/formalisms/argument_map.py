@@ -29,7 +29,7 @@ def _render(p: dict[str, Any]) -> list[str]:
         out += [f"The question: {md.esc(p['question'])}", ""]
     if p["reasons"]:
         rows = [[r["claim"], " + ".join(r["premises"]), r["status"], r["qualifier"] or "—",
-                 md.esc(r["warrant"] or "") or "—"] for r in p["reasons"][:md.MAX_ROWS]]
+                 r["warrant"] or "—"] for r in p["reasons"][:md.MAX_ROWS]]
         out += ["Reasons offered (premises joined by + only work together):", ""]
         out += md.table(["For", "Because", "Holds?", "Qualifier", "Warrant"], rows)
     if p["objections"]:
