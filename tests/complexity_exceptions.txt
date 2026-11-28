@@ -16,7 +16,6 @@ exporters/markdown.py::_render_interpretation 35
 ai/context/configure.py::_build_suggest_edge_polarities 34
 ai/context/_shared.py::_project_activity_summary 34
 operations/fault_tree.py::load_tree 34
-operations/process_tracing.py::analyse 34
 operations/sd_montecarlo.py::compare_options 34
 operations/formalisms/mcda.py::_claims 33
 operations/global_sensitivity.py::_bn 33

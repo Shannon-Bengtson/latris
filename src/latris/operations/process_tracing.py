@@ -186,6 +186,46 @@ def verdict(p: float) -> str:
 
 
 
+def _test_row(t: PTTestEntry) -> dict[str, Any]:
+    return {"test": t.name, "type": classify(t.p_if_true, t.p_if_false), "p_if_true": t.p_if_true,
+            "p_if_false": t.p_if_false, "found": t.found, "description": t.description,
+            "ratio": likelihood_ratio(t.p_if_true, t.p_if_false, t.found) if t.found is not None else None,
+            "source": t.source_id, "weak": t.is_weak}
+
+
+def _link_row(name: str, on_pathway: bool, prior: PTPriorEntry | None, tests: list[PTTestEntry]) -> dict[str, Any]:
+    """A link's prior, its tests, the posterior from the done ones and what each pending one would do."""
+    pr = prior.prior if prior else DEFAULT_PRIOR
+    ratios = [likelihood_ratio(t.p_if_true, t.p_if_false, t.found) for t in tests if t.found is not None]
+    p = posterior(pr, ratios)
+    pending = [{"test": t.name, "type": classify(t.p_if_true, t.p_if_false),
+                "if_found": posterior(p, [likelihood_ratio(t.p_if_true, t.p_if_false, True)]),
+                "if_not_found": posterior(p, [likelihood_ratio(t.p_if_true, t.p_if_false, False)])}
+               for t in tests if t.found is None]
+    return {
+        "link": name, "on_pathway": on_pathway, "prior": pr,
+        "prior_source": prior.source_id if prior else None,
+        "tests": [_test_row(t) for t in sorted(tests, key=lambda t: t.name)],
+        "posterior": p, "verdict": verdict(p), "pending": pending,
+    }
+
+
+def _pathway_rows(pathways: list[Any], post: dict[str, float], labels: dict[str, str], names: dict[str, str]
+                  ) -> list[dict[str, Any]]:
+    """Each pathway's confidence (the product of its links' posteriors) and its weakest link, most credible
+    first."""
+    rows: list[dict[str, Any]] = []
+    for pw in pathways:
+        conf = 1.0
+        for e in pw.edge_ids:
+            conf *= post.get(e, DEFAULT_PRIOR)
+        weakest = min(pw.edge_ids, key=lambda e: post.get(e, DEFAULT_PRIOR))
+        rows.append({"path": [labels[n] for n in pw.node_ids], "confidence": conf,
+                     "weakest": names[weakest], "weakest_posterior": post.get(weakest, DEFAULT_PRIOR)})
+    rows.sort(key=lambda x: -x["confidence"])
+    return rows
+
+
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
     from latris.operations import toc
 
@@ -200,44 +240,14 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
             tests.setdefault(t.target_id, []).append(t)
     on_path = {lk.edge_id for lk in result.links if lk.on_pathway}
     traced = sorted(set(priors) | set(tests) | on_path, key=lambda e: names[e])
-    links, post = [], {}
-    for e in traced:
-        pr = priors[e].prior if e in priors else DEFAULT_PRIOR
-        done = [t for t in tests.get(e, []) if t.found is not None]
-        ratios = [likelihood_ratio(t.p_if_true, t.p_if_false, t.found) for t in done]  # type: ignore[arg-type]
-        p = posterior(pr, ratios)
-        post[e] = p
-        pending = []
-        for t in tests.get(e, []):
-            if t.found is None:
-                pending.append({"test": t.name, "type": classify(t.p_if_true, t.p_if_false),
-                                "if_found": posterior(p, [likelihood_ratio(t.p_if_true, t.p_if_false, True)]),
-                                "if_not_found": posterior(p, [likelihood_ratio(t.p_if_true, t.p_if_false, False)])})
-        links.append({
-            "link": names[e], "on_pathway": e in on_path, "prior": pr,
-            "prior_source": priors[e].source_id if e in priors else None,
-            "tests": [{"test": t.name, "type": classify(t.p_if_true, t.p_if_false), "p_if_true": t.p_if_true,
-                       "p_if_false": t.p_if_false, "found": t.found, "description": t.description,
-                       "ratio": likelihood_ratio(t.p_if_true, t.p_if_false, t.found) if t.found is not None else None,
-                       "source": t.source_id, "weak": t.is_weak}
-                      for t in sorted(tests.get(e, []), key=lambda t: t.name)],
-            "posterior": p, "verdict": verdict(p), "pending": pending,
-        })
-    pathways = []
-    for pw in result.pathways:
-        conf = 1.0
-        for e in pw.edge_ids:
-            conf *= post.get(e, DEFAULT_PRIOR)
-        weakest = min(pw.edge_ids, key=lambda e: post.get(e, DEFAULT_PRIOR))
-        pathways.append({"path": [labels[n] for n in pw.node_ids], "confidence": conf,
-                         "weakest": names[weakest], "weakest_posterior": post.get(weakest, DEFAULT_PRIOR)})
-    pathways.sort(key=lambda x: -x["confidence"])
+    links = [_link_row(names[e], e in on_path, priors.get(e), tests.get(e, [])) for e in traced]
+    post = {e: lk["posterior"] for e, lk in zip(traced, links, strict=True)}
     candidates = [(lk["link"], t) for lk in links if lk["on_pathway"] for t in lk["pending"]]
     nxt = max(candidates, key=lambda c: abs(c[1]["if_found"] - c[1]["if_not_found"]), default=None)
     rested = sorted({f"'{t['test']}' on {lk['link']}" for lk in links for t in lk["tests"]
                      if t["found"] is not None and t["weak"]})
     return {
-        "links": links, "pathways": pathways,
+        "links": links, "pathways": _pathway_rows(result.pathways, post, labels, names),
         "untested": [lk["link"] for lk in links if lk["on_pathway"] and not any(t["found"] is not None
                                                                               for t in lk["tests"])],
         "next_test": {"link": nxt[0], **nxt[1]} if nxt else None,
