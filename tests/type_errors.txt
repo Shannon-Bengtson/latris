@@ -44,7 +44,6 @@ src/latris/operations/build.py 4
 src/latris/operations/compose.py 1
 src/latris/operations/configure.py 1
 src/latris/operations/elicitation.py 1
-src/latris/operations/fault_tree.py 2
 src/latris/operations/global_sensitivity.py 1
 src/latris/operations/graph_analysis.py 3
 src/latris/operations/handover.py 2

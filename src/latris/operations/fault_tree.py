@@ -101,7 +101,7 @@ def set_gate(
     etype = get_events(root=paths.root).get(tid)
     if etype not in GATED:
         raise ValueError(
-            f"{label} is {EVENT_NAMES.get(etype, 'not in the fault tree').lower()}; only a top or intermediate "
+            f"{label} is {EVENT_NAMES.get(etype or '', 'not in the fault tree').lower()}; only a top or intermediate "
             "event has a gate (`latris ft event <factor> intermediate_event` first)"
         )
     entry = FTGateEntry(target_id=tid, gate=gate, k=k)  # type: ignore[arg-type]
@@ -129,7 +129,7 @@ def set_probability(
     etype = get_events(root=paths.root).get(tid)
     if etype not in LEAVES:
         raise ValueError(
-            f"{label} is {EVENT_NAMES.get(etype, 'not in the fault tree').lower()}; only basic and undeveloped "
+            f"{label} is {EVENT_NAMES.get(etype or '', 'not in the fault tree').lower()}; only basic and undeveloped "
             "events take a probability — the others follow from their gates"
         )
     entry = FTProbabilityEntry(target_id=tid, probability=probability, origin=origin, source_id=source_id,
@@ -193,11 +193,8 @@ def _find_cycle(members: list[str], inputs: dict[str, list[str]]) -> str | None:
     return None
 
 
-def load_tree(*, root: Path | None = None) -> Tree:
-    paths = require_project(root)
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-    labels = {e.id: e.label for e in substrate.entities}
-    events = {k: v for k, v in get_events(root=paths.root).items() if k in labels}
+def _tree_inputs(substrate: Substrate, events: dict[str, str]) -> tuple[dict[str, list[str]], list[tuple[str, str]]]:
+    """Each event's input events (once each), and links into the tree from factors outside it."""
     inputs: dict[str, list[str]] = defaultdict(list)
     outside: list[tuple[str, str]] = []
     for e in substrate.edges:
@@ -208,6 +205,48 @@ def load_tree(*, root: Path | None = None) -> Tree:
                 inputs[e.to_id].append(e.from_id)
         else:
             outside.append((e.from_id, e.to_id))
+    return inputs, outside
+
+
+def _event_problems(events: dict[str, str], inputs: dict[str, list[str]], gates: dict[str, Any]) -> list[FTProblem]:
+    """A gated event needs a gate and inputs (and a vote it can reach); a leaf takes no inputs."""
+    problems: list[FTProblem] = []
+    for eid, t in events.items():
+        n_in = len(inputs.get(eid, []))
+        if t not in GATED:
+            if n_in:
+                problems.append(FTProblem(eid, "ft_leaf_has_inputs", f"{EVENT_NAMES[t]} with input events: make it "
+                                                                      "an intermediate event with a gate."))
+            continue
+        if eid not in gates:
+            problems.append(FTProblem(eid, "ft_no_gate", "No gate: say whether its inputs combine with and, "
+                                                         "or, or vote (`latris ft gate`)."))
+        if n_in == 0:
+            problems.append(FTProblem(eid, "ft_no_inputs", "No input events: link the events that cause it, "
+                                                           "or make it a basic or undeveloped event."))
+        g = gates.get(eid)
+        if g and g.gate == "vote" and g.k and g.k > n_in:
+            problems.append(FTProblem(eid, "ft_vote_k", f"Vote gate needs {g.k} of {n_in} input(s)."))
+    return problems
+
+
+def _not_in_tree(events: dict[str, str], inputs: dict[str, list[str]], top: str) -> list[FTProblem]:
+    reach: set[str] = set()
+    stack = [top]
+    while stack:
+        n = stack.pop()
+        if n not in reach:
+            reach.add(n)
+            stack.extend(inputs.get(n, []))
+    return [FTProblem(eid, "ft_not_in_tree", "Doesn't lead to the top event.") for eid in events if eid not in reach]
+
+
+def load_tree(*, root: Path | None = None) -> Tree:
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    labels = {e.id: e.label for e in substrate.entities}
+    events = {k: v for k, v in get_events(root=paths.root).items() if k in labels}
+    inputs, outside = _tree_inputs(substrate, events)
     gates = {g.target_id: g for g in get_gates(root=paths.root).entries if g.target_id in events}
     probs = {p.target_id: p for p in get_probabilities(root=paths.root).entries if p.target_id in events}
 
@@ -215,39 +254,15 @@ def load_tree(*, root: Path | None = None) -> Tree:
     tops = [eid for eid, t in events.items() if t == "top_event"]
     if not tops:
         problems.append(FTProblem(None, "ft_no_top", "No top event: say which undesired event the tree explains."))
-    elif len(tops) > 1:
-        for t in tops[1:]:
-            problems.append(FTProblem(t, "ft_many_tops", "A fault tree has one top event; make the others "
-                                                          "intermediate events or build a tree for each."))
-    for eid, t in events.items():
-        n_in = len(inputs.get(eid, []))
-        if t in GATED:
-            if eid not in gates:
-                problems.append(FTProblem(eid, "ft_no_gate", "No gate: say whether its inputs combine with and, "
-                                                             "or, or vote (`latris ft gate`)."))
-            if n_in == 0:
-                problems.append(FTProblem(eid, "ft_no_inputs", "No input events: link the events that cause it, "
-                                                               "or make it a basic or undeveloped event."))
-            g = gates.get(eid)
-            if g and g.gate == "vote" and g.k and g.k > n_in:
-                problems.append(FTProblem(eid, "ft_vote_k", f"Vote gate needs {g.k} of {n_in} input(s)."))
-        elif n_in:
-            problems.append(FTProblem(eid, "ft_leaf_has_inputs", f"{EVENT_NAMES[t]} with input events: make it an "
-                                                                  "intermediate event with a gate."))
+    for t in tops[1:]:
+        problems.append(FTProblem(t, "ft_many_tops", "A fault tree has one top event; make the others "
+                                                      "intermediate events or build a tree for each."))
+    problems += _event_problems(events, inputs, gates)
     cyc = _find_cycle(list(events), inputs)
     if cyc:
         problems.append(FTProblem(cyc, "ft_cycle", "The tree loops back on itself through this event."))
     elif len(tops) == 1:
-        reach: set[str] = set()
-        stack = [tops[0]]
-        while stack:
-            n = stack.pop()
-            if n not in reach:
-                reach.add(n)
-                stack.extend(inputs.get(n, []))
-        for eid in events:
-            if eid not in reach:
-                problems.append(FTProblem(eid, "ft_not_in_tree", "Doesn't lead to the top event."))
+        problems += _not_in_tree(events, inputs, tops[0])
     return Tree(labels=labels, events=events, inputs=dict(inputs), gates=gates, probabilities=probs,
                 top=tops[0] if len(tops) == 1 else None, problems=problems, outside_inputs=outside)
 
