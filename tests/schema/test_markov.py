@@ -41,3 +41,11 @@ def test_round_trip(tmp_path: Path):
     for i, (model, cls) in enumerate(models):
         dump_model(model, tmp_path / f"{i}.yaml")
         assert load_model(cls, tmp_path / f"{i}.yaml") == model
+
+
+@pytest.mark.parametrize("field", ["cost", "utility"])
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_a_reward_refuses_a_non_finite_number(field, bad):
+    # A JSON NaN or Infinity would otherwise be stored and poison every cohort total.
+    with pytest.raises(ValidationError):
+        MarkovRewardEntry(target_id="s", **{field: bad})
