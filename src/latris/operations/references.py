@@ -368,12 +368,23 @@ def fetch_reference_source(
         raise ValueError(f"only http(s) URLs can be fetched, not {target_url!r}")
     fetch = http_get if http_get is not None else safe_get
 
-    response = fetch(
-        target_url,
-        timeout=20,
-        headers={"User-Agent": "Latris/0.1 (source verification)"},
-    )
-    response.raise_for_status()
+    import httpx
+
+    # A source that can't be reached, or answers with an error, is the request's problem to report (as
+    # import_doi does), not a crash.
+    try:
+        response = fetch(
+            target_url,
+            timeout=20,
+            headers={"User-Agent": "Latris/0.1 (source verification)"},
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise ValueError(f"{target_url!r} answered with an error ({exc.response.status_code})") from exc
+    except httpx.TimeoutException as exc:
+        raise ValueError(f"fetching {target_url!r} timed out") from exc
+    except httpx.HTTPError as exc:
+        raise ValueError(f"could not reach {target_url!r}: {exc}") from exc
 
     content_type = (response.headers.get("content-type") or "").split(";")[0].strip().lower()
     final_url = str(getattr(response, "url", None) or target_url)

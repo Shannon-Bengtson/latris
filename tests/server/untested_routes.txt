@@ -19,7 +19,6 @@ POST /api/lineage/publish
 POST /api/lineage/reconcile
 POST /api/lineage/reconcile/preview
 POST /api/lineage/restore
-POST /api/references/{bibkey}/fetch
 POST /api/results/{run_id}/unhide
 POST /api/sync/abort
 POST /api/sync/clone
