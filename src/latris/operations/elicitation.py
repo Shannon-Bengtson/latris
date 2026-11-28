@@ -34,7 +34,13 @@ def _sanitize_slug(text: str, max_len: int = 50) -> str:
 
 
 def _session_file_path(paths, held_at: date, protocol: str, slug: str) -> Path:
-    return paths.elicitations_dir / f"{held_at.isoformat()}-{protocol}-{slug}.yaml"
+    """A new session's file; a second session on the same day, protocol and attribute gets ``-2`` (and so on)."""
+    stem = f"{held_at.isoformat()}-{protocol}-{slug}"
+    path, n = paths.elicitations_dir / f"{stem}.yaml", 1
+    while path.exists():
+        n += 1
+        path = paths.elicitations_dir / f"{stem}-{n}.yaml"
+    return path
 
 
 def start_session(
