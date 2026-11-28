@@ -50,6 +50,8 @@ def assign_role(target: str, model_type: str, role: str, *, root: Path | None = 
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     target_id = resolve_target(target, substrate)
+    if any(e.id == target_id for e in substrate.edges):
+        raise ValueError(f"{target!r} is a link; a {spec.display_name} role ({role}) belongs to a factor")
 
     file_path = paths.role_path(model_type)
     # Ensure the roles directory exists on first write.
