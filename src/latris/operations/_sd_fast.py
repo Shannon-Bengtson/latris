@@ -203,6 +203,8 @@ class _Compiler:
         if isinstance(node, ast.Constant):
             if not _is_num(node.value):
                 raise _Unsupported("non-numeric literal")
+            if not math.isfinite(node.value):  # repr() would write the bare name ``inf``
+                raise _Unsupported("non-finite literal")
             return repr(node.value), node.value
         if isinstance(node, ast.Name):
             if node.id == TIME:
