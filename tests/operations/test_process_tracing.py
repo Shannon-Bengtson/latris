@@ -80,6 +80,22 @@ def test_trace_updates_links_and_pathway(project):
     assert "'attendance rises' on Mentoring → Engagement" in p["rests_on_unverified"]
 
 
+def test_trace_rows_with_found_and_pending_tests_on_one_link(project):
+    root = project
+    pt.set_test("Mentoring -> Engagement", "b found", p_if_true=0.9, p_if_false=0.3, found=False, root=root)
+    pt.set_test("Mentoring -> Engagement", "a pending", p_if_true=0.6, p_if_false=0.1, root=root)
+    p, _ = pt.trace(record=False, root=root)
+    first = next(lk for lk in p["links"] if lk["link"] == "Mentoring → Engagement")
+    assert [t["test"] for t in first["tests"]] == ["a pending", "b found"]  # by name
+    assert first["tests"][0]["ratio"] is None and first["tests"][1]["ratio"] == pytest.approx(0.1 / 0.7)
+    assert [t["test"] for t in first["pending"]] == ["a pending"]
+    assert first["prior"] == pt.DEFAULT_PRIOR and first["prior_source"] is None
+    assert first["posterior"] == pytest.approx(pt.posterior(pt.DEFAULT_PRIOR, [0.1 / 0.7]))
+    assert p["untested"] == ["Engagement → Attainment"] and p["toc_complete"]
+    assert p["next_test"]["link"] == "Mentoring → Engagement" and p["next_test"]["test"] == "a pending"
+    assert p["pathways"][0]["weakest"] == "Mentoring → Engagement"
+
+
 def test_update_test_result_and_record(project):
     root = project
     pt.set_test("Engagement -> Attainment", "g", p_if_true=0.7, p_if_false=0.2, root=root)

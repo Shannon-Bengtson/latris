@@ -77,6 +77,62 @@ def test_structure_problems(project):
     assert {"bt_bad_link", "bt_barrier_off_line"} <= kinds
 
 
+def test_element_count_problems_in_order(project):
+    """Two top events and two hazards: the count problems, and no line tracing (there is no single top)."""
+    _classify(project)
+    for label, el in (("Second top event", "top_event"), ("Second hazard", "hazard")):
+        node_ops.add_node(label, root=project)
+        bt.set_element(label, el, root=project)
+    t = bt.load_bow_tie(root=project)
+    assert t.top is None and not t.left and not t.right
+    assert [(t.labels.get(p.target_id or "", None), p.gap_type) for p in t.problems] == [
+        ("Second top event", "bt_many_tops"), ("Second hazard", "bt_many_hazards")]
+
+
+def test_unlinked_elements_in_order(project):
+    """Each kind of element that no line reaches gets its own problem, in a stable order."""
+    _classify(project)
+    for label, el in (("Stored energy", "hazard"), ("Lightning", "threat"), ("Explosion", "consequence"),
+                      ("Fatigue", "escalation_factor")):
+        node_ops.add_node(label, root=project)
+        bt.set_element(label, el, root=project)
+    node_ops.add_node("Weather", root=project)  # not a bow-tie element: an input from outside
+    edge_ops.add_edge("Weather", "Corrosion", root=project)
+    t = bt.load_bow_tie(root=project)
+    assert [(t.labels.get(p.target_id or "", None), p.gap_type) for p in t.problems] == [
+        ("Stored energy", "bt_many_hazards"), ("Stored energy", "bt_hazard_unlinked"),
+        ("Lightning", "bt_threat_unlinked"), ("Explosion", "bt_consequence_unlinked"),
+        ("Fatigue", "bt_escalation_unlinked")]
+    assert [(t.labels[a], t.labels[b]) for a, b in t.outside_inputs] == [("Weather", "Corrosion")]
+    p = bt.analyse(root=project)
+    assert p["outside_inputs"] == ["Weather → Corrosion"] and p["lines"] == [] and p["barriers"] == []
+
+
+def test_zero_frequency_leaves_the_risk_ratio_open(project):
+    """With every threat at zero frequency nothing reaches the top event: no ratio can be formed."""
+    _classify(project)
+    _quantify(project)
+    for t in ("Corrosion", "Overpressure", "Impact damage"):
+        bt.set_frequency(t, 0.0, root=project)
+    p = bt.analyse(root=project)
+    assert p["quantified"] and p["frequency"]["top"] == 0.0
+    assert all(b["raw"] is None for b in p["barriers"])
+    assert [b["barrier"] for b in p["barriers"]] == sorted(b["barrier"] for b in p["barriers"])
+
+
+def test_missing_numbers_are_listed(project):
+    _classify(project)
+    bt.set_frequency("Corrosion", 0.1, root=project)
+    p = bt.analyse(root=project)
+    assert not p["quantified"] and p["frequency"] is None
+    assert p["missing"][:2] == ["Overpressure (frequency)", "Impact damage (frequency)"]  # threats, then barriers
+    assert "Gas detection (failure probability)" in p["missing"]
+    sides = {b["barrier"]: (b["side"], b["status"], b["weak"], b["lines"]) for b in p["barriers"]}
+    assert sides["Bypass permit"] == ("escalation control", "in_place", True, 0)
+    assert sides["Gas detection"] == ("mitigation", "in_place", True, 2)
+    assert sides["Inspection programme"] == ("prevention", "in_place", True, 1)
+
+
 def test_barrier_on_both_sides_is_a_loop(project):
     _classify(project)
     edge_ops.add_edge("Loss of containment", "Pressure relief valve", root=project)

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations.formalisms import ChatOp, ChatTool, Formalism, ResultKind, default_origin, register
+from latris.schema.common import ProvenanceOrigin
 
 _MAX_ROWS = 8  # rows a result table shows before folding the rest (as exporters.results)
 
@@ -167,8 +168,9 @@ def _sensitivity(p: dict[str, Any]) -> list[str]:
         )
     out += _table(["Value", "Range tested", "Range from", f"{p['label']} range", "Swing", "Grounding"], rows)
     weak = [r for r in p["parameters"] if r.get("swing") and r.get("weak")][:3]
-    if weak and weak[0] is next((r for r in p["parameters"] if r.get("swing")), None):
-        out.append(f"The result is most sensitive to {weak[0]['label']}, which has not been reviewed.")
+    top = next((r for r in p["parameters"] if r.get("swing")), None)
+    if weak and top is not None and weak[0] is top:
+        out.append(f"The result is most sensitive to {top['label']}, which has not been reviewed.")
         out.append("")
     return out
 
@@ -380,7 +382,7 @@ def _apply(block: Any, verified_by: str, root: Path) -> int:
     return _apply_values(block, default_origin(verified_by), root)
 
 
-def _apply_values(sd, default_origin: str, root: Path) -> int:
+def _apply_values(sd, default_origin: ProvenanceOrigin, root: Path) -> int:
     """Roles first (equations need them), then values, equations, tables, uncertainty, scenarios."""
     from latris.operations import sd as sd_ops
     from latris.operations import sd_scenarios, uncertainty

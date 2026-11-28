@@ -21,6 +21,7 @@ on modelling artifacts; see docs/design/MATURITY_LADDER.md.
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from collections.abc import Callable
@@ -42,6 +43,8 @@ from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 from latris.schema.events import Surface
 from latris.telemetry import emit as telemetry_emit
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -156,8 +159,8 @@ def run_call(
     inputs: dict[str, Any],
     model_override: str | None = None,
     approver: Any,  # HumanActor — avoid schema import cycles
-    confirm: callable,  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
-    render: callable,  # def render(parsed: BaseModel) -> str
+    confirm: Callable[..., bool],  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
+    render: Callable[..., str],  # def render(parsed: BaseModel) -> str
     dry_run: bool = False,
     preview_only: bool = False,
     root: Path | None = None,
@@ -195,7 +198,7 @@ def run_call(
     cfg = ai_config.load(paths)
     model = ai_config.resolve_model(paths, override=model_override)
     provider = _provider_for(model)
-    response_cls = spec.response_model
+    response_cls = spec.response_model or RESPONSE_MODELS[prompt_name]
     # Per-operation temperature beats the project/config default (extraction ops
     # run cool for consistent granularity); falls back to the config default.
     # Provider-mandated params (e.g. Moonshot temperature=1) override both
@@ -271,11 +274,11 @@ def run_call(
                 root=paths.root,
             )
             _emit_completed(record, paths=paths, adoption="failed")
-        except Exception:
+        except Exception:  # noqa: BLE001 — recording is best-effort; the original error must surface
             # If recording the failure itself fails we still want the
             # original error to surface — don't mask the real problem
             # with a logging hiccup.
-            pass
+            logger.warning("couldn't record the failed AI call %s", prompt_name, exc_info=True)
         raise
 
     parsed = result.parsed
@@ -311,8 +314,8 @@ def _finalize_call(
     token_usage: dict[str, Any],
     cost_usd: float | None,
     approver: Any,  # HumanActor — avoid schema import cycles
-    confirm: callable,  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
-    render: callable,  # def render(parsed: BaseModel) -> str
+    confirm: Callable[..., bool],  # def confirm(proposal_rendered: str, parsed: BaseModel) -> bool
+    render: Callable[..., str],  # def render(parsed: BaseModel) -> str
     preview_only: bool,
     paths: ProjectPaths,
     surface: Surface | None = None,

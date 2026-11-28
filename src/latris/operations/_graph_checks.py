@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import Protocol
 
 
 class _HasDirection(Protocol):
-    from_id: str
-    to_id: str
+    @property
+    def from_id(self) -> str: ...
+
+    @property
+    def to_id(self) -> str: ...
 
 
-def find_cycle(edges: list[_HasDirection]) -> tuple[bool, str | None]:
+def find_cycle(edges: Sequence[_HasDirection]) -> tuple[bool, str | None]:
     """DFS cycle detection. Returns ``(True, first_cyclic_node_id)`` or ``(False, None)``."""
     adj: dict[str, list[str]] = defaultdict(list)
     for e in edges:

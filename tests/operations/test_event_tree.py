@@ -85,6 +85,55 @@ def test_unordered_unused(project):
     assert {"et_heading_unordered", "et_end_state_unused"} <= kinds
 
 
+def _problems(root) -> list[tuple[str | None, str]]:
+    t = et.load_tree(root=root)
+    return [(t.labels.get(p.target_id or "", None), p.gap_type) for p in t.problems]
+
+
+def test_element_problems_in_order(project):
+    _build(project)
+    node_ops.add_node("Second release", root=project)
+    et.set_element("Second release", "initiating_event", root=project)
+    et.set_element("Ignition", "end_state", root=project)  # still in the heading order, no longer a heading
+    assert _problems(project) == [("Second release", "et_many_initiators"), ("Ignition", "et_bad_heading"),
+                                  ("Ignition", "et_end_state_unused")]
+    p = et.analyse(root=project)
+    assert p["initiator"] is None and p["sequences"] == [] and not p["quantified"] and len(p["problems"]) == 3
+
+
+def test_bad_sequence_and_unused_heading(project):
+    _build(project)
+    node_ops.add_node("Deluge works", root=project)
+    et.set_element("Deluge works", "functional_event", root=project)
+    et.set_order(["Gas detected", "Isolation succeeds", "Ignition", "Deluge works"], root=project)
+    assert _problems(project) == [("Deluge works", "et_heading_unused")]
+    et.set_element("Fire", "functional_event", root=project)  # two sequences now end in a heading
+    assert _problems(project) == [("Fire", "et_heading_unordered"), ("Fire", "et_bad_sequence"),
+                                  ("Fire", "et_bad_sequence"), ("Deluge works", "et_heading_unused")]
+
+
+def test_quantified_without_a_frequency(project):
+    _build(project)
+    _quantify(project)
+    et.set_element("Gas release", "end_state", root=project)  # no initiator: a structure problem
+    assert not et.analyse(root=project)["quantified"]
+    et.set_element("Gas release", "initiating_event", root=project)
+    p = et.analyse(root=project)
+    assert p["quantified"] and p["frequency"] == {"per_year": 0.02, "origin": "human-direct",
+                                                  "source": "incident-log", "weak": True}
+
+
+def test_probabilities_without_a_frequency(project, tmp_path):
+    _build(project)
+    for args in (("Gas detected", 0.9), ("Isolation succeeds", 0.95), ("Ignition", 0.1)):
+        et.set_probability(*args, root=project)
+    p = et.analyse(root=project)
+    assert p["quantified"] and p["frequency"] is None
+    assert all(r["frequency"] is None for r in p["sequences"])
+    assert all(d["frequency"] is None for d in p["end_states"])
+    assert [v["heading"] for v in p["values"]] == ["Gas detected", "Isolation succeeds", "Ignition"]
+
+
 def test_setters_refuse(project):
     _build(project)
     with pytest.raises(ValueError, match="not a heading"):
@@ -245,6 +294,89 @@ def test_report_diagram_claims(built):
     assert any("Ignition" in c for c in sens) and not any("betweenness" in c for c in sens)
     impl = extract_claims("implications", "event_tree", root=root)
     assert any("To make Fire rarer" in c for c in impl)
+
+
+_CLAIM_SECTIONS = ("structure", "answer", "sensitivity", "implications", "gaps", "other")
+
+
+def test_claims_for_every_section_as_the_tree_fills_in(project):
+    """What each report section claims: with structure problems, unquantified, without a frequency, and done."""
+    from latris.operations.formalisms import event_tree as fet
+    from latris.repo.layout import ProjectPaths
+
+    def claims():
+        return {s: fet._claims(ProjectPaths(project), s) for s in _CLAIM_SECTIONS}
+
+    got = {"problems": claims()}
+    _build(project)
+    got["unquantified"] = claims()
+    for args in (("Gas detected", 0.9), ("Isolation succeeds", 0.95), ("Ignition", 0.1)):
+        et.set_probability(*args, root=project)
+    got["no_frequency"] = claims()
+    et.set_probability("Gas detected", 0.9, source_id="detector-data", verification="human-verified", root=project)
+    et.set_probability("Ignition", 0.3, given=[("Gas detected", "no")], root=project)
+    et.set_frequency("Gas release", 0.02, source_id="incident-log", root=project)
+    got["quantified"] = claims()
+    assert got == (
+    {'problems': {'structure': ['The event tree is incomplete: 3 structure problem(s) (e.g. (tree): No initiating '
+                                'event: say what starts the sequence.)'],
+                  'answer': [],
+                  'sensitivity': [],
+                  'implications': [],
+                  'gaps': [],
+                  'other': []},
+     'unquantified': {'structure': ['Gas release: 3 heading(s), 5 sequence(s), 3 end state(s); 4 probability(ies) '
+                                    'missing, so not quantified.',
+                                    'Headings, in order: Gas detected → Isolation succeeds → Ignition.'],
+                      'answer': [],
+                      'sensitivity': [],
+                      'implications': [],
+                      'gaps': ['Not quantified — missing: P(Gas detected=yes given (start)); P(Isolation succeeds=yes '
+                               'given Gas detected=yes); P(Ignition=yes given Gas detected=yes, Isolation '
+                               'succeeds=no); P(Ignition=yes given Gas detected=no).',
+                               'No frequency for Gas release, so results are conditional probabilities.'],
+                      'other': []},
+     'no_frequency': {'structure': ['Gas release: 3 heading(s), 5 sequence(s), 3 end state(s); probability given the '
+                                    'initiating event: Contained release 0.855, Gas cloud dispersed 0.131, Fire '
+                                    '0.0145.',
+                                    'Headings, in order: Gas detected → Isolation succeeds → Ignition.'],
+                      'answer': ['Contained release: probability 0.855, mostly through Gas detected=yes, Isolation '
+                                 'succeeds=yes (100%).',
+                                 'Gas cloud dispersed: probability 0.131, mostly through Gas detected=no, Ignition=no '
+                                 '(69%).',
+                                 'Fire: probability 0.0145, mostly through Gas detected=no, Ignition=yes (69%).',
+                                 'These are probabilities given that Gas release happens; give it a frequency for '
+                                 'rates per year.'],
+                      'sensitivity': ['Branch probabilities on the dominant sequences that nobody has verified: Gas '
+                                      'detected, Ignition, Isolation succeeds — these move the answer most directly.'],
+                      'implications': ['To make Contained release rarer, look first at sequence #1: Gas detected=yes, '
+                                       'Isolation succeeds=yes.',
+                                       'To make Gas cloud dispersed rarer, look first at sequence #5: Gas detected=no, '
+                                       'Ignition=no.',
+                                       'To make Fire rarer, look first at sequence #4: Gas detected=no, Ignition=yes.'],
+                      'gaps': ['No frequency for Gas release, so results are conditional probabilities.',
+                               'Branch probabilities with no stated source: Gas detected, Ignition, Isolation '
+                               'succeeds.'],
+                      'other': []},
+     'quantified': {'structure': ['Gas release: 3 heading(s), 5 sequence(s), 3 end state(s); per year: Contained '
+                                  'release 0.0171/year, Gas cloud dispersed 0.00221/year, Fire 0.00069/year.',
+                                  'Headings, in order: Gas detected → Isolation succeeds → Ignition.'],
+                    'answer': ['Contained release: 0.0171 per year, mostly through Gas detected=yes, Isolation '
+                               'succeeds=yes (100%).',
+                               'Gas cloud dispersed: 0.00221 per year, mostly through Gas detected=no, Ignition=no '
+                               '(63%).',
+                               'Fire: 0.00069 per year, mostly through Gas detected=no, Ignition=yes (87%).'],
+                    'sensitivity': ['Branch probabilities on the dominant sequences that nobody has verified: '
+                                    'Ignition, Isolation succeeds — these move the answer most directly.',
+                                    "The frequency of Gas release scales every result and hasn't been verified."],
+                    'implications': ['To make Contained release rarer, look first at sequence #1: Gas detected=yes, '
+                                     'Isolation succeeds=yes.',
+                                     'To make Gas cloud dispersed rarer, look first at sequence #5: Gas detected=no, '
+                                     'Ignition=no.',
+                                     'To make Fire rarer, look first at sequence #4: Gas detected=no, Ignition=yes.'],
+                    'gaps': ['Branch probabilities with no stated source: Ignition, Isolation succeeds.'],
+                    'other': []}}
+    )
 
 
 def test_routes(built):

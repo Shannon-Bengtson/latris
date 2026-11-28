@@ -120,7 +120,7 @@ def search_bibliography(
                         "url_verified": True,  # From OpenAlex = real
                     }
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — one failed search (network, API, data) skips that query (logged)
             logger.warning("OpenAlex search failed for %r: %s", query_str, exc)
             continue
 

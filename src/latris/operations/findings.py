@@ -20,7 +20,13 @@ from latris.operations.commit import auto_commit
 from latris.operations.graph_analysis import group_loop_mechanisms, loop_mechanism_summary
 from latris.repo import git
 from latris.repo.project import require_project
-from latris.repo.yaml_io import dump_jsonl_append, iter_jsonl, load_model, load_raw_text, rewrite_jsonl
+from latris.repo.yaml_io import (
+    dump_jsonl_append,
+    iter_jsonl,
+    load_model,
+    load_model_from_string,
+    rewrite_jsonl,
+)
 from latris.schema import (
     Substrate,
 )
@@ -335,13 +341,13 @@ def check_staleness(
     try:
         rel_path = paths.conceptual_yaml.relative_to(paths.root)
         old_yaml = git.show_file(paths.root, finding.model_commit, str(rel_path))
-    except Exception:
+    except (ValueError, git.GitError):
         # Old commit no longer accessible; fall back to the deletion-only
         # signal we already evaluated above.
         return False
     try:
-        old_substrate = Substrate.model_validate(load_raw_text(old_yaml))
-    except Exception:
+        old_substrate = load_model_from_string(Substrate, old_yaml)
+    except ValueError:  # not valid YAML, or not a substrate (load_model_from_string says which)
         return False
     old_edge_kinds = {e.id: e.kind for e in old_substrate.edges}
     for edge_id, edge in target_edges_now.items():

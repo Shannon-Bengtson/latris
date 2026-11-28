@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +12,74 @@ from latris.operations.formalisms import (
     Formalism,
     ResultKind,
     _risk_mc,
+    default_origin,
     register,
+    spec_verification,
 )
+from latris.schema.common import ProvenanceVerification
+
+
+def _structure_claims(p: dict[str, Any]) -> list[str]:
+    from latris.operations import event_tree
+
+    return [event_tree.describe(p) + ".", "Headings, in order: " + " → ".join(p["headings"]) + "."]
+
+
+def _answer_claims(p: dict[str, Any]) -> list[str]:
+    fr = p["frequency"]
+    claims = []
+    for d in p["end_states"]:
+        amount = f"{d['frequency']:.3g} per year" if fr else f"probability {d['probability']:.3g}"
+        claims.append(f"{d['end_state']}: {amount}, mostly through {d['dominant']['text']} "
+                      f"({d['dominant']['share']:.0%}).")
+    if not fr:
+        claims.append(f"These are probabilities given that {p['initiator']} happens; give it a frequency for "
+                      "rates per year.")
+    return claims
+
+
+def _sensitivity_claims(p: dict[str, Any]) -> list[str]:
+    fr = p["frequency"]
+    claims = []
+    weak = sorted({v["heading"] for v in p["values"] if v["weak"]})
+    on_top = sorted({h for d in p["end_states"] for r in p["sequences"] if r["n"] == d["dominant"]["n"]
+                     for h in r["unverified"]})
+    if on_top:
+        claims.append(f"Branch probabilities on the dominant sequences that nobody has verified: "
+                      f"{', '.join(on_top)} — these move the answer most directly.")
+    elif weak:
+        claims.append(f"Branch probabilities nobody has verified: {', '.join(weak)}.")
+    if fr and fr["weak"]:
+        claims.append(f"The frequency of {p['initiator']} scales every result and hasn't been verified.")
+    return claims
+
+
+def _implication_claims(p: dict[str, Any]) -> list[str]:
+    return [f"To make {d['end_state']} rarer, look first at sequence #{d['dominant']['n']}: {d['dominant']['text']}."
+            for d in p["end_states"]]
+
+
+def _gap_claims(p: dict[str, Any]) -> list[str]:
+    claims = []
+    if p["missing"]:
+        claims.append("Not quantified — missing: " + "; ".join(p["missing"][:5])
+                      + (f" (+{len(p['missing']) - 5} more)." if len(p["missing"]) > 5 else "."))
+    if not p["frequency"]:
+        claims.append(f"No frequency for {p['initiator']}, so results are conditional probabilities.")
+    unsourced = sorted({v["heading"] for v in p["values"] if not v["source"]})
+    if unsourced:
+        claims.append(f"Branch probabilities with no stated source: {', '.join(unsourced)}.")
+    return claims
+
+
+# section → (its claims, whether they need the tree quantified)
+_CLAIMS: dict[str, tuple[Callable[[dict[str, Any]], list[str]], bool]] = {
+    "structure": (_structure_claims, False),
+    "answer": (_answer_claims, True),
+    "sensitivity": (_sensitivity_claims, True),
+    "implications": (_implication_claims, True),
+    "gaps": (_gap_claims, False),
+}
 
 
 def _claims(paths, section: str) -> list[str]:
@@ -25,44 +92,10 @@ def _claims(paths, section: str) -> list[str]:
             return [f"The event tree is incomplete: {len(p['problems'])} structure problem(s) "
                     f"(e.g. {p['problems'][0]['label']}: {p['problems'][0]['message']})"]
         return []
-    fr = p["frequency"]
-    claims: list[str] = []
-    if section == "structure":
-        claims.append(event_tree.describe(p) + ".")
-        claims.append("Headings, in order: " + " → ".join(p["headings"]) + ".")
-    elif section == "answer" and p["quantified"]:
-        for d in p["end_states"]:
-            amount = f"{d['frequency']:.3g} per year" if fr else f"probability {d['probability']:.3g}"
-            claims.append(f"{d['end_state']}: {amount}, mostly through {d['dominant']['text']} "
-                          f"({d['dominant']['share']:.0%}).")
-        if not fr:
-            claims.append(f"These are probabilities given that {p['initiator']} happens; give it a frequency for "
-                          "rates per year.")
-    elif section == "sensitivity" and p["quantified"]:
-        weak = sorted({v["heading"] for v in p["values"] if v["weak"]})
-        on_top = sorted({h for d in p["end_states"] for r in p["sequences"] if r["n"] == d["dominant"]["n"]
-                         for h in r["unverified"]})
-        if on_top:
-            claims.append(f"Branch probabilities on the dominant sequences that nobody has verified: "
-                          f"{', '.join(on_top)} — these move the answer most directly.")
-        elif weak:
-            claims.append(f"Branch probabilities nobody has verified: {', '.join(weak)}.")
-        if fr and fr["weak"]:
-            claims.append(f"The frequency of {p['initiator']} scales every result and hasn't been verified.")
-    elif section == "implications" and p["quantified"]:
-        for d in p["end_states"]:
-            claims.append(f"To make {d['end_state']} rarer, look first at sequence #{d['dominant']['n']}: "
-                          f"{d['dominant']['text']}.")
-    elif section == "gaps":
-        if p["missing"]:
-            claims.append("Not quantified — missing: " + "; ".join(p["missing"][:5])
-                          + (f" (+{len(p['missing']) - 5} more)." if len(p["missing"]) > 5 else "."))
-        if not fr:
-            claims.append(f"No frequency for {p['initiator']}, so results are conditional probabilities.")
-        unsourced = sorted({v["heading"] for v in p["values"] if not v["source"]})
-        if unsourced:
-            claims.append(f"Branch probabilities with no stated source: {', '.join(unsourced)}.")
-    return claims
+    claims, needs_numbers = _CLAIMS.get(section, (None, False))
+    if claims is None or (needs_numbers and not p["quantified"]):
+        return []
+    return claims(p)
 
 
 def _charts(p: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -175,10 +208,10 @@ def _apply(spec_et, verified_by: str, root: Path) -> int:
     """Elements, then the heading order, then sequences, probabilities and the initiating frequency."""
     from latris.operations import event_tree as et_ops
 
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+    origin_default = default_origin(verified_by)
 
-    def verification(v: bool) -> str:
-        return "human-verified" if v and verified_by == "human" else "unverified"
+    def verification(v: bool) -> ProvenanceVerification:
+        return spec_verification(v, verified_by)
 
     n = 0
     for e in spec_et.elements:
@@ -191,12 +224,12 @@ def _apply(spec_et, verified_by: str, root: Path) -> int:
         et_ops.set_sequence(s.end_state, list(s.answers.items()), root=root)
         n += 1
     for p in spec_et.probabilities:
-        et_ops.set_probability(p.node, p.p_yes, given=list(p.given.items()), origin=p.origin or default_origin,
+        et_ops.set_probability(p.node, p.p_yes, given=list(p.given.items()), origin=p.origin or origin_default,
                                source_id=p.source, verification=verification(p.verified), notes=p.notes, root=root)
         n += 1
     if spec_et.frequency:
         f = spec_et.frequency
-        et_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
+        et_ops.set_frequency(f.node, f.frequency, origin=f.origin or origin_default, source_id=f.source,
                              verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
     return n + _risk_mc.spec_apply("event_tree", spec_et.uncertainty, verified_by, root)

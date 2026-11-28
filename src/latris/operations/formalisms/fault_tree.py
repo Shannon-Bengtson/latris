@@ -11,7 +11,9 @@ from latris.operations.formalisms import (
     Formalism,
     ResultKind,
     _risk_mc,
+    default_origin,
     register,
+    spec_verification,
 )
 
 
@@ -171,7 +173,7 @@ def _apply(spec_ft, verified_by: str, root: Path) -> int:
     """Event types first (gates and probabilities need them), then gates, then probabilities."""
     from latris.operations import fault_tree as ft_ops
 
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+    origin_default = default_origin(verified_by)
     n = 0
     for e in spec_ft.events:
         ft_ops.set_event(e.node, e.type, root=root)
@@ -181,8 +183,8 @@ def _apply(spec_ft, verified_by: str, root: Path) -> int:
         n += 1
     for p in spec_ft.probabilities:
         ft_ops.set_probability(
-            p.node, p.probability, origin=p.origin or default_origin, source_id=p.source,
-            verification="human-verified" if p.verified and verified_by == "human" else "unverified",
+            p.node, p.probability, origin=p.origin or origin_default, source_id=p.source,
+            verification=spec_verification(p.verified, verified_by),
             notes=p.notes, root=root,
         )
         n += 1

@@ -166,6 +166,27 @@ def test_markov_rescales_and_refuses(mk_project):
         psa.markov_psa(runs=50, root=mk_project)
 
 
+def test_markov_psa_without_a_willingness_to_pay(mk_project):
+    """Two strategies and no WTP: no cost-effectiveness choice; the drivers explain the outcome gained."""
+    MK._full(mk_project)
+    with pytest.raises(ValueError, match="no input has a range yet"):
+        psa.markov_psa(runs=50, root=mk_project)
+    markov.set_settings(wtp=None, root=mk_project)
+    psa.set_range("markov", "Sick", "beta", {"mean": 0.6, "sd": 0.05}, quantity="utility", root=mk_project)
+    p = psa.markov_psa(runs=200, root=mk_project)
+    assert p["wtp"] is None and "choice" not in p and "evpi" not in p
+    assert all("nmb" not in s for s in p["strategies"])
+    assert p["driver_target"] in {"QALY gained by New drug over Standard care",
+                                  "QALY gained by Standard care over New drug"}
+    assert [d["input"] for d in p["drivers"]] == ["Sick utility"]
+    assert "Sick cost" in p["fixed"] and p["correlations"] == []
+
+
+def test_markov_psa_refuses_an_incomplete_model(mk_project):
+    with pytest.raises(ValueError, match="the Markov model is incomplete"):
+        psa.markov_psa(runs=50, root=mk_project)
+
+
 # ── surfaces ────────────────────────────────────────────────────────
 
 

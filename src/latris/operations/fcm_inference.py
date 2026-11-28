@@ -11,6 +11,7 @@ squash the weighted sum into [0, 1].
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -20,9 +21,14 @@ from latris.schema.settings import FCMSettings
 
 
 class _HasDirection(Protocol):
-    id: str
-    from_id: str
-    to_id: str
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def from_id(self) -> str: ...
+
+    @property
+    def to_id(self) -> str: ...
 
 
 # ── Result dataclass ─────────────────────────────────────────────────
@@ -77,7 +83,7 @@ _TRANSFER_FUNCTIONS = {
 
 
 def fcm_infer(
-    edges: list[_HasDirection],
+    edges: Sequence[_HasDirection],
     weights: dict[str, float],
     entity_ids: list[str],
     *,
