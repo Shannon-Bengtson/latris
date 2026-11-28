@@ -52,7 +52,8 @@ what to do.
 Four guards started with existing gaps. Rather than fail from day one, each lists today's gaps in a file
 that **only shrinks**:
 
-- `tests/server/untested_routes.txt` — routes with no test yet.
+- `tests/server/untested_routes.txt` — routes with no test yet. Empty since 2026-11-28: every route has a
+  test, and the guard keeps it that way.
 - `worked_example/not_in_worked_example.txt` — commands not in the worked example yet (some can't be:
   they need real keys or a network).
 - `tests/complexity_exceptions.txt` — functions past the complexity limit, each with its score. A listed
