@@ -123,6 +123,22 @@ def test_unknown_prompt_raises(project: Path) -> None:
         )
 
 
+@pytest.mark.parametrize("inputs", [{}, {"target_id": "x", "bogus": 1}, {"target_id": 3}])
+def test_inputs_are_checked_against_the_prompt_schema(project: Path, inputs: dict) -> None:
+    # Refused before any adapter call or interaction record, for every caller.
+    with pytest.raises(ValueError, match="ExplainThisElementInputs"):
+        run_call(
+            prompt_name="ExplainThisElement",
+            inputs=inputs,
+            approver=_approver(),
+            confirm=lambda *_: True,
+            render=_noop_render,
+            dry_run=True,
+        )
+    log = project / "ai" / "interactions.jsonl"
+    assert not log.exists() or log.read_text(encoding="utf-8").strip() == ""
+
+
 # ── run_call — dry run ──────────────────────────────────────────────
 
 

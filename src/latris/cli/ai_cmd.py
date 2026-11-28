@@ -407,9 +407,8 @@ def _run(
     assume_yes: bool,
     dry_run: bool,
 ) -> None:
-    # Parse the arguments against the prompt's input schema first, so a bad
-    # value (`ai call project-view nope`) is refused here, not sent to a model.
-    prompt_lib.get(prompt_name).inputs.model_validate(inputs)
+    # run_call checks the inputs against the prompt's input schema first, so a
+    # bad value (`ai call project-view nope`) is refused (exit 2), never sent.
     approver = _resolve_approver()
 
     def render_parsed(parsed):

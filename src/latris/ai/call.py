@@ -194,6 +194,11 @@ def run_call(
         )
 
     spec = prompt_lib.PROMPT_LIBRARY[prompt_name]
+    # Check the inputs against the prompt's input schema before anything else,
+    # so a bad value is refused (ValueError: 422 / exit 2), never sent to a
+    # model. Keys starting "_" are internal routing hints for context
+    # builders (e.g. ``_prompt_name``), not prompt inputs.
+    spec.inputs.model_validate({k: v for k, v in inputs.items() if not k.startswith("_")})
     paths = require_project(root)
     cfg = ai_config.load(paths)
     model = ai_config.resolve_model(paths, override=model_override)
