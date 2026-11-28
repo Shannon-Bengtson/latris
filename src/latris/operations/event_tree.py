@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
+from latris.operations._words import a_or_an
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
@@ -81,8 +82,8 @@ def _require(paths, substrate, target: str, element: str) -> tuple[str, str]:
     got = get_elements(root=paths.root).get(tid)
     if got != element:
         raise ValueError(
-            f"{label} is {('a ' + ELEMENT_NAMES[got].lower()) if got else 'not in the event tree'}, not a "
-            f"{ELEMENT_NAMES[element].lower()} (`latris et element <factor> {element}`)"
+            f"{label} is {a_or_an(ELEMENT_NAMES[got].lower()) if got else 'not in the event tree'}, not "
+            f"{a_or_an(ELEMENT_NAMES[element].lower())} (`latris et element <factor> {element}`)"
         )
     return tid, label
 
@@ -250,7 +251,8 @@ class Tree:
 
 def _check_tree(tree: Tree) -> None:
     """The sequences must split cleanly at each heading and cover every branch exactly once."""
-    seqs = [([(s.heading, s.answer) for s in q.path], q.end_state) for q in tree.structure.sequences]
+    seqs: list[tuple[list[tuple[str, str]], str]] = [([(s.heading, s.answer) for s in q.path], q.end_state)
+                                                    for q in tree.structure.sequences]
     problems = tree.problems
     lab = tree.labels
 
@@ -287,20 +289,8 @@ def _check_tree(tree: Tree) -> None:
     check(seqs, [])
 
 
-def load_tree(*, root: Path | None = None) -> Tree:
-    paths = require_project(root)
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-    labels = {e.id: e.label for e in substrate.entities}
-    el = {k: v for k, v in get_elements(root=paths.root).items() if k in labels}
-    structure = get_structure(root=paths.root)
-    of = defaultdict(list)
-    for eid, t in el.items():
-        of[t].append(eid)
-    freq = next((f for f in get_frequencies(root=paths.root).entries if f.target_id in of["initiating_event"]), None)
-    tree = Tree(labels=labels, elements=el, structure=structure,
-                probabilities=[p for p in get_probabilities(root=paths.root).entries if p.target_id in el],
-                frequency=freq, initiator=of["initiating_event"][0] if len(of["initiating_event"]) == 1 else None)
-    problems = tree.problems
+def _element_problems(of: dict[str, list[str]]) -> list[ETProblem]:
+    problems: list[ETProblem] = []
     if not of["initiating_event"]:
         problems.append(ETProblem(None, "et_no_initiator", "No initiating event: say what starts the sequence."))
     for x in of["initiating_event"][1:]:
@@ -308,34 +298,71 @@ def load_tree(*, root: Path | None = None) -> Tree:
                                                            "per initiating event."))
     if not of["end_state"]:
         problems.append(ETProblem(None, "et_no_end_state", "No end state: say where the sequences can end."))
-    order = structure.headings
+    return problems
+
+
+def _order_problems(tree: Tree, of: dict[str, list[str]]) -> list[ETProblem]:
+    """The heading order holds every heading and nothing else."""
+    problems: list[ETProblem] = []
+    labels, order = tree.labels, tree.structure.headings
     for h in order:
-        if el.get(h) != "functional_event":
+        if tree.elements.get(h) != "functional_event":
             problems.append(ETProblem(h if h in labels else None, "et_bad_heading",
                                       f"{labels.get(h, 'A removed factor')} is in the heading order but isn't a "
                                       "heading."))
     for h in of["functional_event"]:
         if h not in order:
             problems.append(ETProblem(h, "et_heading_unordered", "Not in the heading order (`latris et order`)."))
-    pos = {h: i for i, h in enumerate(order)}
-    bad = False
-    for q in structure.sequences:
+    return problems
+
+
+def _sequence_problems(tree: Tree) -> list[ETProblem]:
+    """Sequences that skip back in the heading order or don't end in an end state."""
+    problems: list[ETProblem] = []
+    pos = {h: i for i, h in enumerate(tree.structure.headings)}
+    for q in tree.structure.sequences:
         idx = [pos.get(s.heading) for s in q.path]
-        if el.get(q.end_state) != "end_state" or None in idx or idx != sorted(set(idx)):  # type: ignore[type-var]
-            problems.append(ETProblem(q.end_state if q.end_state in labels else None, "et_bad_sequence",
+        known = [i for i in idx if i is not None]
+        if tree.elements.get(q.end_state) != "end_state" or len(known) < len(idx) or known != sorted(set(known)):
+            problems.append(ETProblem(q.end_state if q.end_state in tree.labels else None, "et_bad_sequence",
                                       f"The sequence {tree.answer_text([(s.heading, s.answer) for s in q.path])} "
                                       "doesn't follow the heading order or doesn't end in an end state."))
-            bad = True
-    if not bad:
-        _check_tree(tree)
+    return problems
+
+
+def _unused_problems(tree: Tree, of: dict[str, list[str]]) -> list[ETProblem]:
+    """Headings no sequence asks and end states none reaches (once there are sequences)."""
+    structure = tree.structure
+    if not structure.sequences:
+        return []
     asked = {s.heading for q in structure.sequences for s in q.path}
-    for h in order:
-        if h in el and h not in asked and structure.sequences:
-            problems.append(ETProblem(h, "et_heading_unused", "No sequence asks this heading."))
+    problems = [ETProblem(h, "et_heading_unused", "No sequence asks this heading.")
+                for h in structure.headings if h in tree.elements and h not in asked]
     reached = {q.end_state for q in structure.sequences}
-    for e in of["end_state"]:
-        if e not in reached and structure.sequences:
-            problems.append(ETProblem(e, "et_end_state_unused", "No sequence ends here."))
+    problems += [ETProblem(e, "et_end_state_unused", "No sequence ends here.")
+                 for e in of["end_state"] if e not in reached]
+    return problems
+
+
+def load_tree(*, root: Path | None = None) -> Tree:
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    labels = {e.id: e.label for e in substrate.entities}
+    el = {k: v for k, v in get_elements(root=paths.root).items() if k in labels}
+    structure = get_structure(root=paths.root)
+    of: dict[str, list[str]] = defaultdict(list)
+    for eid, t in el.items():
+        of[t].append(eid)
+    freq = next((f for f in get_frequencies(root=paths.root).entries if f.target_id in of["initiating_event"]), None)
+    tree = Tree(labels=labels, elements=el, structure=structure,
+                probabilities=[p for p in get_probabilities(root=paths.root).entries if p.target_id in el],
+                frequency=freq, initiator=of["initiating_event"][0] if len(of["initiating_event"]) == 1 else None)
+    tree.problems += _element_problems(of) + _order_problems(tree, of)
+    bad_sequences = _sequence_problems(tree)
+    tree.problems += bad_sequences
+    if not bad_sequences:
+        _check_tree(tree)
+    tree.problems += _unused_problems(tree, of)
     return tree
 
 
@@ -362,23 +389,10 @@ def _lookup(tree: Tree, heading: str, prefix: list[tuple[str, str]]) -> ETProbab
 
 
 
-def analyse(*, root: Path | None = None) -> dict[str, Any]:
-    tree = load_tree(root=root)
-    lab = tree.labels
-    payload: dict[str, Any] = {
-        "initiator": lab.get(tree.initiator) if tree.initiator else None,
-        "headings": [lab.get(h, h) for h in tree.structure.headings],
-        "counts": {t: sum(1 for v in tree.elements.values() if v == t) for t in ET_ELEMENTS},
-        "problems": [{"label": lab.get(p.target_id or "", "(tree)"), "gap_type": p.gap_type, "message": p.message}
-                     for p in tree.problems],
-        "sequences": [], "end_states": [], "missing": [], "quantified": False,
-        "frequency": None, "values": [],
-    }
-    if tree.problems:
-        return payload
-    f = tree.frequency
-    payload["frequency"] = ({"per_year": f.frequency, "origin": f.origin, "source": f.source_id,
-                             "weak": f.is_weak} if f else None)
+def _sequence_rows(tree: Tree) -> tuple[list[dict[str, Any]], dict[str, None], dict[int, ETProbabilityEntry]]:
+    """Each sequence's probability (None while one it needs is missing), the probabilities missing, and the
+    entries used."""
+    lab, f = tree.labels, tree.frequency
     missing: dict[str, None] = {}
     used: dict[int, ETProbabilityEntry] = {}
     rows = []
@@ -406,6 +420,44 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
             "frequency": prob * f.frequency if (prob is not None and f) else None,
             "unverified": sorted(set(weak_here)),
         })
+    return rows, missing, used
+
+
+def _end_states(rows: list[dict[str, Any]], has_frequency: bool) -> list[dict[str, Any]]:
+    """Each end state's probability (and frequency), its sequences and the one that dominates it."""
+    ends: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        d = ends.setdefault(r["end_state"], {"end_state": r["end_state"], "probability": 0.0,
+                                             "frequency": 0.0 if has_frequency else None, "sequences": []})
+        d["probability"] += r["probability"]
+        if has_frequency:
+            d["frequency"] += r["frequency"]
+        d["sequences"].append(r["n"])
+    for d in ends.values():
+        top = max((r for r in rows if r["end_state"] == d["end_state"]), key=lambda r: r["probability"])
+        d["dominant"] = {"n": top["n"], "text": top["text"], "share": top["probability"] / d["probability"]
+                         if d["probability"] > 0 else None}
+    return sorted(ends.values(), key=lambda d: -d["probability"])
+
+
+def analyse(*, root: Path | None = None) -> dict[str, Any]:
+    tree = load_tree(root=root)
+    lab = tree.labels
+    payload: dict[str, Any] = {
+        "initiator": lab.get(tree.initiator) if tree.initiator else None,
+        "headings": [lab.get(h, h) for h in tree.structure.headings],
+        "counts": {t: sum(1 for v in tree.elements.values() if v == t) for t in ET_ELEMENTS},
+        "problems": [{"label": lab.get(p.target_id or "", "(tree)"), "gap_type": p.gap_type, "message": p.message}
+                     for p in tree.problems],
+        "sequences": [], "end_states": [], "missing": [], "quantified": False,
+        "frequency": None, "values": [],
+    }
+    if tree.problems:
+        return payload
+    f = tree.frequency
+    payload["frequency"] = ({"per_year": f.frequency, "origin": f.origin, "source": f.source_id,
+                             "weak": f.is_weak} if f else None)
+    rows, missing, used = _sequence_rows(tree)
     payload["sequences"] = rows
     payload["missing"] = list(missing)
     payload["values"] = [
@@ -416,21 +468,8 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
     ]
     if not missing:
         payload["quantified"] = True
-        total = math.fsum(r["probability"] for r in rows)
-        payload["total_probability"] = total
-        ends: dict[str, dict[str, Any]] = {}
-        for r in rows:
-            d = ends.setdefault(r["end_state"], {"end_state": r["end_state"], "probability": 0.0,
-                                                 "frequency": 0.0 if f else None, "sequences": []})
-            d["probability"] += r["probability"]
-            if f:
-                d["frequency"] += r["frequency"]
-            d["sequences"].append(r["n"])
-        for d in ends.values():
-            top = max((r for r in rows if r["end_state"] == d["end_state"]), key=lambda r: r["probability"])
-            d["dominant"] = {"n": top["n"], "text": top["text"], "share": top["probability"] / d["probability"]
-                             if d["probability"] > 0 else None}
-        payload["end_states"] = sorted(ends.values(), key=lambda d: -d["probability"])
+        payload["total_probability"] = math.fsum(r["probability"] for r in rows)
+        payload["end_states"] = _end_states(rows, f is not None)
     return payload
 
 

@@ -27,6 +27,16 @@ def test_bounds():
     assert DTBranchEntry(target_id="e").value == 0.0
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_values_and_probabilities_must_be_finite(bad: float):
+    with pytest.raises(ValidationError):
+        DTPayoffEntry(target_id="t", value=bad)
+    with pytest.raises(ValidationError):
+        DTBranchEntry(target_id="e", value=bad)
+    with pytest.raises(ValidationError):
+        DTBranchEntry(target_id="e", probability=bad)
+
+
 def test_round_trip(tmp_path: Path):
     models = [
         (DTBranchSet(entries=[DTBranchEntry(target_id="e", label="High", probability=0.3, value=-5,

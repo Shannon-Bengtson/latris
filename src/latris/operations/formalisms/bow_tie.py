@@ -11,8 +11,30 @@ from latris.operations.formalisms import (
     Formalism,
     ResultKind,
     _risk_mc,
+    default_origin,
     register,
+    spec_verification,
 )
+from latris.schema.common import ProvenanceVerification
+
+
+def _sensitivity(p: dict[str, Any]) -> list[str]:
+    """The barriers ranked by how much they buy (RAW), for a quantified bow-tie."""
+    ranked = [b for b in p["barriers"] if b["raw"] is not None][:5]
+    if not ranked:  # nothing reaches the top event (or its consequences): there is no ratio to rank by
+        if p["frequency"]["top"] == 0:
+            return [f"At the threat frequencies given nothing reaches {p['top']}, so no barrier can be ranked by "
+                    "how much it buys."]
+        return []
+    claims = ["Barriers by how much they buy (RAW: how many times more often their side's outcome would happen if "
+              "the barrier always failed):"]
+    claims += [f"  - {b['barrier']} ({b['side']}): {b['raw']:.3g}" + (" (value not verified)" if b["weak"] else "")
+               for b in ranked]
+    weak = [b["barrier"] for b in ranked[:3] if b["weak"]]
+    if weak:
+        claims.append(f"The barriers that matter most whose failure probability nobody has verified: "
+                      f"{', '.join(weak)}.")
+    return claims
 
 
 def _claims(paths, section: str) -> list[str]:
@@ -47,15 +69,7 @@ def _claims(paths, section: str) -> list[str]:
             claims.append("Consequences per year: " + "; ".join(f"{c} {v:.3g}" for c, v in fr["consequences"].items())
                           + ".")
     elif section == "sensitivity" and p["quantified"]:
-        ranked = [b for b in p["barriers"] if b["raw"] is not None][:5]
-        claims.append("Barriers by how much they buy (RAW: how many times more often their side's outcome would "
-                      "happen if the barrier always failed):")
-        claims += [f"  - {b['barrier']} ({b['side']}): {b['raw']:.3g}" + (" (value not verified)" if b["weak"] else "")
-                   for b in ranked]
-        weak = [b["barrier"] for b in ranked[:3] if b["weak"]]
-        if weak:
-            claims.append(f"The barriers that matter most whose failure probability nobody has verified: "
-                          f"{', '.join(weak)}.")
+        claims += _sensitivity(p)
     elif section == "implications":
         if f["unprotected"] or f["single_barrier"]:
             claims.append("Where another independent barrier would help most: "
@@ -176,10 +190,10 @@ def _apply(spec_bt, verified_by: str, root: Path) -> int:
     """Elements first (barrier values and frequencies need them), then barriers, then frequencies."""
     from latris.operations import bow_tie as bt_ops
 
-    default_origin = "ai-proposed" if verified_by == "ai" else "human-direct"
+    origin_default = default_origin(verified_by)
 
-    def verification(v: bool) -> str:
-        return "human-verified" if v and verified_by == "human" else "unverified"
+    def verification(v: bool) -> ProvenanceVerification:
+        return spec_verification(v, verified_by)
 
     n = 0
     for e in spec_bt.elements:
@@ -188,11 +202,11 @@ def _apply(spec_bt, verified_by: str, root: Path) -> int:
     for b in spec_bt.barriers:
         bt_ops.set_barrier(
             b.node, barrier_type=b.type, status=b.status, owner=b.owner, pfd=b.pfd, notes=b.notes,
-            origin=b.origin or default_origin, source_id=b.source, verification=verification(b.verified), root=root,
+            origin=b.origin or origin_default, source_id=b.source, verification=verification(b.verified), root=root,
         )
         n += 1
     for f in spec_bt.frequencies:
-        bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or default_origin, source_id=f.source,
+        bt_ops.set_frequency(f.node, f.frequency, origin=f.origin or origin_default, source_id=f.source,
                              verification=verification(f.verified), notes=f.notes, root=root)
         n += 1
     return n + _risk_mc.spec_apply("bow_tie", spec_bt.uncertainty, verified_by, root)

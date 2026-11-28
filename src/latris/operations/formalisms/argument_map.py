@@ -29,7 +29,7 @@ def _render(p: dict[str, Any]) -> list[str]:
         out += [f"The question: {md.esc(p['question'])}", ""]
     if p["reasons"]:
         rows = [[r["claim"], " + ".join(r["premises"]), r["status"], r["qualifier"] or "—",
-                 md.esc(r["warrant"] or "") or "—"] for r in p["reasons"][:md.MAX_ROWS]]
+                 r["warrant"] or "—"] for r in p["reasons"][:md.MAX_ROWS]]
         out += ["Reasons offered (premises joined by + only work together):", ""]
         out += md.table(["For", "Because", "Holds?", "Qualifier", "Warrant"], rows)
     if p["objections"]:
@@ -63,6 +63,20 @@ def _render(p: dict[str, Any]) -> list[str]:
     return out
 
 
+def _decisive(root: Path, p: dict[str, Any]) -> list[dict[str, Any]]:
+    """The unanswered objections whose answer would change the conclusion's status: with the objection
+    defeated, the conclusion labels differently. One that only defeats a reason the conclusion can do without
+    is not among them."""
+    from latris.operations import argument_map as am
+
+    m = am.load(root=root) if p["unanswered"] else None
+    top = m.conclusion if m else None
+    if m is None or top is None:
+        return []
+    ids = {lb: c for c, lb in m.labels.items()}
+    return [o for o in p["unanswered"] if am.label(m, frozenset({ids[o["objection"]]}))[top] != p["status"]]
+
+
 def _claims(paths, section: str) -> list[str]:
     from latris.operations import argument_map as am
 
@@ -81,7 +95,7 @@ def _claims(paths, section: str) -> list[str]:
             claims.append(f"The conclusion turns on {x['claim']} ({_BASIS.get(x['basis'], x['basis'])}).")
         if p["status"] == "in" and not p["linchpins"]:
             claims.append("No single premise, rejected, would stop the conclusion standing.")
-        for o in p["unanswered"]:
+        for o in _decisive(paths.root, p):
             claims.append(f"Answering the objection '{o['objection']}' (against {o['against']}) would change the "
                           "outcome.")
     elif section == "implications":

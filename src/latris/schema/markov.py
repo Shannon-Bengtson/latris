@@ -45,8 +45,8 @@ class MarkovRewardEntry(EntryBase):
 
     attribute: str = "reward"
     strategy: str | None = None
-    cost: float | None = None
-    utility: float | None = None
+    cost: float | None = Field(default=None, allow_inf_nan=False)
+    utility: float | None = Field(default=None, allow_inf_nan=False)
     notes: str | None = None
 
 

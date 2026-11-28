@@ -11,6 +11,7 @@ from pathlib import Path
 
 from latris.operations._attribute_helpers import upsert_entry
 from latris.operations._resolve import resolve_target
+from latris.operations._words import a_or_an
 from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model, load_model_or_default
@@ -50,6 +51,8 @@ def assign_role(target: str, model_type: str, role: str, *, root: Path | None = 
     paths = require_project(root)
     substrate = load_model(Substrate, paths.conceptual_yaml)
     target_id = resolve_target(target, substrate)
+    if any(e.id == target_id for e in substrate.edges):
+        raise ValueError(f"{target!r} is a link; {a_or_an(spec.display_name)} role ({role}) belongs to a factor")
 
     file_path = paths.role_path(model_type)
     # Ensure the roles directory exists on first write.

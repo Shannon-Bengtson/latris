@@ -38,9 +38,10 @@ from latris.operations import _sampling as smp
 from latris.operations import uncertainty as unc
 from latris.operations._resolve import resolve_entity
 from latris.operations.commit import auto_commit
+from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_model, load_model
-from latris.schema import Substrate
+from latris.schema import Entity, Substrate
 from latris.schema.attributes import ParameterUncertainty
 from latris.schema.common import ProvenanceOrigin, ProvenanceVerification
 
@@ -72,66 +73,80 @@ def _cell(model_type: str, quantity: str, given_key: str = "") -> str:
     return f"{model_type}:{quantity}" + (f":{given_key}" if given_key else "")
 
 
-def _target(model_type: str, target: str, given: list[tuple[str, str]] | None, paths) -> dict[str, Any]:
-    """Resolve what is uncertain: {id, label, cell, quantity ("probability"/"frequency"), value}."""
-    sub = load_model(Substrate, paths.conceptual_yaml)
-    ent = resolve_entity(target, sub.entities)
-    if model_type == "fault_tree":
-        from latris.operations import fault_tree as ft
+def _ft_target(ent: Entity, given: list[tuple[str, str]] | None, paths: ProjectPaths) -> dict[str, Any]:
+    from latris.operations import fault_tree as ft
 
-        if given:
-            raise ValueError("--given applies to event-tree headings only")
-        if ft.get_events(root=paths.root).get(ent.id) not in ("basic_event", "undeveloped_event"):
-            raise ValueError(f"{ent.label} isn't a basic or undeveloped event; only those have probabilities")
-        cur = next((p for p in ft.get_probabilities(root=paths.root).entries if p.target_id == ent.id), None)
-        if cur is None:
-            raise ValueError(f"{ent.label} has no probability yet; set one (`latris ft probability`) first")
-        return {"id": ent.id, "label": ent.label, "cell": _cell(model_type, "probability"),
-                "quantity": "probability", "value": cur.probability}
-    if model_type == "bow_tie":
-        from latris.operations import bow_tie as bt
+    if given:
+        raise ValueError("--given applies to event-tree headings only")
+    if ft.get_events(root=paths.root).get(ent.id) not in ("basic_event", "undeveloped_event"):
+        raise ValueError(f"{ent.label} isn't a basic or undeveloped event; only those have probabilities")
+    cur = next((p for p in ft.get_probabilities(root=paths.root).entries if p.target_id == ent.id), None)
+    if cur is None:
+        raise ValueError(f"{ent.label} has no probability yet; set one (`latris ft probability`) first")
+    return {"id": ent.id, "label": ent.label, "cell": _cell("fault_tree", "probability"),
+            "quantity": "probability", "value": cur.probability}
 
-        if given:
-            raise ValueError("--given applies to event-tree headings only")
-        role = bt.get_elements(root=paths.root).get(ent.id)
-        if role == "barrier":
-            cur = next((b for b in bt.get_barriers(root=paths.root).entries if b.target_id == ent.id), None)
-            if cur is None or cur.pfd is None:
-                raise ValueError(f"{ent.label} has no failure probability yet; set one (`latris bowtie barrier "
-                                 "--pfd`) first")
-            if cur.status == "not_in_place":
-                raise ValueError(f"{ent.label} is not in place, so it always fails; it has nothing uncertain")
-            return {"id": ent.id, "label": ent.label, "cell": _cell(model_type, "pfd"), "quantity": "probability",
-                    "value": cur.pfd}
-        if role == "threat":
-            cur = next((f for f in bt.get_frequencies(root=paths.root).entries if f.target_id == ent.id), None)
-            if cur is None:
-                raise ValueError(f"{ent.label} has no frequency yet; set one (`latris bowtie frequency`) first")
-            return {"id": ent.id, "label": ent.label, "cell": _cell(model_type, "frequency"),
-                    "quantity": "frequency", "value": cur.frequency}
-        raise ValueError(f"{ent.label} is neither a barrier nor a threat; only their numbers can be uncertain")
+
+def _bt_target(ent: Entity, given: list[tuple[str, str]] | None, paths: ProjectPaths) -> dict[str, Any]:
+    from latris.operations import bow_tie as bt
+
+    if given:
+        raise ValueError("--given applies to event-tree headings only")
+    role = bt.get_elements(root=paths.root).get(ent.id)
+    if role == "barrier":
+        barrier = next((b for b in bt.get_barriers(root=paths.root).entries if b.target_id == ent.id), None)
+        if barrier is None or barrier.pfd is None:
+            raise ValueError(f"{ent.label} has no failure probability yet; set one (`latris bowtie barrier "
+                             "--pfd`) first")
+        if barrier.status == "not_in_place":
+            raise ValueError(f"{ent.label} is not in place, so it always fails; it has nothing uncertain")
+        return {"id": ent.id, "label": ent.label, "cell": _cell("bow_tie", "pfd"), "quantity": "probability",
+                "value": barrier.pfd}
+    if role == "threat":
+        freq = next((f for f in bt.get_frequencies(root=paths.root).entries if f.target_id == ent.id), None)
+        if freq is None:
+            raise ValueError(f"{ent.label} has no frequency yet; set one (`latris bowtie frequency`) first")
+        return {"id": ent.id, "label": ent.label, "cell": _cell("bow_tie", "frequency"),
+                "quantity": "frequency", "value": freq.frequency}
+    raise ValueError(f"{ent.label} is neither a barrier nor a threat; only their numbers can be uncertain")
+
+
+def _et_target(ent: Entity, given: list[tuple[str, str]] | None, paths: ProjectPaths, sub: Substrate
+               ) -> dict[str, Any]:
     from latris.operations import event_tree as et
 
     role = et.get_elements(root=paths.root).get(ent.id)
     if role == "initiating_event":
         if given:
             raise ValueError("--given applies to headings, not the initiating event")
-        cur = next((f for f in et.get_frequencies(root=paths.root).entries if f.target_id == ent.id), None)
-        if cur is None:
+        freq = next((f for f in et.get_frequencies(root=paths.root).entries if f.target_id == ent.id), None)
+        if freq is None:
             raise ValueError(f"{ent.label} has no frequency yet; set one (`latris et frequency`) first")
-        return {"id": ent.id, "label": ent.label, "cell": _cell(model_type, "frequency"), "quantity": "frequency",
-                "value": cur.frequency}
+        return {"id": ent.id, "label": ent.label, "cell": _cell("event_tree", "frequency"), "quantity": "frequency",
+                "value": freq.frequency}
     if role != "functional_event":
         raise ValueError(f"{ent.label} is neither a heading nor the initiating event")
     cond = [(resolve_entity(h, sub.entities).id, a) for h, a in (given or [])]
     want = frozenset(cond)
-    cur = next((p for p in et.get_probabilities(root=paths.root).entries
-                if p.target_id == ent.id and frozenset((c.heading, c.answer) for c in p.given) == want), None)
-    if cur is None:
+    prob = next((p for p in et.get_probabilities(root=paths.root).entries
+                 if p.target_id == ent.id and frozenset((c.heading, c.answer) for c in p.given) == want), None)
+    if prob is None:
         where = f" given {', '.join(f'{h}={a}' for h, a in given or [])}" if given else ""
         raise ValueError(f"{ent.label} has no probability{where} yet; set it (`latris et probability`) first")
-    return {"id": ent.id, "label": ent.label, "cell": _cell(model_type, "probability", _given_key(cond)),
-            "quantity": "probability", "value": cur.p_yes}
+    return {"id": ent.id, "label": ent.label, "cell": _cell("event_tree", "probability", _given_key(cond)),
+            "quantity": "probability", "value": prob.p_yes}
+
+
+def _target(model_type: str, target: str, given: list[tuple[str, str]] | None, paths: ProjectPaths
+            ) -> dict[str, Any]:
+    """Resolve what is uncertain: {id, label, cell, quantity ("probability"/"frequency"), value}."""
+    sub = load_model(Substrate, paths.conceptual_yaml)
+    ent = resolve_entity(target, sub.entities)
+    if model_type == "fault_tree":
+        return _ft_target(ent, given, paths)
+    if model_type == "bow_tie":
+        return _bt_target(ent, given, paths)
+    return _et_target(ent, given, paths, sub)
 
 
 def _bounded(distribution: str, params: dict[str, float], quantity: str) -> dict[str, float]:
@@ -143,7 +158,8 @@ def _bounded(distribution: str, params: dict[str, float], quantity: str) -> dict
         if quantity == "probability":
             p.setdefault("max", 1.0)
     lo, hi = (0.0, 1.0) if quantity == "probability" else (0.0, math.inf)
-    if distribution in ("uniform", "triangular") and not (lo <= p["min"] and p["max"] <= hi):
+    # A missing min or max is the distribution's own check to report (ParameterUncertainty), not a KeyError.
+    if distribution in ("uniform", "triangular") and not (lo <= p.get("min", lo) and p.get("max", hi) <= hi):
         raise ValueError(f"a {quantity} must lie in [{lo:g}, {hi:g}]; this range goes outside it")
     if distribution == "beta" and not (lo <= p.get("min", 0.0) and p.get("max", 1.0) <= hi):
         raise ValueError(f"a {quantity} must lie in [{lo:g}, {hi:g}]; this range goes outside it")
@@ -289,6 +305,9 @@ def _et_model(paths) -> _Model:
 
 
 _BUILD = {"fault_tree": _ft_model, "bow_tie": _bt_model, "event_tree": _et_model}
+# The CLI group and the inputs its `uncertainty` command takes, for the hint when nothing has a range.
+_RANGE_HOW = {"fault_tree": ("ft", "event"), "bow_tie": ("bowtie", "barrier or threat"),
+              "event_tree": ("et", "heading or initiating event")}
 
 
 def _summary(values: list[float], point: float) -> dict[str, Any]:
@@ -319,8 +338,9 @@ def monte_carlo(model_type: str, *, runs: int = 2000, seed: int = 1234, sampling
     model = _BUILD[model_type](paths)
     ranges = {k: v for k, v in specs(model_type, paths).items() if k in model.inputs}
     if not ranges:
+        cmd, what = _RANGE_HOW[model_type]
         raise ValueError("no input has an uncertainty range yet; give some a distribution first "
-                         "(e.g. `latris ft uncertainty <event> lognormal --median 1e-3 --error-factor 3`)")
+                         f"(e.g. `latris {cmd} uncertainty <{what}> lognormal --median 1e-3 --error-factor 3`)")
     draws = smp.sample(ranges, runs, seed=seed, method=sampling)
     point_out = model.evaluate(model.inputs)
     outputs: dict[str, list[float]] = {n: [] for n in point_out}
@@ -338,7 +358,7 @@ def monte_carlo(model_type: str, *, runs: int = 2000, seed: int = 1234, sampling
     keys = sorted(ranges, key=lambda k: model.labels[k])
     correlations = {n: {model.labels[k]: smp.spearman([d[k] for d in draws], v) for k in keys}
                     for n, v in outputs.items()}
-    drivers = []
+    drivers: list[dict[str, Any]] = []
     for k in keys:
         rho = correlations[primary][model.labels[k]]
         e = ranges[k]

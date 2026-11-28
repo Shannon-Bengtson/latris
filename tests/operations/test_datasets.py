@@ -699,3 +699,159 @@ class TestReorderColumns:
                 {"columns": ["score", "name"]},
                 root=project,
             )
+
+
+# ---------------------------------------------------------------------------
+# Action summaries and affected columns, for every operation kind
+# ---------------------------------------------------------------------------
+
+# (kind, params, rows_before, rows_after, summary, columns_affected)
+_SUMMARIES = [
+    ("rename_column", {"column": "a", "new_name": "b"}, 4, 4, 'Renamed column "a" to "b"', ["a", "b"]),
+    ("cast_column", {"column": "a", "dtype": "float64"}, 4, 4, 'Cast column "a" to float64', ["a"]),
+    ("drop_columns", {"columns": ["a", "b"]}, 4, 4, 'Dropped columns "a", "b"', ["a", "b"]),
+    ("drop_nan_rows", {"columns": ["a"]}, 4, 3, 'Dropped 1 NaN rows (columns: "a")', ["a"]),
+    ("drop_nan_rows", {}, 4, 2, 'Dropped 2 NaN rows (columns: "all")', []),
+    ("drop_nan_rows", {"columns": None}, 4, 2, 'Dropped 2 NaN rows (columns: "all")', []),
+    ("fill_nan", {"column": "a", "method": "backfill"}, 4, 4, 'Filled NaN in "a" (backfill)', ["a"]),
+    ("filter_rows", {"column": "a", "op": "gt", "value": 3}, 4, 1, 'Filtered rows: "a" gt 3 (removed 3)', ["a"]),
+    ("sort_rows", {"column": "a"}, 4, 4, 'Sorted by "a" (ascending)', ["a"]),
+    ("sort_rows", {"column": "a", "ascending": False}, 4, 4, 'Sorted by "a" (descending)', ["a"]),
+    ("deduplicate", {}, 4, 3, "Deduplicated (removed 1 rows)", []),
+    ("deduplicate", {"columns": None}, 4, 3, "Deduplicated (removed 1 rows)", []),
+    ("replace_values", {"column": "a", "old": 1, "new": 2}, 4, 4, 'Replaced "1" with "2" in "a"', ["a"]),
+    ("strip_whitespace", {"column": "a"}, 4, 4, 'Stripped whitespace from "a"', ["a"]),
+    ("lowercase", {"column": "a"}, 4, 4, 'Lowercased "a"', ["a"]),
+    ("uppercase", {"column": "a"}, 4, 4, 'Uppercased "a"', ["a"]),
+    ("clip_values", {"column": "a", "min": 0}, 4, 4, 'Clipped "a" to [0, ]', ["a"]),
+    ("remove_outliers", {"column": "a"}, 4, 3, 'Removed 1 outliers from "a" (iqr)', ["a"]),
+    ("log_transform", {"column": "a"}, 4, 4, 'Log-transformed "a"', ["a"]),
+    ("log_transform", {"column": "a", "target": "la"}, 4, 4, 'Log-transformed "a"', ["a", "la"]),
+    ("normalize", {"column": "a"}, 4, 4, 'Normalized "a" (min-max)', ["a"]),
+    ("standardize", {"column": "a"}, 4, 4, 'Standardized "a" (z-score)', ["a"]),
+    ("round_values", {"column": "a"}, 4, 4, 'Rounded "a" to 2 decimals', ["a"]),
+    ("bin_discretize", {"column": "a", "bins": 3, "target": "ab"}, 4, 4, 'Binned "a" into 3 bins', ["a", "ab"]),
+    ("rank_transform", {"column": "a"}, 4, 4, 'Ranked "a"', ["a"]),
+    ("derived_column", {"expression": "a * 2", "target": "d"}, 4, 4, 'Created column "d" = a * 2', ["d"]),
+    ("date_extract", {"column": "t"}, 4, 4, 'Extracted year, month, day from "t"', ["t"]),
+    ("date_extract", {"column": "t", "parts": ["hour"]}, 4, 4, 'Extracted hour from "t"', ["t"]),
+    ("lag_lead", {"column": "a", "periods": 2}, 4, 4, 'Created lag(2) of "a"', ["a"]),
+    ("rolling_window", {"column": "a", "window": 5, "func": "sum"}, 4, 4, 'Rolling sum(5) of "a"', ["a"]),
+    ("difference", {"column": "a"}, 4, 4, 'Differenced "a" (periods=1)', ["a"]),
+    ("cumulative_sum", {"column": "a", "target": "c"}, 4, 4, 'Cumulative sum of "a"', ["a", "c"]),
+    ("pct_change", {"column": "a"}, 4, 4, 'Percentage change of "a"', ["a"]),
+    ("ratio", {"numerator": "a", "denominator": "b", "target": "r"}, 4, 4, 'Ratio "a" / "b"', ["a", "b", "r"]),
+    ("one_hot_encode", {"column": "a"}, 4, 4, 'One-hot encoded "a"', ["a"]),
+    ("label_encode", {"column": "a"}, 4, 4, 'Label-encoded "a"', ["a"]),
+    ("string_split", {"column": "a", "delimiter": ";"}, 4, 4, 'Split "a" on ";"', ["a"]),
+    ("group_aggregate", {"column": "a", "group_by": "g"}, 4, 4, 'mean of "a" by "g"', ["g", "a", ""]),
+    ("melt", {}, 4, 8, "Melted to long format (removed -4 rows)", []),
+    ("melt", {}, 4, 4, "Melted to long format", []),
+    ("pivot", {"index": "i", "columns": "c"}, 4, 2, 'Pivoted on "c"', []),
+    ("insert_row", {}, 4, 5, "Inserted row at position end", []),
+    ("insert_row", {"position": 1}, 4, 5, "Inserted row at position 1", []),
+    ("delete_rows", {"indices": [0, 2]}, 4, 2, "Deleted 2 row(s)", []),
+    ("duplicate_rows", {"indices": [1]}, 4, 5, "Duplicated 1 row(s)", []),
+    ("update_cell", {"row_index": 0, "column": "a", "value": 1}, 4, 4, 'Updated cell [0, "a"]', ["a"]),
+    ("reorder_columns", {"columns": ["b", "a"]}, 4, 4, "Reordered columns", ["b", "a"]),
+    ("something_new", {"column": "a"}, 4, 4, "Applied something_new", ["a"]),
+    ("something_new", {}, 4, 4, "Applied something_new", []),
+]
+
+
+@pytest.mark.parametrize(
+    ("kind", "params", "before", "after", "summary", "affected"),
+    _SUMMARIES,
+    ids=[f"{row[0]}-{i}" for i, row in enumerate(_SUMMARIES)],
+)
+def test_summary_and_affected_columns(kind, params, before, after, summary, affected):
+    assert ds_ops._build_summary(kind, params, before, after) == summary
+    assert ds_ops._affected_columns(kind, params) == affected
+
+
+def test_every_operation_kind_has_its_own_summary():
+    from typing import get_args
+
+    from latris.schema.data_actions import DataActionKind
+
+    for kind in get_args(DataActionKind):
+        assert not ds_ops._build_summary(kind, _params_for(kind), 4, 4).startswith("Applied "), kind
+
+
+def _params_for(kind: str) -> dict:
+    for row in _SUMMARIES:
+        if row[0] == kind:
+            return row[1]
+    raise AssertionError(f"No summary case for {kind!r}: add one to _SUMMARIES")
+
+
+class TestOperationsEndToEnd:
+    """The newer transforms through ``apply_operation``: file, metadata, log, commit."""
+
+    def test_columns_null_is_accepted(self, project: Path, sample_csv: Path) -> None:
+        # Regression: {"columns": null} (as JSON sends it) passed the engine,
+        # then crashed building the summary after the file had been rewritten,
+        # leaving the change on disk uncommitted.
+        dataset, _ = ds_ops.upload_dataset(sample_csv, root=project)
+        action, _ = ds_ops.apply_operation(dataset.id, "drop_nan_rows", {"columns": None}, root=project)
+        assert action.rows_after == 2
+        assert action.summary.startswith("Dropped 2 NaN rows")
+        assert git.run_git(["status", "--porcelain"], cwd=project).stdout.strip() == ""
+
+    @pytest.mark.parametrize(
+        ("kind", "params", "new_columns"),
+        [
+            ("rolling_window", {"column": "age", "window": 10}, ["age_roll10_mean"]),
+            ("ratio", {"numerator": "score", "denominator": "age"}, ["score_over_age"]),
+            ("group_aggregate", {"group_by": "name", "column": "score", "func": "sum"}, ["score_sum_by_name"]),
+            ("string_split", {"column": "name", "delimiter": "l"}, ["name_0", "name_1"]),
+            ("date_extract", {"column": "name", "parts": ["year"]}, ["name_year"]),
+        ],
+    )
+    def test_adds_columns_and_commits(self, project, sample_csv, kind, params, new_columns) -> None:
+        dataset, _ = ds_ops.upload_dataset(sample_csv, root=project)
+        before = _commit_count(project)
+        action, sha = ds_ops.apply_operation(dataset.id, kind, params, root=project)
+        assert action.kind == kind and action.commit_sha == sha
+        ds = ds_ops.get_dataset(dataset.id, root=project)
+        assert set(new_columns) <= {c.name for c in ds.columns}
+        assert _commit_count(project) == before + 2
+        assert ds_ops.get_action_log(dataset.id, root=project).entries[-1].id == action.id
+
+    def test_remove_outliers_end_to_end(self, project: Path, tmp_path: Path) -> None:
+        csv = tmp_path / "o.csv"
+        csv.write_text("v\n1\n2\n3\n2\n1000\n", encoding="utf-8", newline="")
+        dataset, _ = ds_ops.upload_dataset(csv, root=project)
+        action, _ = ds_ops.apply_operation(dataset.id, "remove_outliers", {"column": "v"}, root=project)
+        assert (action.rows_before, action.rows_after) == (5, 4)
+        assert action.summary == 'Removed 1 outliers from "v" (iqr)'
+
+    @pytest.mark.parametrize(
+        ("kind", "params"),
+        [
+            ("rolling_window", {"column": "age", "func": "__class__"}),
+            ("ratio", {"numerator": "score"}),
+            ("date_extract", {"column": "name", "parts": ["week"]}),
+        ],
+    )
+    def test_refused_operation_changes_nothing(self, project, sample_csv, kind, params) -> None:
+        dataset, _ = ds_ops.upload_dataset(sample_csv, root=project)
+        file_path = project / dataset.location
+        content = file_path.read_bytes()
+        before = _commit_count(project)
+        with pytest.raises(ValueError):
+            ds_ops.apply_operation(dataset.id, kind, params, root=project)
+        assert file_path.read_bytes() == content
+        assert _commit_count(project) == before
+        assert ds_ops.get_action_log(dataset.id, root=project).entries == []
+
+    def test_column_stats_and_preview_after_ratio(self, project: Path, tmp_path: Path) -> None:
+        csv = tmp_path / "r.csv"
+        csv.write_text("a,b\n1,0\n0,0\n-1,2\n", encoding="utf-8", newline="")
+        dataset, _ = ds_ops.upload_dataset(csv, root=project)
+        ds_ops.apply_operation(dataset.id, "ratio", {"numerator": "a", "denominator": "b"}, root=project)
+        preview = ds_ops.preview_data(dataset.id, root=project)
+        assert preview["columns"] == ["a", "b", "a_over_b"]
+        assert preview["rows"][1][2] is None  # 0 / 0
+        stats = ds_ops.column_stats(dataset.id, "a_over_b", root=project)
+        assert stats["count"] == 2 and stats["nulls"] == 1

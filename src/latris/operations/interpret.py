@@ -1085,8 +1085,8 @@ def _extract_open_questions(model_type: str, paths) -> list[str]:
             on = f" ({_element_names(substrate, [c.target_id])[0]})" if c.target_id else ""
             claims.append(f"Open challenge{on}: {c.argument}")
     if paths.evidence_links_yaml.exists():
-        for c in _contested(substrate, load_model(EvidenceLinkSet, paths.evidence_links_yaml))[:4]:
-            claims.append(f"Sources disagree — {c}")
+        for contested in _contested(substrate, load_model(EvidenceLinkSet, paths.evidence_links_yaml))[:4]:
+            claims.append(f"Sources disagree — {contested}")
 
     findings = _load_findings(paths, model_type)
     diagnostics = [f for f in findings if f.category == "diagnostics"]

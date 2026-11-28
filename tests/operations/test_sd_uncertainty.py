@@ -150,6 +150,65 @@ def test_monte_carlo_time_guard(sd_bathtub_root):
         sd_ops.run_monte_carlo(runs=1000, max_seconds=0.0001, settings=SETTINGS, root=sd_bathtub_root)
 
 
+def _bathtub_model(root):
+    from latris.operations.sd import compile_project
+
+    uncertainty.set_uncertainty("Drain Rate", "uniform", {"min": 0.05, "max": 0.2}, root=root)
+    return compile_project(**SETTINGS, root=root), uncertainty.sd_specs(sd_ops.require_project(root))
+
+
+def test_monte_carlo_refusals_and_failed_draws(sd_bathtub_root, monkeypatch):
+    """The run-count bounds, a failed baseline, and draws that fail or break the model."""
+    import dataclasses
+
+    from latris.operations import sd_montecarlo as mc
+    from latris.operations._sd_eval import EquationError
+
+    model, specs = _bathtub_model(sd_bathtub_root)
+    for runs in (1, mc.MAX_RUNS + 1):
+        with pytest.raises(ValueError, match="runs must be between 2 and"):
+            mc.monte_carlo(model, specs, runs=runs)
+
+    real = mc.simulate
+    calls = {"n": 0}
+
+    def flaky(m):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return real(m)  # the baseline
+        if calls["n"] % 3 == 0:
+            raise EquationError("division by zero in Outflow")
+        res = real(m)
+        return dataclasses.replace(res, success=False, message="step size too small") if calls["n"] % 3 == 1 else res
+
+    monkeypatch.setattr(mc, "simulate", flaky)
+    with pytest.raises(ValueError, match=r"only \d+ of 12 runs succeeded.*First error: "):
+        mc.monte_carlo(model, specs, runs=12)
+    calls["n"] = 0
+    payload = mc.monte_carlo(model, specs, runs=4)  # 2 of 4 succeed: enough
+    assert (payload["succeeded"], payload["failed"]) == (2, 2)
+    assert payload["failure_examples"] == ["division by zero in Outflow", "step size too small"]
+
+    monkeypatch.setattr(mc, "simulate", lambda m: dataclasses.replace(real(m), success=False, message="diverged"))
+    with pytest.raises(ValueError, match="the baseline run failed before sampling: diverged"):
+        mc.monte_carlo(model, specs, runs=10)
+
+
+def test_monte_carlo_payload_shape(sd_bathtub_root):
+    from latris.operations import sd_montecarlo as mc
+
+    model, specs = _bathtub_model(sd_bathtub_root)
+    p = mc.monte_carlo(model, specs, runs=20, seed=3)
+    (param,) = p["parameters"]
+    assert param["label"] == "Drain Rate" and param["attribute"] == "constant" and param["distribution"] == "uniform"
+    assert 0.05 <= param["sampled"]["min"] <= param["sampled"]["mean"] <= param["sampled"]["max"] <= 0.2
+    assert p["skipped_parameters"] == [] and p["scenario"] is None and p["runs"] == p["succeeded"] == 20
+    water = p["variables"][0]
+    assert set(p["bands"][water]) == {"percentiles", "series", "mean", "baseline"}
+    assert set(p["end"][water]) == {*(f"p{x:g}" for x in _sampling.PERCENTILES), "mean", "baseline"}
+    assert [r["label"] for r in p["influence"][water]] == ["Drain Rate"]
+
+
 # ── one-at-a-time sensitivity ────────────────────────────────────────
 
 

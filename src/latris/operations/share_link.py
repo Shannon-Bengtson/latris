@@ -24,12 +24,15 @@ import base64
 import json
 import os
 import zlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from latris.operations import formalisms
+from latris.repo.layout import ProjectPaths
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model, load_model_or_default
 from latris.schema import (
@@ -45,6 +48,7 @@ from latris.schema import (
     ReferenceLibrary,
     Substrate,
 )
+from latris.schema.attributes import FloatSet
 from latris.schema.build_spec import (
     BuildSpec,
     SpecAssumption,
@@ -93,54 +97,47 @@ def spec_data(spec: BuildSpec) -> dict:
     return spec.model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
 
 
-def export_spec(*, model_type: str | None = None, root: Path | None = None) -> tuple[ProjectFoundation, BuildSpec]:
-    """The project as a build spec — the inverse of ``latris build``."""
-    from latris.operations.findings import list_findings
-    from latris.operations.interpret import load_interpretation
-    from latris.schema.attributes import FloatSet
-
-    paths = require_project(root)
-    foundation = load_model(ProjectFoundation, paths.project_yaml)
-    if model_type and formalisms.get(model_type) is None:
-        known = ", ".join(sorted(f.model_type for f in formalisms.all_formalisms()))
-        raise ValueError(f"unknown model type {model_type[:60]!r}. Model types: {known}")
-    model_type = model_type or next(iter(foundation.selected_model_types), "cld")
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-
-    labels = {e.id: e.label for e in substrate.entities}
-    # The spec names factors by label, so labels must be unique.
+def _require_unique_labels(substrate: Substrate) -> None:
+    """The spec names factors by label, so labels must be unique."""
     seen: set[str] = set()
     for e in substrate.entities:
         if e.label.casefold() in seen:
             raise ValueError(f"two factors are both called {e.label!r}; rename one before making a link")
         seen.add(e.label.casefold())
 
+
+def _namer(substrate: Substrate, labels: dict[str, str]) -> Callable[[str | None], str | None]:
+    """How the spec names a target: a factor by its label, a link as ``from -> to``."""
+    edges = {e.id: e for e in substrate.edges}
+
     def name(target_id: str | None) -> str | None:
         if target_id is None:
             return None
         if target_id in labels:
             return labels[target_id]
-        edge = next((e for e in substrate.edges if e.id == target_id), None)
+        edge = edges.get(target_id)
         return f"{labels[edge.from_id]} -> {labels[edge.to_id]}" if edge else None
 
-    def _load(cls, path):  # noqa: ANN001, ANN202
-        return load_model_or_default(cls, path)
+    return name
 
-    descriptions = {e.target_id: e.value for e in _load(DescriptionSet, paths.descriptions_yaml).entries}
-    confidence = {e.target_id: e.value for e in _load(ConfidenceSet, paths.confidence_yaml).entries}
+
+def _spec_map(paths: ProjectPaths, substrate: Substrate, labels: dict[str, str]
+              ) -> tuple[list[SpecFactor], list[SpecLink], list[SpecSource]]:
+    """The factors and links with what is said about them, and the sources they cite."""
+    descriptions = {e.target_id: e.value
+                    for e in load_model_or_default(DescriptionSet, paths.descriptions_yaml).entries}
+    confidence = {e.target_id: e.value for e in load_model_or_default(ConfidenceSet, paths.confidence_yaml).entries}
     polarity = {
-        e.target_id: e for e in _load(PolaritySet, paths.view_attribute_path("cld", "polarity")).entries
+        e.target_id: e
+        for e in load_model_or_default(PolaritySet, paths.view_attribute_path("cld", "polarity")).entries
         if e.attribute == "polarity"
     }
-    weights = {e.target_id: e.value for e in _load(FloatSet, paths.view_attribute_path("fcm", "weight")).entries}
-    evidence = _load(EvidenceLinkSet, paths.evidence_links_yaml).entries
+    weights = {e.target_id: e.value
+               for e in load_model_or_default(FloatSet, paths.view_attribute_path("fcm", "weight")).entries}
+    evidence = load_model_or_default(EvidenceLinkSet, paths.evidence_links_yaml).entries
 
     def cites(target_id: str, *, against: bool) -> list[str]:
-        keys = [
-            e.bibkey for e in evidence
-            if e.target_id == target_id and e.is_against == against
-        ]
-        return list(dict.fromkeys(keys))
+        return list(dict.fromkeys(e.bibkey for e in evidence if e.target_id == target_id and e.is_against == against))
 
     factors = [
         SpecFactor(
@@ -150,70 +147,102 @@ def export_spec(*, model_type: str | None = None, root: Path | None = None) -> t
         for e in substrate.entities
     ]
     links = []
-    for e in substrate.edges:
-        pol = polarity.get(e.id)
+    for edge in substrate.edges:
+        pol = polarity.get(edge.id)
         links.append(SpecLink.model_validate({
-            "from": labels[e.from_id], "to": labels[e.to_id], "kind": e.kind,
+            "from": labels[edge.from_id], "to": labels[edge.to_id], "kind": edge.kind,
             "polarity": pol.value if pol and pol.value in ("+", "-") else None,
             "reason": pol.rationale if pol else None,
-            "weight": weights.get(e.id), "description": descriptions.get(e.id),
-            "confidence": confidence.get(e.id),
-            "sources": cites(e.id, against=False), "contradicts": cites(e.id, against=True),
+            "weight": weights.get(edge.id), "description": descriptions.get(edge.id),
+            "confidence": confidence.get(edge.id),
+            "sources": cites(edge.id, against=False), "contradicts": cites(edge.id, against=True),
         }))
     sources = [
         SpecSource(
             key=r.bibkey, title=r.title, authors=list(r.authors), year=r.year, container=r.container,
             doi=r.doi, url=r.url, notes=r.notes, cited_via=r.cited_via,
         )
-        for r in _load(ReferenceLibrary, paths.references_yaml).entries
+        for r in load_model_or_default(ReferenceLibrary, paths.references_yaml).entries
     ]
-    assumptions = [
-        SpecAssumption(text=a.statement, target=name(a.target_id), rationale=a.rationale)
-        for a in _load(AssumptionLog, paths.assumptions_yaml).entries
-    ]
-    questions = [q.question for q in _load(QuestionLog, paths.questions_yaml).entries if q.disposition == "open"]
-    findings = [
-        SpecFinding(
-            statement=f.statement, category=f.category, detail=f.detail,
-            targets=[n for n in (name(t) for t in f.target_ids) if n],
-        )
-        for f in list_findings(model_type=model_type, root=paths.root)
-        if f.maturity in ("proposed", "reviewed", "approved")
-    ]
-    challenges = [
-        SpecChallenge(argument=c.argument, target=name(c.target_id))
-        for c in _load(ChallengeLog, paths.challenges_yaml).entries if c.state == "open"
-    ]
-    decisions = [
-        SpecDecision(statement=d.statement, rationale=d.rationale, target=name(d.target_id))
-        for d in _load(DecisionLog, paths.decisions_yaml).entries
-    ]
-    interpretation = [
-        SpecInterpretation(
-            section=s.section_type, prose=s.prose, by="human" if s.generation_state == "edited" else "ai",
-        )
-        for s in load_interpretation(root=paths.root).sections
-        if s.model_type == model_type and s.prose.strip()
-    ]
+    return factors, links, sources
+
+
+def _spec_records(paths: ProjectPaths, model_type: str, name: Callable[[str | None], str | None]
+                  ) -> dict[str, Any]:
+    """Assumptions, open questions, findings, open challenges, decisions and interpretation, as spec fields."""
+    from latris.operations.findings import list_findings
+    from latris.operations.interpret import load_interpretation
+
+    return {
+        "assumptions": [
+            SpecAssumption(text=a.statement, target=name(a.target_id), rationale=a.rationale)
+            for a in load_model_or_default(AssumptionLog, paths.assumptions_yaml).entries
+        ],
+        "questions": [q.question for q in load_model_or_default(QuestionLog, paths.questions_yaml).entries
+                      if q.disposition == "open"],
+        "findings": [
+            SpecFinding(
+                statement=f.statement, category=f.category, detail=f.detail,
+                targets=[n for n in (name(t) for t in f.target_ids) if n],
+            )
+            for f in list_findings(model_type=model_type, root=paths.root)
+            if f.maturity in ("proposed", "reviewed", "approved")
+        ],
+        "challenges": [
+            SpecChallenge(argument=c.argument, target=name(c.target_id))
+            for c in load_model_or_default(ChallengeLog, paths.challenges_yaml).entries if c.state == "open"
+        ],
+        "decisions": [
+            SpecDecision(statement=d.statement, rationale=d.rationale, target=name(d.target_id))
+            for d in load_model_or_default(DecisionLog, paths.decisions_yaml).entries
+        ],
+        "interpretation": [
+            SpecInterpretation(
+                section=s.section_type, prose=s.prose, by="human" if s.generation_state == "edited" else "ai",
+            )
+            for s in load_interpretation(root=paths.root).sections
+            if s.model_type == model_type and s.prose.strip()
+        ],
+    }
+
+
+def _spec_outcome(paths: ProjectPaths, model_type: str, labels: dict[str, str]) -> str | None:
     plugin = formalisms.get(model_type)
     # Only a type that takes an outcome (SD, the causal types, ToC, …) writes one; an event tree's end
     # states are its outcomes but aren't given as a spec's ``outcome``.
     outcome_ids = sorted(plugin.outcome_ids(paths)) if plugin and plugin.outcome_role else []
-    outcome = next((labels[i] for i in outcome_ids if i in labels), None)
+    return next((labels[i] for i in outcome_ids if i in labels), None)
 
+
+def _spec_context(foundation: ProjectFoundation) -> SpecContext | None:
     context = SpecContext(
         background=foundation.background or None, audience=foundation.audience or None,
         boundary=foundation.boundary or None, exclusions=foundation.exclusions or None,
         intuition=foundation.predictions or None,
     )
+    return context if context.model_dump(exclude_none=True) else None
+
+
+def export_spec(*, model_type: str | None = None, root: Path | None = None) -> tuple[ProjectFoundation, BuildSpec]:
+    """The project as a build spec — the inverse of ``latris build``."""
+    paths = require_project(root)
+    foundation = load_model(ProjectFoundation, paths.project_yaml)
+    if model_type and formalisms.get(model_type) is None:
+        known = ", ".join(sorted(f.model_type for f in formalisms.all_formalisms()))
+        raise ValueError(f"unknown model type {model_type[:60]!r}. Model types: {known}")
+    model_type = model_type or next(iter(foundation.selected_model_types), "cld")
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    labels = {e.id: e.label for e in substrate.entities}
+    _require_unique_labels(substrate)
+    factors, links, sources = _spec_map(paths, substrate, labels)
+    blocks = {f.spec_field: f.spec_export(paths, labels)
+              for f in formalisms.all_formalisms() if f.spec_field and f.spec_export is not None}
     spec = BuildSpec(
-        model_type=model_type,
-        context=context if context.model_dump(exclude_none=True) else None,
-        outcome=outcome, factors=factors, links=links, sources=sources,
-        assumptions=assumptions, questions=questions, findings=findings, challenges=challenges,
-        decisions=decisions, interpretation=interpretation,
+        model_type=model_type, context=_spec_context(foundation),
+        outcome=_spec_outcome(paths, model_type, labels), factors=factors, links=links, sources=sources,
+        **_spec_records(paths, model_type, _namer(substrate, labels)),
         analyses=_export_analyses(paths), carried_results=_export_carried(paths),
-        **{f.spec_field: f.spec_export(paths, labels) for f in formalisms.all_formalisms() if f.spec_field},
+        **blocks,
     )
     return foundation, spec
 

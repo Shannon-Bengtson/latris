@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
+from latris.operations._resolve import resolve_entity
 from latris.operations.commit import auto_commit
 from latris.operations.errors import NotFoundError
 from latris.operations.provenance import add_exclusion
@@ -268,8 +269,10 @@ def mark_added_to_model(
     target = next((mv for mv in report.entries if mv.id == missing_var_id), None)
     if target is None:
         raise NotFoundError(f"no missing-variable {missing_var_id!r} in {model_type} report")
+    # The factor must exist (by ID, prefix or label); its ID is what's recorded.
+    substrate = load_model(Substrate, require_project(root).conceptual_yaml)
     target.disposition = "added_to_model"
-    target.added_entity_id = entity_id
+    target.added_entity_id = resolve_entity(entity_id, substrate.entities).id
     sha = save_report(
         report,
         subject=f"Mark missing-variable '{target.name}' as added",

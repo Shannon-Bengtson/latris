@@ -73,3 +73,4 @@ layout/*.layout.yaml
 # content; the SourceSnapshot metadata in references.yaml is the
 # git-tracked record of when/where it was fetched.
 ai/reference-extracts/
+.health-coverage.json

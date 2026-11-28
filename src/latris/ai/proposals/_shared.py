@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import nullcontext
 from typing import get_args
 
@@ -15,6 +16,8 @@ from latris.operations.provenance import add_assumption, add_question
 from latris.operations.view_attributes import set_view_attribute
 from latris.repo.layout import ProjectPaths
 from latris.schema.attributes import Confidence
+
+logger = logging.getLogger(__name__)
 
 
 class _Base(BaseModel):
@@ -76,7 +79,8 @@ def _cld_selected(paths: ProjectPaths) -> bool:
 
     try:
         _, foundation = load_foundation(paths.root)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 — a gate, not a read: an unreadable project.yaml means "not selected"
+        logger.debug("couldn't read the selected model types: %s", exc)
         return False
     return formalisms.attribute_home("polarity") in set(foundation.selected_model_types or [])
 

@@ -52,7 +52,8 @@ what to do.
 Four guards started with existing gaps. Rather than fail from day one, each lists today's gaps in a file
 that **only shrinks**:
 
-- `tests/server/untested_routes.txt` — routes with no test yet.
+- `tests/server/untested_routes.txt` — routes with no test yet. Empty since 2026-11-28: every route has a
+  test, and the guard keeps it that way.
 - `worked_example/not_in_worked_example.txt` — commands not in the worked example yet (some can't be:
   they need real keys or a network).
 - `tests/complexity_exceptions.txt` — functions past the complexity limit, each with its score. A listed
@@ -106,7 +107,8 @@ fails the first time, so a flaky test shows up instead of passing on a retry.
 Two scheduled runs look at what a push doesn't:
 
 - **Health check** (`.github/workflows/health.yml`, Monday morning in Australia): `scripts/health_report.py`
-  runs the suite against today's releases of every dependency, audits the dependencies for known
+  runs the suite against today's releases of every dependency (with coverage, and the ten least-covered
+  files, so the trend shows), audits the dependencies for known
   vulnerabilities (pip-audit), and measures risky patterns (bandit), complexity and maintainability
   (radon), size, dead code (vulture), duplication (jscpd), lint beyond the project's rules, and the length
   of each ratchet list. The report is the run's summary page, kept as an artifact for 90 days. It fails

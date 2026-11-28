@@ -259,8 +259,9 @@ def duplication(rep: Report, label: str, src: str, ignore: str = "") -> None:
 
 def tests_and_coverage(rep: Report, pytest_args: list[str]) -> None:
     rep.section("Tests and coverage (with today's dependency versions)")
+    cov_json = ROOT / ".health-coverage.json"
     out = run([sys.executable, "-m", "pytest", *pytest_args, "-q", "-p", "no:cacheprovider", "--cov",
-               "--cov-report=term", "--cov-fail-under=0"], timeout=3600)
+               "--cov-report=term", f"--cov-report=json:{cov_json}", "--cov-fail-under=0"], timeout=3600)
     summary = next((ln for ln in reversed(out.stdout.splitlines()) if re.search(r"\d+ (passed|failed)", ln)), "")
     total = next((ln.split()[-1] for ln in out.stdout.splitlines() if ln.startswith("TOTAL")), "?")
     failures = [ln for ln in out.stdout.splitlines() if ln.startswith(("FAILED", "ERROR"))]
@@ -268,9 +269,29 @@ def tests_and_coverage(rep: Report, pytest_args: list[str]) -> None:
     if failures:
         rep.add("", "A failure here and not on the last push usually means a new release of a dependency "
                 "changed something:", "", *(f"- `{f[:160]}`" for f in failures[:20]))
+    least_covered(rep, cov_json)
     if failures or out.returncode:
         rep.failed = True
     rep.note("Tests", ("❌ " if failures or out.returncode else "✅ ") + f"{summary.strip('= ')}; coverage {total}")
+
+
+def least_covered(rep: Report, cov_json: Path, *, count: int = 10, min_statements: int = 40) -> None:
+    """The files with the lowest coverage (of those big enough to matter), so the trend shows week to week."""
+    if not cov_json.exists():
+        return
+    try:
+        files = json.loads(cov_json.read_text(encoding="utf-8"))["files"]
+    finally:
+        cov_json.unlink()
+    rows = sorted(
+        ([v["summary"]["percent_covered"], v["summary"]["num_statements"], v["summary"]["missing_lines"], name]
+         for name, v in files.items() if v["summary"]["num_statements"] >= min_statements),
+        key=lambda r: r[0],
+    )[:count]
+    if rows:
+        rep.add("", f"The {len(rows)} least-covered files ({min_statements} statements and over):", "")
+        rep.table(["Coverage", "Statements", "Missing", "File"],
+                  [[f"{pct:.0f}%", n, miss, f"`{name}`"] for pct, n, miss, name in rows])
 
 
 def ratchets(rep: Report, files: list[str]) -> None:

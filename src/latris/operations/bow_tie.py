@@ -34,6 +34,7 @@ from typing import Any
 
 from latris.operations import _ft_engine as engine
 from latris.operations._view_store import ViewStore, replace_entry, resolve_factor
+from latris.operations._words import a_or_an
 from latris.repo.project import require_project
 from latris.repo.yaml_io import load_model
 from latris.schema import Substrate
@@ -94,8 +95,8 @@ def _require(paths, target: str, element: str, what: str) -> tuple[str, str]:
     got = get_elements(root=paths.root).get(tid)
     if got != element:
         raise ValueError(
-            f"{label} is {('a ' + ELEMENT_NAMES[got].lower()) if got else 'not in the bow-tie'}; only a "
-            f"{ELEMENT_NAMES[element].lower()} takes {what} (`latris bowtie element <factor> {element}` first)"
+            f"{label} is {a_or_an(ELEMENT_NAMES[got].lower()) if got else 'not in the bow-tie'}; only "
+            f"{a_or_an(ELEMENT_NAMES[element].lower())} takes {what} (`latris bowtie element <factor> {element}` first)"
         )
     return tid, label
 
@@ -230,11 +231,9 @@ def _cycle(members: list[str], out: dict[str, list[str]]) -> str | None:
     return None
 
 
-def load_bow_tie(*, root: Path | None = None) -> BowTie:
-    paths = require_project(root)
-    substrate = load_model(Substrate, paths.conceptual_yaml)
-    labels = {e.id: e.label for e in substrate.entities}
-    el = {k: v for k, v in get_elements(root=paths.root).items() if k in labels}
+def _bow_tie_links(substrate: Substrate, el: dict[str, str]
+                   ) -> tuple[dict[str, list[str]], list[tuple[str, str]], list[BTProblem]]:
+    """The links between bow-tie elements (``out``), links in from outside it, and links of the wrong kind."""
     out: dict[str, list[str]] = defaultdict(list)
     outside: list[tuple[str, str]] = []
     problems: list[BTProblem] = []
@@ -247,21 +246,21 @@ def load_bow_tie(*, root: Path | None = None) -> BowTie:
         pair = (el[e.from_id], el[e.to_id])
         if pair not in _ALLOWED:
             problems.append(BTProblem(e.id, "bt_bad_link", (
-                f"A {ELEMENT_NAMES[pair[0]].lower()} can't lead to a {ELEMENT_NAMES[pair[1]].lower()}. Lines run "
+                f"{a_or_an(ELEMENT_NAMES[pair[0]].lower()).capitalize()} can't lead to "
+                f"{a_or_an(ELEMENT_NAMES[pair[1]].lower())}. Lines run "
                 "threat → barriers → top event → barriers → consequence; an escalation factor leads to a barrier."
             )))
             continue
         if e.to_id not in out[e.from_id]:
             out[e.from_id].append(e.to_id)
-    barriers = {b.target_id: b for b in get_barriers(root=paths.root).entries if b.target_id in el}
-    freqs = {f.target_id: f for f in get_frequencies(root=paths.root).entries if f.target_id in el}
-    of = defaultdict(list)
-    for eid, t in el.items():
-        of[t].append(eid)
-    tops = of["top_event"]
-    bt = BowTie(labels=labels, elements=el, out=dict(out), barriers=barriers, frequencies=freqs,
-                top=tops[0] if len(tops) == 1 else None, problems=problems, outside_inputs=outside)
+    return out, outside, problems
 
+
+def _element_problems(of: dict[str, list[str]]) -> list[BTProblem]:
+    """Problems with how many of each element there are: one top event, at most one hazard, a threat and a
+    consequence."""
+    problems: list[BTProblem] = []
+    tops = of["top_event"]
     if not tops:
         problems.append(BTProblem(None, "bt_no_top", "No top event: say what moment of lost control the bow-tie "
                                                      "is about."))
@@ -273,13 +272,12 @@ def load_bow_tie(*, root: Path | None = None) -> BowTie:
         problems.append(BTProblem(None, "bt_no_threat", "No threat: say what could cause the top event."))
     if not of["consequence"]:
         problems.append(BTProblem(None, "bt_no_consequence", "No consequence: say what could follow the top event."))
-    cyc = _cycle(list(el), bt.out)
-    if cyc:
-        problems.append(BTProblem(cyc, "bt_cycle", "The lines loop back through this element."))
-    if bt.top is None or cyc:
-        return bt
+    return problems
 
-    top = bt.top
+
+def _trace_main_lines(bt: BowTie, top: str, of: dict[str, list[str]]) -> None:
+    """The prevention lines (threat → top event) and mitigation lines (top event → consequence)."""
+    problems, el = bt.problems, bt.elements
     for h in of["hazard"]:
         if top not in bt.out.get(h, []):
             problems.append(BTProblem(h, "bt_hazard_unlinked", "Link the hazard to the top event."))
@@ -289,18 +287,22 @@ def load_bow_tie(*, root: Path | None = None) -> BowTie:
         bt.truncated |= trunc
         if not lines:
             problems.append(BTProblem(t, "bt_threat_unlinked", "No line to the top event (through barriers only)."))
-    consequences = set(of["consequence"])
-    right, trunc = _lines(top, consequences, bt.out, el)
+    right, trunc = _lines(top, set(of["consequence"]), bt.out, el)
     bt.right, bt.truncated = right, bt.truncated or trunc
     reached = {ln.end for ln in right}
     for c in of["consequence"]:
         if c not in reached:
             problems.append(BTProblem(c, "bt_consequence_unlinked", "No line from the top event (through barriers "
                                                                     "only)."))
+
+
+def _trace_escalation(bt: BowTie, of: dict[str, list[str]]) -> None:
+    """The escalation lines (factor → the barrier it degrades), and barriers on no line at all."""
+    problems = bt.problems
     # A barrier on both sides would close a loop through the top event, which the cycle check refuses.
     main = {b for ln in bt.left + bt.right for b in ln.barriers}
     for f in of["escalation_factor"]:
-        lines, trunc = _lines(f, main, bt.out, el, through={b for b in of["barrier"] if b not in main})
+        lines, trunc = _lines(f, main, bt.out, bt.elements, through={b for b in of["barrier"] if b not in main})
         bt.escalation += lines
         bt.truncated |= trunc
         if not lines:
@@ -311,6 +313,30 @@ def load_bow_tie(*, root: Path | None = None) -> BowTie:
             problems.append(BTProblem(b, "bt_barrier_off_line", "Not on any line: put it between a threat and the "
                                                                 "top event, the top event and a consequence, or an "
                                                                 "escalation factor and the barrier it degrades."))
+
+
+def load_bow_tie(*, root: Path | None = None) -> BowTie:
+    paths = require_project(root)
+    substrate = load_model(Substrate, paths.conceptual_yaml)
+    labels = {e.id: e.label for e in substrate.entities}
+    el = {k: v for k, v in get_elements(root=paths.root).items() if k in labels}
+    out, outside, problems = _bow_tie_links(substrate, el)
+    barriers = {b.target_id: b for b in get_barriers(root=paths.root).entries if b.target_id in el}
+    freqs = {f.target_id: f for f in get_frequencies(root=paths.root).entries if f.target_id in el}
+    of: dict[str, list[str]] = defaultdict(list)
+    for eid, t in el.items():
+        of[t].append(eid)
+    tops = of["top_event"]
+    bt = BowTie(labels=labels, elements=el, out=dict(out), barriers=barriers, frequencies=freqs,
+                top=tops[0] if len(tops) == 1 else None, problems=problems, outside_inputs=outside)
+    problems += _element_problems(of)
+    cyc = _cycle(list(el), bt.out)
+    if cyc:
+        problems.append(BTProblem(cyc, "bt_cycle", "The lines loop back through this element."))
+    if bt.top is None or cyc:
+        return bt
+    _trace_main_lines(bt, bt.top, of)
+    _trace_escalation(bt, of)
     return bt
 
 
@@ -360,6 +386,78 @@ def _frequencies(bt: BowTie, pfd: dict[str, float], freq: dict[str, float]) -> t
 
 
 
+def _line_row(bt: BowTie, ln: Line, side: str) -> dict[str, Any]:
+    lab = bt.labels
+    eff = [b for b in ln.barriers if _effective(bt, b)]
+    return {"side": side, "from": lab[ln.start], "to": lab[ln.end], "barriers": [lab[b] for b in ln.barriers],
+            "effective": len(eff),
+            "not_effective": [lab[b] for b in ln.barriers if not _effective(bt, b)]}
+
+
+def _quantify(bt: BowTie, payload: dict[str, Any], left_b: set[str], right_b: set[str]) -> dict[str, float | None]:
+    """The layer-of-protection estimate, into ``payload`` (``missing``, ``quantified``, ``frequency``), when every
+    threat with a line has a frequency and every barrier on a line a PFD. Returns each barrier's risk ratio: the
+    frequency with it failed over the frequency now (empty when the numbers are missing)."""
+    lab = bt.labels
+    threats = sorted({ln.start for ln in bt.left})
+    on_lines = sorted(left_b | right_b)
+    pfd = {b: v for b in on_lines if (v := _pfd(bt, b)) is not None}
+    freq = {t: bt.frequencies[t].frequency for t in threats if t in bt.frequencies}
+    missing = [lab[t] + " (frequency)" for t in threats if t not in freq]
+    missing += [lab[b] + " (failure probability)" for b in on_lines if b not in pfd]
+    payload["missing"] = missing
+    raw: dict[str, float | None] = {}
+    if missing:
+        return raw
+    f_top, f_cons = _frequencies(bt, pfd, freq)
+    payload["quantified"] = True
+    payload["frequency"] = {
+        "top": f_top, "consequences": {lab[c]: v for c, v in f_cons.items()},
+        "threats": {lab[t]: freq[t] for t in threats},
+    }
+    total_cons = sum(f_cons.values())
+    for b in on_lines:
+        f2_top, f2_cons = _frequencies(bt, {**pfd, b: 1.0}, freq)
+        if b in left_b:
+            raw[b] = f2_top / f_top if f_top > 0 else None
+        else:
+            raw[b] = sum(f2_cons.values()) / total_cons if total_cons > 0 else None
+    return raw
+
+
+def _barrier_row(bt: BowTie, b: str, side: str, lines: int, factors: list[dict[str, Any]],
+                 raw: float | None) -> dict[str, Any]:
+    e = bt.barriers.get(b)
+    return {
+        "barrier": bt.labels[b], "side": side,
+        "type": e.barrier_type if e else None, "status": e.status if e else "in_place",
+        "owner": e.owner if e else None, "pfd": e.pfd if e else None,
+        "origin": e.origin if e else None, "source": e.source_id if e else None,
+        "verification": e.verification if e else None, "weak": e is None or e.pfd is None or e.is_weak,
+        "lines": lines, "escalation_factors": factors, "raw": raw,
+    }
+
+
+def _barrier_rows(bt: BowTie, left_b: set[str], right_b: set[str], raw: dict[str, float | None]
+                  ) -> list[dict[str, Any]]:
+    """One row per barrier, the one whose failure raises the risk most first."""
+    lab = bt.labels
+    lines_of: dict[str, int] = defaultdict(int)
+    for ln in bt.left + bt.right:
+        for b in set(ln.barriers):
+            lines_of[b] += 1
+    ef_on: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for ln in bt.escalation:
+        ef_on[ln.end].append({"factor": lab[ln.start], "controls": [lab[b] for b in ln.barriers]})
+    ef_b = {b for ln in bt.escalation for b in ln.barriers}
+    rows = []
+    for b in sorted(bt.barriers.keys() | left_b | right_b | ef_b, key=lambda x: lab[x]):
+        side = "prevention" if b in left_b else "mitigation" if b in right_b else "escalation control"
+        rows.append(_barrier_row(bt, b, side, lines_of.get(b, 0), ef_on.get(b, []), raw.get(b)))
+    rows.sort(key=lambda r: (-(r["raw"] or 0), r["barrier"]))
+    return rows
+
+
 def analyse(*, root: Path | None = None) -> dict[str, Any]:
     """The bow-tie's lines, what weakens them, and (with the numbers) a layer-of-protection estimate."""
     bt = load_bow_tie(root=root)
@@ -378,66 +476,14 @@ def analyse(*, root: Path | None = None) -> dict[str, Any]:
     if bt.problems:
         return payload
 
-    lines_of: dict[str, int] = defaultdict(int)
-    for ln in bt.left + bt.right:
-        for b in set(ln.barriers):
-            lines_of[b] += 1
-    ef_on: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for ln in bt.escalation:
-        ef_on[ln.end].append({"factor": lab[ln.start], "controls": [lab[b] for b in ln.barriers]})
-
-    def line_row(ln: Line, side: str) -> dict[str, Any]:
-        eff = [b for b in ln.barriers if _effective(bt, b)]
-        return {"side": side, "from": lab[ln.start], "to": lab[ln.end], "barriers": [lab[b] for b in ln.barriers],
-                "effective": len(eff),
-                "not_effective": [lab[b] for b in ln.barriers if not _effective(bt, b)]}
-
-    payload["lines"] = [line_row(ln, "prevention") for ln in bt.left] + [line_row(ln, "mitigation") for ln in bt.right]
+    payload["lines"] = ([_line_row(bt, ln, "prevention") for ln in bt.left]
+                        + [_line_row(bt, ln, "mitigation") for ln in bt.right])
     payload["escalation"] = [{"factor": lab[ln.start], "degrades": lab[ln.end],
                               "controls": [lab[b] for b in ln.barriers]} for ln in bt.escalation]
     left_b = {b for ln in bt.left for b in ln.barriers}
     right_b = {b for ln in bt.right for b in ln.barriers}
-    ef_b = {b for ln in bt.escalation for b in ln.barriers}
-
-    # Quantification: every threat with a line needs a frequency; every barrier on a line a PFD.
-    threats = sorted({ln.start for ln in bt.left})
-    on_lines = sorted(left_b | right_b)
-    pfd = {b: v for b in on_lines if (v := _pfd(bt, b)) is not None}
-    freq = {t: bt.frequencies[t].frequency for t in threats if t in bt.frequencies}
-    missing = [lab[t] + " (frequency)" for t in threats if t not in freq]
-    missing += [lab[b] + " (failure probability)" for b in on_lines if b not in pfd]
-    payload["missing"] = missing
-    raw: dict[str, float | None] = {}
-    if not missing:
-        f_top, f_cons = _frequencies(bt, pfd, freq)
-        payload["quantified"] = True
-        payload["frequency"] = {
-            "top": f_top, "consequences": {lab[c]: v for c, v in f_cons.items()},
-            "threats": {lab[t]: freq[t] for t in threats},
-        }
-        total_cons = sum(f_cons.values())
-        for b in on_lines:
-            f2_top, f2_cons = _frequencies(bt, {**pfd, b: 1.0}, freq)
-            if b in left_b:
-                raw[b] = f2_top / f_top if f_top > 0 else None
-            else:
-                raw[b] = sum(f2_cons.values()) / total_cons if total_cons > 0 else None
-
-    rows = []
-    for b in sorted(bt.barriers.keys() | left_b | right_b | ef_b, key=lambda x: lab[x]):
-        e = bt.barriers.get(b)
-        rows.append({
-            "barrier": lab[b],
-            "side": "prevention" if b in left_b else "mitigation" if b in right_b else "escalation control",
-            "type": e.barrier_type if e else None, "status": e.status if e else "in_place",
-            "owner": e.owner if e else None, "pfd": e.pfd if e else None,
-            "origin": e.origin if e else None, "source": e.source_id if e else None,
-            "verification": e.verification if e else None, "weak": e is None or e.pfd is None or e.is_weak,
-            "lines": lines_of.get(b, 0), "escalation_factors": ef_on.get(b, []),
-            "raw": raw.get(b),
-        })
-    rows.sort(key=lambda r: (-(r["raw"] or 0), r["barrier"]))
-    payload["barriers"] = rows
+    raw = _quantify(bt, payload, left_b, right_b)
+    payload["barriers"] = _barrier_rows(bt, left_b, right_b, raw)
     return payload
 
 

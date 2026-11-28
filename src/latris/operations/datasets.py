@@ -329,6 +329,11 @@ def apply_operation(
     return action, sha
 
 
+def _quoted_columns(params: dict) -> str:
+    """The ``columns`` param as ``"a", "b"``; absent, null or empty means all."""
+    return ", ".join(f'"{c}"' for c in params.get("columns") or ["all"])
+
+
 def _build_summary(kind: str, params: dict, rows_before: int, rows_after: int) -> str:
     """Build a human-readable summary of a data operation."""
     diff = rows_before - rows_after
@@ -343,8 +348,7 @@ def _build_summary(kind: str, params: dict, rows_before: int, rows_after: int) -
             cols = ", ".join(f'"{c}"' for c in params["columns"])
             return f"Dropped columns {cols}"
         case "drop_nan_rows":
-            cols = ", ".join(f'"{c}"' for c in params.get("columns", ["all"]))
-            return f"Dropped {diff} NaN rows (columns: {cols})"
+            return f"Dropped {diff} NaN rows (columns: {_quoted_columns(params)})"
         case "fill_nan":
             return f'Filled NaN in "{col}" ({params["method"]})'
         case "filter_rows":
@@ -476,7 +480,7 @@ def _affected_columns(kind: str, params: dict) -> list[str]:
         case "drop_columns":
             return list(params["columns"])
         case "drop_nan_rows" | "deduplicate":
-            return list(params.get("columns", []))
+            return list(params.get("columns") or [])
         case "insert_row" | "delete_rows" | "duplicate_rows":
             return []
         case "update_cell":

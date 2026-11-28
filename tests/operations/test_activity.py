@@ -25,6 +25,7 @@ def test_a_cut_short_id_matches_by_prefix_and_loses_its_ellipsis() -> None:
 def test_an_id_that_names_nothing_becomes_its_kind() -> None:
     assert readable_subject(f"Map {NODE[:20]} to cld", {}) == "Map a factor to cld"
     assert readable_subject("Set preferred version: version_01M87GP57Z456NMY7SYY798GZ8", {}) == "Set preferred version: a version"
+    assert readable_subject("Removed assumption_01M87GP57Z456NMY7SYY798GZ8", {}) == "Removed an assumption"
 
 
 def test_an_ambiguous_prefix_is_not_guessed() -> None:

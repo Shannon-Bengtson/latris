@@ -29,6 +29,8 @@ def _ensure_label_free(label: str, substrate: Substrate, *, except_id: str | Non
     Compared case- and whitespace-insensitively, matching how labels resolve.
     """
     key = _label_key(label)
+    if not key:
+        raise ValueError("a node's label can't be empty")
     for e in substrate.entities:
         if e.id != except_id and _label_key(e.label) == key:
             raise ValueError(f'a node is already called "{e.label}"; labels must be unique')

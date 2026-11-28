@@ -35,7 +35,8 @@ class DTBranchEntry(EntryBase):
     attribute: str = "branch"
     label: str | None = None  # the option (from a decision) or the state (from a chance node)
     probability: float | None = Field(default=None, ge=0.0, le=1.0)  # chance branches only
-    value: float = 0.0  # incurred along the branch, in the tree's units (e.g. a cost as a negative value)
+    # incurred along the branch, in the tree's units (e.g. a cost as a negative value)
+    value: float = Field(default=0.0, allow_inf_nan=False)
     notes: str | None = None
 
 
@@ -47,7 +48,7 @@ class DTPayoffEntry(EntryBase):
     """The value at a terminal node, in the tree's units."""
 
     attribute: str = "payoff"
-    value: float
+    value: float = Field(allow_inf_nan=False)
     notes: str | None = None
 
 

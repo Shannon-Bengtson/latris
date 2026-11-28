@@ -93,8 +93,10 @@ def test_setters(project):
     _build(project)
     with pytest.raises(ValueError, match="isn't a rating"):
         ach.set_rating("Restart fixed it", "Software bug", "maybe", root=project)
-    with pytest.raises(ValueError, match="not a hypothesis"):
+    with pytest.raises(ValueError, match="is an evidence item, not a hypothesis"):
         ach.set_rating("Restart fixed it", "Restart fixed it", "C", root=project)
+    with pytest.raises(ValueError, match="is a hypothesis, not an evidence item"):
+        ach.set_rating("Software bug", "Software bug", "C", root=project)
     entry, _ = ach.set_rating("Restart fixed it", "Software bug", "cc", root=project)
     assert entry.rating == "CC"
     entry, _ = ach.set_item("Restart fixed it", relevance="low", root=project)

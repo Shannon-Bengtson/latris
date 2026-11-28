@@ -8,6 +8,9 @@ from pydantic import Field
 from latris.schema._base import SchemaModel
 from latris.schema.common import AIActor, HumanActor, now_utc
 
+# Whether a human adopted an AI interaction's proposal (``failed``: the call never produced one).
+Adoption = Literal["pending", "approved", "rejected", "failed"]
+
 ChallengeState = Literal[
     "open",
     "retained-unchanged",
@@ -76,7 +79,7 @@ class AIInteraction(_Base):
     # the adapter raised before we had a `parsed` proposal. The error
     # fields below carry the diagnostic. Without this state, failed
     # calls vanished from the audit trail entirely.
-    adoption: Literal["pending", "approved", "rejected", "failed"] = "pending"
+    adoption: Adoption = "pending"
     approved_by: HumanActor | None = None
     # Token usage and cost from the provider response (populated on real calls
     # via the adapter layer). Keys are free-form to accommodate any provider's

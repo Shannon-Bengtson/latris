@@ -20,6 +20,7 @@ from latris.ai.proposals import (
     MissingVariableProposal,
 )
 from latris.operations import completeness as ops
+from latris.operations._resolve import ResolveError
 from latris.operations.init import init_project
 from latris.operations.nodes import add_node
 
@@ -249,9 +250,14 @@ def test_mark_added_records_entity(project: Path) -> None:
     ])
     report, _ = ops.run_completeness_gate("cld", root=project)
     mv_id = report.entries[0].id
-    mv, _ = ops.mark_added_to_model("cld", mv_id, "node_LANDCOVER", root=project)
+    with pytest.raises(ResolveError, match="no node matches 'node_LANDCOVER'"):
+        ops.mark_added_to_model("cld", mv_id, "node_LANDCOVER", root=project)
+    assert ops.load_report("cld", root=project).entries[0].disposition == "open"
+    land = add_node("Land cover", root=project)[0]
+    # By ID, prefix or label, like every other factor reference; the ID is what's stored.
+    mv, _ = ops.mark_added_to_model("cld", mv_id, "land cover", root=project)
     assert mv.disposition == "added_to_model"
-    assert mv.added_entity_id == "node_LANDCOVER"
+    assert mv.added_entity_id == land.id
 
 
 def test_unknown_id_raises(project: Path) -> None:

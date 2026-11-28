@@ -537,7 +537,7 @@ def _ghost_for_branch(root: Path, remote: str, branch: str) -> dict[str, Any]:
                 "created_by": node.created_by.model_dump(mode="json"),
             }
         )
-    except Exception:
+    except (git.GitError, ValueError):  # no lineage node at that ref, or not a readable one
         info.update(
             {"version_id": None, "name": branch, "maturity": "proposed", "created_by": None}
         )
@@ -641,7 +641,7 @@ def add_to_workspace(
     try:
         text = git.show_file(paths.root, branch, ".graph-tooling/lineage-node.yaml")
         version_id = load_model_from_string(LineageNode, text).id
-    except Exception:
+    except (git.GitError, ValueError):  # no lineage node on the branch, or not a readable one
         version_id = None
     return {"branch": branch, "version_id": version_id}
 

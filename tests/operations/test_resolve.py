@@ -140,5 +140,20 @@ class TestResolveTarget:
 
     def test_neither_entity_nor_edge_raises(self) -> None:
         substrate = Substrate(entities=[], edges=[])
-        with pytest.raises(ResolveError):
+        with pytest.raises(ResolveError, match="nothing matches 'nothing' as a factor or a link"):
             resolve_target("nothing", substrate)
+
+    def test_an_ambiguous_label_says_so(self) -> None:
+        substrate = Substrate(
+            entities=[_entity("node_AAAA1111BBBB2222CCCC33", "Price"), _entity("node_DDDD4444EEEE5555FFFF66", "Price")],
+            edges=[],
+        )
+        with pytest.raises(ResolveError, match="label 'Price' is ambiguous"):
+            resolve_target("Price", substrate)
+
+    def test_an_ambiguous_edge_prefix_says_so(self) -> None:
+        substrate = Substrate(
+            entities=[], edges=[_edge("edge_BBBB1111CCCC2222DDDD33"), _edge("edge_BBBB1111CCCC2222DDDD44")],
+        )
+        with pytest.raises(ResolveError, match="edge prefix 'edge_BBBB' is ambiguous"):
+            resolve_target("edge_BBBB", substrate)

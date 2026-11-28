@@ -313,3 +313,103 @@ def test_apply_actor_flag_reflected_in_model_id(project) -> None:
     records = inter_ops.list_interactions(root=root)
     assert records[0].model_id == "external-agent:claude-code"
     assert records[0].approved_by and records[0].approved_by.name == "Test Runner"
+
+
+# ---------- reading a task file back (load_task) ----------
+
+import dataclasses  # noqa: E402
+
+from latris.ai import delegated  # noqa: E402
+from latris.ai import prompts as prompt_lib  # noqa: E402
+from latris.ai.adapters.base import LLMCallError  # noqa: E402
+
+
+def _task_file(root: Path, content: str) -> Path:
+    path = root / "task.json"
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("{not json", "is not valid JSON"),
+        ("[1, 2]", "must contain a JSON object"),
+        ('{"prompt_name": "ExplainThisElement"}', "unsupported task_version None"),
+        ('{"task_version": 99, "prompt_name": "ExplainThisElement"}', "unsupported task_version 99"),
+        ('{"task_version": 1}', "missing a 'prompt_name' string"),
+        ('{"task_version": 1, "prompt_name": ""}', "missing a 'prompt_name' string"),
+        ('{"task_version": 1, "prompt_name": "NoSuchPrompt"}', "unknown prompt 'NoSuchPrompt'"),
+        ('{"task_version": 1, "prompt_name": "ExplainThisElement", "inputs": [1]}', "'inputs' must be a JSON object"),
+    ],
+)
+def test_load_task_rejects_a_malformed_task_file(project, content, message) -> None:
+    root, *_ = project
+    with pytest.raises(ValueError, match=message.replace("(", r"\(").replace(")", r"\)")):
+        delegated.load_task(_task_file(root, content), root=root)
+
+
+def test_load_task_rejects_an_unreadable_file(project) -> None:
+    root, *_ = project
+    with pytest.raises(ValueError, match="cannot read task file"):
+        delegated.load_task(root / "missing.json", root=root)
+
+
+def test_build_task_package_rejects_an_unknown_prompt(project) -> None:
+    root, *_ = project
+    with pytest.raises(ValueError, match="unknown prompt 'NoSuchPrompt'"):
+        delegated.build_task_package("NoSuchPrompt", {}, root=root)
+
+
+def test_load_task_treats_absent_inputs_as_empty(project) -> None:
+    root, *_ = project
+    spec, inputs = delegated.load_task(
+        _task_file(root, '{"task_version": 1, "prompt_name": "ExplainThisElement", "inputs": null}'), root=root
+    )
+    assert spec.name == "ExplainThisElement"
+    assert inputs == {}
+
+
+def test_a_prompt_with_no_response_model_cannot_be_delegated(project, monkeypatch) -> None:
+    root, *_ = project
+    spec = prompt_lib.PROMPT_LIBRARY["ExplainThisElement"]
+    monkeypatch.setitem(prompt_lib.PROMPT_LIBRARY, "ExplainThisElement", dataclasses.replace(spec, response_model=None))
+    with pytest.raises(NotImplementedError, match="no response model"):
+        delegated.build_task_package("ExplainThisElement", {}, root=root)
+    with pytest.raises(NotImplementedError, match="no response model"):
+        delegated.load_task(
+            _task_file(root, '{"task_version": 1, "prompt_name": "ExplainThisElement"}'), root=root
+        )
+
+
+# ---------- finalize_delegated, called directly ----------
+
+
+def _emit(root: Path, target_id: str) -> Path:
+    package = delegated.build_task_package("ExplainThisElement", {"target_id": target_id}, root=root)
+    return _task_file(root, json.dumps(package))
+
+
+def test_finalize_rejects_an_unreadable_response_file(project) -> None:
+    root, a, _, _ = project
+    with pytest.raises(ValueError, match="cannot read response file"):
+        delegated.finalize_delegated(
+            task_path=_emit(root, a.id), response_path=root / "missing.json", actor=None,
+            approver=None, confirm=lambda *a: True, render=lambda p: "", root=root,
+        )
+    assert inter_ops.list_interactions(root=root) == []
+
+
+def test_finalize_surfaces_the_validation_error_even_if_logging_it_fails(project, monkeypatch) -> None:
+    root, a, _, _ = project
+    response = _write_agent_response(root, {"wrong": True})
+
+    def broken_log(**kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(inter_ops, "record_interaction", broken_log)
+    with pytest.raises(LLMCallError, match="failed validation"):
+        delegated.finalize_delegated(
+            task_path=_emit(root, a.id), response_path=response, actor=None,
+            approver=None, confirm=lambda *a: True, render=lambda p: "", root=root,
+        )
