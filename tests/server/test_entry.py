@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -76,6 +77,22 @@ def test_main_passes_host_port_and_project_root(
     assert kw == {"host": "0.0.0.0", "port": 9001}
     # Binding beyond loopback with no token warns before serving.
     assert "WARNING" in capsys.readouterr().err
+
+
+def test_main_reload_serves_the_app_factory_with_reload_on(
+    monkeypatch, uvicorn_calls, no_token, two_node_project_root: Path, tmp_path: Path
+) -> None:
+    # --reload used to be parsed and then dropped: uvicorn needs an import string to reload.
+    monkeypatch.setenv("LATRIS_PROJECT_ROOT", "")  # recorded, so main()'s value is undone after the test
+    monkeypatch.delenv("LATRIS_PROJECT_ROOT")
+    monkeypatch.chdir(tmp_path)
+    _argv(monkeypatch, "--project-root", str(two_node_project_root), "--reload")
+    server_main.main()
+
+    [(app, kw)] = uvicorn_calls
+    assert app == "latris.server.app:create_app"
+    assert kw == {"factory": True, "host": "127.0.0.1", "port": 8741, "reload": True}
+    assert os.environ["LATRIS_PROJECT_ROOT"] == str(two_node_project_root)
 
 
 def test_main_rejects_a_non_integer_port(monkeypatch, uvicorn_calls) -> None:
