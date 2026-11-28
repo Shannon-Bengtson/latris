@@ -69,12 +69,12 @@ def _decisive(root: Path, p: dict[str, Any]) -> list[dict[str, Any]]:
     is not among them."""
     from latris.operations import argument_map as am
 
-    if not p["unanswered"]:
+    m = am.load(root=root) if p["unanswered"] else None
+    top = m.conclusion if m else None
+    if m is None or top is None:
         return []
-    m = am.load(root=root)
     ids = {lb: c for c, lb in m.labels.items()}
-    return [o for o in p["unanswered"]
-            if am.label(m, frozenset({ids[o["objection"]]}))[m.conclusion] != p["status"]]
+    return [o for o in p["unanswered"] if am.label(m, frozenset({ids[o["objection"]]}))[top] != p["status"]]
 
 
 def _claims(paths, section: str) -> list[str]:
