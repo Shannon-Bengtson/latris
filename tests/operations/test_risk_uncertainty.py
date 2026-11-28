@@ -96,8 +96,9 @@ def test_seed_reproduces_and_ranges_are_checked(cooling):
 
 
 def test_nothing_uncertain_refuses(cooling):
-    with pytest.raises(ValueError, match="no input has an uncertainty range"):
+    with pytest.raises(ValueError, match="no input has an uncertainty range") as exc:
         ru.monte_carlo("fault_tree", runs=100, root=cooling)
+    assert "`latris ft uncertainty <event>" in str(exc.value)
 
 
 def test_record_goes_stale_when_a_range_changes(cooling):
@@ -128,6 +129,12 @@ def gas(tmp_path: Path, git_identity, monkeypatch):
     BT._quantify(root)
     monkeypatch.chdir(root)
     return root
+
+
+def test_bowtie_nothing_uncertain_names_the_bowtie_command(gas):
+    with pytest.raises(ValueError, match="no input has an uncertainty range") as exc:
+        ru.monte_carlo("bow_tie", runs=100, root=gas)
+    assert "`latris bowtie uncertainty <barrier or threat>" in str(exc.value)
 
 
 def test_bowtie_monte_carlo(gas):
@@ -166,6 +173,12 @@ def release(tmp_path: Path, git_identity, monkeypatch):
     ET._quantify(root)
     monkeypatch.chdir(root)
     return root
+
+
+def test_event_tree_nothing_uncertain_names_the_et_command(release):
+    with pytest.raises(ValueError, match="no input has an uncertainty range") as exc:
+        ru.monte_carlo("event_tree", runs=100, root=release)
+    assert "`latris et uncertainty <heading or initiating event>" in str(exc.value)
 
 
 def test_event_tree_monte_carlo_with_conditional_probability(release):
