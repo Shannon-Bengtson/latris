@@ -159,6 +159,12 @@ def test_list_interactions_filters_by_adoption(project) -> None:
     pending = inter_ops.list_interactions(adoption="pending", root=root)
     assert pending == []
 
+    r3, _ = inter_ops.record_interaction(
+        prompt_name="P", prompt_inputs={}, model_id="x", response_summary="c", adoption="failed",
+        error_class="LLMCallError", root=root,
+    )
+    assert [r.id for r in inter_ops.list_interactions(adoption="failed", root=root)] == [r3.id]
+
 
 def test_set_adoption_rewrites_log(project) -> None:
     root, a, *_ = project

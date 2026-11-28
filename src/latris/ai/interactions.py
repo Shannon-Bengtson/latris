@@ -22,6 +22,7 @@ from latris.operations.commit import auto_commit
 from latris.repo.project import require_project
 from latris.repo.yaml_io import dump_jsonl_append
 from latris.schema import AIInteraction, HumanActor, new_id
+from latris.schema.ai import Adoption
 from latris.schema.common import now_utc
 
 _RAW_RESPONSE_EXCERPT_LIMIT = 4096
@@ -39,7 +40,7 @@ def record_interaction(
     proposal_ids: list[str] | None = None,
     token_usage: dict | None = None,
     cost_usd: float | None = None,
-    adoption: Literal["pending", "approved", "rejected", "failed"] = "pending",
+    adoption: Adoption = "pending",
     error_class: str | None = None,
     error_message: str | None = None,
     raw_response_excerpt: str | None = None,
@@ -118,7 +119,7 @@ def list_interactions(
     *,
     target_id: str | None = None,
     prompt_name: str | None = None,
-    adoption: Literal["pending", "approved", "rejected"] | None = None,
+    adoption: Adoption | None = None,
     limit: int | None = None,
     root: Path | None = None,
 ) -> list[AIInteraction]:
