@@ -13,6 +13,7 @@ from latris.ai.proposals import CompletenessGateResult, MissingVariableProposal
 from latris.cli.app import app
 from latris.operations.completeness import load_report
 from latris.operations.init import init_project
+from latris.operations.nodes import add_node
 
 runner = CliRunner()
 
@@ -91,9 +92,13 @@ def test_list_and_transitions(project: Path) -> None:
     assert "dismissed" in result.output
 
     result = runner.invoke(app, ["completeness", "mark-added", "cld", ids["Weather"], "--entity-id", "node_x"])
+    assert result.exit_code == 1
+    assert "no node matches 'node_x'" in result.output
+    weather = add_node("Weather", root=project)[0]
+    result = runner.invoke(app, ["completeness", "mark-added", "cld", ids["Weather"], "--entity-id", "Weather"])
     assert result.exit_code == 0, result.output
     assert "marked added" in result.output
-    assert "(entity node_x)" in result.output
+    assert f"(entity {weather.id})" in result.output
 
     still_open = runner.invoke(app, ["completeness", "list", "cld", "--disposition", "open"])
     assert "no records match" in still_open.output
