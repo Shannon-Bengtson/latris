@@ -5,14 +5,11 @@ DELETE /api/sd/scenario/{name}
 DELETE /api/sd/uncertainty/{target}
 DELETE /api/sync/members/{account_id}
 GET /api/bn/cpts
-GET /api/compose/suggest-nodes
 GET /api/sync/members
 GET /api/sync/projects
 GET /api/sync/report-link
 PATCH /api/sync/members/{account_id}
 PATCH /api/sync/profile
-POST /api/compose/apply
-POST /api/compose/suggest-edges
 POST /api/lineage/add-to-workspace
 POST /api/lineage/get-latest
 POST /api/lineage/publish
