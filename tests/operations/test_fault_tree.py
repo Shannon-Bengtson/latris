@@ -82,6 +82,30 @@ def test_vote_k_too_big_and_orphan(project):
     assert {"ft_vote_k", "ft_not_in_tree"} <= kinds
 
 
+def _problems(root) -> list[tuple[str | None, str]]:
+    t = ft.load_tree(root=root)
+    return [(t.labels.get(p.target_id or "", None), p.gap_type) for p in t.problems]
+
+
+def test_structure_problems_in_order(project):
+    _classify(project, probs=False)
+    node_ops.add_node("Second top", kind="event", root=project)
+    ft.set_event("Second top", "top_event", root=project)  # no gate, no inputs, and a second top
+    assert _problems(project) == [("Second top", "ft_many_tops"), ("Second top", "ft_no_gate"),
+                                  ("Second top", "ft_no_inputs")]
+    assert ft.load_tree(root=project).top is None
+
+
+def test_a_leaf_with_inputs_and_a_duplicate_link(project):
+    _classify(project, probs=False)
+    edge_ops.add_edge("Supply 1 fails", "Pump A fails", kind="logical", root=project)
+    edge_ops.add_edge("Supply 1 fails", "Pump A fails", kind="causal", root=project)  # the same input twice
+    t = ft.load_tree(root=project)
+    assert _problems(project) == [("Pump A fails", "ft_leaf_has_inputs")]
+    assert t.inputs[t.top] and [t.labels[i] for i in t.inputs[next(k for k, v in t.labels.items()
+                                                                   if v == "Pump A fails")]] == ["Supply 1 fails"]
+
+
 def test_setters_refuse_wrong_event_types(project):
     _classify(project, gates=False, probs=False)
     with pytest.raises(ValueError, match="only a top or intermediate event has a gate"):
