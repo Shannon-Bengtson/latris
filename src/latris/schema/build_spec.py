@@ -942,6 +942,7 @@ class BnExplainAnalysis(_Evidence):
     """Bayesian network: the most likely combination of causes (over ``over``)."""
 
     kind: Literal["bn_explain"]
+    interventions: dict[str, str] = Field(default_factory=dict)  # factors SET to a state (do-operator)
     over: list[str] = Field(default_factory=list)
 
 
@@ -949,6 +950,7 @@ class BnMonteCarloAnalysis(_Evidence, _Target):
     """Bayesian network: how sure P(target = state) is, given how well each table is known."""
 
     kind: Literal["bn_monte_carlo"]
+    interventions: dict[str, str] = Field(default_factory=dict)  # factors SET to a state (do-operator)
     runs: int | None = None
     seed: int | None = None
     scenario: str | None = None

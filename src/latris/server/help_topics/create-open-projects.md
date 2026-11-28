@@ -29,6 +29,6 @@ A Latris project contains:
 ## First practical path
 
 1. Create or open a project from the landing page.
-2. Set the modelling question in the project overview.
+2. Set the modelling question in Frame (or on Project Home).
 3. Build the conceptual model.
-4. Move through Build, Formalise, Analyse, Interpret, and Communicate & Use. Data and References are always available as the evidence basis.
+4. Move through the stages: Frame, Build, Formalise, Analyse, Interpret, Communicate and Use. Data and References are always available as the evidence basis.

@@ -164,6 +164,11 @@ An action with secondary outputs or mixed fields (a decision tree's
 rollback also reports thresholds; an MCDA criterion has a direction and a
 weight) is placed by the first test it meets, once.
 
+A causal type's link value is placed the same way, on `Formalism.link_attribute_step`: a CLD
+link's polarity is part of the structure (Build), an FCM link's weight a quantity on it
+(Formalise › Values). The surface manifest carries it with the type (`link_attribute`), and the
+weight has its own route (`POST /api/fcm/weight`) so the route and `latris fcm set-weight` agree.
+
 ## Where the terms come from
 
 - **Uncertainty analysis and sensitivity analysis** follow Saltelli's
@@ -311,16 +316,16 @@ What does not change: CLI command names, routes, result-kind ids, the
 package layout (one module per model type), and the method named in a
 report's Methods section. A place is a label, not a rename.
 
-Two older labels stay as they are, because they are stored or read
-elsewhere:
+One older label stays as it is, because it is stored in people's projects:
 
 - **`AnalysisRun.purpose`** is recorded on every run in people's projects,
   with values from before this structure (Monte Carlo and MCDA runs are
   recorded as `sensitivity-analysis`). It is a stored format and isn't
   changed. A run's step comes from its result kind.
-- **Readiness transitions** start at `home`, the app's project landing,
-  rather than `frame`. They move to `frame` when the app shows Frame as a
-  stage, together with the help topic that describes the stepper.
+
+Readiness transitions name stages by registry id, from `frame → build` (they
+started at `home`, the app's project landing, until the app showed Frame as a
+stage; an app reading an older latris treats `home` as `frame`).
 
 ## What each surface does with it
 
@@ -331,8 +336,7 @@ elsewhere:
   in order, with the method in parentheses ("Uncertainty analysis
   (probabilistic sensitivity analysis)"); a test keeps them aligned.
   Building a model stays under each topic's own headings. The workflow
-  overview, which describes the app's stepper, changes when the app shows
-  the seven stages.
+  overview describes the seven stages and the tracks.
 - **Editors.** Stage navigation, analysis forms and result lists come from
   the registry.
 - **Chat tools.** Generated per step, not per model type and method, so the

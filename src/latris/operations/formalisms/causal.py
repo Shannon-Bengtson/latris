@@ -77,7 +77,8 @@ def _causal(model_type: str, **declared: Any) -> Formalism:
 
 
 register(_causal("cld", loop_claims=True, polarity_labels=True, source_label="Loop map",
-                 link_attribute=("polarity", "polarity (+/-)")))
+                 link_attribute=("polarity", "polarity (+/-)"), link_attribute_step="build.structure"))
 register(_causal("dag", acyclicity_claims=True, diagram_direction="TB", source_label="Causal DAG"))
 register(_causal("fcm", loop_claims=True, source_label="FCM", link_attribute=("weight", "weight (float in [-1, +1])"),
-                 cli=("latris.cli.fcm_cmd", "fcm"), predictor="latris.operations.predictors.fcm"))
+                 link_attribute_step="formalise.values", cli=("latris.cli.fcm_cmd", "fcm"),
+                 routes="latris.server.routes.fcm", predictor="latris.operations.predictors.fcm"))

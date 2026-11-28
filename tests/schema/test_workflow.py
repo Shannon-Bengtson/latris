@@ -90,17 +90,18 @@ def test_stages_returns_copies() -> None:
 
 
 def test_a_surface_can_add_a_step_under_a_stage() -> None:
+    # A step id no real surface uses: an installed plugin may already have registered its own steps.
     try:
-        added = wf.register_step("communicate", "story", "Story", "A scrolling page that answers the question.")
-        assert added.id == "communicate.story"
-        assert wf.step_ids("communicate")[-1] == "communicate.story"
-        assert wf.is_place("communicate.story")
-        assert wf.register_step("communicate", "story", "Story", "A scrolling page that answers the question.")
+        added = wf.register_step("communicate", "test_poster", "Poster", "A one-page poster of the answer.")
+        assert added.id == "communicate.test_poster"
+        assert wf.step_ids("communicate")[-1] == "communicate.test_poster"
+        assert wf.is_place("communicate.test_poster")
+        assert wf.register_step("communicate", "test_poster", "Poster", "A one-page poster of the answer.")
         with pytest.raises(ValueError, match="differently"):
-            wf.register_step("communicate", "story", "Stories", "Something else.")
+            wf.register_step("communicate", "test_poster", "Posters", "Something else.")
     finally:
-        wf._unregister_step("communicate.story")
-    assert not wf.is_place("communicate.story")
+        wf._unregister_step("communicate.test_poster")
+    assert not wf.is_place("communicate.test_poster")
 
 
 def test_a_surface_cannot_redefine_latris_steps_or_add_stages() -> None:

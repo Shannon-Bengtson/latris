@@ -178,7 +178,7 @@ class TestHomeToBuild:
         monkeypatch.chdir(root)
         t = assess_transition_readiness(root=root)
         gate = t.transitions[0]
-        assert gate.from_phase == "home"
+        assert gate.from_phase == "frame"
         assert gate.to_phase == "build"
         assert gate.light == "red"
 
@@ -498,7 +498,7 @@ def test_transition_readiness_returns_five(project):
     assert len(t.transitions) == 5
     phases = [(s.from_phase, s.to_phase) for s in t.transitions]
     assert phases == [
-        ("home", "build"),
+        ("frame", "build"),
         ("build", "formalise"),
         ("formalise", "analyse"),
         ("analyse", "interpret"),

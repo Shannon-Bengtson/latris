@@ -357,7 +357,7 @@ def _run_explain(a, root: Path) -> str:
     from latris.operations import bn as bn_ops
 
     out = bn_ops.explain(over=a.over or None, evidence=a.evidence or None, soft=a.soft or None,
-                         likelihood=a.likelihood or None, root=root)
+                         likelihood=a.likelihood or None, interventions=a.interventions or None, root=root)
     return bn_ops.record_explanation(out, root=root)[1]
 
 
@@ -368,8 +368,8 @@ def _run_monte_carlo(a, root: Path) -> str:
         raise ValueError("a BN Monte Carlo needs a target")
     out = bn_ops.run_monte_carlo(
         a.target, state=a.state, evidence=a.evidence or None, soft=a.soft or None,
-        likelihood=a.likelihood or None, runs=a.runs or 500, seed=a.seed if a.seed is not None else 1234,
-        scenario=a.scenario, root=root,
+        likelihood=a.likelihood or None, interventions=a.interventions or None, runs=a.runs or 500,
+        seed=a.seed if a.seed is not None else 1234, scenario=a.scenario, root=root,
     )
     return bn_ops.record_monte_carlo(out, root=root)[1]
 
@@ -432,6 +432,7 @@ def _def_explanation(p: dict[str, Any]):
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
         likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
+        interventions={labels.get(k, k): v for k, v in (p.get("interventions") or {}).items()},
         over=[labels.get(n, n) for n in p["over"]] if p["kind"] == "MAP" else [],
     )
 
@@ -445,6 +446,9 @@ def _def_monte_carlo(p: dict[str, Any]):
         evidence={labels.get(k, k): v for k, v in p["evidence"].items()},
         soft={labels.get(k, k): v for k, v in (p.get("soft") or {}).items()},
         likelihood={labels.get(k, k): v for k, v in (p.get("likelihood") or {}).items()},
+        # A scenario's own SET factors come back with it; only the ones asked for beside it are the analysis's.
+        interventions={} if p.get("scenario") else
+        {labels.get(k, k): v for k, v in (p.get("interventions") or {}).items()},
         runs=p["runs"], seed=p["seed"], scenario=p.get("scenario"),
     )
 

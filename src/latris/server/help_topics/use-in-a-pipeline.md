@@ -58,7 +58,7 @@ result = model.predict({"depth": 2.5})
 
 ## In the app
 
-**Communicate & Use → Use** (the last button on the left strip) shows the contract for the model you have open. **Draft the contract** fills it from the model; the tables set each input's default and valid range and add or remove inputs and outputs. **Try it** runs the model on values you type and shows the outputs, any warnings and the commit they came from. The pane on the right gives the Python and command-line code for a pipeline. Choose a milestone there to pin the code to it and to see whether the model as it is now would break a caller written against that milestone.
+**Use** (the last stage on the stepper) shows the contract for the model you have open. **Draft the contract** fills it from the model; the tables set each input's default and valid range and add or remove inputs and outputs. **Try it** runs the model on values you type and shows the outputs, any warnings and the commit they came from. The pane on the right gives the Python and command-line code for a pipeline. Choose a milestone there to pin the code to it and to see whether the model as it is now would break a caller written against that milestone.
 
 ## Practical caution
 
