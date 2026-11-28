@@ -76,6 +76,11 @@ def test_payoff_errors(staged: TestClient, project: Path) -> None:
     assert chance.status_code == 422 and "not a terminal node" in chance.json()["detail"]
     assert staged.post("/api/dt/payoff", json={"node": "Nope", "value": 100}).status_code == 404
     assert staged.post("/api/dt/payoff", json={"node": "Good", "value": "x"}).status_code == 422
+    # JSON NaN / Infinity aren't payoffs (stored, NaN would read back as null).
+    for bad in ("NaN", "Infinity", "-Infinity"):
+        r = staged.post("/api/dt/payoff", content='{"node": "Good", "value": ' + bad + "}",
+                        headers={"content-type": "application/json"})
+        assert r.status_code == 422, bad
     assert dt.get_payoffs(root=project).entries == []
 
 
