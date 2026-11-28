@@ -163,7 +163,7 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-# A floor a point under measured coverage (86% on 2026-11-20). It only goes up: when coverage rises,
+# A floor a point under measured coverage (87.2% on 2026-11-28). It only goes up: when coverage rises,
 # raise it. See docs/engineering/TESTING.md ("Ratchets").
-fail_under = 85
+fail_under = 86
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]

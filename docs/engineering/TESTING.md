@@ -106,7 +106,8 @@ fails the first time, so a flaky test shows up instead of passing on a retry.
 Two scheduled runs look at what a push doesn't:
 
 - **Health check** (`.github/workflows/health.yml`, Monday morning in Australia): `scripts/health_report.py`
-  runs the suite against today's releases of every dependency, audits the dependencies for known
+  runs the suite against today's releases of every dependency (with coverage, and the ten least-covered
+  files, so the trend shows), audits the dependencies for known
   vulnerabilities (pip-audit), and measures risky patterns (bandit), complexity and maintainability
   (radon), size, dead code (vulture), duplication (jscpd), lint beyond the project's rules, and the length
   of each ratchet list. The report is the run's summary page, kept as an artifact for 90 days. It fails
