@@ -391,6 +391,7 @@ def test_badges_quantification_skips_unreadable_parameter_files(sd_bathtub_root:
     ids = {n.label: n.id for n in list_nodes(root=root)}
     params = require_project(root).parameters_dir
     (params / "sd-aaa-broken.yaml").write_text("entries: not-a-list\n", encoding="utf-8")
+    (params / "sd-aab-not-yaml.yaml").write_text("entries: [unclosed\n", encoding="utf-8")
     assert maturity_ops.compute_badges(ids["Drain Rate"], model_type="sd", root=root).has_quantification
     assert not maturity_ops.compute_badges(ids["Tap"], model_type="sd", root=root).has_quantification  # reads every file
     assert not maturity_ops.compute_badges(ids["Drain Rate"], model_type="fcm", root=root).has_quantification

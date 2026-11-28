@@ -294,3 +294,13 @@ def test_dump_is_byte_identical_on_double_dump(tmp_path: Path) -> None:
     reloaded = load_model(NestedModel, path1)
     dump_model(reloaded, path2)
     assert path1.read_bytes() == path2.read_bytes()
+
+
+def test_load_model_reports_text_that_isnt_yaml_as_a_value_error(tmp_path: Path) -> None:
+    # Like load_model_from_string: callers (and the server's 422) handle ValueError, not ruamel's errors.
+    import pytest
+
+    path = tmp_path / "broken.yaml"
+    path.write_text("name: [unclosed\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="broken.yaml: not valid YAML"):
+        load_model(SimpleModel, path)

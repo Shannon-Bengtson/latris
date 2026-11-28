@@ -347,7 +347,7 @@ def compile_model(model: SDModel) -> FastModel | None:
         return _compile(model)
     except (_Unsupported, EquationError, ArithmeticError, ValueError, TypeError):
         return None
-    except Exception:  # pint raises many types on odd inputs; any doubt → reference path
+    except Exception:  # noqa: BLE001 — pint raises many types on odd inputs; any doubt → the reference path
         return None
 
 

@@ -36,7 +36,7 @@ def _date(run_id: str) -> str:
 
     try:
         return id_timestamp(run_id).isoformat(timespec="seconds")
-    except Exception:
+    except ValueError:  # not a ULID-based id: no date to show
         return ""
 
 

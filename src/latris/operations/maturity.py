@@ -291,7 +291,7 @@ def compute_badges(
                 # and equations, BN tables), whatever its entry shape.
                 try:
                     fs = load_model(_ParameterEntries, f)
-                except Exception:
+                except (OSError, ValueError):  # unreadable or not a parameter file
                     continue
                 if any(e.get("target_id") == target_id for e in fs.entries):
                     has_quantification = True
