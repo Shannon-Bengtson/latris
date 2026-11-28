@@ -166,7 +166,7 @@ def correlation_matrix(keys: list[str], correlations: dict[tuple[str, str], floa
     c = np.eye(len(keys))
     for (a, b), rho in correlations.items():
         c[idx[a], idx[b]] = c[idx[b], idx[a]] = rho
-    if np.linalg.eigvalsh(c).min() <= 1e-9:
+    if float(np.min(np.linalg.eigvalsh(c))) <= 1e-9:
         raise ValueError("these correlations can't all hold at once (the matrix isn't positive definite): "
                          "e.g. A and B strongly positive, B and C strongly positive, but A and C negative")
     return c

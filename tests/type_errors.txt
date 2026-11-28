@@ -33,7 +33,6 @@ src/latris/exporters/narrative.py 4
 src/latris/operations/_bn_canonical.py 2
 src/latris/operations/_bn_engine.py 2
 src/latris/operations/_safe_expr.py 1
-src/latris/operations/_sampling.py 1
 src/latris/operations/_sd_eval.py 1
 src/latris/operations/_sd_fast.py 5
 src/latris/operations/ach.py 2
