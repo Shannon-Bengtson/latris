@@ -6,7 +6,6 @@ operations/decision_tree.py::load_tree 50
 operations/toc.py::analyse 49
 operations/argument_map.py::analyse 47
 operations/global_sensitivity.py::analyse 47
-operations/estimation.py::estimate 45
 operations/psa.py::markov_psa 45
 operations/sd_montecarlo.py::monte_carlo 45
 operations/datasets.py::_build_summary 44

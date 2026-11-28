@@ -47,7 +47,6 @@ src/latris/operations/compose.py 1
 src/latris/operations/configure.py 1
 src/latris/operations/elicitation.py 1
 src/latris/operations/equation_model.py 1
-src/latris/operations/estimation.py 3
 src/latris/operations/event_tree.py 5
 src/latris/operations/fault_tree.py 2
 src/latris/operations/global_sensitivity.py 1

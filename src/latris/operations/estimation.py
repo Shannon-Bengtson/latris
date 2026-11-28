@@ -183,6 +183,95 @@ def _coef(res, term: str, logistic: bool) -> dict[str, float]:
     return out
 
 
+def _require_acyclic(edges: list[Any], labels: dict[str, str]) -> None:
+    has_cycle, node = find_cycle(edges)
+    if has_cycle and node is not None:
+        raise EstimationError(f"the causal links loop (through {labels.get(node, node)}); effect estimation needs "
+                              "an acyclic graph — use a DAG view without feedback")
+
+
+_INVALID_ADJUSTMENT = {
+    "descendant": "it includes a factor the treatment affects, which would block part of the effect or open a new path",
+    "endpoint": "it includes the treatment or the outcome itself",
+    "open_backdoor": "it leaves a backdoor path from the treatment to the outcome open",
+}
+
+
+def _given_adjustment(x: str, y: str, edges: list[Any], z: set[str], measured: set[str],
+                      labels: dict[str, str]) -> dict[str, Any]:
+    """Check an adjustment set the caller gave; returns the minimal sets for the record."""
+    unmeasured = sorted(labels[n] for n in z - measured)
+    if unmeasured:
+        raise EstimationError(f"the dataset has no column for {', '.join(unmeasured)}")
+    why = is_valid_adjustment(x, y, edges, z)
+    if why:
+        raise EstimationError(f"that adjustment set isn't valid for this DAG: {_INVALID_ADJUSTMENT[why]}")
+    return {"minimal_sets": [sorted(s) for s in ga.adjustment_sets(x, y, edges)]}
+
+
+def _chosen_adjustment(x: str, y: str, edges: list[Any], measured: set[str], labels: dict[str, str]
+                       ) -> tuple[set[str], dict[str, Any]]:
+    """The smallest valid adjustment set of measured factors, or a refusal naming what to measure."""
+    chosen, search = choose_adjustment(x, y, edges, measured)
+    if chosen is None:
+        needs = sorted({labels[n] for s in search["minimal_sets"] for n in s} - {labels[n] for n in measured})
+        hint = f" Measure one of: {', '.join(needs)}." if needs else ""
+        raise EstimationError(
+            f"no valid adjustment set uses only what the dataset measures, so the effect of {labels[x]} on "
+            f"{labels[y]} can't be estimated without bias under this DAG.{hint}"
+        )
+    return chosen, search
+
+
+def _numeric_columns(frame: Any, colmap: dict[str, str], order: list[str], x: str, y: str,
+                     labels: dict[str, str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Each factor's column as numbers, and how any categories were coded."""
+    coding: dict[str, Any] = {}
+    data = {}
+    for n in order:
+        role = "outcome" if n == y else "treatment" if n == x else "adjustment"
+        col, code = _numeric(frame[colmap[n]], labels[n], role)
+        data[n] = col
+        if code:
+            coding[labels[n]] = code
+    return data, coding
+
+
+def _is_logistic(estimator: Estimator, yv: Any, outcome_label: str) -> bool:
+    if estimator == "auto":
+        return _two_valued(yv)
+    logistic = estimator == "logistic"
+    if logistic and not _two_valued(yv):
+        raise EstimationError(f"a logistic model needs a two-valued outcome; {outcome_label} has "
+                              f"{yv.nunique()} values")
+    return logistic
+
+
+def _main_effect(adjusted: Any, term: str, logistic: bool) -> dict[str, float | None]:
+    main: dict[str, float | None] = dict(_coef(adjusted, term, logistic))
+    if logistic:
+        try:
+            me = adjusted.get_margeff(at="overall").summary_frame().loc[term]
+            main["marginal_effect"] = float(me.iloc[0])
+        except Exception:  # noqa: BLE001 — the marginal effect is a convenience, not the estimate
+            main["marginal_effect"] = None
+    return main
+
+
+def _warnings(treatment: Any, n_complete: int, n_coefficients: int, dropped: int, n_rows: int) -> list[str]:
+    warnings: list[str] = []
+    if _two_valued(treatment):
+        counts = treatment.value_counts()
+        if counts.min() < 10:
+            warnings.append(f"only {int(counts.min())} row(s) in one treatment group; the estimate is fragile")
+    per_param = n_complete / n_coefficients
+    if per_param < 10:
+        warnings.append(f"about {per_param:.0f} rows per coefficient; with fewer than 10 the estimate is unstable")
+    if dropped:
+        warnings.append(f"{dropped} of {n_rows} rows dropped for missing values")
+    return warnings
+
+
 def estimate(
     treatment: str,
     outcome: str,
@@ -198,6 +287,7 @@ def estimate(
     ``adjust`` overrides the chosen adjustment set (it is checked, not trusted); ``columns`` maps factor
     labels to dataset columns where the names differ.
     """
+    import pandas as pd
     import statsmodels
 
     from latris.operations import datasets as data_ops
@@ -207,10 +297,7 @@ def estimate(
     substrate = load_model(Substrate, paths.conceptual_yaml)
     labels = {e.id: e.label for e in substrate.entities}
     edges = ga.causal_edges(substrate.edges)
-    has_cycle, node = find_cycle(edges)
-    if has_cycle:
-        raise EstimationError(f"the causal links loop (through {labels.get(node, node)}); effect estimation needs "
-                              "an acyclic graph — use a DAG view without feedback")
+    _require_acyclic(edges, labels)
     x = resolve_entity(treatment, substrate.entities).id
     y = resolve_entity(outcome, substrate.entities).id
     if x == y:
@@ -229,27 +316,10 @@ def estimate(
 
     if adjust is not None:
         z = {resolve_entity(a, substrate.entities).id for a in adjust}
-        unmeasured = sorted(labels[n] for n in z - measured)
-        if unmeasured:
-            raise EstimationError(f"the dataset has no column for {', '.join(unmeasured)}")
-        why = is_valid_adjustment(x, y, edges, z)
-        if why:
-            msg = {"descendant": "it includes a factor the treatment affects, which would block part of the effect "
-                                 "or open a new path",
-                   "endpoint": "it includes the treatment or the outcome itself",
-                   "open_backdoor": "it leaves a backdoor path from the treatment to the outcome open"}[why]
-            raise EstimationError(f"that adjustment set isn't valid for this DAG: {msg}")
-        how, search = "given", {"minimal_sets": [sorted(s) for s in ga.adjustment_sets(x, y, edges)]}
+        how, search = "given", _given_adjustment(x, y, edges, z, measured, labels)
     else:
-        chosen, search = choose_adjustment(x, y, edges, measured)
-        if chosen is None:
-            needs = sorted({labels[n] for s in search["minimal_sets"] for n in s} - {labels[n] for n in measured})
-            hint = f" Measure one of: {', '.join(needs)}." if needs else ""
-            raise EstimationError(
-                f"no valid adjustment set uses only what the dataset measures, so the effect of {labels[x]} on "
-                f"{labels[y]} can't be estimated without bias under this DAG.{hint}"
-            )
-        z, how = chosen, "smallest valid set of measured factors"
+        z, search = _chosen_adjustment(x, y, edges, measured, labels)
+        how = "smallest valid set of measured factors"
 
     order = [x, *sorted(z, key=lambda n: labels[n]), y]
     frame = df[[colmap[n] for n in order]].copy()
@@ -260,24 +330,9 @@ def estimate(
         raise EstimationError(f"only {len(frame)} complete row(s) — too few to estimate {len(order) - 1} "
                               "coefficient(s)")
 
-    coding: dict[str, Any] = {}
-    data = {}
-    for n in order:
-        role = "outcome" if n == y else "treatment" if n == x else "adjustment"
-        col, code = _numeric(frame[colmap[n]], labels[n], role)
-        data[n] = col
-        if code:
-            coding[labels[n]] = code
+    data, coding = _numeric_columns(frame, colmap, order, x, y, labels)
     yv = data[y]
-    if estimator == "auto":
-        logistic = _two_valued(yv)
-    else:
-        logistic = estimator == "logistic"
-        if logistic and not _two_valued(yv):
-            raise EstimationError(f"a logistic model needs a two-valued outcome; {labels[y]} has "
-                                  f"{yv.nunique()} values")
-
-    import pandas as pd
+    logistic = _is_logistic(estimator, yv, labels[y])
 
     def design(cols: list[str]):
         return pd.DataFrame({labels[c]: data[c] for c in cols}, index=frame.index)
@@ -285,24 +340,8 @@ def estimate(
     adjusted = _fit(yv, design([x, *sorted(z, key=lambda n: labels[n])]), logistic)
     unadjusted = _fit(yv, design([x]), logistic)
     term = labels[x]
-    main = _coef(adjusted, term, logistic)
-    if logistic:
-        try:
-            me = adjusted.get_margeff(at="overall").summary_frame().loc[term]
-            main["marginal_effect"] = float(me.iloc[0])
-        except Exception:  # noqa: BLE001 — the marginal effect is a convenience, not the estimate
-            main["marginal_effect"] = None
-
-    warnings: list[str] = []
-    if _two_valued(data[x]):
-        counts = data[x].value_counts()
-        if counts.min() < 10:
-            warnings.append(f"only {int(counts.min())} row(s) in one treatment group; the estimate is fragile")
-    per_param = len(frame) / (len(order))
-    if per_param < 10:
-        warnings.append(f"about {per_param:.0f} rows per coefficient; with fewer than 10 the estimate is unstable")
-    if dropped:
-        warnings.append(f"{dropped} of {n_rows} rows dropped for missing values")
+    main = _main_effect(adjusted, term, logistic)
+    warnings = _warnings(data[x], len(frame), len(order), dropped, n_rows)
 
     return {
         "treatment": labels[x], "outcome": labels[y],
