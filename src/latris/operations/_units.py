@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 
 import pint
+from pint.facets.plain import PlainUnit
 
 # Custom base dimensions for things SD models count but physics doesn't.
 # Extending the set is a one-line addition here.
@@ -21,7 +22,8 @@ _CUSTOM_UNITS = (
     "item = [item] = items",
 )
 
-_ureg = pint.UnitRegistry()
+# Annotated: pint 0.25 (the newest on Python 3.11) types the registry as generic.
+_ureg: pint.UnitRegistry = pint.UnitRegistry()
 for _definition in _CUSTOM_UNITS:
     _ureg.define(_definition)
 
@@ -56,11 +58,11 @@ def quantity(value: float, units: str) -> pint.Quantity:
     return Quantity(value, parse_unit(units))
 
 
-def is_compatible(a: pint.Unit, b: pint.Unit) -> bool:
+def is_compatible(a: PlainUnit, b: PlainUnit) -> bool:
     return _ureg.Quantity(1.0, a).is_compatible_with(b)
 
 
-def describe(unit: pint.Unit) -> str:
+def describe(unit: PlainUnit) -> str:
     """Human-readable unit text (``dimensionless`` rather than an empty string)."""
     return str(unit) or "dimensionless"
 
